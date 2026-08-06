@@ -10,7 +10,7 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "Impuls",
-            path: "Sources/Cyclop",
+            path: "Sources/Impuls",
             swiftSettings: [.swiftLanguageMode(.v5)]
         )
     ]
