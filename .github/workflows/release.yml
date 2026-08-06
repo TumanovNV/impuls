@@ -1,0 +1,108 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+    paths: [Scripts/version]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.repository == 'TumanovNV/impuls'
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate version and release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^VERSION=//p' Scripts/version)"
+          test -n "$VERSION"
+          test -s "docs/releases/$VERSION.md"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG=v$VERSION" >> "$GITHUB_ENV"
+          git fetch --tags --force
+          ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null
+
+      - name: Enforce security boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -REn '/usr/bin/perl|MediaRemote|dl_load_file|DynaLoader' Sources Scripts; then
+            echo "Private media integration or process injection detected" >&2
+            exit 1
+          fi
+          PATTERN='URLSession|NSURLSession|URLRequest|NSURLConnection|NWConnection|NWListener|webSocketTask|CFStreamCreatePairWithSocketToHost'
+          if find Sources -type f \( -name '*.swift' -o -name '*.m' \) ! -name 'UpdateService.swift' -print0 \
+              | xargs -0 grep -En "$PATTERN"; then
+            echo "Network API found outside UpdateService.swift" >&2
+            exit 1
+          fi
+          grep -F 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources/Impuls/Services/UpdateService.swift
+          ! grep -En 'https://|git@' Package.swift
+
+      - name: Build application
+        run: ./Scripts/bundle.sh release
+
+      - name: Verify no unsolicited network connection
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/Impuls.app"
+          LOG="$RUNNER_TEMP/impuls.log"
+          CI=true "$APP/Contents/MacOS/Impuls" >"$LOG" 2>&1 &
+          APP_PID=$!
+          cleanup() { kill "$APP_PID" >/dev/null 2>&1 || true; wait "$APP_PID" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          for _ in {1..20}; do
+            kill -0 "$APP_PID" >/dev/null 2>&1 || { cat "$LOG"; exit 1; }
+            sleep 0.5
+          done
+
+          CONNECTIONS="$(lsof -nP -a -p "$APP_PID" -i 2>/dev/null || true)"
+          test -z "$CONNECTIONS" || { echo "$CONNECTIONS" >&2; exit 1; }
+          cleanup
+          trap - EXIT
+
+      - name: Build and verify DMG
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./Scripts/dmg.sh
+          APP="build/Impuls.app"
+          DMG="build/Impuls-$VERSION.dmg"
+          codesign --verify --deep --strict "$APP"
+          hdiutil verify "$DMG"
+          shasum -a 256 "$DMG" > "$DMG.sha256"
+
+      - name: Store installation image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Impuls-${{ env.VERSION }}
+          path: |
+            build/Impuls-${{ env.VERSION }}.dmg
+            build/Impuls-${{ env.VERSION }}.dmg.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="build/Impuls-$VERSION.dmg"
+          gh release create "$TAG" "$DMG" "$DMG.sha256" \
+            --target "$GITHUB_SHA" \
+            --title "Impuls $VERSION" \
+            --notes-file "docs/releases/$VERSION.md" \
+            --latest

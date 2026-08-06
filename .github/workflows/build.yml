@@ -1,0 +1,101 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Verify forbidden implementation paths are absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -REn '/usr/bin/perl|MediaRemote|dl_load_file|DynaLoader' Sources Scripts; then
+            echo "Private media integration or process injection detected" >&2
+            exit 1
+          fi
+
+      - name: Enforce the network boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATTERN='URLSession|NSURLSession|URLRequest|NSURLConnection|NWConnection|NWListener|webSocketTask|CFStreamCreatePairWithSocketToHost'
+          if find Sources -type f \( -name '*.swift' -o -name '*.m' \) ! -name 'UpdateService.swift' -print0 \
+              | xargs -0 grep -En "$PATTERN"; then
+            echo "Network API found outside UpdateService.swift" >&2
+            exit 1
+          fi
+          grep -F 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources/Impuls/Services/UpdateService.swift
+
+      - name: Build application
+        run: ./Scripts/bundle.sh release
+
+      - name: Verify bundle and identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP=build/Impuls.app
+          VERSION="$(sed -n 's/^VERSION=//p' Scripts/version)"
+          test -x "$APP/Contents/MacOS/Impuls"
+          test ! -e "$APP/Contents/Resources/libcyclopmedia.dylib"
+          test -f "$APP/Contents/Resources/en.lproj/Localizable.strings"
+          test -f "$APP/Contents/Resources/ru.lproj/Localizable.strings"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Contents/Info.plist")" = io.tumanov.impuls
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")" = "$VERSION"
+          codesign --verify --deep --strict "$APP"
+          if otool -L "$APP/Contents/MacOS/Impuls" | grep -q MediaRemote; then
+            echo "Impuls links MediaRemote" >&2
+            exit 1
+          fi
+
+      - name: Verify localization keys
+        run: |
+          python3 - <<'PY'
+          import io, pathlib, re, sys
+          code = set()
+          for path in pathlib.Path("Sources").rglob("*.swift"):
+              code |= set(re.findall(r'localized\("([^"]+)"', io.open(path, encoding="utf-8").read()))
+          bad = False
+          for table in pathlib.Path("Resources").glob("*.lproj/Localizable.strings"):
+              text = io.open(table, encoding="utf-8").read()
+              keys = {k.replace("\\n", "\n") for k in re.findall(r'^"((?:[^"\\]|\\.)*)"\s*=', text, re.M)}
+              missing = code - keys
+              if missing:
+                  bad = True
+                  print(f"{table}: missing keys: {sorted(missing)}")
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: Build test DMG
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./Scripts/dmg.sh
+          VERSION="$(sed -n 's/^VERSION=//p' Scripts/version)"
+          shasum -a 256 "build/Impuls-$VERSION.dmg" > "build/Impuls-$VERSION.dmg.sha256"
+
+      - name: Store test DMG
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Impuls-test-${{ github.run_id }}
+          path: |
+            build/Impuls-*.dmg
+            build/Impuls-*.dmg.sha256
+          if-no-files-found: error
+          retention-days: 14

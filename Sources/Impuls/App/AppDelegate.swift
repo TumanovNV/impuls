@@ -1,0 +1,154 @@
+import AppKit
+import ServiceManagement
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private var controller: NotchController?
+    private var statusItem: NSStatusItem?
+    private var clearVaultItem: NSMenuItem?
+    private var networkAccessItem: NSMenuItem?
+    private let updateService = UpdateService()
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        LegacyMigration.runIfNeeded()
+        controller = NotchController()
+        controller?.install()
+        installStatusItem()
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
+            self?.updateService.requestConsentIfNeeded()
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        controller?.teardown()
+    }
+
+    private func installStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        item.button?.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Impuls")
+        item.button?.image?.isTemplate = true
+
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.delegate = self
+        menu.addItem(withTitle: "Impuls \(Bundle.main.shortVersion)", action: nil, keyEquivalent: "")
+        menu.addItem(.separator())
+
+        let toggle = NSMenuItem(title: localized("Open Panel"), action: #selector(togglePanel), keyEquivalent: "")
+        toggle.target = self
+        toggle.isEnabled = true
+        menu.addItem(toggle)
+
+        let login = NSMenuItem(title: localized("Launch at Login"), action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
+        login.target = self
+        login.state = launchAtLoginEnabled ? .on : .off
+        login.isEnabled = true
+        menu.addItem(login)
+
+        let saveShots = NSMenuItem(title: localized("Save Clipboard Screenshots"), action: #selector(toggleSaveClipboardImages), keyEquivalent: "")
+        saveShots.target = self
+        saveShots.state = NotchViewModel.saveClipboardImagesEnabled ? .on : .off
+        saveShots.isEnabled = true
+        menu.addItem(saveShots)
+
+        let openFolder = NSMenuItem(title: localized("Show Screenshots Folder"), action: #selector(revealScreenshots), keyEquivalent: "")
+        openFolder.target = self
+        openFolder.isEnabled = true
+        menu.addItem(openFolder)
+
+        let clearVault = NSMenuItem(title: localized("Clear Screenshots Folder"), action: #selector(clearScreenshots), keyEquivalent: "")
+        clearVault.target = self
+        menu.addItem(clearVault)
+        clearVaultItem = clearVault
+
+        let openSnippets = NSMenuItem(title: localized("Show Snippets File"), action: #selector(revealSnippets), keyEquivalent: "")
+        openSnippets.target = self
+        openSnippets.isEnabled = true
+        menu.addItem(openSnippets)
+
+        menu.addItem(.separator())
+
+        let checkUpdates = NSMenuItem(title: localized("Check for Updates…"), action: #selector(checkForUpdates), keyEquivalent: "")
+        checkUpdates.target = self
+        checkUpdates.isEnabled = true
+        menu.addItem(checkUpdates)
+
+        let networkAccess = NSMenuItem(title: localized("Allow Update Checks"), action: #selector(toggleNetworkAccess), keyEquivalent: "")
+        networkAccess.target = self
+        networkAccess.isEnabled = true
+        menu.addItem(networkAccess)
+        networkAccessItem = networkAccess
+
+        menu.addItem(.separator())
+        let quit = NSMenuItem(title: localized("Quit"), action: #selector(quit), keyEquivalent: "q")
+        quit.target = self
+        quit.isEnabled = true
+        menu.addItem(quit)
+
+        item.menu = menu
+        statusItem = item
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        if let networkAccessItem {
+            networkAccessItem.state = updateService.consent == .allowed ? .on : .off
+        }
+
+        guard let clearVaultItem else { return }
+        let usage = ScreenshotVault.usage()
+        if usage.files == 0 {
+            clearVaultItem.title = localized("Clear Screenshots Folder")
+            clearVaultItem.isEnabled = false
+        } else {
+            let size = ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file)
+            clearVaultItem.title = localized("Clear Screenshots Folder (%@)", size)
+            clearVaultItem.isEnabled = true
+        }
+    }
+
+    @objc private func togglePanel() { controller?.toggle() }
+
+    @objc private func clearScreenshots() {
+        ScreenshotVault.clear()
+        controller?.reloadShelf()
+    }
+
+    @objc private func quit() { NSApp.terminate(nil) }
+
+    @objc private func toggleSaveClipboardImages(_ sender: NSMenuItem) {
+        UserDefaults.standard.set(!NotchViewModel.saveClipboardImagesEnabled, forKey: NotchViewModel.saveClipboardImagesKey)
+        sender.state = NotchViewModel.saveClipboardImagesEnabled ? .on : .off
+    }
+
+    @objc private func revealScreenshots() { ScreenshotVault.reveal() }
+    @objc private func revealSnippets() { SnippetStore.reveal() }
+    @objc private func checkForUpdates() { updateService.checkForUpdates() }
+
+    @objc private func toggleNetworkAccess(_ sender: NSMenuItem) {
+        let allowed = updateService.consent != .allowed
+        updateService.setNetworkAccess(allowed)
+        sender.state = allowed ? .on : .off
+    }
+
+    private var launchAtLoginEnabled: Bool { SMAppService.mainApp.status == .enabled }
+
+    @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
+        do {
+            if launchAtLoginEnabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            NSLog("Impuls: launch-at-login failed: \(error.localizedDescription)")
+        }
+        sender.state = launchAtLoginEnabled ? .on : .off
+    }
+}
+
+extension Bundle {
+    var shortVersion: String {
+        (infoDictionary?["CFBundleShortVersionString"] as? String) ?? "dev"
+    }
+}

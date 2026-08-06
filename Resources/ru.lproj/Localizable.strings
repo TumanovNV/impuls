@@ -1,0 +1,101 @@
+/* Impuls — русский. Ключи — английский текст, поэтому строка без перевода
+   просто останется английской, а не превратится в идентификатор. */
+
+/* Вкладки */
+"Music" = "Музыка";
+"Shelf" = "Полка";
+"Clipboard" = "Буфер";
+"Snippets" = "Заготовки";
+"Calendar" = "Календарь";
+"Translate" = "Перевод";
+
+/* Меню-бар */
+"Open Panel" = "Открыть панель";
+"Launch at Login" = "Запускать при входе";
+"Save Clipboard Screenshots" = "Сохранять скриншоты из буфера";
+"Show Screenshots Folder" = "Показать папку скриншотов";
+"Clear Screenshots Folder" = "Очистить папку снимков";
+"Clear Screenshots Folder (%@)" = "Очистить папку снимков (%@)";
+"Show Snippets File" = "Показать файл заготовок";
+"Quit" = "Выйти";
+
+/* Полка */
+"Selected: %d" = "Выбрано: %d";
+"Deselect" = "Снять выбор";
+"Clear" = "Очистить";
+"Copy" = "Копировать";
+"Open" = "Открыть";
+"Show in Finder" = "Показать в Finder";
+"Remove from Shelf" = "Убрать с полки";
+
+/* Музыка */
+"Nothing is playing" = "Ничего не играет";
+
+/* Заготовки */
+"Add a snippet" = "Добавить заготовку";
+"Name" = "Название";
+"Text" = "Текст";
+"Delete" = "Удалить";
+"Nothing here yet — add with +" = "Пока пусто — добавь через +";
+
+/* Заметки */
+"Notes" = "Заметки";
+"New Note" = "Новая заметка";
+"Empty note" = "Пустая заметка";
+"Jot something down…" = "Набросай что-нибудь…";
+
+/* Перевод */
+"Translation Languages…" = "Языки перевода…";
+"Retry" = "Повторить";
+"The %@ → %@ language pack is not installed." = "Не скачан языковой пакет %@ → %@.";
+"macOS does not translate this pair of languages." = "macOS не переводит эту пару языков.";
+
+/* Календарь */
+"Join" = "Подключиться";
+"Join · %@" = "Подключиться · %@";
+"No other meetings this week" = "Других встреч на неделе нет";
+"See your next meetings" = "Показать ближайшие встречи";
+"Impuls needs access to Calendar. It is the only permission\nthe app asks for, and only for this tab." = "Нужен доступ к Календарю. Это единственное разрешение,\nкоторое просит Impuls — и только для этой вкладки.";
+"Allow" = "Разрешить";
+"Calendar access is off" = "Доступ к Календарю закрыт";
+"Settings → Privacy → Calendars" = "Настройки → Конфиденциальность → Календари";
+"No more meetings" = "Встреч больше нет";
+"Nothing on the calendar for the next day" = "В ближайшие сутки календарь пуст";
+"Untitled" = "Без названия";
+
+/* Отсчёт со строчной: прописную ставит то место, где строится подпись.
+   Сокращения намеренные: в шапку панели помещается «через 12 мин», но
+   не полное слово с падежом, а сокращение не склоняется ни в каком языке. */
+"now" = "идёт сейчас";
+"any moment" = "вот-вот";
+"tomorrow" = "завтра";
+"in %d min" = "через %d мин";
+"in %d h" = "через %d ч";
+"in %d h %d min" = "через %d ч %d мин";
+"in %d d" = "через %d дн";
+
+/* Сохранённые снимки. Ключ — сам формат даты, чтобы язык мог переставить части
+   в своём порядке. */
+"Screenshot" = "Снимок";
+"yyyy-MM-dd 'at' HH.mm.ss" = "yyyy-MM-dd 'в' HH.mm.ss";
+
+/* Обновления и разрешение на сеть */
+"Check for Updates…" = "Проверить обновления…";
+"Allow Impuls to check for updates?" = "Разрешить Impuls проверять обновления?";
+"If allowed, Impuls contacts only GitHub Releases to check the current version. It sends no notes, clipboard contents, files, calendar data, analytics, or device identifiers. Updates are never downloaded without your action." = "Если разрешить, Impuls обращается только к GitHub Releases для проверки версии. Заметки, буфер обмена, файлы, календарь, аналитика и идентификаторы устройства не отправляются. Обновление не скачивается без вашего действия.";
+"Allow Update Checks" = "Разрешить проверку обновлений";
+"Stay Offline" = "Работать без интернета";
+"Could Not Check for Updates" = "Не удалось проверить обновления";
+"The public update channel is not available yet. Please try again later." = "Публичный канал обновлений ещё не опубликован. Повторите проверку позднее.";
+"GitHub denied access to the update channel." = "GitHub отказал в доступе к каналу обновлений.";
+"GitHub temporarily limited update checks. Please try again later." = "GitHub временно ограничил количество проверок. Повторите попытку позднее.";
+"The update server returned an invalid response." = "Сервер обновлений вернул некорректный ответ.";
+"The update server returned HTTP status %d." = "Сервер обновлений вернул HTTP-статус %d.";
+"Impuls Is Up to Date" = "Установлена актуальная версия Impuls";
+"You are using the latest available version." = "Вы используете последнюю доступную версию.";
+"Impuls %@ Is Available" = "Доступен Impuls %@";
+"A newer version is available. Nothing will be downloaded until you continue." = "Доступна новая версия. До вашего подтверждения ничего не будет скачано.";
+"Open Download Page" = "Открыть страницу загрузки";
+"Later" = "Позже";
+"Update Checks Are Off" = "Проверка обновлений отключена";
+"Impuls is not allowed to access the internet. You can enable update checks from the menu bar." = "Impuls запрещён доступ в интернет. Проверку обновлений можно разрешить через меню приложения.";
