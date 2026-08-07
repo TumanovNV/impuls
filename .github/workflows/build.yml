@@ -52,6 +52,9 @@ jobs:
           grep -F 'Theme.panelBackground' Sources/Impuls/UI/NotchContentView.swift
           grep -F 'Color(nsColor: .labelColor)' Sources/Impuls/UI/Theme.swift
 
+      - name: Run automated tests
+        run: swift test -c release
+
       - name: Build application
         run: ./Scripts/bundle.sh release
 

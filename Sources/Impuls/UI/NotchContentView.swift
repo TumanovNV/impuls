@@ -119,9 +119,9 @@ struct NotchContentView: View {
 
     private var content: some View {
         HStack(spacing: 14) {
-            Rail(vm: vm, tabs: NotchViewModel.Tab.leftRail)
+            Rail(vm: vm, tabs: vm.leftRailTabs)
             panes
-            Rail(vm: vm, tabs: NotchViewModel.Tab.rightRail)
+            Rail(vm: vm, tabs: vm.rightRailTabs)
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 14)
@@ -224,6 +224,7 @@ private struct Rail: View {
                         .scaleEffect(hovered == tab ? 1.15 : 1)
                 }
                 .buttonStyle(.plain)
+                .help(tab.title)
                 .onHover { inside in
                     if inside {
                         hovered = tab
@@ -242,7 +243,7 @@ private struct Rail: View {
             guard let hovered, hovered != vm.tab else { return }
             try? await Task.sleep(for: dwell)
             guard !Task.isCancelled else { return }
-            vm.select(hovered)
+            vm.select(hovered, requestKeyboard: false)
         }
     }
 

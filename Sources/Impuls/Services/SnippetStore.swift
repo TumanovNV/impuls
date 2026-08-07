@@ -95,6 +95,13 @@ final class SnippetStore: ObservableObject {
         persist()
     }
 
+    func replace(with imported: [Snippet]) {
+        var seen = Set<String>()
+        items = imported.filter { seen.insert($0.id).inserted }
+        query = ""
+        persist()
+    }
+
     /// Pretty-printed, and slashes left alone: the file is meant to be opened
     /// and edited by hand, and `\/` in every URL would be the app making that
     /// harder for its own convenience.

@@ -4,24 +4,38 @@ import SwiftUI
 
 @MainActor
 final class NotchController {
+    private let settings: SettingsStore
     private var panel: NotchPanel?
     private var rootView: NotchRootView?
     private var viewModel: NotchViewModel?
     private let pointer = PointerWatcher()
     private var closeActiveRectWork: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
+    private var lifetimeCancellables = Set<AnyCancellable>()
     /// Monotonic stamp for the deferred half of closing: any newer open or
     /// close outdates the one still in flight.
     private var openGeneration = 0
 
+    init(settings: SettingsStore) {
+        self.settings = settings
+    }
+
     func install() {
         build()
+        settings.objectWillChange
+            .sink { [weak self] _ in
+                DispatchQueue.main.async { self?.settingsChanged() }
+            }
+            .store(in: &lifetimeCancellables)
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.screenParametersChanged() }
+            MainActor.assumeIsolated {
+                self?.settings.refreshDisplays()
+                self?.screenParametersChanged()
+            }
         }
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
@@ -73,7 +87,7 @@ final class NotchController {
     }
 
     private func screenParametersChanged() {
-        let fresh = NotchGeometry.current()
+        let fresh = currentGeometry()
         guard let current = viewModel?.geometry, current.matches(fresh) else {
             rebuild()
             return
@@ -87,12 +101,47 @@ final class NotchController {
         viewModel?.stop()
         panel?.acceptsKeyboard = false
         panel?.orderOut(nil)
+        lifetimeCancellables.removeAll()
     }
 
     func toggle() {
+        if settings.activationMode == .shortcutOnly {
+            toggleFromKeyboard()
+            return
+        }
         guard let viewModel else { return }
         setOpen(!viewModel.isOpen)
         pointer.setInside(viewModel.isOpen)
+    }
+
+    func toggleFromKeyboard() {
+        guard let vm = viewModel else { return }
+        if vm.isOpen {
+            pointer.setInside(false)
+            setOpen(false)
+        } else {
+            pointer.setInside(false)
+            vm.keyboardNavigationActive = true
+            setOpen(true)
+        }
+    }
+
+    func makeBackup(settings snapshot: ImpulsSettingsSnapshot) -> ImpulsBackupDocument? {
+        guard let vm = viewModel else { return nil }
+        vm.notes.flush()
+        vm.snippets.reload()
+        return ImpulsBackupDocument(
+            settings: snapshot,
+            snippets: vm.snippets.items,
+            notes: vm.notes.notes
+        )
+    }
+
+    func restore(_ document: ImpulsBackupDocument) {
+        guard let vm = viewModel else { return }
+        vm.notes.replace(with: document.notes)
+        vm.snippets.replace(with: document.snippets)
+        settings.apply(document.settings)
     }
 
     // MARK: - Construction
@@ -114,8 +163,8 @@ final class NotchController {
     }
 
     private func build() {
-        let geometry = NotchGeometry.current()
-        let vm = NotchViewModel(geometry: geometry)
+        let geometry = currentGeometry()
+        let vm = NotchViewModel(geometry: geometry, settings: settings)
         viewModel = vm
 
         let panel = NotchPanel(contentRect: geometry.windowFrame)
@@ -158,6 +207,18 @@ final class NotchController {
             guard let vm = self?.viewModel, vm.tab.needsKeyboard else { return }
             vm.wantsKeyboard = true
         }
+        panel.onKeyCommand = { [weak self] command in
+            guard let self, let vm = self.viewModel else { return }
+            switch command {
+            case .previousModule:
+                vm.moveSelection(by: -1)
+            case .nextModule:
+                vm.moveSelection(by: 1)
+            case .close:
+                self.pointer.setInside(false)
+                self.setOpen(false)
+            }
+        }
 
         panel.contentView = root
         panel.ignoresMouseEvents = true
@@ -169,11 +230,10 @@ final class NotchController {
 
         applyActiveRect(open: false)
 
-        pointer.openRect = geometry.hoverRect
-        pointer.warmZone = geometry.warmZone
-        pointer.closeRect = geometry.expandedHoverRect
+        configurePointer(for: geometry, vm: vm)
         pointer.isDragging = { [weak root] in root?.isReceivingDrag ?? false }
         pointer.isPanelOpen = { [weak vm] in vm?.isOpen ?? false }
+        pointer.keepsOpenWithoutPointer = { [weak vm] in vm?.keyboardNavigationActive ?? false }
         pointer.onChange = { [weak self] inside in
             self?.setOpen(inside)
         }
@@ -187,7 +247,8 @@ final class NotchController {
         // Driven by the deliberate request, not by which tab is showing: a
         // hover can land on the typing tab now, and that alone must not take
         // the keyboard away from the window underneath.
-        vm.$wantsKeyboard
+        Publishers.CombineLatest(vm.$wantsKeyboard, vm.$keyboardNavigationActive)
+            .map { $0 || $1 }
             .removeDuplicates()
             .sink { [weak self] wants in
                 MainActor.assumeIsolated { self?.setKeyboard(wants) }
@@ -199,7 +260,10 @@ final class NotchController {
         // stays as it was — only the claim on the keyboard is dropped.
         NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification, object: panel)
             .sink { [weak self] _ in
-                MainActor.assumeIsolated { self?.viewModel?.wantsKeyboard = false }
+                MainActor.assumeIsolated {
+                    self?.viewModel?.wantsKeyboard = false
+                    self?.viewModel?.keyboardNavigationActive = false
+                }
             }
             .store(in: &cancellables)
 
@@ -233,7 +297,9 @@ final class NotchController {
     /// second rule to learn for a panel that has exactly one. What was typed is
     /// kept, so coming back finds it where it was left.
     private func setOpen(_ open: Bool) {
-        guard let vm = viewModel, vm.isOpen != open else { return }
+        guard let vm = viewModel else { return }
+        if !open { vm.keyboardNavigationActive = false }
+        guard vm.isOpen != open else { return }
         openGeneration += 1
         closeActiveRectWork?.cancel()
 
@@ -303,5 +369,31 @@ final class NotchController {
             .contentScreenRect(for: size)
             .insetBy(dx: open ? -Theme.openTopRadius : 0, dy: 0)
     }
-}
 
+    private func currentGeometry() -> NotchGeometry {
+        NotchGeometry.current(
+            preferredDisplayID: settings.selectedDisplayID,
+            expandedSize: settings.panelSize.expandedSize
+        )
+    }
+
+    private func configurePointer(for geometry: NotchGeometry, vm: NotchViewModel) {
+        let hoverEnabled = settings.activationMode == .hoverAndShortcut
+        pointer.openRect = hoverEnabled ? geometry.hoverRect : .zero
+        pointer.closeRect = geometry.expandedHoverRect
+        pointer.warmZone = geometry.warmZone
+        pointer.openDelay = settings.openDelay.seconds
+        pointer.tracksPanelExit = hoverEnabled
+        pointer.interactiveRect = geometry.contentScreenRect(for: vm.bodySize)
+    }
+
+    private func settingsChanged() {
+        guard let vm = viewModel else { return }
+        let fresh = currentGeometry()
+        guard vm.geometry.matches(fresh) else {
+            rebuild()
+            return
+        }
+        configurePointer(for: fresh, vm: vm)
+    }
+}

@@ -3,7 +3,7 @@ import Combine
 
 @MainActor
 final class NotchViewModel: ObservableObject {
-    enum Tab: String, CaseIterable, Identifiable {
+    enum Tab: String, CaseIterable, Codable, Hashable, Identifiable {
         case media, shelf, clipboard, snippets, calendar, translate, notes
         var id: String { rawValue }
 
@@ -35,12 +35,6 @@ final class NotchViewModel: ObservableObject {
         /// that arriving and typing is a single move.
         var needsKeyboard: Bool { self == .translate || self == .snippets || self == .notes }
 
-        /// Which rail the icon sits on. The left one carries the original six
-        /// and is full — a seventh icon would outgrow the height the panel
-        /// body has — so growth continues in a second column on the right,
-        /// which the scratch notes open.
-        static let leftRail: [Tab] = [.media, .shelf, .clipboard, .snippets, .calendar, .translate]
-        static let rightRail: [Tab] = [.notes]
     }
 
     @Published var isOpen = false
@@ -48,9 +42,9 @@ final class NotchViewModel: ObservableObject {
     @Published var tab: Tab = .media {
         didSet {
             // Opening the tab only re-checks the status. The permission prompt
-            // is the user's own press on the button inside the pane: this is
-            // the one permission Impuls asks for at all, and it deserves an
-            // explanation before the system dialog, not after.
+            // is the user's own press on the button inside the pane. A
+            // sensitive permission deserves an explanation before the system
+            // dialog, not after.
             if tab == .calendar { calendar.refreshAccess() }
             // The snippets file is edited from outside the app, so it is read
             // on the way in rather than held from launch.
@@ -73,7 +67,13 @@ final class NotchViewModel: ObservableObject {
     /// no such thing as a panel that shows a field but cannot receive a key.
     @Published var wantsKeyboard = false
 
+    /// A panel opened from the global shortcut remains a keyboard surface even
+    /// on modules that have no text field. Arrow keys can then move through the
+    /// rail and Escape can close the panel without requiring the pointer.
+    @Published var keyboardNavigationActive = false
+
     let geometry: NotchGeometry
+    let settings: SettingsStore
     let media: MediaController
     let shelf: ShelfStore
     let clipboard: ClipboardStore
@@ -84,8 +84,9 @@ final class NotchViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(geometry: NotchGeometry) {
+    init(geometry: NotchGeometry, settings: SettingsStore) {
         self.geometry = geometry
+        self.settings = settings
         self.media = MediaController()
         self.shelf = ShelfStore()
         self.clipboard = ClipboardStore()
@@ -93,6 +94,10 @@ final class NotchViewModel: ObservableObject {
         self.translator = Translator()
         self.snippets = SnippetStore()
         self.notes = NoteStore()
+
+        if let first = settings.enabledTabs.first, !settings.enabledTabs.contains(tab) {
+            tab = first
+        }
 
         // The panel header reads through to the stores — counters, the source
         // name, the equalizer. Nested ObservableObjects do not propagate on
@@ -126,6 +131,18 @@ final class NotchViewModel: ObservableObject {
                 }
                 .store(in: &cancellables)
         }
+
+        settings.$modules
+            .dropFirst()
+            .sink { [weak self] preferences in
+                guard let self else { return }
+                let enabled = preferences.compactMap { $0.isEnabled ? $0.tab : nil }
+                if !enabled.contains(self.tab), let first = enabled.first {
+                    self.tab = first
+                }
+                self.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
 
     /// Size of the visible body for the current state.
@@ -133,23 +150,31 @@ final class NotchViewModel: ObservableObject {
         isOpen || isDropTargeted ? geometry.expandedSize : geometry.collapsedSize
     }
 
-    /// Off switch for people who copy images all day and do not want them kept.
-    static let saveClipboardImagesKey = "saveClipboardImages"
+    var visibleTabs: [Tab] { settings.enabledTabs }
 
-    /// Defaults to on: the feature is the reason the folder exists.
-    static var saveClipboardImagesEnabled: Bool {
-        let defaults = UserDefaults.standard
-        guard defaults.object(forKey: saveClipboardImagesKey) != nil else { return true }
-        return defaults.bool(forKey: saveClipboardImagesKey)
+    var leftRailTabs: [Tab] {
+        Array(visibleTabs.prefix(6))
+    }
+
+    var rightRailTabs: [Tab] {
+        Array(visibleTabs.dropFirst(6))
     }
 
     /// Hover and click both land here. A tab that types takes the keyboard
     /// either way: showing a field one cannot type into is worse than briefly
     /// dimming the caret of the window underneath, and the dwell threshold on
     /// the rail already keeps a passing pointer from arriving here at all.
-    func select(_ tab: Tab) {
+    func select(_ tab: Tab, requestKeyboard: Bool = true) {
+        guard visibleTabs.contains(tab) else { return }
         self.tab = tab
-        if tab.needsKeyboard { wantsKeyboard = true }
+        if requestKeyboard, tab.needsKeyboard { wantsKeyboard = true }
+    }
+
+    func moveSelection(by offset: Int) {
+        let tabs = visibleTabs
+        guard tabs.count > 1, let index = tabs.firstIndex(of: tab) else { return }
+        let destination = (index + offset + tabs.count) % tabs.count
+        select(tabs[destination], requestKeyboard: false)
     }
 
     func start() {
@@ -168,7 +193,7 @@ final class NotchViewModel: ObservableObject {
         // here after the fact: turned off, a copied picture used to be encoded
         // to PNG in full just to be dropped on this doorstep — pure heat on
         // exactly the machines whose owners turned the feature off.
-        clipboard.wantsImages = { Self.saveClipboardImagesEnabled }
+        clipboard.wantsImages = { [weak settings] in settings?.saveClipboardImages ?? true }
         clipboard.onImage = { [weak self] png in
             guard let self, let url = ScreenshotVault.save(png) else { return }
             self.shelf.add([url])

@@ -1,0 +1,3 @@
+import ImpulsCore
+
+ImpulsApplication.run()

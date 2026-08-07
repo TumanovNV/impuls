@@ -75,6 +75,13 @@ final class NoteStore: ObservableObject {
         flush()
     }
 
+    func replace(with imported: [Note]) {
+        var seen = Set<Note.ID>()
+        notes = imported.filter { seen.insert($0.id).inserted }
+        selected = notes.first?.id
+        flush()
+    }
+
     // MARK: - Persistence
 
     private func load() {

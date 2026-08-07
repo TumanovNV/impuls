@@ -10,6 +10,9 @@ struct NotchGeometry {
     let notchCenterX: CGFloat
     /// True when the display actually has a notch cut into it.
     let isPhysical: Bool
+    /// Size selected in Settings. Kept in the geometry so every derived frame
+    /// changes atomically when a different preset is chosen.
+    let expandedSize: CGSize
 
     /// Size of the visible body while collapsed. A display without a physical
     /// notch gets a deliberately small tab so it does not cover the menu bar.
@@ -17,13 +20,17 @@ struct NotchGeometry {
         isPhysical ? notchSize : CGSize(width: 96, height: 10)
     }
 
-    /// Size of the fully expanded panel body.
-    let expandedSize = CGSize(width: 620, height: 208)
     /// Slack around the panel so the concave shoulders and shadow are not clipped.
     let windowPadding = NSEdgeInsets(top: 0, left: 40, bottom: 44, right: 40)
 
-    static func current() -> NotchGeometry {
-        let screen = NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens[0]
+    static func current(preferredDisplayID: UInt32? = nil, expandedSize: CGSize = CGSize(width: 620, height: 208)) -> NotchGeometry {
+        let preferred = preferredDisplayID.flatMap { id in
+            NSScreen.screens.first { $0.impulsDisplayID == id }
+        }
+        let screen = preferred
+            ?? NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
+            ?? NSScreen.main
+            ?? NSScreen.screens[0]
 
         if screen.safeAreaInsets.top > 0,
            let left = screen.auxiliaryTopLeftArea,
@@ -33,7 +40,8 @@ struct NotchGeometry {
                 screen: screen,
                 notchSize: CGSize(width: width, height: screen.safeAreaInsets.top),
                 notchCenterX: screen.frame.minX + left.width + width / 2,
-                isPhysical: true
+                isPhysical: true,
+                expandedSize: expandedSize
             )
         }
 
@@ -43,7 +51,8 @@ struct NotchGeometry {
             screen: screen,
             notchSize: CGSize(width: 180, height: max(NSStatusBar.system.thickness, 24)),
             notchCenterX: screen.frame.midX,
-            isPhysical: false
+            isPhysical: false,
+            expandedSize: expandedSize
         )
     }
 
@@ -56,6 +65,7 @@ struct NotchGeometry {
             && notchSize == other.notchSize
             && notchCenterX == other.notchCenterX
             && isPhysical == other.isPhysical
+            && expandedSize == other.expandedSize
     }
 
     // MARK: - Derived frames
