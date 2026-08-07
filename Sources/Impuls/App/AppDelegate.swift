@@ -26,8 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func installStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "bolt.fill", accessibilityDescription: "Impuls")
-        item.button?.image?.isTemplate = true
+        item.button?.image = statusIcon()
+        item.button?.toolTip = "Impuls"
 
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -88,6 +88,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         item.menu = menu
         statusItem = item
+    }
+
+    private func statusIcon() -> NSImage? {
+        if let url = Bundle.main.url(forResource: "ImpulsStatusTemplate", withExtension: "png"),
+           let image = NSImage(contentsOf: url) {
+            image.size = NSSize(width: 18, height: 18)
+            image.isTemplate = true
+            return image
+        }
+
+        let fallback = NSImage(
+            systemSymbolName: "waveform.path.ecg",
+            accessibilityDescription: "Impuls"
+        )
+        fallback?.isTemplate = true
+        return fallback
     }
 
     func menuWillOpen(_ menu: NSMenu) {

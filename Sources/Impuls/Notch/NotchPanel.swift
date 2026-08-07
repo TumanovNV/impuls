@@ -97,14 +97,10 @@ final class NotchPanel: NSPanel {
             defer: false
         )
 
-        // The panel is dark whatever the system is: it lies over the notch,
-        // which is black on every Mac that has one. Everything drawn by hand
-        // already knows that, but the AppKit views behind SwiftUI's controls do
-        // not — a `TextField` asks the effective appearance what colour text
-        // is, and on a Mac set to light it is told black. The result is a field
-        // one can type into and not read: the caret blinks, the text lands, and
-        // none of it is visible against the panel.
-        appearance = NSAppearance(named: .darkAqua)
+        // Inherit the system appearance. SwiftUI and its AppKit-backed text
+        // controls then agree on light/dark colours instead of the window
+        // forcing Dark Aqua while the rest of macOS is light.
+        appearance = nil
 
         isFloatingPanel = true
         becomesKeyOnlyIfNeeded = true

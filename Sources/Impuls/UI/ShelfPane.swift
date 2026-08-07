@@ -73,7 +73,7 @@ struct ShelfPane: View {
     private var dropHint: some View {
         RoundedRectangle(cornerRadius: 14, style: .continuous)
             .strokeBorder(
-                isTargeted ? Color.white.opacity(0.6) : Theme.hairline,
+                isTargeted ? Theme.primary.opacity(0.6) : Theme.hairline,
                 style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])
             )
             .background(
@@ -83,7 +83,7 @@ struct ShelfPane: View {
             .overlay(
                 Image(systemName: "tray.and.arrow.down.fill")
                     .font(.system(size: 20, weight: .light))
-                    .foregroundStyle(isTargeted ? .white : Theme.tertiary)
+                    .foregroundStyle(isTargeted ? Theme.primary : Theme.tertiary)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(Theme.contentAnimation, value: isTargeted)
@@ -150,11 +150,11 @@ private struct ShelfCard: View {
         .frame(width: 86, height: 92)
         .background(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(isSelected ? Color.white.opacity(0.18) : (isHovered ? Theme.surfaceHover : Theme.surface))
+                .fill(isSelected ? Theme.selection : (isHovered ? Theme.surfaceHover : Theme.surface))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.white.opacity(isSelected ? 0.55 : 0), lineWidth: 1.5)
+                .strokeBorder(isSelected ? Theme.selectionStroke : Color.clear, lineWidth: 1.5)
                 .allowsHitTesting(false)
         )
         // Owns clicks and drags: a group drag needs one dragging item per file,
@@ -171,7 +171,7 @@ private struct ShelfCard: View {
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 12))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.primary)
                     .padding(4)
                     .allowsHitTesting(false)
             }
@@ -181,7 +181,7 @@ private struct ShelfCard: View {
                 Button { shelf.remove(item) } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 13))
-                        .foregroundStyle(Color.white.opacity(0.75))
+                        .foregroundStyle(Theme.primary.opacity(0.75))
                 }
                 .buttonStyle(.plain)
                 .padding(4)

@@ -101,7 +101,7 @@ struct NotesPane: View {
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
                 .font(.system(size: 12.5))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.primary)
                 .tint(Theme.secondary)
                 .focused($focused)
                 // The editor insets its text by a few points of its own; pull
@@ -175,7 +175,7 @@ private struct NoteRow: View {
         HStack(spacing: 6) {
             Text(preview)
                 .font(.system(size: 11, weight: isSelected ? .medium : .regular))
-                .foregroundStyle(isSelected ? .white : Theme.secondary)
+                .foregroundStyle(isSelected ? Theme.primary : Theme.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 4)

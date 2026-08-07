@@ -1,80 +1,165 @@
 #!/usr/bin/env swift
-// Renders Resources/AppIcon.icns from code — no design tool in the loop.
-// Usage: swift Scripts/make-icon.swift <output.icns>
+// Generates the macOS application icon and its matching menu-bar mark.
+// The symbol combines the two initials of «Интегра Импульс» with a pulse.
+// Usage: swift Scripts/make-icon.swift <output.icns> [status-template.png]
 import AppKit
 
 let outPath = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "AppIcon.icns"
+let statusPath = CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : nil
 let iconset = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("Impuls.iconset")
 try? FileManager.default.removeItem(at: iconset)
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 
-func draw(size s: CGFloat) -> NSBitmapImageRep {
-    let px = Int(s)
-    let rep = NSBitmapImageRep(
-        bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px,
-        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+func bitmap(size s: CGFloat) -> NSBitmapImageRep {
+    NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: Int(s),
+        pixelsHigh: Int(s),
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
     )!
+}
+
+func drawBrandMark(in ctx: CGContext, scale k: CGFloat, monochrome: Bool = false) {
+    let white = monochrome
+        ? CGColor(gray: 0, alpha: 1)
+        : CGColor(red: 0.97, green: 0.99, blue: 1, alpha: 1)
+    let pulse = monochrome
+        ? CGColor(gray: 0, alpha: 1)
+        : CGColor(red: 0.23, green: 0.91, blue: 1, alpha: 1)
+
+    // Twin pillars: the two words share one stable corporate monogram.
+    for x in [CGFloat(318), CGFloat(634)] {
+        let rect = CGRect(x: x * k, y: 300 * k, width: 72 * k, height: 424 * k)
+        ctx.addPath(CGPath(
+            roundedRect: rect,
+            cornerWidth: 36 * k,
+            cornerHeight: 36 * k,
+            transform: nil
+        ))
+        ctx.setFillColor(white)
+        ctx.fillPath()
+    }
+
+    // The connecting impulse turns the initials into one integrated symbol.
+    let path = CGMutablePath()
+    path.move(to: CGPoint(x: 382 * k, y: 500 * k))
+    path.addLine(to: CGPoint(x: 448 * k, y: 500 * k))
+    path.addLine(to: CGPoint(x: 490 * k, y: 616 * k))
+    path.addLine(to: CGPoint(x: 536 * k, y: 396 * k))
+    path.addLine(to: CGPoint(x: 579 * k, y: 500 * k))
+    path.addLine(to: CGPoint(x: 642 * k, y: 500 * k))
+    ctx.addPath(path)
+    ctx.setStrokeColor(pulse)
+    ctx.setLineWidth(42 * k)
+    ctx.setLineCap(.round)
+    ctx.setLineJoin(.round)
+    ctx.strokePath()
+}
+
+func drawIcon(size s: CGFloat) -> NSBitmapImageRep {
+    let rep = bitmap(size: s)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
     let ctx = NSGraphicsContext.current!.cgContext
-    let k = s / 1024  // everything below is authored on a 1024 canvas
+    let k = s / 1024
 
-    // Rounded-square body, macOS proportions.
-    let body = CGRect(x: 100 * k, y: 100 * k, width: 824 * k, height: 824 * k)
-    let squircle = CGPath(roundedRect: body, cornerWidth: 185 * k, cornerHeight: 185 * k, transform: nil)
+    let body = CGRect(x: 92 * k, y: 92 * k, width: 840 * k, height: 840 * k)
+    let squircle = CGPath(
+        roundedRect: body,
+        cornerWidth: 190 * k,
+        cornerHeight: 190 * k,
+        transform: nil
+    )
+
+    ctx.saveGState()
+    ctx.setShadow(offset: CGSize(width: 0, height: -24 * k), blur: 46 * k, color: CGColor(gray: 0, alpha: 0.32))
+    ctx.addPath(squircle)
+    ctx.setFillColor(CGColor(red: 0.04, green: 0.07, blue: 0.15, alpha: 1))
+    ctx.fillPath()
+    ctx.restoreGState()
+
     ctx.saveGState()
     ctx.addPath(squircle)
     ctx.clip()
-    let gradient = CGGradient(
+
+    let background = CGGradient(
         colorsSpace: CGColorSpaceCreateDeviceRGB(),
         colors: [
-            CGColor(red: 0.27, green: 0.27, blue: 0.30, alpha: 1),
-            CGColor(red: 0.07, green: 0.07, blue: 0.08, alpha: 1)
+            CGColor(red: 0.18, green: 0.28, blue: 0.66, alpha: 1),
+            CGColor(red: 0.05, green: 0.09, blue: 0.22, alpha: 1),
+            CGColor(red: 0.025, green: 0.04, blue: 0.10, alpha: 1)
         ] as CFArray,
-        locations: [0, 1]
+        locations: [0, 0.58, 1]
     )!
     ctx.drawLinearGradient(
-        gradient,
-        start: CGPoint(x: body.midX, y: body.maxY),
-        end: CGPoint(x: body.midX, y: body.minY),
+        background,
+        start: CGPoint(x: body.minX, y: body.maxY),
+        end: CGPoint(x: body.maxX, y: body.minY),
         options: []
     )
 
-    // The notch itself, cut into the top edge.
-    let notchW = 330 * k, notchH = 86 * k, r = 34 * k
-    let nx = body.midX - notchW / 2, ny = body.maxY - notchH
-    let notch = CGMutablePath()
-    notch.move(to: CGPoint(x: nx, y: body.maxY))
-    notch.addLine(to: CGPoint(x: nx, y: ny + r))
-    notch.addQuadCurve(to: CGPoint(x: nx + r, y: ny), control: CGPoint(x: nx, y: ny))
-    notch.addLine(to: CGPoint(x: nx + notchW - r, y: ny))
-    notch.addQuadCurve(to: CGPoint(x: nx + notchW, y: ny + r), control: CGPoint(x: nx + notchW, y: ny))
-    notch.addLine(to: CGPoint(x: nx + notchW, y: body.maxY))
-    notch.closeSubpath()
-    ctx.addPath(notch)
-    ctx.setFillColor(CGColor(red: 0.02, green: 0.02, blue: 0.03, alpha: 1))
-    ctx.fillPath()
+    let glow = CGGradient(
+        colorsSpace: CGColorSpaceCreateDeviceRGB(),
+        colors: [
+            CGColor(red: 0.20, green: 0.88, blue: 1, alpha: 0.22),
+            CGColor(red: 0.20, green: 0.88, blue: 1, alpha: 0)
+        ] as CFArray,
+        locations: [0, 1]
+    )!
+    ctx.drawRadialGradient(
+        glow,
+        startCenter: CGPoint(x: 300 * k, y: 770 * k),
+        startRadius: 0,
+        endCenter: CGPoint(x: 300 * k, y: 770 * k),
+        endRadius: 570 * k,
+        options: []
+    )
 
-    // Central focus mark used by the Impuls icon.
-    let cx = body.midX, cy = body.midY - 40 * k
-    let ew = 460 * k, eh = 250 * k
-    let lens = CGMutablePath()
-    lens.move(to: CGPoint(x: cx - ew / 2, y: cy))
-    lens.addQuadCurve(to: CGPoint(x: cx + ew / 2, y: cy), control: CGPoint(x: cx, y: cy + eh))
-    lens.addQuadCurve(to: CGPoint(x: cx - ew / 2, y: cy), control: CGPoint(x: cx, y: cy - eh))
-    lens.closeSubpath()
-    ctx.addPath(lens)
-    ctx.setFillColor(CGColor(gray: 1, alpha: 0.95))
-    ctx.fillPath()
-
-    ctx.addPath(lens)
-    ctx.clip()
-    ctx.setFillColor(CGColor(red: 0.04, green: 0.04, blue: 0.05, alpha: 1))
-    ctx.fillEllipse(in: CGRect(x: cx - 78 * k, y: cy - 78 * k, width: 156 * k, height: 156 * k))
-    ctx.setFillColor(CGColor(gray: 1, alpha: 0.9))
-    ctx.fillEllipse(in: CGRect(x: cx + 12 * k, y: cy + 26 * k, width: 40 * k, height: 40 * k))
+    drawBrandMark(in: ctx, scale: k)
     ctx.restoreGState()
+
+    ctx.addPath(squircle)
+    ctx.setStrokeColor(CGColor(gray: 1, alpha: 0.14))
+    ctx.setLineWidth(3 * k)
+    ctx.strokePath()
+
+    NSGraphicsContext.restoreGraphicsState()
+    return rep
+}
+
+func drawStatus(size s: CGFloat) -> NSBitmapImageRep {
+    let rep = bitmap(size: s)
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    let ctx = NSGraphicsContext.current!.cgContext
+    let k = s / 18
+
+    for x in [CGFloat(3.1), CGFloat(12.6)] {
+        let rect = CGRect(x: x * k, y: 2.8 * k, width: 2.2 * k, height: 12.4 * k)
+        ctx.addPath(CGPath(roundedRect: rect, cornerWidth: 1.1 * k, cornerHeight: 1.1 * k, transform: nil))
+        ctx.setFillColor(CGColor(gray: 0, alpha: 1))
+        ctx.fillPath()
+    }
+
+    let pulse = CGMutablePath()
+    pulse.move(to: CGPoint(x: 5.0 * k, y: 9.0 * k))
+    pulse.addLine(to: CGPoint(x: 7.0 * k, y: 9.0 * k))
+    pulse.addLine(to: CGPoint(x: 8.1 * k, y: 12.2 * k))
+    pulse.addLine(to: CGPoint(x: 9.5 * k, y: 5.7 * k))
+    pulse.addLine(to: CGPoint(x: 10.8 * k, y: 9.0 * k))
+    pulse.addLine(to: CGPoint(x: 12.9 * k, y: 9.0 * k))
+    ctx.addPath(pulse)
+    ctx.setStrokeColor(CGColor(gray: 0, alpha: 1))
+    ctx.setLineWidth(1.55 * k)
+    ctx.setLineCap(.round)
+    ctx.setLineJoin(.round)
+    ctx.strokePath()
 
     NSGraphicsContext.restoreGraphicsState()
     return rep
@@ -85,7 +170,7 @@ for (size, name) in [
     (128, "icon_128x128"), (256, "icon_128x128@2x"), (256, "icon_256x256"), (512, "icon_256x256@2x"),
     (512, "icon_512x512"), (1024, "icon_512x512@2x")
 ] {
-    let data = draw(size: CGFloat(size)).representation(using: .png, properties: [:])!
+    let data = drawIcon(size: CGFloat(size)).representation(using: .png, properties: [:])!
     try data.write(to: iconset.appendingPathComponent("\(name).png"))
 }
 
@@ -94,4 +179,11 @@ task.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
 task.arguments = ["-c", "icns", iconset.path, "-o", outPath]
 try task.run()
 task.waitUntilExit()
-print(task.terminationStatus == 0 ? "wrote \(outPath)" : "iconutil failed")
+guard task.terminationStatus == 0 else { fatalError("iconutil failed") }
+
+if let statusPath {
+    let data = drawStatus(size: 36).representation(using: .png, properties: [:])!
+    try data.write(to: URL(fileURLWithPath: statusPath))
+}
+
+print("wrote \(outPath)" + (statusPath.map { " and \($0)" } ?? ""))

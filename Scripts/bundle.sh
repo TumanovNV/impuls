@@ -6,6 +6,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG="${1:-release}"
 APP="$ROOT/build/Impuls.app"
 VERSION="$(sed -n 's/^VERSION=//p' "$ROOT/Scripts/version" 2>/dev/null || echo 1.0.0)"
+ENTITLEMENTS="$ROOT/Resources/Impuls.entitlements"
 
 echo "==> swift build -c $CONFIG"
 swift build -c "$CONFIG" --package-path "$ROOT"
@@ -15,6 +16,11 @@ echo "==> assembling $APP"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Impuls"
+
+echo "==> application and menu-bar icons"
+swift "$ROOT/Scripts/make-icon.swift" \
+    "$APP/Contents/Resources/AppIcon.icns" \
+    "$APP/Contents/Resources/ImpulsStatusTemplate.png"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -49,10 +55,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-if [ -f "$ROOT/Resources/AppIcon.icns" ]; then
-    cp "$ROOT/Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
-fi
-
 echo "==> localizations"
 for lproj in "$ROOT"/Resources/*.lproj; do
     [ -d "$lproj" ] || continue
@@ -62,10 +64,12 @@ done
 if [ -n "${IMPULS_DEVELOPER_ID_APPLICATION:-}" ]; then
     echo "==> Developer ID signing"
     codesign --force --deep --strict --options runtime --timestamp \
+        --entitlements "$ENTITLEMENTS" \
         --sign "$IMPULS_DEVELOPER_ID_APPLICATION" "$APP"
 else
     echo "==> ad-hoc signing (Developer ID is not configured)"
-    codesign --force --deep --strict --options runtime --sign - "$APP"
+    codesign --force --deep --strict --options runtime \
+        --entitlements "$ENTITLEMENTS" --sign - "$APP"
 fi
 
 codesign --verify --deep --strict "$APP"

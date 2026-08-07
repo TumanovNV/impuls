@@ -59,6 +59,9 @@
 "Allow" = "Разрешить";
 "Calendar access is off" = "Доступ к Календарю закрыт";
 "Settings → Privacy → Calendars" = "Настройки → Конфиденциальность → Календари";
+"Open Calendar Settings" = "Открыть настройки Календаря";
+"Could not request Calendar access" = "Не удалось запросить доступ к Календарю";
+"Try Again" = "Повторить";
 "No more meetings" = "Встреч больше нет";
 "Nothing on the calendar for the next day" = "В ближайшие сутки календарь пуст";
 "Untitled" = "Без названия";
