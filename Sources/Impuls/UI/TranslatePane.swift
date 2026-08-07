@@ -76,7 +76,7 @@ struct TranslatePane: View {
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
                 .font(.system(size: font))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.primary)
                 // Grey rather than the system accent: the caret has to say
                 // where typing lands without being the brightest thing in a
                 // panel that is mostly dark and mostly still.
@@ -138,14 +138,14 @@ struct TranslatePane: View {
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.primary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         } else if !translator.output.isEmpty {
             ScrollView(showsIndicators: false) {
                 Text(translator.output)
                     .font(.system(size: font))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.primary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
             }

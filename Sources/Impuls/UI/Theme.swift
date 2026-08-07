@@ -15,11 +15,19 @@ enum Theme {
     static let openTopRadius: CGFloat = 12
     static let openBottomRadius: CGFloat = 22
 
-    static let secondary = Color.white.opacity(0.55)
-    static let tertiary = Color.white.opacity(0.32)
-    static let surface = Color.white.opacity(0.08)
-    static let surfaceHover = Color.white.opacity(0.14)
-    static let hairline = Color.white.opacity(0.10)
+    /// Semantic colours keep every pane legible in both system appearances.
+    /// The panel itself supplies the dark/light canvas; controls must not
+    /// assume that canvas is black.
+    static let primary = Color(nsColor: .labelColor)
+    static let secondary = Color(nsColor: .secondaryLabelColor)
+    static let tertiary = Color(nsColor: .tertiaryLabelColor)
+    static let surface = Color(nsColor: .quaternaryLabelColor).opacity(0.58)
+    static let surfaceHover = Color(nsColor: .quaternaryLabelColor)
+    static let hairline = Color(nsColor: .separatorColor)
+    static let panelBackground = Color(nsColor: .windowBackgroundColor)
+    static let onPrimary = Color(nsColor: .windowBackgroundColor)
+    static let selection = Color.accentColor.opacity(0.16)
+    static let selectionStroke = Color.accentColor.opacity(0.48)
 }
 
 /// Flat, focus-free button used for every control in the panel.
@@ -30,7 +38,7 @@ struct NotchButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: prominent ? 17 : 13, weight: .medium))
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.primary)
             .frame(width: size, height: size)
             .background(
                 Circle().fill(prominent ? Theme.surfaceHover : Color.clear)

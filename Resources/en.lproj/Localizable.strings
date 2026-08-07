@@ -60,6 +60,9 @@
 "Allow" = "Allow";
 "Calendar access is off" = "Calendar access is off";
 "Settings → Privacy → Calendars" = "Settings → Privacy → Calendars";
+"Open Calendar Settings" = "Open Calendar Settings";
+"Could not request Calendar access" = "Could not request Calendar access";
+"Try Again" = "Try Again";
 "No more meetings" = "No more meetings";
 "Nothing on the calendar for the next day" = "Nothing on the calendar for the next day";
 "Untitled" = "Untitled";

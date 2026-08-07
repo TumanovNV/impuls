@@ -18,7 +18,7 @@ struct MediaPane: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(track.title)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.primary)
                         .lineLimit(1)
                     Text(subtitle(for: track))
                         .font(.system(size: 11.5))
@@ -97,11 +97,11 @@ struct MediaPane: View {
                     // cursor at once. Smoothness comes from the tick rate
                     // instead, which keeps each step well under a pixel.
                     Capsule()
-                        .fill(Color.white.opacity(0.9))
+                        .fill(Theme.primary.opacity(0.9))
                         .frame(width: filled, height: height)
                     if scrubHover {
                         Circle()
-                            .fill(.white)
+                            .fill(Theme.primary)
                             .frame(width: 11, height: 11)
                             .offset(x: min(max(filled - 5.5, 0), width - 11))
                             .shadow(color: .black.opacity(0.4), radius: 3)

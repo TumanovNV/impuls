@@ -8,10 +8,11 @@ import EventKit
 /// just because the app launched.
 @MainActor
 final class CalendarStore: ObservableObject {
-    enum Access {
+    enum Access: Equatable {
         case notRequested
         case granted
         case denied
+        case failed(String)
     }
 
     struct Meeting: Identifiable {
@@ -98,9 +99,15 @@ final class CalendarStore: ObservableObject {
             refreshAccess()
             return
         }
-        store.requestFullAccessToEvents { [weak self] granted, _ in
+        store.requestFullAccessToEvents { [weak self] granted, error in
             Task { @MainActor in
                 guard let self else { return }
+                if let error {
+                    let message = error.localizedDescription
+                    self.access = .failed(message)
+                    NSLog("Impuls: Calendar permission request failed: \(message)")
+                    return
+                }
                 self.access = granted ? .granted : .denied
                 guard granted else { return }
                 self.observe()
@@ -187,6 +194,13 @@ final class CalendarStore: ObservableObject {
 
     func openCalendarApp() {
         NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Calendar.app"))
+    }
+
+    func openPrivacySettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars"
+        ) else { return }
+        NSWorkspace.shared.open(url)
     }
 }
 

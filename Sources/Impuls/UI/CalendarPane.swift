@@ -9,6 +9,8 @@ struct CalendarPane: View {
             permissionPrompt
         case .denied:
             deniedState
+        case .failed(let message):
+            failedState(message)
         case .granted:
             if let next = calendar.next {
                 agenda(next: next)
@@ -29,7 +31,7 @@ struct CalendarPane: View {
                         .frame(width: 7, height: 7)
                     Text(next.title)
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.primary)
                         .lineLimit(1)
                 }
                 Text(subtitle(for: next))
@@ -53,9 +55,9 @@ struct CalendarPane: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
                         .background(
-                            Capsule().fill(next.isRunning ? Color.white.opacity(0.92) : Theme.surfaceHover)
+                            Capsule().fill(next.isRunning ? Theme.primary.opacity(0.92) : Theme.surfaceHover)
                         )
-                        .foregroundStyle(next.isRunning ? .black : .white)
+                        .foregroundStyle(next.isRunning ? Theme.onPrimary : Theme.primary)
                     }
                     .buttonStyle(.plain)
                     .padding(.leading, 14)
@@ -170,7 +172,7 @@ struct CalendarPane: View {
             } label: {
                 Text("Allow")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.primary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(Theme.surfaceHover))
@@ -193,8 +195,44 @@ struct CalendarPane: View {
             Text("Settings → Privacy → Calendars")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.tertiary)
+            permissionButton("Open Calendar Settings") {
+                calendar.openPrivacySettings()
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func failedState(_ message: String) -> some View {
+        VStack(spacing: 7) {
+            Image(systemName: "calendar.badge.exclamationmark")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(Theme.tertiary)
+            Text("Could not request Calendar access")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.secondary)
+            Text(message)
+                .font(.system(size: 9.5))
+                .foregroundStyle(Theme.tertiary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+            permissionButton("Try Again") {
+                calendar.requestAccess()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func permissionButton(_ title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 10.5, weight: .medium))
+                .foregroundStyle(Theme.primary)
+                .padding(.horizontal, 13)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(Theme.surfaceHover))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 
     private var emptyState: some View {

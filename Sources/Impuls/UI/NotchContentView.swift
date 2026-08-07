@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NotchContentView: View {
     @ObservedObject var vm: NotchViewModel
+    @Environment(\.colorScheme) private var colorScheme
 
     private var isOpen: Bool { vm.isOpen || vm.isDropTargeted }
     private var size: CGSize { vm.bodySize }
@@ -15,9 +16,15 @@ struct NotchContentView: View {
                 topRadius: topRadius,
                 bottomRadius: isOpen ? Theme.openBottomRadius : Theme.collapsedBottomRadius
             )
-            .fill(Color.black)
+            // The closed tab stays black so it melts into the physical notch.
+            // Once expanded, the panel follows the user's macOS appearance.
+            .fill(isOpen ? Theme.panelBackground : Color.black)
             .frame(width: size.width + 2 * topRadius, height: size.height)
-            .shadow(color: .black.opacity(isOpen ? 0.5 : 0), radius: 18, y: 8)
+            .shadow(
+                color: .black.opacity(isOpen ? (colorScheme == .dark ? 0.5 : 0.2) : 0),
+                radius: 18,
+                y: 8
+            )
 
             VStack(spacing: 0) {
                 header
@@ -88,7 +95,7 @@ struct NotchContentView: View {
             if let next = vm.calendar.next {
                 Text(CalendarPane.countdown(to: next, from: vm.calendar.now))
                     .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(next.isRunning ? Color.white.opacity(0.8) : Theme.tertiary)
+                    .foregroundStyle(next.isRunning ? Theme.primary.opacity(0.8) : Theme.tertiary)
             }
         case .translate:
             // Nothing: the columns name both languages already, and the strip
@@ -208,7 +215,7 @@ private struct Rail: View {
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
                                 .fill(fill(for: tab))
                         )
-                        .foregroundStyle(vm.tab == tab ? Color.white : Theme.tertiary)
+                        .foregroundStyle(vm.tab == tab ? Theme.primary : Theme.tertiary)
                         .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                         // A render-time transform. Growing the frame instead
                         // would re-lay out the rail on every hover, and layout

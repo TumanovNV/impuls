@@ -52,7 +52,7 @@ private struct ClipRow: View {
                 .frame(width: 14)
             Text(item.preview.replacingOccurrences(of: "\n", with: " "))
                 .font(.system(size: 11))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.primary)
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 6)
