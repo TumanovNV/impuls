@@ -29,8 +29,8 @@ final class BackupDocumentTests: XCTestCase {
         }
     }
 
-    func testUnsupportedSchemaIsRejected() async {
-        await MainActor.run {
+    func testUnsupportedSchemaIsRejected() async throws {
+        try await MainActor.run {
             let json = """
             {
               "schemaVersion": 99,
