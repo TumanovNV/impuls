@@ -76,6 +76,8 @@ struct NotchContentView: View {
     @ViewBuilder
     private var trailing: some View {
         switch vm.tab {
+        case .actions:
+            EmptyView()
         case .media:
             HStack(spacing: 6) {
                 if vm.media.track != nil {
@@ -150,6 +152,15 @@ struct NotchContentView: View {
     @ViewBuilder
     private var pane: some View {
         switch vm.tab {
+        case .actions:
+            ActionsPane(
+                actions: vm.actions,
+                clipboard: vm.clipboard,
+                snippets: vm.snippets,
+                notes: vm.notes,
+                wantsKeyboard: $vm.wantsKeyboard,
+                perform: { vm.perform($0, on: $1) }
+            )
         case .media:
             MediaPane(media: vm.media)
         case .shelf:

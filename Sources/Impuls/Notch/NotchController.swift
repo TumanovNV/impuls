@@ -121,6 +121,7 @@ final class NotchController {
             setOpen(false)
         } else {
             pointer.setInside(false)
+            vm.prepareActionsForKeyboard()
             vm.keyboardNavigationActive = true
             setOpen(true)
         }

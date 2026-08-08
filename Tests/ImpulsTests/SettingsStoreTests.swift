@@ -15,6 +15,7 @@ final class SettingsStoreTests: XCTestCase {
             XCTAssertEqual(Set(normalized.map(\.tab)), Set(NotchViewModel.Tab.allCases))
             XCTAssertEqual(normalized.filter { $0.tab == .notes }.count, 1)
             XCTAssertTrue(normalized.contains(where: \.isEnabled))
+            XCTAssertEqual(normalized.first?.tab, .actions)
         }
     }
 

@@ -4,11 +4,12 @@ import Combine
 @MainActor
 final class NotchViewModel: ObservableObject {
     enum Tab: String, CaseIterable, Codable, Hashable, Identifiable {
-        case media, shelf, clipboard, snippets, calendar, translate, notes
+        case actions, media, shelf, clipboard, snippets, calendar, translate, notes
         var id: String { rawValue }
 
         var symbol: String {
             switch self {
+            case .actions: return "bolt.fill"
             case .media: return "music.note"
             case .shelf: return "tray.full.fill"
             case .clipboard: return "list.clipboard.fill"
@@ -21,6 +22,7 @@ final class NotchViewModel: ObservableObject {
 
         var title: String {
             switch self {
+            case .actions: return localized("Actions")
             case .media: return localized("Music")
             case .shelf: return localized("Shelf")
             case .clipboard: return localized("Clipboard")
@@ -33,7 +35,7 @@ final class NotchViewModel: ObservableObject {
 
         /// Tabs with a field in them. Landing on one hands it the keyboard, so
         /// that arriving and typing is a single move.
-        var needsKeyboard: Bool { self == .translate || self == .snippets || self == .notes }
+        var needsKeyboard: Bool { self == .actions || self == .translate || self == .snippets || self == .notes }
 
     }
 
@@ -46,6 +48,7 @@ final class NotchViewModel: ObservableObject {
             // sensitive permission deserves an explanation before the system
             // dialog, not after.
             if tab == .calendar { calendar.refreshAccess() }
+            if tab == .actions { snippets.reload() }
             // The snippets file is edited from outside the app, so it is read
             // on the way in rather than held from launch.
             if tab == .snippets { snippets.reload() }
@@ -53,6 +56,7 @@ final class NotchViewModel: ObservableObject {
             // hover to recreate, and a trail of empty cards is the clutter a
             // scratchpad exists to avoid.
             if oldValue == .notes, tab != .notes { notes.leave() }
+            if oldValue == .actions, tab != .actions { actions.query = "" }
             // Leaving the tab that types gives the keyboard straight back.
             if !tab.needsKeyboard { wantsKeyboard = false }
         }
@@ -75,6 +79,7 @@ final class NotchViewModel: ObservableObject {
     let geometry: NotchGeometry
     let settings: SettingsStore
     let media: MediaController
+    let actions: ImpulsActionsStore
     let shelf: ShelfStore
     let clipboard: ClipboardStore
     let calendar: CalendarStore
@@ -87,6 +92,7 @@ final class NotchViewModel: ObservableObject {
     init(geometry: NotchGeometry, settings: SettingsStore) {
         self.geometry = geometry
         self.settings = settings
+        self.actions = ImpulsActionsStore()
         self.media = MediaController()
         self.shelf = ShelfStore()
         self.clipboard = ClipboardStore()
@@ -111,8 +117,8 @@ final class NotchViewModel: ObservableObject {
         // view for nobody. Opening repaints from the stores directly, because
         // `isOpen` is itself @Published and its own send does that.
         //
-        // The stores with a text field in their pane — the translator, the
-        // snippets and the notes — are deliberately absent. They change on every
+        // The stores with a text field in their pane — Actions, the translator,
+        // snippets and notes — are deliberately absent. They change on every
         // keystroke, and redrawing the whole panel per letter costs more than a
         // stale counter: it rebuilds the field, which drops the focus, so the
         // first letter typed is also the last one that lands. Their panes
@@ -175,6 +181,71 @@ final class NotchViewModel: ObservableObject {
         guard tabs.count > 1, let index = tabs.firstIndex(of: tab) else { return }
         let destination = (index + offset + tabs.count) % tabs.count
         select(tabs[destination], requestKeyboard: false)
+    }
+
+    /// The global shortcut is the direct entrance to the command surface.
+    /// Hovering still returns to whichever module was last used; the shortcut
+    /// is intentional keyboard input, so it starts with a clean search.
+    func prepareActionsForKeyboard() {
+        guard visibleTabs.contains(.actions) else { return }
+        actions.query = ""
+        select(.actions)
+    }
+
+    @discardableResult
+    func perform(_ command: ImpulsActionCommand, on result: ImpulsActionResult) -> String? {
+        switch command {
+        case .copy:
+            if case .clipboard(let id) = result.origin,
+               let item = clipboard.items.first(where: { $0.id == id }) {
+                clipboard.copy(item)
+            } else {
+                writeToPasteboard(result.value)
+            }
+            return localized("Copied")
+
+        case .saveSnippet:
+            guard let text = result.value.text else { return nil }
+            snippets.add(label: "", text: text)
+            return localized("Saved to Snippets")
+
+        case .createNote:
+            guard let text = result.value.text else { return nil }
+            notes.add(text: text)
+            if visibleTabs.contains(.notes) {
+                select(.notes)
+                return nil
+            }
+            return localized("Saved to Notes")
+
+        case .translate:
+            guard let text = result.value.text else { return nil }
+            guard visibleTabs.contains(.translate) else {
+                return localized("Enable Translate in Settings")
+            }
+            translator.input = text
+            select(.translate)
+            return nil
+
+        case .open:
+            guard let url = result.value.url else { return nil }
+            NSWorkspace.shared.open(url)
+            return localized("Opened")
+
+        case .reveal:
+            guard case .file(let url) = result.value else { return nil }
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+            return localized("Shown in Finder")
+        }
+    }
+
+    private func writeToPasteboard(_ value: ImpulsActionValue) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        switch value {
+        case .text(let text): pasteboard.setString(text, forType: .string)
+        case .file(let url): pasteboard.writeObjects([url as NSURL])
+        }
     }
 
     func start() {

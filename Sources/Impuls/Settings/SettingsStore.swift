@@ -194,7 +194,12 @@ final class SettingsStore: ObservableObject {
         var seen = Set<NotchViewModel.Tab>()
         var result = supplied.filter { seen.insert($0.tab).inserted }
         for tab in NotchViewModel.Tab.allCases where !seen.contains(tab) {
-            result.append(ModulePreference(tab: tab, isEnabled: true))
+            let preference = ModulePreference(tab: tab, isEnabled: true)
+            if tab == .actions {
+                result.insert(preference, at: 0)
+            } else {
+                result.append(preference)
+            }
         }
         if !result.contains(where: \.isEnabled), !result.isEmpty {
             result[0].isEnabled = true

@@ -88,7 +88,7 @@ private struct GeneralSettingsPane: View {
                     }
                 }
                 .disabled(settings.activationMode == .shortcutOnly)
-                Text("With the panel opened from the keyboard, use ← and → to move between modules, then Esc to close it.")
+                Text("The shortcut opens Actions. Use ↑ and ↓ to choose, Enter to copy, ← and → to change modules, and Esc to close.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if let error = settings.hotKeyError {
@@ -235,7 +235,7 @@ private struct PermissionSettingsPane: View {
 
             permissionRow(
                 title: localized("Notifications"),
-                detail: localized("Will be used for meeting reminders in Impuls 1.2. No permission is requested yet."),
+                detail: localized("Will be used for optional meeting reminders in a later update. No permission is requested yet."),
                 symbol: "bell",
                 state: permissions.notifications,
                 primaryTitle: nil,
