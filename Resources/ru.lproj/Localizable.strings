@@ -124,6 +124,7 @@
 "Global Shortcut" = "Глобальная горячая клавиша";
 "Hover Delay" = "Задержка наведения";
 "With the panel opened from the keyboard, use ← and → to move between modules, then Esc to close it." = "После открытия с клавиатуры переключайте модули стрелками ← и →, а для закрытия нажмите Esc.";
+"The shortcut opens Actions. Use ↑ and ↓ to choose, Enter to copy, ← and → to change modules, and Esc to close." = "Горячая клавиша открывает Actions. Стрелки ↑ и ↓ выбирают результат, Enter копирует, ← и → переключают модули, Esc закрывает панель.";
 "Appearance" = "Внешний вид";
 "Panel Size" = "Размер панели";
 "Display" = "Экран";
@@ -138,12 +139,12 @@
 "Denied" = "Запрещено";
 "Not Requested" = "Не запрашивалось";
 "Restricted" = "Ограничено";
-"Reserved for Impuls 1.2" = "Зарезервировано для Impuls 1.2";
+"Planned" = "Запланировано";
 "Shows upcoming meetings inside the Calendar module." = "Показывает ближайшие встречи в модуле «Календарь».";
 "Accessibility" = "Универсальный доступ";
 "Lets media controls send standard system media keys when no supported player is active." = "Разрешает управлению музыкой отправлять стандартные медиакоманды, когда поддерживаемый плеер не активен.";
 "Notifications" = "Уведомления";
-"Will be used for meeting reminders in Impuls 1.2. No permission is requested yet." = "Будут использоваться для напоминаний о встречах в Impuls 1.2. Сейчас разрешение не запрашивается.";
+"Will be used for optional meeting reminders in a later update. No permission is requested yet." = "Будут использоваться для необязательных напоминаний о встречах в одном из следующих обновлений. Сейчас разрешение не запрашивается.";
 "Open Settings" = "Открыть настройки";
 "Refresh Status" = "Обновить статус";
 "Backup" = "Резервная копия";
@@ -165,3 +166,19 @@
 "This shortcut is already used by macOS or another application." = "Эта комбинация уже используется macOS или другим приложением.";
 "The selected backup is larger than 10 MB." = "Размер выбранной резервной копии превышает 10 МБ.";
 "The selected backup contains too many notes or snippets." = "В выбранной резервной копии слишком много заметок или заготовок.";
+
+/* Impuls Actions */
+"Actions" = "Действия";
+"Search clipboard, snippets, and notes" = "Поиск в буфере, заготовках и заметках";
+"Clear Search" = "Очистить поиск";
+"No matching content" = "Ничего не найдено";
+"To Snippets" = "В заготовки";
+"To Notes" = "В заметки";
+"Open" = "Открыть";
+"Show in Finder" = "Показать в Finder";
+"Copied" = "Скопировано";
+"Saved to Snippets" = "Сохранено в заготовки";
+"Saved to Notes" = "Сохранено в заметки";
+"Opened" = "Открыто";
+"Shown in Finder" = "Показано в Finder";
+"Enable Translate in Settings" = "Включите переводчик в настройках";

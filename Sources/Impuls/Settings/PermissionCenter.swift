@@ -18,7 +18,7 @@ final class PermissionCenter: ObservableObject {
             case .denied: return localized("Denied")
             case .notRequested: return localized("Not Requested")
             case .restricted: return localized("Restricted")
-            case .future: return localized("Reserved for Impuls 1.2")
+            case .future: return localized("Planned")
             }
         }
     }

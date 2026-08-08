@@ -15,7 +15,7 @@ final class BackupDocumentTests: XCTestCase {
             )
             let document = ImpulsBackupDocument(
                 createdAt: Date(timeIntervalSince1970: 1_700_000_000),
-                appVersion: "1.1.0",
+                appVersion: "1.2.0",
                 settings: settings,
                 snippets: [Snippet(label: "Office", text: "info@example.com")],
                 notes: [Note(id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!, text: "Call back", edited: Date(timeIntervalSince1970: 1_700_000_100))]
@@ -26,6 +26,33 @@ final class BackupDocumentTests: XCTestCase {
             let decoded = try ImpulsBackupDocument.decode(encoder.encode(document))
 
             XCTAssertEqual(decoded, document)
+            XCTAssertEqual(decoded.schemaVersion, 2)
+        }
+    }
+
+    func testVersionOneBackupRemainsReadable() async throws {
+        try await MainActor.run {
+            let json = """
+            {
+              "schemaVersion": 1,
+              "createdAt": "2023-11-14T22:13:20Z",
+              "appVersion": "1.1.0",
+              "settings": {
+                "hotKey": "optionSpace",
+                "activationMode": "hoverAndShortcut",
+                "openDelay": "short",
+                "panelSize": "standard",
+                "modules": [{"tab": "media", "isEnabled": true}],
+                "saveClipboardImages": true
+              },
+              "snippets": [],
+              "notes": []
+            }
+            """
+
+            let decoded = try ImpulsBackupDocument.decode(Data(json.utf8))
+            XCTAssertEqual(decoded.schemaVersion, 1)
+            XCTAssertEqual(decoded.settings.modules.map(\.tab), [.media])
         }
     }
 
