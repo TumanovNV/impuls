@@ -23,6 +23,14 @@ history, snippets, calendar, translator, and scratchpad.
 
 See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the precise model.
 
+## Settings and keyboard control
+
+Impuls 1.1 adds a native Settings window. It can configure the global shortcut,
+hover behaviour, panel size, target display, visible modules, and their order.
+When opened from the keyboard, use the left and right arrows to move between
+modules and Escape to close the panel. Settings, snippets, and notes can be
+exported to and restored from a local JSON backup.
+
 ## Music support
 
 Apple Music and Spotify provide metadata, seeking, artwork where available, and
@@ -42,6 +50,7 @@ target. MacBook notch geometry is detected from the display safe area.
 ## Build
 
 ```bash
+swift test -c release
 ./Scripts/bundle.sh release
 open build/Impuls.app
 ```

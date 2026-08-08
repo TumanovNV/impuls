@@ -1,18 +1,30 @@
 import AppKit
+import Combine
 import ServiceManagement
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private lazy var settings = SettingsStore()
+    private let hotKey = GlobalHotKey()
     private var controller: NotchController?
     private var statusItem: NSStatusItem?
     private var clearVaultItem: NSMenuItem?
     private var networkAccessItem: NSMenuItem?
+    private var saveShotsItem: NSMenuItem?
+    private var launchAtLoginItem: NSMenuItem?
+    private var cancellables = Set<AnyCancellable>()
     private let updateService = UpdateService()
+    private lazy var settingsWindowController = SettingsWindowController(
+        settings: settings,
+        onExport: { [weak self] in self?.exportData() },
+        onImport: { [weak self] in self?.importData() }
+    )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         LegacyMigration.runIfNeeded()
-        controller = NotchController()
+        controller = NotchController(settings: settings)
         controller?.install()
+        installGlobalHotKey()
         installStatusItem()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
@@ -21,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        hotKey.onPress = nil
         controller?.teardown()
     }
 
@@ -40,17 +53,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         toggle.isEnabled = true
         menu.addItem(toggle)
 
+        let preferences = NSMenuItem(title: localized("Settings…"), action: #selector(openSettings), keyEquivalent: ",")
+        preferences.target = self
+        preferences.isEnabled = true
+        menu.addItem(preferences)
+
+        menu.addItem(.separator())
+
         let login = NSMenuItem(title: localized("Launch at Login"), action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         login.target = self
         login.state = launchAtLoginEnabled ? .on : .off
         login.isEnabled = true
         menu.addItem(login)
+        launchAtLoginItem = login
 
         let saveShots = NSMenuItem(title: localized("Save Clipboard Screenshots"), action: #selector(toggleSaveClipboardImages), keyEquivalent: "")
         saveShots.target = self
-        saveShots.state = NotchViewModel.saveClipboardImagesEnabled ? .on : .off
+        saveShots.state = settings.saveClipboardImages ? .on : .off
         saveShots.isEnabled = true
         menu.addItem(saveShots)
+        saveShotsItem = saveShots
 
         let openFolder = NSMenuItem(title: localized("Show Screenshots Folder"), action: #selector(revealScreenshots), keyEquivalent: "")
         openFolder.target = self
@@ -107,6 +129,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        launchAtLoginItem?.state = launchAtLoginEnabled ? .on : .off
+        saveShotsItem?.state = settings.saveClipboardImages ? .on : .off
         if let networkAccessItem {
             networkAccessItem.state = updateService.consent == .allowed ? .on : .off
         }
@@ -124,6 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func togglePanel() { controller?.toggle() }
+    @objc private func openSettings() { settingsWindowController.show() }
 
     @objc private func clearScreenshots() {
         ScreenshotVault.clear()
@@ -133,8 +158,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func quit() { NSApp.terminate(nil) }
 
     @objc private func toggleSaveClipboardImages(_ sender: NSMenuItem) {
-        UserDefaults.standard.set(!NotchViewModel.saveClipboardImagesEnabled, forKey: NotchViewModel.saveClipboardImagesKey)
-        sender.state = NotchViewModel.saveClipboardImagesEnabled ? .on : .off
+        settings.saveClipboardImages.toggle()
+        sender.state = settings.saveClipboardImages ? .on : .off
     }
 
     @objc private func revealScreenshots() { ScreenshotVault.reveal() }
@@ -160,6 +185,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSLog("Impuls: launch-at-login failed: \(error.localizedDescription)")
         }
         sender.state = launchAtLoginEnabled ? .on : .off
+    }
+
+    private func installGlobalHotKey() {
+        hotKey.onPress = { [weak self] in
+            Task { @MainActor in self?.controller?.toggleFromKeyboard() }
+        }
+        settings.$hotKey
+            .removeDuplicates()
+            .sink { [weak self] preset in
+                guard let self else { return }
+                let succeeded = self.hotKey.register(preset)
+                self.settings.reportHotKeyRegistration(succeeded: succeeded)
+                if !succeeded {
+                    NSLog("Impuls: global shortcut registration failed with status \(self.hotKey.registrationStatus)")
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func exportData() {
+        guard let document = controller?.makeBackup(settings: settings.snapshot) else { return }
+        BackupService.export(document, from: settingsWindowController.presentedWindow)
+    }
+
+    private func importData() {
+        BackupService.importData(from: settingsWindowController.presentedWindow) { [weak self] document in
+            self?.controller?.restore(document)
+        }
     }
 }
 

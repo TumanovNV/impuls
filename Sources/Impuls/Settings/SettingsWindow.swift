@@ -1,0 +1,324 @@
+import AppKit
+import ServiceManagement
+import SwiftUI
+
+@MainActor
+final class SettingsWindowController: NSObject, NSWindowDelegate {
+    private let settings: SettingsStore
+    private let onExport: () -> Void
+    private let onImport: () -> Void
+    private var window: NSWindow?
+
+    init(settings: SettingsStore, onExport: @escaping () -> Void, onImport: @escaping () -> Void) {
+        self.settings = settings
+        self.onExport = onExport
+        self.onImport = onImport
+    }
+
+    var presentedWindow: NSWindow? { window }
+
+    func show() {
+        settings.refreshDisplays()
+        if let window {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let view = SettingsView(settings: settings, onExport: onExport, onImport: onImport)
+        let hosting = NSHostingController(rootView: view)
+        let window = NSWindow(contentViewController: hosting)
+        window.title = localized("Impuls Settings")
+        window.setContentSize(NSSize(width: 680, height: 510))
+        window.minSize = NSSize(width: 620, height: 470)
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
+        window.isReleasedWhenClosed = false
+        window.center()
+        window.delegate = self
+        self.window = window
+
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+}
+
+private struct SettingsView: View {
+    @ObservedObject var settings: SettingsStore
+    @StateObject private var permissions = PermissionCenter()
+    let onExport: () -> Void
+    let onImport: () -> Void
+
+    var body: some View {
+        TabView {
+            GeneralSettingsPane(settings: settings)
+                .tabItem { Label("General", systemImage: "gearshape") }
+            ModuleSettingsPane(settings: settings)
+                .tabItem { Label("Modules", systemImage: "square.grid.2x2") }
+            PermissionSettingsPane(permissions: permissions)
+                .tabItem { Label("Permissions", systemImage: "hand.raised") }
+            DataSettingsPane(onExport: onExport, onImport: onImport)
+                .tabItem { Label("Data", systemImage: "externaldrive") }
+        }
+        .padding(18)
+        .frame(minWidth: 600, minHeight: 430)
+    }
+}
+
+private struct GeneralSettingsPane: View {
+    @ObservedObject var settings: SettingsStore
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var launchError = ""
+
+    var body: some View {
+        Form {
+            Section("Access") {
+                Picker("Global Shortcut", selection: $settings.hotKey) {
+                    ForEach(SettingsStore.HotKeyPreset.allCases) { preset in
+                        Text(preset.title).tag(preset)
+                    }
+                }
+                Picker("Open Panel", selection: $settings.activationMode) {
+                    ForEach(SettingsStore.ActivationMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                Picker("Hover Delay", selection: $settings.openDelay) {
+                    ForEach(SettingsStore.OpenDelay.allCases) { delay in
+                        Text(delay.title).tag(delay)
+                    }
+                }
+                .disabled(settings.activationMode == .shortcutOnly)
+                Text("With the panel opened from the keyboard, use ← and → to move between modules, then Esc to close it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let error = settings.hotKeyError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
+            Section("Appearance") {
+                Picker("Panel Size", selection: $settings.panelSize) {
+                    ForEach(SettingsStore.PanelSize.allCases) { size in
+                        Text(size.title).tag(size)
+                    }
+                }
+                Picker("Display", selection: $settings.selectedDisplayID) {
+                    Text("Automatic").tag(UInt32?.none)
+                    ForEach(settings.displays) { display in
+                        Text(display.name).tag(Optional(display.id))
+                    }
+                }
+            }
+
+            Section("Startup and Storage") {
+                Toggle("Launch at Login", isOn: Binding(
+                    get: { launchAtLogin },
+                    set: { updateLaunchAtLogin($0) }
+                ))
+                Toggle("Save Clipboard Screenshots", isOn: $settings.saveClipboardImages)
+                if !launchError.isEmpty {
+                    Text(launchError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
+    }
+
+    private func updateLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+            launchError = ""
+        } catch {
+            launchError = error.localizedDescription
+        }
+        launchAtLogin = SMAppService.mainApp.status == .enabled
+    }
+}
+
+private struct ModuleSettingsPane: View {
+    @ObservedObject var settings: SettingsStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Choose which modules are shown and arrange them in the order you use them.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            List {
+                ForEach(settings.modules) { preference in
+                    moduleRow(preference)
+                }
+            }
+            .listStyle(.inset)
+
+            Text("At least one module must remain enabled. The first six modules appear on the left rail; any remaining module appears on the right.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(8)
+    }
+
+    private func moduleRow(_ preference: ModulePreference) -> some View {
+        let index = settings.modules.firstIndex(where: { $0.tab == preference.tab }) ?? 0
+        let isOnlyEnabled = preference.isEnabled && settings.enabledTabs.count == 1
+        return HStack(spacing: 10) {
+            Toggle(isOn: Binding(
+                get: { preference.isEnabled },
+                set: { settings.setModule(preference.tab, enabled: $0) }
+            )) {
+                Label {
+                    Text(preference.tab.title)
+                } icon: {
+                    Image(systemName: preference.tab.symbol)
+                }
+            }
+            .toggleStyle(.switch)
+            .disabled(isOnlyEnabled)
+
+            Spacer()
+
+            Button { settings.moveModule(preference.tab, offset: -1) } label: {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(.borderless)
+            .disabled(index == 0)
+            .help(localized("Move Up"))
+
+            Button { settings.moveModule(preference.tab, offset: 1) } label: {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(.borderless)
+            .disabled(index == settings.modules.count - 1)
+            .help(localized("Move Down"))
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct PermissionSettingsPane: View {
+    @ObservedObject var permissions: PermissionCenter
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Impuls requests a system permission only when you use the related function.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+
+            permissionRow(
+                title: localized("Calendar"),
+                detail: localized("Shows upcoming meetings inside the Calendar module."),
+                symbol: "calendar",
+                state: permissions.calendar,
+                primaryTitle: permissions.calendar == .notRequested ? localized("Allow") : nil,
+                primaryAction: permissions.requestCalendar,
+                settingsAction: permissions.openCalendarSettings
+            )
+
+            permissionRow(
+                title: localized("Accessibility"),
+                detail: localized("Lets media controls send standard system media keys when no supported player is active."),
+                symbol: "accessibility",
+                state: permissions.accessibility,
+                primaryTitle: permissions.accessibility == .allowed ? nil : localized("Allow"),
+                primaryAction: permissions.requestAccessibility,
+                settingsAction: permissions.openAccessibilitySettings
+            )
+
+            permissionRow(
+                title: localized("Notifications"),
+                detail: localized("Will be used for meeting reminders in Impuls 1.2. No permission is requested yet."),
+                symbol: "bell",
+                state: permissions.notifications,
+                primaryTitle: nil,
+                primaryAction: {},
+                settingsAction: permissions.openNotificationSettings
+            )
+
+            Spacer()
+            HStack {
+                Spacer()
+                Button("Refresh Status") { permissions.refresh() }
+            }
+        }
+        .padding(8)
+        .onAppear { permissions.refresh() }
+    }
+
+    private func permissionRow(
+        title: String,
+        detail: String,
+        symbol: String,
+        state: PermissionCenter.State,
+        primaryTitle: String?,
+        primaryAction: @escaping () -> Void,
+        settingsAction: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 20))
+                .frame(width: 30)
+                .foregroundStyle(.secondary)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.headline)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 12)
+
+            VStack(alignment: .trailing, spacing: 6) {
+                Label(state.title, systemImage: state == .allowed ? "checkmark.circle.fill" : "circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(state == .allowed ? .green : .secondary)
+                HStack(spacing: 8) {
+                    if let primaryTitle {
+                        Button(primaryTitle, action: primaryAction)
+                    }
+                    if state == .denied || state == .restricted || title == localized("Accessibility") {
+                        Button("Open Settings", action: settingsAction)
+                    }
+                }
+                .controlSize(.small)
+            }
+        }
+        .padding(12)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+private struct DataSettingsPane: View {
+    let onExport: () -> Void
+    let onImport: () -> Void
+
+    var body: some View {
+        Form {
+            Section("Backup") {
+                Text("A backup contains panel settings, module order, snippets, and notes. Clipboard history, shelf files, and screenshots are not copied.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Button("Export Data…", action: onExport)
+                    Button("Import Data…", action: onImport)
+                }
+            }
+
+            Section("Privacy") {
+                Text("The backup is a local JSON file. Impuls does not upload it or send it over the network.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}

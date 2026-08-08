@@ -2,6 +2,12 @@ import AppKit
 
 /// Borderless, non-activating panel that lives above the menu bar on every space.
 final class NotchPanel: NSPanel {
+    enum KeyCommand {
+        case previousModule
+        case nextModule
+        case close
+    }
+
     /// Off by default: taking key status dims the title bar of whatever the
     /// user is working in and stops their insertion point blinking, which is
     /// far too rude for a panel one merely hovers. The translate tab needs
@@ -39,6 +45,9 @@ final class NotchPanel: NSPanel {
         static let x: UInt16 = 7
         static let c: UInt16 = 8
         static let v: UInt16 = 9
+        static let escape: UInt16 = 53
+        static let leftArrow: UInt16 = 123
+        static let rightArrow: UInt16 = 124
     }
 
     /// ⌘A, ⌘X, ⌘C, ⌘V and ⌘Z are ordinarily key equivalents of the Edit menu,
@@ -57,13 +66,36 @@ final class NotchPanel: NSPanel {
     /// mouse down first — so the one place a click on the field can reliably
     /// be noticed is here, where every event the window receives passes.
     var onPress: (() -> Void)?
+    var onKeyCommand: ((KeyCommand) -> Void)?
 
     override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, let command = navigationCommand(for: event) {
+            onKeyCommand?(command)
+            return
+        }
         if event.type == .keyDown, editingAction(for: event) != nil, perform(event) { return }
         // Before `super`, so the window is already key by the time the click
         // reaches the field and places a caret.
         if event.type == .leftMouseDown { onPress?() }
         super.sendEvent(event)
+    }
+
+    private func navigationCommand(for event: NSEvent) -> KeyCommand? {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let isEditingText = firstResponder is NSTextView
+
+        if event.keyCode == Key.escape { return .close }
+
+        let navigationFlags = flags.subtracting(.shift)
+        let usesControlNavigation = navigationFlags == .control
+        let usesPlainNavigation = flags.isEmpty && !isEditingText
+        guard usesControlNavigation || usesPlainNavigation else { return nil }
+
+        switch event.keyCode {
+        case Key.leftArrow: return .previousModule
+        case Key.rightArrow: return .nextModule
+        default: return nil
+        }
     }
 
     private func editingAction(for event: NSEvent) -> Selector? {

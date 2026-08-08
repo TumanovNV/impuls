@@ -24,6 +24,12 @@ final class PointerWatcher {
     /// tracks where the pointer is, and the panel is opened and closed by other
     /// things too — a drag, the menu bar, a tab that wants the keyboard.
     var isPanelOpen: () -> Bool = { false }
+    /// A shortcut-only configuration does not use the pointer as an open/close
+    /// authority. The panel stays up until its shortcut or Escape is pressed.
+    var tracksPanelExit = true
+    /// A keyboard-opened panel must not disappear merely because the pointer
+    /// is still in the document where the shortcut was pressed.
+    var keepsOpenWithoutPointer: () -> Bool = { false }
 
     /// Short enough to feel immediate, long enough that a pointer sweeping
     /// across the top of the screen does not trigger the panel.
@@ -127,6 +133,11 @@ final class PointerWatcher {
             onInteractiveChange?(interactive)
         }
 
+        if isPanelOpen(), (!tracksPanelExit || keepsOpenWithoutPointer()) {
+            awaitingSince = nil
+            return
+        }
+
         let inside = (isInside ? closeRect : openRect).contains(point)
 
         // Whether the panel is open and where the pointer is are two separate
@@ -139,7 +150,12 @@ final class PointerWatcher {
         // the pointer is the authority, so say so again.
         // A drag is the one time the panel is meant to stand open with the
         // pointer off it: it was opened to be dropped onto.
-        if !inside, !isInside, !isDragging(), isPanelOpen() {
+        if tracksPanelExit,
+           !inside,
+           !isInside,
+           !isDragging(),
+           !keepsOpenWithoutPointer(),
+           isPanelOpen() {
             guard let start = awaitingSince else {
                 awaitingSince = Date()
                 return
@@ -164,4 +180,3 @@ final class PointerWatcher {
         onChange?(inside)
     }
 }
-

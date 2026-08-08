@@ -161,7 +161,7 @@ final class UpdateService {
         alert.runModal()
     }
 
-    private static func isAllowedReleaseURL(_ url: URL) -> Bool {
+    nonisolated private static func isAllowedReleaseURL(_ url: URL) -> Bool {
         guard url.scheme == "https",
               url.host == "github.com" else { return false }
 

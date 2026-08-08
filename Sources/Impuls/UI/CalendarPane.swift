@@ -160,7 +160,7 @@ struct CalendarPane: View {
             Text("See your next meetings")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.secondary)
-            Text("Impuls needs access to Calendar. It is the only permission\nthe app asks for, and only for this tab.")
+            Text("Impuls needs access to Calendar. It is used only for this tab,\nand calendar data stays on this Mac.")
                 .font(.system(size: 10))
                 .foregroundStyle(Theme.tertiary)
                 .multilineTextAlignment(.center)

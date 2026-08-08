@@ -24,6 +24,16 @@ playback data, analytics identifiers, or hardware serial numbers.
 - shelf references and preferences are stored in macOS UserDefaults;
 - clipboard history is held in memory and is not uploaded;
 - concealed password-manager entries are excluded.
+- an exported backup is a user-selected local JSON file containing settings,
+  snippets, and notes; Impuls never uploads it.
+
+## System permissions
+
+- Calendar access is requested only from the Calendar module or Settings;
+- Accessibility is requested only when the user explicitly enables support for
+  standard system media-key events;
+- notification permission is not requested in Impuls 1.1 and remains reserved
+  for the opt-in reminder functions planned for Impuls 1.2.
 
 Notes and snippets are not encrypted by Impuls. FileVault is recommended for
 protection at rest. Secrets, passwords, recovery codes, and private keys should
