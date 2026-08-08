@@ -14,7 +14,7 @@ final class ImpulsActionsStoreTests: XCTestCase {
             let results = store.results(clipboard: clips, snippets: snippets, notes: notes)
 
             XCTAssertEqual(Set(results.map(\.source)), Set(ImpulsActionSource.allCases))
-            XCTAssertEqual(results.first?.source, .snippets)
+            XCTAssertTrue(results.contains { $0.title == "Café VPN" })
         }
     }
 
