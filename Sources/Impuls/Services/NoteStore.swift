@@ -44,11 +44,13 @@ final class NoteStore: ObservableObject {
     /// A new empty note, selected and ready to type into. Newest on top, and
     /// the order never changes afterwards: a list that reshuffles itself on
     /// every edit loses the reader's place for tidiness nobody asked for.
-    func add() {
-        let note = Note(id: UUID(), text: "", edited: Date())
+    @discardableResult
+    func add(text: String = "") -> Note.ID {
+        let note = Note(id: UUID(), text: text, edited: Date())
         notes.insert(note, at: 0)
         selected = note.id
         scheduleSave()
+        return note.id
     }
 
     func update(_ id: Note.ID, text: String) {

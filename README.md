@@ -3,8 +3,8 @@
 *English · [Русский](README.ru.md)*
 
 Impuls is a native macOS utility that turns the area around the MacBook notch —
-or a compact top-edge tab on other Macs — into a player, file shelf, clipboard
-history, snippets, calendar, translator, and scratchpad.
+or a compact top-edge tab on other Macs — into a local action search, player,
+file shelf, clipboard history, snippets, calendar, translator, and scratchpad.
 
 > Public releases are currently ad-hoc signed and are not notarized by Apple.
 > macOS therefore requires manual Gatekeeper approval. Trusted automatic
@@ -23,9 +23,17 @@ history, snippets, calendar, translator, and scratchpad.
 
 See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the precise model.
 
+## Impuls Actions
+
+Impuls 1.2 adds one local search across clipboard history, snippets, and notes.
+The global shortcut opens Actions directly; Up and Down select a result, Enter
+copies it, and the action bar can save it as a snippet, create a note, translate
+text, open links or files, and reveal files in Finder. The index is built from
+the live local stores and is never uploaded or persisted as another database.
+
 ## Settings and keyboard control
 
-Impuls 1.1 adds a native Settings window. It can configure the global shortcut,
+The native Settings window can configure the global shortcut,
 hover behaviour, panel size, target display, visible modules, and their order.
 When opened from the keyboard, use the left and right arrows to move between
 modules and Escape to close the panel. Settings, snippets, and notes can be

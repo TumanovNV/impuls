@@ -125,6 +125,7 @@
 "Global Shortcut" = "Global Shortcut";
 "Hover Delay" = "Hover Delay";
 "With the panel opened from the keyboard, use ← and → to move between modules, then Esc to close it." = "With the panel opened from the keyboard, use ← and → to move between modules, then Esc to close it.";
+"The shortcut opens Actions. Use ↑ and ↓ to choose, Enter to copy, ← and → to change modules, and Esc to close." = "The shortcut opens Actions. Use ↑ and ↓ to choose, Enter to copy, ← and → to change modules, and Esc to close.";
 "Appearance" = "Appearance";
 "Panel Size" = "Panel Size";
 "Display" = "Display";
@@ -139,12 +140,12 @@
 "Denied" = "Denied";
 "Not Requested" = "Not Requested";
 "Restricted" = "Restricted";
-"Reserved for Impuls 1.2" = "Reserved for Impuls 1.2";
+"Planned" = "Planned";
 "Shows upcoming meetings inside the Calendar module." = "Shows upcoming meetings inside the Calendar module.";
 "Accessibility" = "Accessibility";
 "Lets media controls send standard system media keys when no supported player is active." = "Lets media controls send standard system media keys when no supported player is active.";
 "Notifications" = "Notifications";
-"Will be used for meeting reminders in Impuls 1.2. No permission is requested yet." = "Will be used for meeting reminders in Impuls 1.2. No permission is requested yet.";
+"Will be used for optional meeting reminders in a later update. No permission is requested yet." = "Will be used for optional meeting reminders in a later update. No permission is requested yet.";
 "Open Settings" = "Open Settings";
 "Refresh Status" = "Refresh Status";
 "Backup" = "Backup";
@@ -166,3 +167,19 @@
 "This shortcut is already used by macOS or another application." = "This shortcut is already used by macOS or another application.";
 "The selected backup is larger than 10 MB." = "The selected backup is larger than 10 MB.";
 "The selected backup contains too many notes or snippets." = "The selected backup contains too many notes or snippets.";
+
+/* Impuls Actions */
+"Actions" = "Actions";
+"Search clipboard, snippets, and notes" = "Search clipboard, snippets, and notes";
+"Clear Search" = "Clear Search";
+"No matching content" = "No matching content";
+"To Snippets" = "To Snippets";
+"To Notes" = "To Notes";
+"Open" = "Open";
+"Show in Finder" = "Show in Finder";
+"Copied" = "Copied";
+"Saved to Snippets" = "Saved to Snippets";
+"Saved to Notes" = "Saved to Notes";
+"Opened" = "Opened";
+"Shown in Finder" = "Shown in Finder";
+"Enable Translate in Settings" = "Enable Translate in Settings";

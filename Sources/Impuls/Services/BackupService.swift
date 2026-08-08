@@ -2,7 +2,8 @@ import AppKit
 import UniformTypeIdentifiers
 
 struct ImpulsBackupDocument: Codable, Equatable {
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 2
+    static let supportedSchemaVersions = 1...currentSchemaVersion
 
     let schemaVersion: Int
     let createdAt: Date
@@ -31,7 +32,7 @@ struct ImpulsBackupDocument: Codable, Equatable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let document = try decoder.decode(ImpulsBackupDocument.self, from: data)
-        guard document.schemaVersion == currentSchemaVersion else {
+        guard supportedSchemaVersions.contains(document.schemaVersion) else {
             throw BackupError.unsupportedSchema(document.schemaVersion)
         }
         guard document.notes.count <= 5_000, document.snippets.count <= 5_000 else {
