@@ -155,7 +155,7 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Contents/Info.plist")" = io.tumanov.impuls
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")" = "$VERSION"
           test "$(/usr/libexec/PlistBuddy -c 'Print SUFeedURL' "$APP/Contents/Info.plist")" = 'https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml'
-          test "$(/usr/libexec/PlistBuddy -c 'Print SUPublicEDKey' "$APP/Contents/Info.plist")" = '0DYvURjJ3IEoRET6KVmsYuNLpllj9lpXLxZ8yvYJbTA='
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUPublicEDKey' "$APP/Contents/Info.plist")" = '/fAb0WKLYV8FTT+VkvGKgtIXfsiVG74NlJ+to0BusDg='
           test "$(/usr/libexec/PlistBuddy -c 'Print SUEnableAutomaticChecks' "$APP/Contents/Info.plist")" = false
           test "$(/usr/libexec/PlistBuddy -c 'Print SUAutomaticallyUpdate' "$APP/Contents/Info.plist")" = false
           test "$(/usr/libexec/PlistBuddy -c 'Print SUAllowsAutomaticUpdates' "$APP/Contents/Info.plist")" = false
