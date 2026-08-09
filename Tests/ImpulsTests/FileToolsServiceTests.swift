@@ -83,6 +83,16 @@ final class FileToolsServiceTests: XCTestCase {
         }
     }
 
+    func testFullImageDecodeHasAPixelSafetyLimit() throws {
+        XCTAssertNoThrow(try FileToolsService.validateImageDimensions(width: 8_000, height: 8_000))
+        XCTAssertThrowsError(
+            try FileToolsService.validateImageDimensions(width: 10_000, height: 10_000)
+        ) { error in
+            XCTAssertEqual(error as? FileToolsError, .imageTooLarge)
+        }
+        XCTAssertThrowsError(try FileToolsService.validateImageDimensions(width: 0, height: 100))
+    }
+
     func testGeneratedFileRecordDetectsAChangedFile() throws {
         let output = temporaryDirectory.appendingPathComponent("generated.bin")
         try Data([0]).write(to: output)

@@ -24,6 +24,8 @@ struct ShelfItem: Identifiable, Equatable {
 /// holding area, so moving the original away simply removes it from the shelf.
 @MainActor
 final class ShelfStore: ObservableObject {
+    private static let maximumInlinePasteboardBytes = 64 * 1_024 * 1_024
+
     @Published private(set) var items: [ShelfItem] = []
     /// Cards picked for a group drag. Empty means "drag whatever is grabbed".
     @Published private(set) var selection: Set<UUID> = []
@@ -153,8 +155,10 @@ final class ShelfStore: ObservableObject {
         pasteboard.writeObjects([item.url as NSURL])
         if let type = UTType(filenameExtension: item.url.pathExtension),
            type.conforms(to: .image),
+           let size = try? item.url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+           size <= Self.maximumInlinePasteboardBytes,
            let data = try? Data(contentsOf: item.url) {
-            pasteboard.setData(data, forType: type == .png ? .png : .tiff)
+            pasteboard.setData(data, forType: NSPasteboard.PasteboardType(type.identifier))
         }
     }
 

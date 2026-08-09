@@ -41,6 +41,31 @@ jobs:
           fi
           grep -F 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources/Impuls/Services/UpdateService.swift
 
+      - name: Verify the feedback privacy boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=Sources/Impuls/Services/FeedbackService.swift
+          grep -F 'https://github.com/TumanovNV/impuls/issues/new' "$FILE"
+          grep -F 'No clipboard contents, notes, file names, file paths, calendar data, device identifiers, or logs were added automatically.' "$FILE"
+          if grep -En 'URLSession|URLRequest|IOKit|IOPlatformSerialNumber|hostName|machineIdentifier' "$FILE"; then
+            echo "Feedback collects or transmits data outside its allow-list" >&2
+            exit 1
+          fi
+
+      - name: Verify release and feedback metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^VERSION=//p' Scripts/version)"
+          test -s "docs/releases/$VERSION.md"
+          grep -F "const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';" docs/index.html
+          grep -F 'function releaseHash(asset,body)' docs/index.html
+          grep -F 'data-conversion="feedback"' docs/index.html
+          test -s .github/ISSUE_TEMPLATE/bug_report.yml
+          test -s .github/ISSUE_TEMPLATE/feature_request.yml
+          test -s .github/ISSUE_TEMPLATE/experience.yml
+
       - name: Verify adaptive panel appearance
         shell: bash
         run: |

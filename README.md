@@ -51,6 +51,21 @@ progress, adds system Quick Look, and can safely undo the latest generated-file
 or rename operation. Generated results are moved to the Trash only while they
 remain unchanged; Impuls refuses to touch a file the user has modified.
 
+## Stability and feedback
+
+Impuls 1.2.4 is a stabilization release. Full-resolution operations validate
+image dimensions before decoding, clipboard history rejects excessive payloads,
+and update checks use an isolated session with response limits and no parallel
+requests.
+
+A feedback center in the menu and Settings collects a problem report, an
+improvement idea, or a general rating. The report is built locally and shown
+before it leaves the Mac. Optional diagnostics are limited to the Impuls
+version, macOS version, and processor architecture. Clipboard contents, notes,
+files, paths, calendar data, logs, and device identifiers are never added.
+Impuls uploads nothing itself: after an explicit action it copies the report and
+opens the public GitHub form in the system browser.
+
 ## Settings and keyboard control
 
 The native Settings window can configure the global shortcut,

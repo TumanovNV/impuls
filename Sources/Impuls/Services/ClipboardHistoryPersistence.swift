@@ -47,6 +47,8 @@ enum ClipboardHistoryPersistenceError: Error {
 /// 256-bit encryption key never enters UserDefaults or the archive itself; it
 /// lives as a device-only generic password in the user's macOS Keychain.
 final class ClipboardHistoryPersistence {
+    private static let maximumArchiveBytes = 64 * 1_024 * 1_024
+
     private let fileURL: URL
     private let service = "io.tumanov.impuls.clipboard-history"
     private let account = "archive-key.v1"
@@ -56,7 +58,9 @@ final class ClipboardHistoryPersistence {
     }
 
     func load() -> [ClipItem] {
-        guard let encrypted = try? Data(contentsOf: fileURL) else { return [] }
+        guard let size = try? fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+              size <= Self.maximumArchiveBytes,
+              let encrypted = try? Data(contentsOf: fileURL, options: .mappedIfSafe) else { return [] }
         do {
             let key = try keyData(createIfMissing: false)
             return try EncryptedClipboardArchive.open(encrypted, keyData: key).items

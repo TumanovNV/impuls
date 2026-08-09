@@ -1,5 +1,17 @@
 import AppKit
 
+private final class UpdateSessionDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        completionHandler(UpdateService.isAllowedAPIURL(request.url) ? request : nil)
+    }
+}
+
 @MainActor
 final class UpdateService {
     enum Consent: String {
@@ -11,6 +23,7 @@ final class UpdateService {
         case accessDenied
         case rateLimited
         case invalidResponse
+        case responseTooLarge
         case server(statusCode: Int)
 
         var errorDescription: String? {
@@ -23,6 +36,8 @@ final class UpdateService {
                 return localized("GitHub temporarily limited update checks. Please try again later.")
             case .invalidResponse:
                 return localized("The update server returned an invalid response.")
+            case .responseTooLarge:
+                return localized("The update server response was unexpectedly large.")
             case .server(let statusCode):
                 return localized("The update server returned HTTP status %d.", statusCode)
             }
@@ -32,18 +47,37 @@ final class UpdateService {
     private struct Release: Decodable {
         let tagName: String
         let htmlURL: URL
-        let name: String?
         let body: String?
 
         enum CodingKeys: String, CodingKey {
             case tagName = "tag_name"
             case htmlURL = "html_url"
-            case name, body
+            case body
         }
     }
 
     private static let consentKey = "updates.networkConsent"
     private static let releaseURL = URL(string: "https://api.github.com/repos/TumanovNV/impuls/releases/latest")!
+    private static let maximumResponseBytes: Int64 = 512 * 1_024
+
+    private let sessionDelegate: UpdateSessionDelegate
+    private let session: URLSession
+    private var activeTask: URLSessionDataTask?
+    private var checkGeneration = 0
+
+    init() {
+        let delegate = UpdateSessionDelegate()
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = 15
+        configuration.timeoutIntervalForResource = 20
+        configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
+        configuration.urlCache = nil
+        configuration.httpShouldSetCookies = false
+        configuration.httpCookieStorage = nil
+        configuration.httpShouldUsePipelining = true
+        sessionDelegate = delegate
+        session = URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
+    }
 
     var consent: Consent {
         get { Consent(rawValue: UserDefaults.standard.string(forKey: Self.consentKey) ?? "") ?? .unknown }
@@ -68,6 +102,11 @@ final class UpdateService {
 
     func setNetworkAccess(_ allowed: Bool) {
         consent = allowed ? .allowed : .denied
+        if !allowed {
+            checkGeneration += 1
+            activeTask?.cancel()
+            activeTask = nil
+        }
     }
 
     func checkForUpdates(silentWhenCurrent: Bool = false) {
@@ -75,18 +114,20 @@ final class UpdateService {
             showOfflineAlert()
             return
         }
+        guard activeTask == nil else { return }
 
         var request = URLRequest(url: Self.releaseURL)
-        request.timeoutInterval = 15
-        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("Impuls/\(Bundle.main.shortVersion)", forHTTPHeaderField: "User-Agent")
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
+        checkGeneration += 1
+        let generation = checkGeneration
+        let task = session.dataTask(with: request) { data, response, error in
             let result: Result<Release, Error>
             do {
                 if let error { throw error }
-                guard let http = response as? HTTPURLResponse else {
+                guard let http = response as? HTTPURLResponse,
+                      Self.isAllowedAPIURL(http.url) else {
                     throw UpdateError.invalidResponse
                 }
 
@@ -104,6 +145,10 @@ final class UpdateService {
                 }
 
                 guard let data else { throw UpdateError.invalidResponse }
+                if http.expectedContentLength > Self.maximumResponseBytes
+                    || Int64(data.count) > Self.maximumResponseBytes {
+                    throw UpdateError.responseTooLarge
+                }
                 let release = try JSONDecoder().decode(Release.self, from: data)
                 guard Self.isAllowedReleaseURL(release.htmlURL) else {
                     throw UpdateError.invalidResponse
@@ -114,9 +159,13 @@ final class UpdateService {
             }
 
             DispatchQueue.main.async { [weak self] in
-                self?.present(result, silentWhenCurrent: silentWhenCurrent)
+                guard let self, self.checkGeneration == generation else { return }
+                self.activeTask = nil
+                self.present(result, silentWhenCurrent: silentWhenCurrent)
             }
-        }.resume()
+        }
+        activeTask = task
+        task.resume()
     }
 
     private func present(_ result: Result<Release, Error>, silentWhenCurrent: Bool) {
@@ -161,7 +210,19 @@ final class UpdateService {
         alert.runModal()
     }
 
-    nonisolated private static func isAllowedReleaseURL(_ url: URL) -> Bool {
+    nonisolated static func isAllowedAPIURL(_ url: URL?) -> Bool {
+        guard let url else { return false }
+        return url.scheme == releaseURL.scheme
+            && url.host == releaseURL.host
+            && url.port == releaseURL.port
+            && url.path == releaseURL.path
+            && url.query == nil
+            && url.fragment == nil
+            && url.user == nil
+            && url.password == nil
+    }
+
+    nonisolated static func isAllowedReleaseURL(_ url: URL) -> Bool {
         guard url.scheme == "https",
               url.host == "github.com" else { return false }
 
@@ -169,7 +230,7 @@ final class UpdateService {
         return url.path.hasPrefix(expectedPrefix)
     }
 
-    private static func isNewer(_ candidate: String, than current: String) -> Bool {
+    nonisolated static func isNewer(_ candidate: String, than current: String) -> Bool {
         candidate.compare(current, options: .numeric) == .orderedDescending
     }
 }

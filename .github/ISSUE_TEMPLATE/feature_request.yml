@@ -1,0 +1,54 @@
+name: Improvement idea / Предложить улучшение
+description: Explain the problem to solve before proposing a feature / Опишите задачу, которую нужно решить
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: GitHub issues are public. Do not include personal, confidential, or security-sensitive information.
+  - type: textarea
+    id: situation
+    attributes:
+      label: What are you trying to accomplish? / Какую задачу вы решаете?
+      description: Describe the workflow and where Impuls currently gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What result would help? / Какой результат был бы полезен?
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often do you need this? / Как часто это нужно?
+      options:
+        - Several times a day / Несколько раз в день
+        - Several times a week / Несколько раз в неделю
+        - Several times a month / Несколько раз в месяц
+        - Rarely / Редко
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Related area / Связанный раздел
+      options:
+        - Actions
+        - Shelf / Полка
+        - Clipboard / Буфер обмена
+        - Calendar / Календарь
+        - Media / Музыка
+        - Translate / Перевод
+        - Notes or Snippets / Заметки или заготовки
+        - Settings or other / Настройки или другое
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check / Проверка приватности
+      options:
+        - label: I removed personal, confidential, and security-sensitive data / Я удалил персональные, конфиденциальные и чувствительные данные
+          required: true
