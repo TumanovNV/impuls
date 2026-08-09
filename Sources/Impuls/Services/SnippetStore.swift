@@ -36,6 +36,8 @@ struct Snippet: Identifiable, Codable, Equatable {
 /// is closer at the time. Both edit the same list.
 @MainActor
 final class SnippetStore: ObservableObject {
+    private static let maximumFileBytes = 10 * 1_024 * 1_024
+
     @Published private(set) var items: [Snippet] = []
     @Published var query = ""
 
@@ -61,7 +63,10 @@ final class SnippetStore: ObservableObject {
     /// app, so the only sensible moment to trust what is in memory is the
     /// moment before it is shown.
     func reload() {
-        guard let data = try? Data(contentsOf: Self.file) else {
+        guard let data = try? BoundedFileReader.read(
+            from: Self.file,
+            maximumBytes: Self.maximumFileBytes
+        ) else {
             items = []
             return
         }

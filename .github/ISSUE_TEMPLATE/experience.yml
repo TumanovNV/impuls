@@ -1,0 +1,39 @@
+name: General feedback / Общее впечатление
+description: Tell us what feels useful, confusing, slow, or unnecessary / Расскажите, что полезно, непонятно, медленно или лишнее
+title: "[Feedback] "
+body:
+  - type: dropdown
+    id: rating
+    attributes:
+      label: Overall experience / Общая оценка
+      options:
+        - 5 — Excellent / Отлично
+        - 4 — Good / Хорошо
+        - 3 — Acceptable / Приемлемо
+        - 2 — Difficult / Неудобно
+        - 1 — Poor / Плохо
+    validations:
+      required: true
+  - type: textarea
+    id: useful
+    attributes:
+      label: What is most useful? / Что наиболее полезно?
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: What causes friction? / Что мешает?
+    validations:
+      required: true
+  - type: textarea
+    id: missing
+    attributes:
+      label: What should change first? / Что нужно изменить в первую очередь?
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check / Проверка приватности
+      options:
+        - label: I removed personal, confidential, and security-sensitive data / Я удалил персональные, конфиденциальные и чувствительные данные
+          required: true

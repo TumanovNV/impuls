@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct ImpulsBackupDocument: Codable, Equatable {
     static let currentSchemaVersion = 2
     static let supportedSchemaVersions = 1...currentSchemaVersion
+    static let maximumEncodedBytes = 10 * 1_024 * 1_024
 
     let schemaVersion: Int
     let createdAt: Date
@@ -28,7 +29,7 @@ struct ImpulsBackupDocument: Codable, Equatable {
     }
 
     static func decode(_ data: Data) throws -> ImpulsBackupDocument {
-        guard data.count <= 10 * 1_024 * 1_024 else { throw BackupError.fileTooLarge }
+        guard data.count <= maximumEncodedBytes else { throw BackupError.fileTooLarge }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let document = try decoder.decode(ImpulsBackupDocument.self, from: data)
@@ -42,7 +43,7 @@ struct ImpulsBackupDocument: Codable, Equatable {
     }
 }
 
-enum BackupError: LocalizedError {
+enum BackupError: LocalizedError, Equatable {
     case unsupportedSchema(Int)
     case fileTooLarge
     case tooManyItems
@@ -106,11 +107,16 @@ enum BackupService {
     }
 
     static func decode(contentsOf url: URL) throws -> ImpulsBackupDocument {
-        if let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
-           size > 10 * 1_024 * 1_024 {
+        let data: Data
+        do {
+            data = try BoundedFileReader.read(
+                from: url,
+                maximumBytes: ImpulsBackupDocument.maximumEncodedBytes
+            )
+        } catch BoundedDataError.limitExceeded {
             throw BackupError.fileTooLarge
         }
-        return try ImpulsBackupDocument.decode(Data(contentsOf: url))
+        return try ImpulsBackupDocument.decode(data)
     }
 
     private static func begin(_ panel: NSSavePanel, from window: NSWindow?, completion: @escaping (NSApplication.ModalResponse) -> Void) {

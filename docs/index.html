@@ -777,11 +777,11 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     <div class="privacy reveal">
       <div class="eyebrow" data-i="pr.eyebrow">Приватность по устройству, а не по обещанию</div>
       <h2 data-i="pr.h2">Рабочие данные не должны покидать ваш Mac</h2>
-      <p class="lead" data-i="pr.lead">Impuls видит буфер, заметки, файлы и календарь, поэтому эти данные обрабатываются локально. Единственный необязательный сетевой запрос — проверка новой версии на GitHub, которую вы разрешаете отдельно.</p>
+      <p class="lead" data-i="pr.lead">Impuls видит буфер, заметки, файлы и календарь, поэтому эти данные обрабатываются локально. Единственный необязательный сетевой запрос внутри приложения — проверка новой версии на GitHub; обратная связь открывает GitHub в браузере только после вашего действия.</p>
       <div class="checks">
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr1"><b>Ноль аналитики и телеметрии.</b> Нет рекламы и отпечатков устройства.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr2"><b>Сеть только с вашего согласия.</b> При первом запуске приложение спрашивает, можно ли проверять обновления. «Остаться офлайн» — и сетевых запросов не будет вовсе.</span></div>
-        <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr3"><b>Единственный адрес</b> — страница релизов Impuls на GitHub. Обновление не скачивается, пока вы не нажмёте.</span></div>
+        <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr3"><b>Единственный адрес внутри приложения</b> — API релизов Impuls на GitHub. Обновление не скачивается, пока вы не нажмёте.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr4"><b>Буфер, заметки, заготовки, файлы и календарь</b> не покидают Mac ни при каких условиях.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr5"><b>Скрытые записи менеджеров паролей</b> исключаются из истории буфера.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr6"><b>Индекс поиска эфемерный</b> — строится при показе панели и не сохраняется отдельной базой.</span></div>
@@ -880,7 +880,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
         <a href="site-privacy.html" data-i="ft.sitepriv">Данные сайта</a>
         <a href="https://github.com/TumanovNV/impuls/blob/main/PRIVACY.md" data-i="ft.priv">Приватность приложения</a>
         <a href="https://github.com/TumanovNV/impuls/blob/main/SECURITY.md" data-i="ft.sec">Безопасность</a>
-        <a href="https://github.com/TumanovNV/impuls/issues" data-i="ft.iss">Сообщить о проблеме</a>
+        <a href="https://github.com/TumanovNV/impuls/issues/new/choose" data-conversion="feedback" data-placement="footer" data-i="ft.iss">Обратная связь</a>
       </div>
     </div>
     <p class="fnote" data-i="ft.note">Impuls происходит от проекта akalikbergenov/cyclop. MIT-части сохраняют своё уведомление в THIRD_PARTY_NOTICES.md, новая работа распространяется под GPL-3.0-or-later. Лицензия на код не даёт прав на имя и оформление Impuls — см. TRADEMARKS.md. Apple, macOS, MacBook, Apple Music и Spotify — товарные знаки соответствующих владельцев.</p>
@@ -949,10 +949,10 @@ const I = {
   "trust.p4":"Work data stays on the Mac","trust.p4d":"Clipboard, files, notes, and calendar data are not sent to a server; update checks are enabled separately.",
   "pr.eyebrow":"Privacy by design, not by promise",
   "pr.h2":"Your work data should not leave your Mac",
-  "pr.lead":"Impuls can see your clipboard, notes, files, and calendar, so it processes that data locally. The only optional network request is a GitHub update check that you enable separately.",
+  "pr.lead":"Impuls can see your clipboard, notes, files, and calendar, so it processes that data locally. The only optional in-app network request is a GitHub update check that you enable separately; feedback opens GitHub in your browser only after you act.",
   "pr1":"<b>Zero analytics and telemetry.</b> No advertising, no device fingerprinting.",
   "pr2":"<b>Network only with your consent.</b> At first launch the app asks whether it may check for updates. Choose “Stay Offline” and no network request is made at all.",
-  "pr3":"<b>A single endpoint</b> — the Impuls GitHub Releases page. An update is never downloaded before you act.",
+  "pr3":"<b>A single in-app endpoint</b> — the Impuls GitHub Releases API. An update is never downloaded before you act.",
   "pr4":"<b>Clipboard, notes, snippets, files, and calendar</b> never leave the Mac under any circumstances.",
   "pr5":"<b>Concealed password-manager entries</b> are excluded from clipboard history.",
   "pr6":"<b>The search index is ephemeral</b> — built when the panel appears, never persisted as another database.",
@@ -982,7 +982,7 @@ const I = {
   "fin.dl":"Download Impuls 1.2.3 free","fin.rel":"All releases",
   "fin.note":"Free and open source · macOS 15+ · 2.3 MB · no account required",
   "ft.tag":"A native macOS utility. Local by default.",
-  "ft.rel":"Releases","ft.sitepriv":"Website data","ft.priv":"App privacy","ft.sec":"Security","ft.iss":"Report an issue",
+  "ft.rel":"Releases","ft.sitepriv":"Website data","ft.priv":"App privacy","ft.sec":"Security","ft.iss":"Feedback",
   "ft.note":"Impuls is derived from akalikbergenov/cyclop. Original MIT-licensed portions retain their notice in THIRD_PARTY_NOTICES.md; new Impuls work is distributed under GPL-3.0-or-later. The code license does not grant rights to the Impuls name or branding — see TRADEMARKS.md. Apple, macOS, MacBook, Apple Music, and Spotify are trademarks of their respective owners."
  }
 };

@@ -47,7 +47,30 @@ jobs:
             exit 1
           fi
           grep -F 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources/Impuls/Services/UpdateService.swift
+          grep -F 'URLSessionDataDelegate' Sources/Impuls/Services/UpdateService.swift
+          grep -F 'BoundedDataAccumulator(maximumBytes:' Sources/Impuls/Services/UpdateService.swift
+          grep -F 'BoundedFileReader.read' Sources/Impuls/Services/ClipboardHistoryPersistence.swift
+          grep -F 'static let maximumSearchCharacters = 16 * 1_024' Sources/Impuls/Services/ImpulsActionsStore.swift
+          grep -F 'clipboard-history.writer' Sources/Impuls/Services/ClipboardHistoryPersistence.swift
+          grep -F 'isAllowedMeetingURL' Sources/Impuls/Services/CalendarStore.swift
+          grep -F 'https://github.com/TumanovNV/impuls/issues/new' Sources/Impuls/Services/FeedbackService.swift
+          if grep -En 'URLSession|URLRequest|IOKit|IOPlatformSerialNumber|hostName|machineIdentifier' Sources/Impuls/Services/FeedbackService.swift; then
+            echo "Feedback collects or transmits data outside its allow-list" >&2
+            exit 1
+          fi
           ! grep -En 'https://|git@' Package.swift
+
+      - name: Verify release-facing metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "docs/releases/$VERSION.md"
+          grep -F "const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';" docs/index.html
+          grep -F 'function releaseHash(asset,body)' docs/index.html
+          grep -F 'data-conversion="feedback"' docs/index.html
+          test -s .github/ISSUE_TEMPLATE/bug_report.yml
+          test -s .github/ISSUE_TEMPLATE/feature_request.yml
+          test -s .github/ISSUE_TEMPLATE/experience.yml
 
       - name: Build application
         run: |
@@ -86,7 +109,7 @@ jobs:
           test -s "$APP/Contents/Resources/AppIcon.icns"
           test -s "$APP/Contents/Resources/ImpulsStatusTemplate.png"
           ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
-          codesign -d --entitlements :- "$APP" > "$ENTITLEMENTS"
+          codesign -d --entitlements - --xml "$APP" > "$ENTITLEMENTS"
           test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.personal-information.calendars' "$ENTITLEMENTS")" = true
           hdiutil verify "$DMG"
           shasum -a 256 "$DMG" > "$DMG.sha256"

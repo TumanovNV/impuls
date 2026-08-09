@@ -50,6 +50,7 @@ enum FileToolsError: LocalizedError, Equatable, Sendable {
     case notAnImage
     case couldNotReadImage
     case couldNotWriteImage
+    case imageTooLarge
     case imageAlreadyFits
     case noTextFound
     case noForegroundFound
@@ -64,6 +65,7 @@ enum FileToolsError: LocalizedError, Equatable, Sendable {
         case .notAnImage: return localized("The selected file is not a supported image.")
         case .couldNotReadImage: return localized("Impuls could not read this image.")
         case .couldNotWriteImage: return localized("Impuls could not write the converted image.")
+        case .imageTooLarge: return localized("The image is too large to process safely.")
         case .imageAlreadyFits: return localized("The image is already within the selected size.")
         case .noTextFound: return localized("No text was found in the image.")
         case .noForegroundFound: return localized("No foreground object was found.")
@@ -119,6 +121,12 @@ struct GeneratedFileRecord: Equatable, Sendable {
 /// operation writes to a new unique URL next to the source and never replaces
 /// the original file.
 enum FileToolsService {
+    /// A 64 MP RGBA bitmap is already roughly 256 MB before Vision/Core Image
+    /// working buffers. Larger originals can still use the thumbnail-based
+    /// resize path without a full-resolution decode.
+    static let maximumDecodedImagePixels = 64_000_000
+    private static let imageContext = CIContext(options: [.cacheIntermediates: false])
+
     static func isImage(_ url: URL) -> Bool {
         ClipboardContentClassifier.kind(for: url) == .image
     }
@@ -219,26 +227,28 @@ enum FileToolsService {
 
         do {
             for url in images {
-                let image = try loadImage(at: url)
-                context.beginPDFPage(nil)
-                let inset = mediaBox.insetBy(dx: 24, dy: 24)
-                let scale = min(
-                    inset.width / CGFloat(image.width),
-                    inset.height / CGFloat(image.height)
-                )
-                let size = CGSize(
-                    width: CGFloat(image.width) * scale,
-                    height: CGFloat(image.height) * scale
-                )
-                let rect = CGRect(
-                    x: mediaBox.midX - size.width / 2,
-                    y: mediaBox.midY - size.height / 2,
-                    width: size.width,
-                    height: size.height
-                )
-                context.interpolationQuality = .high
-                context.draw(image, in: rect)
-                context.endPDFPage()
+                try autoreleasepool {
+                    let image = try loadImage(at: url)
+                    context.beginPDFPage(nil)
+                    let inset = mediaBox.insetBy(dx: 24, dy: 24)
+                    let scale = min(
+                        inset.width / CGFloat(image.width),
+                        inset.height / CGFloat(image.height)
+                    )
+                    let size = CGSize(
+                        width: CGFloat(image.width) * scale,
+                        height: CGFloat(image.height) * scale
+                    )
+                    let rect = CGRect(
+                        x: mediaBox.midX - size.width / 2,
+                        y: mediaBox.midY - size.height / 2,
+                        width: size.width,
+                        height: size.height
+                    )
+                    context.interpolationQuality = .high
+                    context.draw(image, in: rect)
+                    context.endPDFPage()
+                }
             }
             context.closePDF()
         } catch {
@@ -273,7 +283,7 @@ enum FileToolsService {
                 kCIInputMaskImageKey: mask,
             ]
         )?.outputImage,
-        let result = CIContext().createCGImage(blended, from: foreground.extent) else {
+        let result = imageContext.createCGImage(blended, from: foreground.extent) else {
             throw FileToolsError.noForegroundFound
         }
 
@@ -319,13 +329,33 @@ enum FileToolsService {
 
     private static func loadImage(at url: URL) throws -> CGImage {
         guard isImage(url) else { throw FileToolsError.notAnImage }
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+            throw FileToolsError.couldNotReadImage
+        }
+        try validateImageDimensions(in: source)
+        guard
               let image = CGImageSourceCreateImageAtIndex(source, 0, [
                 kCGImageSourceShouldCache: true,
               ] as CFDictionary) else {
             throw FileToolsError.couldNotReadImage
         }
         return image
+    }
+
+    static func validateImageDimensions(width: Int, height: Int) throws {
+        guard width > 0, height > 0 else { throw FileToolsError.couldNotReadImage }
+        guard width <= maximumDecodedImagePixels / height else {
+            throw FileToolsError.imageTooLarge
+        }
+    }
+
+    static func validateImageDimensions(in source: CGImageSource) throws {
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber else {
+            throw FileToolsError.couldNotReadImage
+        }
+        try validateImageDimensions(width: width.intValue, height: height.intValue)
     }
 
     private static func outputFormat(for url: URL) -> ImageOutputFormat? {

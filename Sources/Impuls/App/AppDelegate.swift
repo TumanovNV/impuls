@@ -14,10 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var launchAtLoginItem: NSMenuItem?
     private var cancellables = Set<AnyCancellable>()
     private let updateService = UpdateService()
+    private lazy var feedbackWindowController = FeedbackWindowController()
     private lazy var settingsWindowController = SettingsWindowController(
         settings: settings,
         onExport: { [weak self] in self?.exportData() },
-        onImport: { [weak self] in self?.importData() }
+        onImport: { [weak self] in self?.importData() },
+        onFeedback: { [weak self] in self?.feedbackWindowController.show() }
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -57,6 +59,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         preferences.target = self
         preferences.isEnabled = true
         menu.addItem(preferences)
+
+        let feedback = NSMenuItem(title: localized("Send Feedback…"), action: #selector(openFeedback), keyEquivalent: "")
+        feedback.target = self
+        feedback.isEnabled = true
+        menu.addItem(feedback)
 
         menu.addItem(.separator())
 
@@ -149,6 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func togglePanel() { controller?.toggle() }
     @objc private func openSettings() { settingsWindowController.show() }
+    @objc private func openFeedback() { feedbackWindowController.show() }
 
     @objc private func clearScreenshots() {
         ScreenshotVault.clear()

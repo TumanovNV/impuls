@@ -147,6 +147,9 @@ struct ImpulsActionResult: Identifiable, Equatable {
 /// the live stores instead of maintaining another search database.
 @MainActor
 final class ImpulsActionsStore: ObservableObject {
+    static let maximumSearchCharacters = 16 * 1_024
+    static let maximumSummaryCharacters = 160
+
     @Published var query = ""
 
     private struct Ranked {
@@ -172,7 +175,7 @@ final class ImpulsActionsStore: ObservableObject {
         let tokens = needle.split(whereSeparator: \Character.isWhitespace).map(String.init)
         return all.enumerated().compactMap { order, result -> Ranked? in
             let title = Self.fold(result.title)
-            let content = Self.fold(searchableValue(of: result))
+            let content = Self.fold(Self.searchableValue(of: result))
             let kind = Self.fold(result.contentKind.title)
             let haystack = title + "\n" + content + "\n" + kind
             guard tokens.allSatisfy({ haystack.contains($0) }) else { return nil }
@@ -257,11 +260,20 @@ final class ImpulsActionsStore: ObservableObject {
         return clips + saved + drafts
     }
 
-    private func searchableValue(of result: ImpulsActionResult) -> String {
+    static func searchableValue(of result: ImpulsActionResult) -> String {
         switch result.value {
-        case .text(let text): return result.detail + "\n" + text
-        case .file(let url): return result.detail + "\n" + url.path
+        case .text(let text): return boundedSearchValue(detail: result.detail, value: text)
+        case .file(let url): return boundedSearchValue(detail: result.detail, value: url.path)
         }
+    }
+
+    private static func boundedSearchValue(detail: String, value: String) -> String {
+        var output = String(detail.prefix(maximumSearchCharacters))
+        guard output.count < maximumSearchCharacters else { return output }
+        output.append("\n")
+        let remaining = maximumSearchCharacters - output.count
+        if remaining > 0 { output.append(contentsOf: value.prefix(remaining)) }
+        return output
     }
 
     private func sourcePriority(_ source: ImpulsActionSource) -> Int {
@@ -273,10 +285,17 @@ final class ImpulsActionsStore: ObservableObject {
     }
 
     private static func summary(_ text: String) -> String {
-        let oneLine = text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .newlines)
-            .first ?? ""
+        var start = text.startIndex
+        while start < text.endIndex, text[start].isWhitespace {
+            text.formIndex(after: &start)
+        }
+        var end = start
+        var count = 0
+        while end < text.endIndex, !text[end].isNewline, count < maximumSummaryCharacters {
+            text.formIndex(after: &end)
+            count += 1
+        }
+        let oneLine = String(text[start..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
         return oneLine.isEmpty ? localized("Untitled") : oneLine
     }
 
