@@ -1,0 +1,19 @@
+{
+  "name": "Impuls — утилита для macOS",
+  "short_name": "Impuls",
+  "description": "Локальная утилита для macOS: поиск действий, история буфера, полка файлов, календарь, переводчик и заметки.",
+  "lang": "ru",
+  "start_url": "/impuls/",
+  "scope": "/impuls/",
+  "display": "browser",
+  "background_color": "#08080a",
+  "theme_color": "#0a0a0c",
+  "icons": [
+    {
+      "src": "assets/impuls-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
