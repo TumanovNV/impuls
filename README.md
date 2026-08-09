@@ -31,6 +31,12 @@ copies it, and the action bar can save it as a snippet, create a note, translate
 text, open links or files, and reveal files in Finder. The index is built from
 the live local stores and is never uploaded or persisted as another database.
 
+Impuls 1.2.1 adds pinned clipboard entries, content-aware actions for links,
+email addresses, phone numbers and JSON, monitoring pause, retention controls,
+and per-application exclusions. History remains memory-only by default. Optional
+between-launch persistence encrypts the local archive with AES-GCM and stores its
+random key in macOS Keychain.
+
 ## Settings and keyboard control
 
 The native Settings window can configure the global shortcut,

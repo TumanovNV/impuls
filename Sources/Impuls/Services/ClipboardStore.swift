@@ -1,33 +1,66 @@
 import AppKit
 
-struct ClipItem: Identifiable, Equatable {
-    enum Payload: Equatable {
+struct ClipItem: Identifiable, Codable, Equatable {
+    enum Payload: Codable, Equatable {
         case text(String)
         case file(URL)
+
+        private enum CodingKeys: String, CodingKey { case type, text, url }
+        private enum Kind: String, Codable { case text, file }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            switch try container.decode(Kind.self, forKey: .type) {
+            case .text: self = .text(try container.decode(String.self, forKey: .text))
+            case .file: self = .file(try container.decode(URL.self, forKey: .url))
+            }
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .text(let text):
+                try container.encode(Kind.text, forKey: .type)
+                try container.encode(text, forKey: .text)
+            case .file(let url):
+                try container.encode(Kind.file, forKey: .type)
+                try container.encode(url, forKey: .url)
+            }
+        }
     }
 
-    let id = UUID()
+    let id: UUID
     let payload: Payload
-    let date: Date
+    var date: Date
+    var isPinned: Bool
+
+    init(
+        id: UUID = UUID(),
+        payload: Payload,
+        date: Date,
+        isPinned: Bool = false
+    ) {
+        self.id = id
+        self.payload = payload
+        self.date = date
+        self.isPinned = isPinned
+    }
 
     var preview: String {
         switch payload {
-        case .text(let string):
-            return string.trimmingCharacters(in: .whitespacesAndNewlines)
-        case .file(let url):
-            return url.lastPathComponent
+        case .text(let string): return string.trimmingCharacters(in: .whitespacesAndNewlines)
+        case .file(let url): return url.lastPathComponent
         }
     }
 
-    var symbol: String {
+    var contentKind: ClipboardContentKind {
         switch payload {
-        case .text(let string):
-            if string.hasPrefix("http://") || string.hasPrefix("https://") { return "link" }
-            return "text.alignleft"
-        case .file:
-            return "doc"
+        case .text(let string): return ClipboardContentClassifier.kind(for: string)
+        case .file(let url): return ClipboardContentClassifier.kind(for: url)
         }
     }
+
+    var symbol: String { contentKind.symbol }
 
     static func == (lhs: ClipItem, rhs: ClipItem) -> Bool { lhs.payload == rhs.payload }
 }
@@ -37,30 +70,50 @@ struct ClipItem: Identifiable, Equatable {
 @MainActor
 final class ClipboardStore: ObservableObject {
     @Published private(set) var items: [ClipItem] = []
+    @Published private(set) var isPaused = false
 
-    /// Raised for image data on the pasteboard — a screenshot taken straight to
-    /// the clipboard, which would otherwise vanish after one paste.
-    var onImage: ((Data) -> Void)?
-
-    /// Whether images are worth reading at all. Asked before the TIFF → PNG
-    /// encode, not after: with screenshot saving switched off, a copied picture
-    /// would otherwise be encoded in full and then thrown away.
+    /// The saved PNG URL lets the clipboard keep an image entry while the
+    /// shelf remains the owner of the actual file.
+    var onImage: ((Data) -> URL?)?
     var wantsImages: () -> Bool = { true }
+    var isApplicationExcluded: (String) -> Bool = { _ in false }
 
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
-    private let limit = 40
-    /// Pasteboard type password managers set to opt out of history tools.
+    private let limit = 100
     private let concealed = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+    private let persistence: ClipboardHistoryPersistence?
+    private var persistenceEnabled = false
+    private var retentionInterval: TimeInterval = SettingsStore.ClipboardRetention.sevenDays.timeInterval
+
+    init(persistence: ClipboardHistoryPersistence? = ClipboardHistoryPersistence()) {
+        self.persistence = persistence
+    }
+
+    func configurePersistence(enabled: Bool, retention: SettingsStore.ClipboardRetention) {
+        let wasEnabled = persistenceEnabled
+        persistenceEnabled = enabled
+        retentionInterval = retention.timeInterval
+
+        if enabled, !wasEnabled {
+            let restored = persistence?.load() ?? []
+            merge(restored)
+            prune()
+            persist()
+        } else if enabled {
+            prune()
+            persist()
+        } else if wasEnabled {
+            persistence?.delete()
+        }
+    }
 
     func start() {
         stop()
+        prune()
         let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.poll() }
         }
-        // The half-second is a ceiling, not a beat: nobody notices a copy
-        // landing in history a fifth of a second late, and the slack lets the
-        // system fold this wake-up into others.
         timer.tolerance = 0.2
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
@@ -69,64 +122,98 @@ final class ClipboardStore: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        persist()
+    }
+
+    func togglePause() {
+        isPaused.toggle()
+        lastChangeCount = NSPasteboard.general.changeCount
     }
 
     func clear() {
         items.removeAll()
+        persist()
+    }
+
+    func clearUnpinned() {
+        items.removeAll { !$0.isPinned }
+        persist()
     }
 
     func remove(_ item: ClipItem) {
         items.removeAll { $0.id == item.id }
+        persist()
+    }
+
+    func setPinned(id: UUID, pinned: Bool) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index].isPinned = pinned
+        sortItems()
+        persist()
+    }
+
+    func togglePinned(_ item: ClipItem) {
+        setPinned(id: item.id, pinned: !item.isPinned)
     }
 
     /// Puts an entry back on the pasteboard without re-recording it.
     func copy(_ item: ClipItem) {
+        writeToPasteboard(item.payload)
+        if let index = items.firstIndex(where: { $0.id == item.id }) {
+            items[index].date = Date()
+            sortItems()
+            persist()
+        }
+    }
+
+    func copy(_ payload: ClipItem.Payload) {
+        writeToPasteboard(payload)
+    }
+
+    private func writeToPasteboard(_ payload: ClipItem.Payload) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        switch item.payload {
-        case .text(let string):
-            pasteboard.setString(string, forType: .string)
-        case .file(let url):
-            pasteboard.writeObjects([url as NSURL])
+        switch payload {
+        case .text(let string): pasteboard.setString(string, forType: .string)
+        case .file(let url): pasteboard.writeObjects([url as NSURL])
         }
         lastChangeCount = pasteboard.changeCount
-        // Freshly used entries bubble to the top.
-        if let index = items.firstIndex(where: { $0.id == item.id }), index != 0 {
-            items.remove(at: index)
-            items.insert(item, at: 0)
-        }
     }
 
     private func poll() {
         let pasteboard = NSPasteboard.general
+        if isPaused {
+            lastChangeCount = pasteboard.changeCount
+            return
+        }
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
 
         guard pasteboard.data(forType: concealed) == nil else { return }
-        // Our own write — copying a screenshot back out of the shelf must not
-        // save it to disk all over again.
         guard pasteboard.data(forType: .impulsInternal) == nil else { return }
 
-        // A copied file arrives as a URL, not as image data, so URLs win first.
+        let sourceBundleIdentifier = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        if let sourceBundleIdentifier, isApplicationExcluded(sourceBundleIdentifier) { return }
+
         let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
         if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL],
            let url = urls.first {
-            record(ClipItem(payload: .file(url), date: Date()))
+            record(ClipItem(
+                payload: .file(url),
+                date: Date()
+            ))
             return
         }
 
         if wantsImages() {
-            if let png = pngFromPasteboard(pasteboard) {
-                onImage?(png)
+            if let png = pngFromPasteboard(pasteboard), let url = onImage?(png) {
+                record(ClipItem(
+                    payload: .file(url),
+                    date: Date()
+                ))
                 return
             }
 
-            // A copy made on the phone arrives in two parts: macOS puts the
-            // type on the pasteboard the moment the phone announces it, and
-            // the picture itself is still coming over the air. So the counter
-            // can move while there are no bytes to read yet — and reading once
-            // would drop the screenshot for good, because the counter has
-            // already been marked as seen. Wait for it instead.
             if pasteboard.availableType(from: [.png, .tiff]) != nil {
                 awaitImage(at: pasteboard.changeCount, attempt: 0)
                 return
@@ -135,25 +222,22 @@ final class ClipboardStore: ObservableObject {
 
         guard let string = pasteboard.string(forType: .string),
               !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        record(ClipItem(payload: .text(string), date: Date()))
+        record(ClipItem(
+            payload: .text(string),
+            date: Date()
+        ))
     }
 
-    /// Checks back until the promised picture has actually arrived.
-    ///
-    /// Gives up after a few seconds, and stops the moment the pasteboard moves
-    /// on: a copy made in the meantime is the newer intention, and finishing a
-    /// transfer the user has already replaced would put the wrong thing on the
-    /// shelf.
     private func awaitImage(at changeCount: Int, attempt: Int) {
-        // Out of patience. Something declared a picture and never produced one,
-        // so fall back to what else was on the pasteboard — otherwise a copy
-        // that merely offered an image alongside its text would go unrecorded.
         guard attempt < 12 else {
             let pasteboard = NSPasteboard.general
             guard pasteboard.changeCount == changeCount,
                   let string = pasteboard.string(forType: .string),
                   !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            record(ClipItem(payload: .text(string), date: Date()))
+            record(ClipItem(
+                payload: .text(string),
+                date: Date()
+            ))
             return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
@@ -161,16 +245,21 @@ final class ClipboardStore: ObservableObject {
                 guard let self else { return }
                 let pasteboard = NSPasteboard.general
                 guard pasteboard.changeCount == changeCount else { return }
-                if let png = self.pngFromPasteboard(pasteboard) {
-                    self.onImage?(png)
+                if let png = self.pngFromPasteboard(pasteboard), let url = self.onImage?(png) {
+                    self.record(ClipItem(
+                        payload: .file(url),
+                        date: Date()
+                    ))
                     return
                 }
-                self.awaitImage(at: changeCount, attempt: attempt + 1)
+                self.awaitImage(
+                    at: changeCount,
+                    attempt: attempt + 1
+                )
             }
         }
     }
 
-    /// Screenshots land as PNG; other apps often offer only TIFF.
     private func pngFromPasteboard(_ pasteboard: NSPasteboard) -> Data? {
         if let png = pasteboard.data(forType: .png) { return png }
         guard let tiff = pasteboard.data(forType: .tiff),
@@ -178,9 +267,53 @@ final class ClipboardStore: ObservableObject {
         return rep.representation(using: .png, properties: [:])
     }
 
-    private func record(_ item: ClipItem) {
+    /// Internal so the deterministic history rules can be exercised without
+    /// mutating the real system pasteboard in XCTest.
+    func record(_ item: ClipItem) {
+        let existing = items.first(where: { $0 == item })
+        var replacement = item
+        if let existing {
+            replacement = ClipItem(
+                id: existing.id,
+                payload: item.payload,
+                date: item.date,
+                isPinned: existing.isPinned
+            )
+        }
         items.removeAll { $0 == item }
-        items.insert(item, at: 0)
-        if items.count > limit { items.removeLast(items.count - limit) }
+        items.append(replacement)
+        sortItems()
+        prune()
+        persist()
+    }
+
+    func prune(at now: Date = Date()) {
+        let cutoff = now.addingTimeInterval(-retentionInterval)
+        items.removeAll { !$0.isPinned && $0.date < cutoff }
+        if items.count > limit {
+            let pinned = items.filter(\.isPinned)
+            let recent = Array(items.filter { !$0.isPinned }.prefix(max(0, limit - pinned.count)))
+            items = pinned + recent
+        }
+        sortItems()
+    }
+
+    private func merge(_ restored: [ClipItem]) {
+        for item in restored where !items.contains(where: { $0 == item }) {
+            items.append(item)
+        }
+        sortItems()
+    }
+
+    private func sortItems() {
+        items.sort {
+            if $0.isPinned != $1.isPinned { return $0.isPinned && !$1.isPinned }
+            return $0.date > $1.date
+        }
+    }
+
+    private func persist() {
+        guard persistenceEnabled else { return }
+        persistence?.save(items)
     }
 }

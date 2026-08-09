@@ -219,7 +219,7 @@ private struct ActionResultRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            Image(systemName: result.source.symbol)
+            Image(systemName: result.contentKind.symbol)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(Theme.tertiary)
                 .frame(width: 14)
@@ -241,6 +241,12 @@ private struct ActionResultRow: View {
             }
 
             Spacer(minLength: 6)
+
+            if result.isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(Color.orange)
+            }
 
             if hovering || isSelected {
                 Image(systemName: "return")

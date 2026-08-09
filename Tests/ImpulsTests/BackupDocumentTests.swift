@@ -11,11 +11,14 @@ final class BackupDocumentTests: XCTestCase {
                 panelSize: .compact,
                 selectedDisplayID: 42,
                 modules: NotchViewModel.Tab.allCases.map { ModulePreference(tab: $0, isEnabled: $0 != .media) },
-                saveClipboardImages: false
+                saveClipboardImages: false,
+                persistClipboardHistory: true,
+                clipboardRetention: .thirtyDays,
+                excludedClipboardBundleIdentifiers: ["com.example.private"]
             )
             let document = ImpulsBackupDocument(
                 createdAt: Date(timeIntervalSince1970: 1_700_000_000),
-                appVersion: "1.2.0",
+                appVersion: "1.2.1",
                 settings: settings,
                 snippets: [Snippet(label: "Office", text: "info@example.com")],
                 notes: [Note(id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!, text: "Call back", edited: Date(timeIntervalSince1970: 1_700_000_100))]
@@ -27,6 +30,7 @@ final class BackupDocumentTests: XCTestCase {
 
             XCTAssertEqual(decoded, document)
             XCTAssertEqual(decoded.schemaVersion, 2)
+            XCTAssertTrue(decoded.settings.persistClipboardHistory)
         }
     }
 
@@ -53,6 +57,7 @@ final class BackupDocumentTests: XCTestCase {
             let decoded = try ImpulsBackupDocument.decode(Data(json.utf8))
             XCTAssertEqual(decoded.schemaVersion, 1)
             XCTAssertEqual(decoded.settings.modules.map(\.tab), [.media])
+            XCTAssertFalse(decoded.settings.persistClipboardHistory)
         }
     }
 

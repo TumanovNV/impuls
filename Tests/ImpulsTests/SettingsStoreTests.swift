@@ -47,6 +47,9 @@ final class SettingsStoreTests: XCTestCase {
             first.activationMode = .shortcutOnly
             first.panelSize = .large
             first.saveClipboardImages = false
+            first.persistClipboardHistory = true
+            first.clipboardRetention = .thirtyDays
+            first.excludeClipboardApp(bundleIdentifier: "com.example.passwords")
             first.moveModule(.notes, offset: -1)
 
             let second = SettingsStore(defaults: defaults)
@@ -54,7 +57,31 @@ final class SettingsStoreTests: XCTestCase {
             XCTAssertEqual(second.activationMode, .shortcutOnly)
             XCTAssertEqual(second.panelSize, .large)
             XCTAssertFalse(second.saveClipboardImages)
+            XCTAssertTrue(second.persistClipboardHistory)
+            XCTAssertEqual(second.clipboardRetention, .thirtyDays)
+            XCTAssertEqual(second.excludedClipboardBundleIdentifiers, ["com.example.passwords"])
             XCTAssertEqual(second.modules, first.modules)
+        }
+    }
+
+    func testLegacySettingsUsePrivateClipboardDefaults() async throws {
+        try await MainActor.run {
+            let json = """
+            {
+              "hotKey": "optionSpace",
+              "activationMode": "hoverAndShortcut",
+              "openDelay": "short",
+              "panelSize": "standard",
+              "modules": [{"tab": "clipboard", "isEnabled": true}],
+              "saveClipboardImages": true
+            }
+            """
+
+            let decoded = try JSONDecoder().decode(ImpulsSettingsSnapshot.self, from: Data(json.utf8))
+
+            XCTAssertFalse(decoded.persistClipboardHistory)
+            XCTAssertEqual(decoded.clipboardRetention, .sevenDays)
+            XCTAssertTrue(decoded.excludedClipboardBundleIdentifiers.isEmpty)
         }
     }
 }
