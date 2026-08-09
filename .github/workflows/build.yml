@@ -34,13 +34,20 @@ jobs:
         run: |
           set -euo pipefail
           PATTERN='URLSession|NSURLSession|URLRequest|NSURLConnection|NWConnection|NWListener|webSocketTask|CFStreamCreatePairWithSocketToHost'
-          if find Sources -type f \( -name '*.swift' -o -name '*.m' \) ! -name 'UpdateService.swift' -print0 \
+          if find Sources -type f \( -name '*.swift' -o -name '*.m' \) \
+              ! -name 'UpdateService.swift' ! -name 'WebMusicPlayer.swift' -print0 \
               | xargs -0 grep -En "$PATTERN"; then
-            echo "Network API found outside UpdateService.swift" >&2
+            echo "Network API found outside the update or explicit web-player boundaries" >&2
             exit 1
           fi
           grep -F 'https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml' Sources/Impuls/Services/UpdateService.swift
           grep -F 'import Sparkle' Sources/Impuls/Services/UpdateService.swift
+          grep -F 'import WebKit' Sources/Impuls/Services/WebMusicPlayer.swift
+          grep -F 'func show(source: MusicSource)' Sources/Impuls/Services/WebMusicPlayer.swift
+          grep -F 'webView.load(URLRequest(url: homeURL))' Sources/Impuls/Services/WebMusicPlayer.swift
+          grep -F 'private var webPlayer: WebMusicPlayer?' Sources/Impuls/Services/MediaController.swift
+          grep -F 'let player = webPlayer ?? makeWebPlayer()' Sources/Impuls/Services/MediaController.swift
+          test "$(grep -RFl 'WebMusicPlayer()' Sources --include='*.swift' | tr '\n' ' ')" = 'Sources/Impuls/Services/MediaController.swift '
           ! grep -RFn 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources
 
       - name: Verify security and performance budgets

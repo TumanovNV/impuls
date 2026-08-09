@@ -30,6 +30,15 @@
 
 /* Музыка */
 "Nothing is playing" = "Ничего не играет";
+"Open Web Player" = "Открыть веб-плеер";
+"Show Web Player" = "Показать веб-плеер";
+"Open Apple Music" = "Открыть Apple Music";
+"Open Apple Music and start a track." = "Откройте Apple Music и включите трек.";
+"Apple Music is open, but no track is playing." = "Apple Music открыта, но воспроизведение не запущено.";
+"Apple Music is playing, but its track data could not be read." = "Музыка играет, но Apple Music не передала данные трека.";
+"Open the selected web player to sign in and choose music." = "Откройте выбранный веб-плеер, войдите в аккаунт и выберите музыку.";
+"Connecting to the selected web player…" = "Подключаем выбранный веб-плеер…";
+"Choose a track in %@." = "Выберите трек в %@.";
 
 /* Заготовки */
 "Add a snippet" = "Добавить заготовку";
@@ -87,7 +96,7 @@
 "Allow Impuls to check for updates?" = "Разрешить Impuls проверять обновления?";
 "If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action." = "Если разрешить, Impuls обращается только к подписанному каналу обновлений в GitHub. Заметки, буфер обмена, файлы, календарь, аналитика, идентификаторы устройства и системный профиль не отправляются. Обновление скачивается и устанавливается только после вашего действия.";
 "Allow Update Checks" = "Разрешить проверку обновлений";
-"Stay Offline" = "Работать без интернета";
+"Do Not Check" = "Не проверять";
 "Could Not Check for Updates" = "Не удалось проверить обновления";
 "The public update channel is not available yet. Please try again later." = "Публичный канал обновлений ещё не опубликован. Повторите проверку позднее.";
 "GitHub denied access to the update channel." = "GitHub отказал в доступе к каналу обновлений.";
@@ -141,10 +150,8 @@
 "Restricted" = "Ограничено";
 "Planned" = "Запланировано";
 "Shows upcoming meetings inside the Calendar module." = "Показывает ближайшие встречи в модуле «Календарь».";
-"Accessibility" = "Универсальный доступ";
-"Lets media controls send standard system media keys when no supported player is active." = "Разрешает управлению музыкой отправлять стандартные медиакоманды, когда поддерживаемый плеер не активен.";
 "Music Automation" = "Автоматизация музыки";
-"Reads track information and controls Apple Music and Spotify through macOS Automation." = "Читает данные трека и управляет Apple Music и Spotify через системную автоматизацию macOS.";
+"Reads track information and controls the Apple Music app. Web players do not need this permission." = "Читает данные трека и управляет приложением Apple Music. Веб-плеерам это разрешение не требуется.";
 "Allow Automation access to read %@." = "Разрешите доступ к автоматизации, чтобы Impuls мог читать данные %@.";
 "Notifications" = "Уведомления";
 "Will be used for optional meeting reminders in a later update. No permission is requested yet." = "Будут использоваться для необязательных напоминаний о встречах в одном из следующих обновлений. Сейчас разрешение не запрашивается.";

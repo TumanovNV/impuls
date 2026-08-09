@@ -1,5 +1,4 @@
 import AppKit
-import ApplicationServices
 import EventKit
 import UserNotifications
 
@@ -24,7 +23,6 @@ final class PermissionCenter: ObservableObject {
     }
 
     @Published private(set) var calendar: State = .notRequested
-    @Published private(set) var accessibility: State = .notRequested
     @Published private(set) var musicAutomation: State = .notRequested
     @Published private(set) var notifications: State = .future
 
@@ -38,7 +36,6 @@ final class PermissionCenter: ObservableObject {
         case .notDetermined: calendar = .notRequested
         @unknown default: calendar = .restricted
         }
-        accessibility = AXIsProcessTrusted() ? .allowed : .notRequested
         refreshMusicAutomation()
 
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
@@ -61,23 +58,14 @@ final class PermissionCenter: ObservableObject {
         }
     }
 
-    func requestAccessibility() {
-        let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String
-        _ = AXIsProcessTrustedWithOptions([key: true] as CFDictionary)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.refresh() }
-    }
-
     func requestMusicAutomation() {
-        let apps = PlayerApp.allCases.filter(\.isInstalled)
-        requestMusicAutomation(apps, at: 0)
+        PlayerBridge.automationAuthorization(for: .music, prompt: true) { [weak self] _ in
+            self?.refreshMusicAutomation()
+        }
     }
 
     func openCalendarSettings() {
         openSettings("Privacy_Calendars")
-    }
-
-    func openAccessibilitySettings() {
-        openSettings("Privacy_Accessibility")
     }
 
     func openAutomationSettings() {
@@ -95,42 +83,18 @@ final class PermissionCenter: ObservableObject {
     }
 
     private func refreshMusicAutomation() {
-        let apps = PlayerApp.allCases.filter(\.isInstalled)
-        guard !apps.isEmpty else {
+        guard PlayerApp.music.isInstalled else {
             musicAutomation = .restricted
             return
         }
-
-        var statuses: [AutomationAuthorization] = []
-        let group = DispatchGroup()
-        for app in apps {
-            group.enter()
-            PlayerBridge.automationAuthorization(for: app, prompt: false) { authorization in
-                statuses.append(authorization)
-                group.leave()
-            }
-        }
-        group.notify(queue: .main) { [weak self] in
+        PlayerBridge.automationAuthorization(for: .music, prompt: false) { [weak self] authorization in
             guard let self else { return }
-            if statuses.contains(.denied) {
-                self.musicAutomation = .denied
-            } else if statuses.contains(.notDetermined) {
-                self.musicAutomation = .notRequested
-            } else if statuses.allSatisfy({ $0 == .allowed }) {
-                self.musicAutomation = .allowed
-            } else {
-                self.musicAutomation = .restricted
+            switch authorization {
+            case .allowed: self.musicAutomation = .allowed
+            case .denied: self.musicAutomation = .denied
+            case .notDetermined: self.musicAutomation = .notRequested
+            case .restricted: self.musicAutomation = .restricted
             }
-        }
-    }
-
-    private func requestMusicAutomation(_ apps: [PlayerApp], at index: Int) {
-        guard index < apps.count else {
-            refreshMusicAutomation()
-            return
-        }
-        PlayerBridge.automationAuthorization(for: apps[index], prompt: true) { [weak self] _ in
-            self?.requestMusicAutomation(apps, at: index + 1)
         }
     }
 }

@@ -692,7 +692,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6v12l9-6zM15 6h2v12h-2z"/></svg>
                 </div>
               </div>
-              <div class="actionbar"><span class="chip sm" data-i="p1">Apple Music и Spotify — метаданные, перемотка, обложка</span><span class="chip sm" data-i="p2">Остальные — медиаклавиши</span></div>
+              <div class="actionbar"><span class="chip sm" data-i="p1">Apple Music и Яндекс Музыка — явный выбор источника</span><span class="chip sm" data-i="p2">VK, YouTube Music и Spotify — через WebKit</span></div>
             </div>
             <!-- shelf -->
             <div class="pane" data-p="shelf">
@@ -838,7 +838,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     </div>
     <div class="grid g4">
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div><h3 data-i="mod1">Actions</h3><p data-i="mod1d">Один поиск по истории буфера, заготовкам и заметкам с действиями прямо из результата.</p></div>
-      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l12-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><h3 data-i="mod2">Плеер</h3><p data-i="mod2d">Apple Music и Spotify через публичные интерфейсы: метаданные, перемотка, обложка. Прочим — медиаклавиши.</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l12-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><h3 data-i="mod2">Плеер</h3><p data-i="mod2d">Apple Music нативно; Яндекс Музыка, VK, YouTube Music и Spotify — через официальные сайты в WebKit.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><h3 data-i="mod3">Полка файлов</h3><p data-i="mod3d">Перенос файлов между окнами, OCR, удаление фона, конвертация изображений, PDF, AirDrop и безопасное переименование.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="3" width="13" height="14" rx="2.5"/><path d="M16 21H5a2 2 0 0 1-2-2V8" stroke-linecap="round"/></svg></div><h3 data-i="mod4">История буфера</h3><p data-i="mod4d">Возврат к тому, что скопировали час назад. Скрытые записи менеджеров паролей исключены.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v17l-7-4-7 4z"/></svg></div><h3 data-i="mod5">Заготовки</h3><p data-i="mod5d">Часто повторяемые тексты и команды — вставляются без поиска по переписке.</p></div>
@@ -867,7 +867,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
       <article class="proof reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9 4 12l4 3M16 9l4 3-4 3M14 5l-4 14"/></svg><strong data-i="trust.p1">Открытый исходный код</strong><p data-i="trust.p1d">Реализация, модель приватности и история изменений доступны в публичном репозитории.</p></article>
       <article class="proof reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 12 5 5L20 6"/></svg><strong data-i="trust.p2">Проверки перед релизом</strong><p data-i="trust.p2d">Сборочный процесс запускает тесты, проверяет подпись DMG и отсутствие неожиданных сетевых соединений.</p></article>
       <article class="proof reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h10v4h4v14H3V7h4zM7 3v4h10V3M8 13h8M8 17h5"/></svg><strong data-i="trust.p3">SHA-256 каждой сборки</strong><p data-i="trust.p3d">Контрольная сумма позволяет сверить скачанный DMG с файлом, опубликованным в релизе.</p></article>
-      <article class="proof reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg><strong data-i="trust.p4">Рабочие данные остаются на Mac</strong><p data-i="trust.p4d">Буфер, файлы, заметки и календарь не отправляются на сервер; проверка обновлений включается отдельно.</p></article>
+      <article class="proof reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg><strong data-i="trust.p4">Рабочие данные остаются на Mac</strong><p data-i="trust.p4d">Буфер, файлы, заметки и календарь не отправляются на сервер; обновления и открытый пользователем веб-плеер — отдельные контуры.</p></article>
     </div>
     <div class="trust-actions reveal">
       <a class="btn btn-ghost" data-conversion="github" data-placement="trust" href="https://github.com/TumanovNV/impuls" rel="noopener"><span data-i="trust.code">Посмотреть исходный код</span></a>
@@ -882,10 +882,10 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     <div class="privacy reveal">
       <div class="eyebrow" data-i="pr.eyebrow">Приватность по устройству, а не по обещанию</div>
       <h2 data-i="pr.h2">Рабочие данные не должны покидать ваш Mac</h2>
-      <p class="lead" data-i="pr.lead">Impuls видит буфер, заметки, файлы и календарь, поэтому эти данные обрабатываются локально. Единственный необязательный сетевой канал внутри приложения — подписанные обновления через GitHub; обратная связь открывает GitHub в браузере только после вашего действия.</p>
+      <p class="lead" data-i="pr.lead">Impuls обрабатывает буфер, заметки, файлы и календарь локально. Сеть ограничена разрешёнными вами подписанными обновлениями и музыкальным сайтом, который вы явно открыли; обратная связь открывает GitHub в браузере только после вашего действия.</p>
       <div class="checks">
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr1"><b>Ноль аналитики и телеметрии.</b> Нет рекламы и отпечатков устройства.</span></div>
-        <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr2"><b>Сеть только с вашего согласия.</b> При первом запуске приложение спрашивает, можно ли проверять обновления. «Остаться офлайн» — и сетевых запросов не будет вовсе.</span></div>
+        <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr2"><b>Сеть только после вашего действия.</b> Обновления требуют согласия, а музыкальный сайт загружается только по кнопке «Открыть веб-плеер».</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr3"><b>Единственный подписанный канал</b> — релизы Impuls на GitHub. Обновление скачивается и устанавливается только после вашего действия.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr4"><b>Буфер, заметки, заготовки, файлы и календарь</b> не покидают Mac ни при каких условиях.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr5"><b>Скрытые записи менеджеров паролей</b> исключаются из истории буфера.</span></div>
@@ -912,7 +912,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     <div class="install-grid">
       <div class="ins reveal"><div class="num">01</div><h4 data-i="i.s1">Скачайте и откройте DMG</h4><p data-i="i.s1d">Перетащите Impuls в «Программы», заменив предыдущую версию, если она была.</p></div>
       <div class="ins reveal"><div class="num">02</div><h4 data-i="i.s2">Первый запуск</h4><p data-i="i.s2d">macOS покажет предупреждение о неизвестном разработчике. Откройте <code>Системные настройки → Конфиденциальность и безопасность</code> и нажмите <code>Всё равно открыть</code>.</p></div>
-      <div class="ins reveal"><div class="num">03</div><h4 data-i="i.s3">Разрешения по мере надобности</h4><p data-i="i.s3d">Календарь — при первом открытии вкладки. Универсальный доступ — только если нужны медиаклавиши для сторонних плееров. Ничего не запрашивается заранее.</p></div>
+      <div class="ins reveal"><div class="num">03</div><h4 data-i="i.s3">Разрешения по мере надобности</h4><p data-i="i.s3d">Календарь — для встреч. Автоматизация — только для нативного Apple Music. Веб-плееры системных разрешений не требуют.</p></div>
     </div>
     <div class="warn reveal">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
@@ -938,11 +938,11 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
       <details><summary><span data-i="q1">У меня Mac без чёлки. Impuls мне подходит?</span><span class="pm"></span></summary>
         <p data-i="q1a">Да. На таких Mac Impuls показывает компактную вкладку 96×10 pt у верхнего края экрана с областью наведения 120×16 pt. Геометрия чёлки MacBook определяется автоматически по safe area дисплея, поэтому подстраивать ничего не нужно.</p></details>
       <details><summary><span data-i="q2">Impuls действительно ничего не отправляет?</span><span class="pm"></span></summary>
-        <p data-i="q2a">Сетевой доступ внутри приложения используется только для подписанного канала обновлений Impuls в GitHub. При первом запуске вы решаете, разрешать ли проверку; при выборе «Остаться офлайн» запросы не выполняются, и решение можно изменить в любой момент из меню. Содержимое буфера, заметок, заготовок, файлов и календаря не передаётся никогда.</p></details>
+        <p data-i="q2a">Без действия пользователя Impuls не подключается к сети. Отдельно можно разрешить подписанные обновления GitHub или нажать «Открыть веб-плеер» для выбранного музыкального сайта. Содержимое буфера, заметок, заготовок, файлов и календаря не передаётся никогда; для веб-сервиса действует его собственная политика.</p></details>
       <details><summary><span data-i="q3">Почему приложение не из App Store и не нотаризовано?</span><span class="pm"></span></summary>
         <p data-i="q3a">Публичная сборка пока подписана ad-hoc и не нотаризована Apple, поэтому первая установка требует ручного подтверждения Gatekeeper. Impuls не обходит эту защиту. Начиная с 1.2.9, дальнейшие обновления устанавливаются внутри приложения после проверки подписанного feed и архива; Developer ID уберёт именно первый ручной барьер.</p></details>
-      <details><summary><span data-i="q4">Почему у других плееров нет обложки и названия трека?</span><span class="pm"></span></summary>
-        <p data-i="q4a">Apple Music и Spotify предоставляют публичные интерфейсы скриптинга — оттуда берутся метаданные, обложка и перемотка. Для прочих источников, включая вкладки браузера, Apple не даёт публичного API с полными данными Now Playing, поэтому Impuls ограничивается стандартными медиаклавишами при выданном разрешении «Универсальный доступ». Обходить это через private-фреймворки — сознательный отказ.</p></details>
+      <details><summary><span data-i="q4">Какие музыкальные источники поддерживает Impuls?</span><span class="pm"></span></summary>
+        <p data-i="q4a">Источник выбирается прямо во вкладке. Apple Music работает через нативный адаптер. Яндекс Музыка, VK Музыка, YouTube Music и Spotify открываются официальными сайтами в отдельном окне WebKit; панель получает ограниченные Media Session-метаданные и управляет страницей. Неофициальные API, токены и private-фреймворки не используются.</p></details>
       <details><summary><span data-i="q5">Что происходит с моими данными при переустановке?</span><span class="pm"></span></summary>
         <p data-i="q5a">Настройки, заметки и заготовки экспортируются в локальный JSON-файл и восстанавливаются из него. Резервные копии формата 1.1 читаются версией 1.2 — порядок модулей мигрирует автоматически, новый модуль Actions добавляется в существующую конфигурацию.</p></details>
       <details><summary><span data-i="q6">Сколько это стоит и можно ли собрать самому?</span><span class="pm"></span></summary>
@@ -993,7 +993,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
         <a href="https://github.com/TumanovNV/impuls/issues/new/choose" data-conversion="feedback" data-placement="footer" data-i="ft.iss">Обратная связь</a>
       </div>
     </div>
-    <p class="fnote" data-i="ft.note">Impuls происходит от проекта akalikbergenov/cyclop. MIT-части сохраняют своё уведомление в THIRD_PARTY_NOTICES.md, новая работа распространяется под GPL-3.0-or-later. Лицензия на код не даёт прав на имя и оформление Impuls — см. TRADEMARKS.md. Apple, macOS, MacBook, Apple Music и Spotify — товарные знаки соответствующих владельцев.</p>
+    <p class="fnote" data-i="ft.note">Impuls происходит от проекта akalikbergenov/cyclop. MIT-части сохраняют своё уведомление в THIRD_PARTY_NOTICES.md, новая работа распространяется под GPL-3.0-or-later. Лицензия на код не даёт прав на имя и оформление Impuls — см. TRADEMARKS.md. Названия Apple Music, Яндекс Музыка, VK Музыка, YouTube Music и Spotify принадлежат соответствующим правообладателям.</p>
   </div>
 </footer>
 
@@ -1019,7 +1019,7 @@ const I = {
   "r1":"https://github.com/TumanovNV/impuls/releases",
   "c1":"Copy","c2":"To snippets","c3":"To notes","c4":"Translate",
   "ar.q":"release",
-  "p1":"Apple Music and Spotify — metadata, seeking, artwork","p2":"Others — media keys",
+  "p1":"Apple Music and Yandex Music — explicit source choice","p2":"VK, YouTube Music, and Spotify — through WebKit",
   "s.drop":"Drop files here","s1":"Files wait on the shelf between apps","s2":"Drag in and out",
   "w1":"2 min","w2":"14 min","w3":"1 h",
   "cl3":"Screenshot 21.03","cl4":"Password-manager entries are excluded from history",
@@ -1042,7 +1042,7 @@ const I = {
   "m.eyebrow":"Modules","m.h2":"Eight tools. Enable only the ones you use.",
   "m.lead":"Tune the module set and order to your workflow. The panel opens on hover or by shortcut, moves with arrow keys, and closes with Esc.",
   "mod1":"Actions","mod1d":"One search across clipboard history, snippets, and notes, with actions right from the result.",
-  "mod2":"Player","mod2d":"Apple Music and Spotify through public interfaces: metadata, seeking, artwork. Everything else gets media keys.",
+  "mod2":"Player","mod2d":"Apple Music natively; Yandex Music, VK, YouTube Music, and Spotify through their official sites in WebKit.",
   "mod3":"File shelf","mod3d":"Move files between windows, run OCR, remove backgrounds, convert images, create PDFs, AirDrop, and rename safely.",
   "mod4":"Clipboard history","mod4d":"Get back what you copied an hour ago. Concealed password-manager entries are excluded.",
   "mod5":"Snippets","mod5d":"Text and commands you repeat often — pasted without digging through old chats.",
@@ -1057,13 +1057,13 @@ const I = {
   "trust.p1":"Open source","trust.p1d":"Implementation, privacy model, and change history are available in the public repository.",
   "trust.p2":"Pre-release checks","trust.p2d":"The release workflow runs tests, verifies the DMG signature, and checks for unexpected network connections.",
   "trust.p3":"SHA-256 for every build","trust.p3d":"The checksum lets you compare the downloaded DMG with the asset published in the release.",
-  "trust.p4":"Work data stays on the Mac","trust.p4d":"Clipboard, files, notes, and calendar data are not sent to a server; update checks are enabled separately.",
+  "trust.p4":"Work data stays on the Mac","trust.p4d":"Clipboard, files, notes, and calendar data are not sent to a server; updates and user-opened web music are separate boundaries.",
   "trust.code":"View source code","trust.releases":"Open release history",
   "pr.eyebrow":"Privacy by design, not by promise",
   "pr.h2":"Your work data should not leave your Mac",
-  "pr.lead":"Impuls can see your clipboard, notes, files, and calendar, so it processes that data locally. The only optional in-app network channel is signed updates through GitHub; feedback opens GitHub in your browser only after you act.",
+  "pr.lead":"Impuls processes clipboard, notes, files, and calendar locally. Network access is limited to signed updates you allow and a music website you explicitly open; feedback opens GitHub in your browser only after you act.",
   "pr1":"<b>Zero analytics and telemetry.</b> No advertising, no device fingerprinting.",
-  "pr2":"<b>Network only with your consent.</b> At first launch the app asks whether it may check for updates. Choose “Stay Offline” and no network request is made at all.",
+  "pr2":"<b>Network only after your action.</b> Update checks require consent; a music website loads only after Open Web Player.",
   "pr3":"<b>A single signed update channel</b> — Impuls GitHub Releases. An update is downloaded and installed only after you act.",
   "pr4":"<b>Clipboard, notes, snippets, files, and calendar</b> never leave the Mac under any circumstances.",
   "pr5":"<b>Concealed password-manager entries</b> are excluded from clipboard history.",
@@ -1074,18 +1074,18 @@ const I = {
   "i.lead":"Impuls 1.2.8 · DMG 2.4 MB · macOS 15 or newer",
   "i.s1":"Download and open the DMG","i.s1d":"Drag Impuls into Applications, replacing an earlier version if you had one.",
   "i.s2":"First launch","i.s2d":"macOS will warn about an unidentified developer. Open <code>System Settings → Privacy & Security</code> and click <code>Open Anyway</code>.",
-  "i.s3":"Permissions only when needed","i.s3d":"Calendar — when you first open that tab. Accessibility — only if you want media keys for third-party players. Nothing is requested upfront.",
+  "i.s3":"Permissions only when needed","i.s3d":"Calendar — for meetings. Automation — only for native Apple Music. Web players require no system permission.",
   "i.warn":"<b>Why macOS shows a warning.</b> The public build is currently ad-hoc signed and not notarized by Apple, so the first installation needs manual approval in Privacy & Security. Beginning with 1.2.9, later versions install inside Impuls through a signed channel — without GitHub, a DMG, or clutter in Downloads.",
   "i.copy":"Copy","i.verify":"Verify: <code style='font-family:var(--mono)'>shasum -a 256 ~/Downloads/Impuls-1.2.8.dmg</code>",
   "f.eyebrow":"FAQ","f.h2":"What people usually ask",
   "q1":"My Mac has no notch. Is Impuls for me?",
   "q1a":"Yes. On those Macs, Impuls shows a compact 96 × 10 pt tab at the top edge with a 120 × 16 pt hover target. MacBook notch geometry is detected automatically from the display safe area, so there is nothing to configure.",
   "q2":"Does Impuls really send nothing?",
-  "q2a":"In-app network access is used only for the signed Impuls update channel on GitHub. At first launch you decide whether to allow checks; choosing “Stay Offline” means no request is made, and you can change that from the menu at any time. Clipboard contents, notes, snippets, files, and calendar data are never transmitted.",
+  "q2a":"Impuls makes no connection without your action. You can separately allow signed GitHub updates or press Open Web Player for a selected music site. Clipboard contents, notes, snippets, files, and calendar data are never transmitted; the chosen web service has its own policy.",
   "q3":"Why is it not on the App Store or notarized?",
   "q3a":"The public build is currently ad-hoc signed and not notarized by Apple, so the first installation needs manual Gatekeeper approval. Impuls does not bypass that protection. Beginning with 1.2.9, later updates install in-app after the signed feed and archive are verified; Developer ID will remove the first manual barrier.",
-  "q4":"Why do other players show no artwork or track title?",
-  "q4a":"Apple Music and Spotify expose public scripting interfaces — that is where metadata, artwork, and seeking come from. For other sources, including browser tabs, Apple provides no public API with full Now Playing data, so Impuls sticks to standard media keys once Accessibility permission is granted. Reaching for private frameworks is a deliberate no.",
+  "q4":"Which music sources does Impuls support?",
+  "q4a":"Choose the source in the Music pane. Apple Music uses a native adapter. Yandex Music, VK Music, YouTube Music, and Spotify open their official sites in a separate WebKit window; the panel receives bounded Media Session metadata and controls that page. No unofficial API, token harvesting, or private framework is used.",
   "q5":"What happens to my data when I reinstall?",
   "q5a":"Settings, notes, and snippets export to a local JSON file and restore from it. Backups in the 1.1 format are readable by 1.2 — module order migrates automatically and the new Actions module is added to your existing configuration.",
   "q6":"What does it cost, and can I build it myself?",
@@ -1096,7 +1096,7 @@ const I = {
   "mobile.cta":"Download Impuls free",
   "ft.tag":"A native macOS utility. Local by default.",
   "ft.rel":"Releases","ft.sitepriv":"Website data","ft.priv":"App privacy","ft.sec":"Security","ft.iss":"Feedback",
-  "ft.note":"Impuls is derived from akalikbergenov/cyclop. Original MIT-licensed portions retain their notice in THIRD_PARTY_NOTICES.md; new Impuls work is distributed under GPL-3.0-or-later. The code license does not grant rights to the Impuls name or branding — see TRADEMARKS.md. Apple, macOS, MacBook, Apple Music, and Spotify are trademarks of their respective owners."
+  "ft.note":"Impuls is derived from akalikbergenov/cyclop. Original MIT-licensed portions retain their notice in THIRD_PARTY_NOTICES.md; new Impuls work is distributed under GPL-3.0-or-later. The code license does not grant rights to the Impuls name or branding — see TRADEMARKS.md. Apple Music, Yandex Music, VK Music, YouTube Music, and Spotify names belong to their respective owners."
  }
 };
 const RU = {};

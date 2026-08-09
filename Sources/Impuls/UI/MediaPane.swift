@@ -4,72 +4,134 @@ struct MediaPane: View {
     @ObservedObject var media: MediaController
 
     @State private var scrubHover = false
-    /// Set while dragging, so the bar follows the finger instead of the clock.
     @State private var scrubbing: Double?
 
-    /// Artwork and the text column share this height, so their top and bottom
-    /// edges line up instead of the column floating past them.
-    private let blockHeight: CGFloat = 122
+    private let blockHeight: CGFloat = 100
 
     var body: some View {
-        if let track = media.track {
-            HStack(spacing: 18) {
-                artwork(for: track)
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(track.title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.primary)
-                        .lineLimit(1)
-                    Text(subtitle(for: track))
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(Theme.secondary)
-                        .lineLimit(1)
-                        .padding(.top, 3)
-
-                    Spacer(minLength: 6)
-                    controls
-                    Spacer(minLength: 6)
-                    scrubber
-                }
-                .frame(height: blockHeight)
+        VStack(spacing: 8) {
+            sourceBar
+            if let track = media.track {
+                player(track)
+            } else {
+                emptyState
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Title and artist arrive together, so the whole column can cross-
-            // fade as one unit when the track changes.
-            .animation(Theme.artworkAnimation, value: track.key)
-        } else {
-            emptyState
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// The system often repeats the title as the album name; showing
-    /// "Artist — Title" twice reads like a bug.
+    // MARK: - Source selection
+
+    private var sourceBar: some View {
+        HStack(spacing: 8) {
+            Menu {
+                ForEach(MusicSource.allCases) { source in
+                    Button {
+                        media.selectSource(source)
+                    } label: {
+                        if media.selectedSource == source {
+                            Label(source.displayName, systemImage: "checkmark")
+                        } else {
+                            Text(source.displayName)
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: media.selectedSource.symbol)
+                    Text(media.selectedSource.displayName)
+                        .lineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 7, weight: .semibold))
+                        .foregroundStyle(Theme.tertiary)
+                }
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(Theme.secondary)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+
+            Spacer(minLength: 6)
+
+            if media.isLoading {
+                ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.65)
+            }
+
+            Button(action: media.openSelectedSource) {
+                Image(systemName: media.selectedSource.isWeb ? "globe" : "arrow.up.forward.app")
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            .buttonStyle(NotchButtonStyle(size: 24))
+            .help(media.selectedSource.isWeb ? localized("Open Web Player") : localized("Open Apple Music"))
+        }
+        .frame(height: 24)
+    }
+
+    // MARK: - Player
+
+    private func player(_ track: MediaController.Track) -> some View {
+        HStack(spacing: 16) {
+            artwork
+            VStack(alignment: .leading, spacing: 0) {
+                Text(track.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.primary)
+                    .lineLimit(1)
+                Text(subtitle(for: track))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.secondary)
+                    .lineLimit(1)
+                    .padding(.top, 2)
+
+                Spacer(minLength: 4)
+                controls
+                Spacer(minLength: 4)
+                if media.duration > 0 {
+                    scrubber
+                } else {
+                    Text(media.sourceName)
+                        .font(.system(size: 9.5, weight: .medium))
+                        .foregroundStyle(Theme.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+            }
+            .frame(height: blockHeight)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(Theme.artworkAnimation, value: track.key)
+    }
+
     private func subtitle(for track: MediaController.Track) -> String {
         var parts = [track.artist]
         if !track.album.isEmpty, track.album != track.title { parts.append(track.album) }
-        return parts.filter { !$0.isEmpty }.joined(separator: " — ")
+        let subtitle = parts.filter { !$0.isEmpty }.joined(separator: " — ")
+        return subtitle.isEmpty ? media.sourceName : subtitle
     }
 
-    // MARK: - Artwork
-
-    private func artwork(for track: MediaController.Track) -> some View {
+    private var artwork: some View {
         ZStack {
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
+                .fill(Theme.surface)
             if let image = media.artwork {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .transition(.opacity)
             } else {
-                SkeletonBox(cornerRadius: 14)
+                Image(systemName: media.selectedSource.symbol)
+                    .font(.system(size: 28, weight: .light))
+                    .foregroundStyle(Theme.tertiary)
             }
         }
-        .frame(width: 118, height: 118)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(width: 96, height: 96)
+        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .strokeBorder(Theme.hairline, lineWidth: 1)
         )
-        .shadow(color: .black.opacity(0.5), radius: 12, y: 5)
+        .shadow(color: .black.opacity(0.35), radius: 9, y: 4)
         .animation(Theme.artworkAnimation, value: media.artwork)
     }
 
@@ -82,9 +144,9 @@ struct MediaPane: View {
     }
 
     private var scrubber: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Text(formatTime(progress * media.duration))
-                .frame(width: 32, alignment: .leading)
+                .frame(width: 30, alignment: .leading)
 
             GeometryReader { geo in
                 let width = geo.size.width
@@ -93,9 +155,6 @@ struct MediaPane: View {
 
                 ZStack(alignment: .leading) {
                     Capsule().fill(Theme.surface).frame(height: height)
-                    // Deliberately unanimated: a seek has to land under the
-                    // cursor at once. Smoothness comes from the tick rate
-                    // instead, which keeps each step well under a pixel.
                     Capsule()
                         .fill(Theme.primary.opacity(0.9))
                         .frame(width: filled, height: height)
@@ -103,8 +162,8 @@ struct MediaPane: View {
                         Circle()
                             .fill(Theme.primary)
                             .frame(width: 11, height: 11)
-                            .offset(x: min(max(filled - 5.5, 0), width - 11))
-                            .shadow(color: .black.opacity(0.4), radius: 3)
+                            .offset(x: min(max(filled - 5.5, 0), max(0, width - 11)))
+                            .shadow(color: .black.opacity(0.35), radius: 3)
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -119,9 +178,6 @@ struct MediaPane: View {
                         .onEnded { value in
                             guard width > 0 else { return }
                             let target = min(max(value.location.x / width, 0), 1)
-                            // Seek first: clearing `scrubbing` beforehand would
-                            // drop the bar back to the old position for a frame
-                            // before the new one lands.
                             media.seek(to: media.duration * target)
                             scrubbing = nil
                         }
@@ -131,36 +187,43 @@ struct MediaPane: View {
             .frame(height: 14)
 
             Text(formatTime(media.duration))
-                .frame(width: 32, alignment: .trailing)
+                .frame(width: 30, alignment: .trailing)
         }
-        .font(.system(size: 10, weight: .medium).monospacedDigit())
+        .font(.system(size: 9.5, weight: .medium).monospacedDigit())
         .foregroundStyle(Theme.tertiary)
     }
 
     // MARK: - Transport
 
     private var controls: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: 18) {
             Button { media.previous() } label: { Image(systemName: "backward.fill") }
-                .buttonStyle(NotchButtonStyle(size: 30))
+                .buttonStyle(NotchButtonStyle(size: 27))
             Button { media.togglePlayPause() } label: {
                 Image(systemName: media.isPlaying ? "pause.fill" : "play.fill")
             }
-            .buttonStyle(NotchButtonStyle(size: 40, prominent: true))
+            .buttonStyle(NotchButtonStyle(size: 36, prominent: true))
             Button { media.next() } label: { Image(systemName: "forward.fill") }
-                .buttonStyle(NotchButtonStyle(size: 30))
+                .buttonStyle(NotchButtonStyle(size: 27))
         }
         .frame(maxWidth: .infinity)
     }
 
+    // MARK: - Empty states
+
     private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: media.accessIssue == nil ? "music.note.list" : "hand.raised")
-                .font(.system(size: 22, weight: .light))
-                .foregroundStyle(Theme.tertiary)
+        VStack(spacing: 6) {
+            if media.emptyReason == .webPlayerLoading {
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: media.accessIssue == nil ? media.selectedSource.symbol : "hand.raised")
+                    .font(.system(size: 20, weight: .light))
+                    .foregroundStyle(Theme.tertiary)
+            }
+
             if let issue = media.accessIssue {
                 Text(localized("Allow Automation access to read %@.", issue.app.displayName))
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(Theme.secondary)
                 Button(
                     issue.authorization == .notDetermined ? localized("Allow") : localized("Open Settings"),
@@ -169,13 +232,61 @@ struct MediaPane: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
             } else {
-                // Status, not instruction: an empty pane on its own would not say
-                // whether nothing is playing or nothing could be read.
-                Text("Nothing is playing")
-                    .font(.system(size: 12, weight: .medium))
+                Text(emptyMessage)
+                    .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(Theme.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                HStack(spacing: 7) {
+                    Button(primaryEmptyActionTitle, action: primaryEmptyAction)
+                        .buttonStyle(.borderedProminent)
+                    if media.emptyReason == .appleMusicUnreadable {
+                        Button(localized("Open Settings"), action: media.openAutomationSettings)
+                            .buttonStyle(.bordered)
+                    }
+                }
+                .controlSize(.small)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyMessage: String {
+        switch media.emptyReason {
+        case .appleMusicNotRunning:
+            return localized("Open Apple Music and start a track.")
+        case .appleMusicIdle:
+            return localized("Apple Music is open, but no track is playing.")
+        case .appleMusicUnreadable:
+            return localized("Apple Music is playing, but its track data could not be read.")
+        case .webPlayerNotOpen:
+            return localized("Open the selected web player to sign in and choose music.")
+        case .webPlayerLoading:
+            return localized("Connecting to the selected web player…")
+        case .webPlayerIdle:
+            return localized("Choose a track in %@.", media.sourceName)
+        }
+    }
+
+    private var primaryEmptyActionTitle: String {
+        switch media.emptyReason {
+        case .appleMusicNotRunning, .appleMusicIdle:
+            return localized("Open Apple Music")
+        case .appleMusicUnreadable:
+            return localized("Try Again")
+        case .webPlayerNotOpen:
+            return localized("Open Web Player")
+        case .webPlayerLoading, .webPlayerIdle:
+            return localized("Show Web Player")
+        }
+    }
+
+    private func primaryEmptyAction() {
+        switch media.emptyReason {
+        case .appleMusicUnreadable:
+            media.retry()
+        case .appleMusicNotRunning, .appleMusicIdle, .webPlayerNotOpen, .webPlayerLoading, .webPlayerIdle:
+            media.openSelectedSource()
+        }
     }
 }

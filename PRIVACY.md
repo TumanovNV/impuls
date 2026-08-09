@@ -27,6 +27,22 @@ extraction, and cleaned by Sparkle after installation. Impuls does not place
 update installers in the Downloads folder. Automatic download and unattended
 installation are disabled.
 
+Web music is a separate, user-initiated network boundary. Choosing a source in
+the Music pane is local and performs no request. Only the explicit **Open Web
+Player** action creates a system `WKWebView` and opens the selected provider's
+official HTTPS site: Yandex Music, VK Music, YouTube Music, or Spotify. The site
+receives the ordinary connection data it would receive in a browser, including
+the IP address, TLS/HTTP metadata, cookies, and the WebKit User-Agent. Its own
+privacy policy and subscription terms apply.
+
+Impuls injects a small local bridge into that web player to read the title,
+artist, album, playback state, duration, and position exposed by the page and to
+forward the user's play, pause, previous, next, and seek actions. Playback data
+stays in application memory and is not sent to Impuls, GitHub, or another
+provider. Password fields and authentication tokens are never read by the
+bridge. WebKit stores the provider's normal cookies and website data locally so
+the user does not need to sign in after every launch.
+
 ## Feedback
 
 Impuls 1.2.6 includes a voluntary feedback window. The app prepares the report
@@ -46,6 +62,8 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
 - notes and snippets are stored in `~/Library/Application Support/Impuls`;
 - saved clipboard screenshots are stored in `~/Pictures/Impuls` when available;
 - shelf references and preferences are stored in macOS UserDefaults;
+- the selected music source is stored in macOS UserDefaults; web login cookies
+  and website data are managed locally by the system WebKit data store;
 - clipboard history is held in memory by default and is not uploaded;
 - if the user explicitly enables persistence, clipboard history is stored as
   an AES-GCM encrypted local archive; its random encryption key is kept in the
@@ -67,10 +85,9 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
 
 - Calendar access is requested only from the Calendar module or Settings;
 - Apple Events Automation is requested only after the user asks Impuls to read
-  or control an installed Apple Music or Spotify player; each target remains a
-  separate macOS permission;
-- Accessibility is requested only when the user explicitly enables support for
-  standard system media-key events;
+  or control the installed Apple Music application;
+- web music uses the selected provider's official site and does not require
+  Apple Events Automation or Accessibility access;
 - notification permission is not requested in Impuls 1.2.6 and remains reserved
   for optional reminder functions in a later update.
 

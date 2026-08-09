@@ -26,16 +26,26 @@ include user data, credentials, or exploit payloads in public discussions.
 - feedback diagnostics are allow-listed and never inspect user content, paths,
   logs, device identifiers, or clipboard history;
 - no private frameworks or process injection;
-- Apple Music and Spotify metadata uses public scripting interfaces only; the
+- Apple Music metadata uses its scripting interface plus bounded distributed
+  player notifications; the
   Hardened Runtime bundle carries the explicit Apple Events Automation
   entitlement and macOS remains the permission authority;
+- web music is created only by the explicit Open Web Player action, uses the
+  system WebKit engine, allows top-level HTTPS navigation only within the
+  selected provider and its authentication domains, and hands unrelated links
+  to the default browser;
+- the page bridge accepts bounded playback metadata only from the currently
+  selected provider and never inspects passwords, cookies, or authentication
+  tokens;
 - no embedded GitHub tokens or release credentials;
 - release credentials belong only in protected GitHub Actions secrets;
 - optional clipboard persistence uses AES-GCM and keeps the device-only archive
   key in macOS Keychain; clipboard persistence remains disabled by default;
-- CI rejects Impuls-owned networking APIs outside the update service, pins the
-  Sparkle version and revision, validates security Info.plist keys, verifies the
-  embedded framework, and checks that no MediaRemote/perl helper is bundled;
+- CI rejects Impuls-owned networking APIs outside the update service and the
+  explicit WebKit music boundary, proves the web view is lazily constructed,
+  pins the Sparkle version and revision, validates security Info.plist keys,
+  verifies the embedded framework, and checks that no MediaRemote/perl helper is
+  bundled;
 - release CI creates a symlink-preserving ZIP, signs and verifies both the feed
   and archive, then publishes them with checksums only after all tests pass;
 - full-resolution image operations reject dimensions above a defined pixel
@@ -62,6 +72,11 @@ is available. Losing every protected copy would prevent safe updates to existing
 Because public releases are ad-hoc signed, macOS may ask for Automation access
 again after an update. A stable Developer ID signature is still the long-term
 fix for durable TCC identity across releases.
+
+Web music depends on the provider's current HTML and Media Session behaviour.
+A provider can change its controls, authentication flow, playback policy, or
+WebKit support without notice. Impuls does not bypass DRM, subscriptions,
+regional restrictions, or provider access rules.
 
 The latest documented review is
 [`docs/audits/1.2.9-update-security.md`](docs/audits/1.2.9-update-security.md).

@@ -1,11 +1,8 @@
 import AppKit
 
-/// Safe Now Playing integration based only on public macOS mechanisms.
-///
-/// Apple Music and Spotify expose track metadata and transport through their
-/// scripting dictionaries. Other sources can still receive standard media-key
-/// events when macOS grants the required Accessibility permission, but private
-/// playback APIs and process injection are deliberately not used.
+/// Coordinates one explicitly selected music source. Apple Music and web
+/// players have separate adapters and permissions; no process-scanning winner
+/// is guessed when several services happen to be open at once.
 @MainActor
 final class MediaController: ObservableObject {
     struct Track: Equatable {
@@ -15,41 +12,76 @@ final class MediaController: ObservableObject {
         var key: String
     }
 
+    enum EmptyReason: Equatable {
+        case appleMusicNotRunning
+        case appleMusicIdle
+        case appleMusicUnreadable
+        case webPlayerNotOpen
+        case webPlayerLoading
+        case webPlayerIdle
+    }
+
+    static let selectedSourceKey = "music.selectedSource.v1"
+
+    @Published private(set) var selectedSource: MusicSource
     @Published private(set) var track: Track?
     @Published private(set) var artwork: NSImage?
     @Published private(set) var isPlaying = false
     @Published private(set) var duration: TimeInterval = 0
     @Published private(set) var position: TimeInterval = 0
-    @Published private(set) var sourceName: String?
     @Published private(set) var accessIssue: PlayerAccessIssue?
+    @Published private(set) var emptyReason: EmptyReason
+    @Published private(set) var isLoading = false
 
-    private var activeApp: PlayerApp?
+    var sourceName: String { selectedSource.displayName }
+    var canSeek: Bool { track != nil && duration > 0 }
+    var webPlayerWasOpened: Bool { webPlayer?.source == selectedSource }
+
+    private let defaults: UserDefaults
+    private var webPlayer: WebMusicPlayer?
     private var artworkKey: String?
     private var anchor: (position: TimeInterval, at: Date)?
     private var pendingSeek: (target: TimeInterval, at: Date)?
     private var ticker: Timer?
+    private var nativeRefreshTimer: Timer?
     private var observers: [Any] = []
     private var isActive = false
     private var isStarted = false
     private var refreshInFlight = false
     private var refreshPending = false
     private var consecutiveEmptyRefreshes = 0
+    private var notificationFallback: (state: PlayerState, receivedAt: Date)?
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let stored = defaults.string(forKey: Self.selectedSourceKey).flatMap {
+            MusicSource(rawValue: $0)
+        }
+        let source = stored ?? .appleMusic
+        selectedSource = source
+        emptyReason = source.isWeb ? .webPlayerNotOpen : .appleMusicNotRunning
+    }
 
     func start() {
         guard !isStarted else { return }
         isStarted = true
         let center = DistributedNotificationCenter.default()
-        for app in PlayerApp.allCases {
-            observers.append(center.addObserver(
-                forName: app.changeNotification, object: nil, queue: .main
-            ) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    self?.activeApp = app
-                    self?.refreshFromPlayers()
+        observers.append(center.addObserver(
+            forName: PlayerApp.music.changeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            MainActor.assumeIsolated {
+                guard let self, self.selectedSource == .appleMusic else { return }
+                if let userInfo = notification.userInfo,
+                   let state = PlayerBridge.parseNotification(userInfo) {
+                    self.notificationFallback = (state, Date())
+                    self.adopt(state)
                 }
-            })
-        }
-        refreshFromPlayers()
+                self.refreshFromAppleMusic()
+            }
+        })
+        if selectedSource == .appleMusic { refreshFromAppleMusic() }
     }
 
     func stop() {
@@ -59,70 +91,140 @@ final class MediaController: ObservableObject {
         observers.removeAll()
         ticker?.invalidate()
         ticker = nil
+        nativeRefreshTimer?.invalidate()
+        nativeRefreshTimer = nil
     }
 
     func setActive(_ active: Bool) {
         isActive = active
         updateTicker()
+        updateNativeRefreshTimer()
         guard active else { return }
         tick()
-        refreshFromPlayers()
+        if selectedSource == .appleMusic {
+            refreshFromAppleMusic()
+        } else {
+            webPlayer?.requestSnapshot()
+        }
+    }
+
+    func selectSource(_ source: MusicSource) {
+        guard source != selectedSource else { return }
+        if let player = webPlayer, player.source != nil, player.source != source {
+            player.deactivate()
+        }
+        selectedSource = source
+        defaults.set(source.rawValue, forKey: Self.selectedSourceKey)
+        clear(reason: source.isWeb ? .webPlayerNotOpen : .appleMusicNotRunning)
+        updateNativeRefreshTimer()
+
+        if source == .appleMusic {
+            refreshFromAppleMusic()
+        } else if let player = webPlayer, player.source == source {
+            emptyReason = .webPlayerIdle
+            if let state = player.currentState { adopt(state, source: source) }
+            player.requestSnapshot()
+        }
+    }
+
+    /// The only entry point that opens a web service. Source selection itself
+    /// remains local and does not create a web view or perform a request.
+    func openSelectedSource() {
+        if selectedSource == .appleMusic {
+            guard let appURL = NSWorkspace.shared.urlForApplication(
+                withBundleIdentifier: PlayerApp.music.bundleID
+            ) else {
+                clear(reason: .appleMusicNotRunning)
+                return
+            }
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = true
+            NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { [weak self] _, error in
+                if let error { NSLog("Impuls: cannot open Apple Music: \(error.localizedDescription)") }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    self?.refreshFromAppleMusic()
+                }
+            }
+            return
+        }
+
+        let player = webPlayer ?? makeWebPlayer()
+        isLoading = true
+        emptyReason = .webPlayerLoading
+        player.show(source: selectedSource)
+    }
+
+    func retry() {
+        if selectedSource == .appleMusic {
+            refreshFromAppleMusic()
+        } else if webPlayerWasOpened {
+            webPlayer?.requestSnapshot()
+        } else {
+            openSelectedSource()
+        }
     }
 
     func togglePlayPause() {
+        guard track != nil else { return }
         isPlaying.toggle()
         setAnchor(position)
-        if let activeApp {
-            PlayerBridge.playPause(activeApp)
+        if selectedSource == .appleMusic {
+            PlayerBridge.playPause(.music)
         } else {
-            PlayerBridge.postMediaKey(PlayerBridge.MediaKey.playPause.rawValue)
+            webPlayer?.command(.playPause)
         }
     }
 
     func next() {
-        if let activeApp {
-            PlayerBridge.next(activeApp)
+        if selectedSource == .appleMusic {
+            PlayerBridge.next(.music)
         } else {
-            PlayerBridge.postMediaKey(PlayerBridge.MediaKey.next.rawValue)
+            webPlayer?.command(.next)
         }
     }
 
     func previous() {
-        if let activeApp {
-            PlayerBridge.previous(activeApp)
+        if selectedSource == .appleMusic {
+            PlayerBridge.previous(.music)
         } else {
-            PlayerBridge.postMediaKey(PlayerBridge.MediaKey.previous.rawValue)
+            webPlayer?.command(.previous)
         }
     }
 
     func seek(to seconds: TimeInterval) {
-        guard duration > 0, let activeApp else { return }
+        guard canSeek else { return }
         let clamped = min(max(0, seconds), duration)
         setAnchor(clamped)
         pendingSeek = (clamped, Date())
-        PlayerBridge.seek(activeApp, to: clamped)
+        if selectedSource == .appleMusic {
+            PlayerBridge.seek(.music, to: clamped)
+        } else {
+            webPlayer?.seek(to: clamped)
+        }
     }
 
     func resolveAutomationAccess() {
         guard let issue = accessIssue else { return }
         if issue.authorization == .notDetermined {
-            PlayerBridge.automationAuthorization(for: issue.app, prompt: true) { [weak self] _ in
-                self?.refreshFromPlayers()
+            PlayerBridge.automationAuthorization(for: .music, prompt: true) { [weak self] _ in
+                self?.refreshFromAppleMusic()
             }
         } else {
             openAutomationSettings()
         }
     }
 
-    private func openAutomationSettings() {
+    func openAutomationSettings() {
         guard let url = URL(
             string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"
         ) else { return }
         NSWorkspace.shared.open(url)
     }
 
-    private func refreshFromPlayers() {
-        guard isStarted else { return }
+    // MARK: - Apple Music
+
+    private func refreshFromAppleMusic() {
+        guard isStarted, selectedSource == .appleMusic else { return }
         if refreshInFlight {
             refreshPending = true
             return
@@ -131,71 +233,166 @@ final class MediaController: ObservableObject {
         PlayerBridge.currentState { [weak self] result in
             guard let self else { return }
             self.refreshInFlight = false
-            guard self.isStarted else {
+            guard self.isStarted, self.selectedSource == .appleMusic else {
                 self.refreshPending = false
                 return
             }
             let shouldRefreshAgain = self.refreshPending
             self.refreshPending = false
             defer {
-                if shouldRefreshAgain { self.refreshFromPlayers() }
+                if shouldRefreshAgain { self.refreshFromAppleMusic() }
             }
-            guard let state = result.state else {
-                if result.accessIssue == nil,
-                   result.hasRunningPlayer,
-                   self.track != nil,
-                   self.consecutiveEmptyRefreshes == 0 {
-                    self.consecutiveEmptyRefreshes = 1
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
-                        self?.refreshFromPlayers()
-                    }
-                    return
-                }
+
+            if let state = result.state {
+                self.notificationFallback = (state, Date())
                 self.consecutiveEmptyRefreshes = 0
-                self.clear(accessIssue: result.accessIssue)
+                self.accessIssue = nil
+                self.isLoading = false
+                self.adopt(state)
+                return
+            }
+
+            if let fallback = self.notificationFallback,
+               Date().timeIntervalSince(fallback.receivedAt) < 8,
+               result.hasRunningPlayer {
+                self.adopt(fallback.state)
+                return
+            }
+
+            if result.accessIssue == nil,
+               result.hasRunningPlayer,
+               self.track != nil,
+               self.consecutiveEmptyRefreshes == 0 {
+                self.consecutiveEmptyRefreshes = 1
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                    self?.refreshFromAppleMusic()
+                }
                 return
             }
 
             self.consecutiveEmptyRefreshes = 0
-            self.accessIssue = nil
-            self.activeApp = state.app
-            self.sourceName = state.app.displayName
-            self.track = Track(title: state.title, artist: state.artist, album: state.album, key: state.key)
-            self.isPlaying = state.isPlaying
-            self.duration = state.duration
-
-            if let pending = self.pendingSeek {
-                let settled = abs(state.position - pending.target) < 2.5
-                let expired = Date().timeIntervalSince(pending.at) > 1.5
-                if settled || expired {
-                    self.pendingSeek = nil
-                    self.adopt(state.position)
-                }
-            } else {
-                self.adopt(state.position)
-            }
-            self.updateTicker()
-
-            guard self.artworkKey != state.key else { return }
-            self.artworkKey = state.key
-            self.artwork = nil
-            PlayerBridge.artwork(for: state) { [weak self] image in
-                guard let self, self.artworkKey == state.key else { return }
-                self.artwork = image
-            }
+            self.accessIssue = result.accessIssue
+            self.clear(reason: result.readFailed ? .appleMusicUnreadable : (
+                result.hasRunningPlayer ? .appleMusicIdle : .appleMusicNotRunning
+            ), preservingAccessIssue: true)
         }
     }
 
-    private func clear(accessIssue: PlayerAccessIssue? = nil) {
-        activeApp = nil
+    private func updateNativeRefreshTimer() {
+        guard isActive, selectedSource == .appleMusic else {
+            nativeRefreshTimer?.invalidate()
+            nativeRefreshTimer = nil
+            return
+        }
+        guard nativeRefreshTimer == nil else { return }
+        let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshFromAppleMusic() }
+        }
+        timer.tolerance = 0.15
+        RunLoop.main.add(timer, forMode: .common)
+        nativeRefreshTimer = timer
+    }
+
+    // MARK: - Web players
+
+    private func makeWebPlayer() -> WebMusicPlayer {
+        let player = WebMusicPlayer()
+        player.onLoading = { [weak self] source, loading in
+            guard let self, self.selectedSource == source else { return }
+            self.isLoading = loading
+            if loading, self.track == nil {
+                self.emptyReason = .webPlayerLoading
+            } else if !loading, self.track == nil {
+                self.emptyReason = .webPlayerIdle
+            }
+        }
+        player.onState = { [weak self] source, state in
+            guard let self, self.selectedSource == source else { return }
+            self.isLoading = false
+            guard let state else {
+                self.clear(reason: .webPlayerIdle)
+                return
+            }
+            self.adopt(state, source: source)
+        }
+        webPlayer = player
+        return player
+    }
+
+    // MARK: - Shared presentation state
+
+    private func adopt(_ state: PlayerState) {
+        let oldKey = track?.key
+        accessIssue = nil
+        emptyReason = .appleMusicIdle
+        track = Track(
+            title: state.title,
+            artist: state.artist,
+            album: state.album,
+            key: state.key
+        )
+        isPlaying = state.isPlaying
+        duration = state.duration
+
+        if state.positionIsKnown {
+            settlePosition(state.position)
+        } else if oldKey != state.key {
+            setAnchor(0)
+        }
+        updateTicker()
+
+        guard artworkKey != state.key else { return }
+        artworkKey = state.key
+        artwork = nil
+        PlayerBridge.artwork(for: state) { [weak self] image in
+            guard let self, self.artworkKey == state.key else { return }
+            self.artwork = image
+        }
+    }
+
+    private func adopt(_ state: WebMusicState, source: MusicSource) {
+        let key = "\(source.rawValue)|\(state.key)"
+        accessIssue = nil
+        emptyReason = .webPlayerIdle
+        track = Track(
+            title: state.title,
+            artist: state.artist,
+            album: state.album,
+            key: key
+        )
+        artwork = nil
+        artworkKey = key
+        isPlaying = state.isPlaying
+        duration = state.duration
+        settlePosition(state.position)
+        updateTicker()
+    }
+
+    private func settlePosition(_ reported: TimeInterval) {
+        if let pending = pendingSeek {
+            let settled = abs(reported - pending.target) < 2.5
+            let expired = Date().timeIntervalSince(pending.at) > 1.5
+            if settled || expired {
+                pendingSeek = nil
+                adoptPosition(reported)
+            }
+        } else {
+            adoptPosition(reported)
+        }
+    }
+
+    private func clear(reason: EmptyReason, preservingAccessIssue: Bool = false) {
         track = nil
         artwork = nil
         artworkKey = nil
         isPlaying = false
         duration = 0
         position = 0
-        sourceName = nil
-        self.accessIssue = accessIssue
+        anchor = nil
+        pendingSeek = nil
+        isLoading = reason == .webPlayerLoading
+        emptyReason = reason
+        if !preservingAccessIssue { accessIssue = nil }
         updateTicker()
     }
 
@@ -207,7 +404,7 @@ final class MediaController: ObservableObject {
     private let forwardTolerance: TimeInterval = 0.75
     private let seekThreshold: TimeInterval = 2
 
-    private func adopt(_ reported: TimeInterval) {
+    private func adoptPosition(_ reported: TimeInterval) {
         var value = max(0, reported)
         if duration > 0 { value = min(value, duration) }
         let delta = value - position
@@ -226,9 +423,6 @@ final class MediaController: ObservableObject {
             ticker = nil
             return
         }
-        // Player notifications can be frequent. Keep the existing clock when
-        // its required state did not change instead of allocating a new timer
-        // after every metadata refresh.
         guard ticker == nil else { return }
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }

@@ -45,7 +45,7 @@ final class UpdateService {
         alert.messageText = localized("Allow Impuls to check for updates?")
         alert.informativeText = localized("If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action.")
         alert.addButton(withTitle: localized("Allow Update Checks"))
-        alert.addButton(withTitle: localized("Stay Offline"))
+        alert.addButton(withTitle: localized("Do Not Check"))
 
         let allowed = alert.runModal() == .alertFirstButtonReturn
         setNetworkAccess(allowed)

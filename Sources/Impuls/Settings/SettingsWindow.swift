@@ -322,19 +322,8 @@ private struct PermissionSettingsPane: View {
                     )
 
                     permissionRow(
-                        title: localized("Accessibility"),
-                        detail: localized("Lets media controls send standard system media keys when no supported player is active."),
-                        symbol: "accessibility",
-                        state: permissions.accessibility,
-                        primaryTitle: permissions.accessibility == .allowed ? nil : localized("Allow"),
-                        primaryAction: permissions.requestAccessibility,
-                        settingsAction: permissions.openAccessibilitySettings,
-                        alwaysShowSettings: true
-                    )
-
-                    permissionRow(
                         title: localized("Music Automation"),
-                        detail: localized("Reads track information and controls Apple Music and Spotify through macOS Automation."),
+                        detail: localized("Reads track information and controls the Apple Music app. Web players do not need this permission."),
                         symbol: "music.note",
                         state: permissions.musicAutomation,
                         primaryTitle: permissions.musicAutomation == .notRequested ? localized("Allow") : nil,
