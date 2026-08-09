@@ -31,6 +31,15 @@
 
 /* Media */
 "Nothing is playing" = "Nothing is playing";
+"Open Web Player" = "Open Web Player";
+"Show Web Player" = "Show Web Player";
+"Open Apple Music" = "Open Apple Music";
+"Open Apple Music and start a track." = "Open Apple Music and start a track.";
+"Apple Music is open, but no track is playing." = "Apple Music is open, but no track is playing.";
+"Apple Music is playing, but its track data could not be read." = "Apple Music is playing, but its track data could not be read.";
+"Open the selected web player to sign in and choose music." = "Open the selected web player to sign in and choose music.";
+"Connecting to the selected web player…" = "Connecting to the selected web player…";
+"Choose a track in %@." = "Choose a track in %@.";
 
 /* Snippets */
 "Add a snippet" = "Add a snippet";
@@ -88,7 +97,7 @@
 "Allow Impuls to check for updates?" = "Allow Impuls to check for updates?";
 "If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action." = "If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action.";
 "Allow Update Checks" = "Allow Update Checks";
-"Stay Offline" = "Stay Offline";
+"Do Not Check" = "Do Not Check";
 "Could Not Check for Updates" = "Could Not Check for Updates";
 "The public update channel is not available yet. Please try again later." = "The public update channel is not available yet. Please try again later.";
 "GitHub denied access to the update channel." = "GitHub denied access to the update channel.";
@@ -142,10 +151,8 @@
 "Restricted" = "Restricted";
 "Planned" = "Planned";
 "Shows upcoming meetings inside the Calendar module." = "Shows upcoming meetings inside the Calendar module.";
-"Accessibility" = "Accessibility";
-"Lets media controls send standard system media keys when no supported player is active." = "Lets media controls send standard system media keys when no supported player is active.";
 "Music Automation" = "Music Automation";
-"Reads track information and controls Apple Music and Spotify through macOS Automation." = "Reads track information and controls Apple Music and Spotify through macOS Automation.";
+"Reads track information and controls the Apple Music app. Web players do not need this permission." = "Reads track information and controls the Apple Music app. Web players do not need this permission.";
 "Allow Automation access to read %@." = "Allow Automation access to read %@.";
 "Notifications" = "Notifications";
 "Will be used for optional meeting reminders in a later update. No permission is requested yet." = "Will be used for optional meeting reminders in a later update. No permission is requested yet.";

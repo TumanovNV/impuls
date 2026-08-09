@@ -22,6 +22,7 @@ final class PlayerBridgeTests: XCTestCase {
         XCTAssertEqual(state.album, "Жить в кайф")
         XCTAssertEqual(state.duration, 241)
         XCTAssertEqual(state.position, 37.5)
+        XCTAssertTrue(state.positionIsKnown)
     }
 
     func testMissingOptionalMetadataDoesNotDiscardTrack() throws {
@@ -35,6 +36,30 @@ final class PlayerBridgeTests: XCTestCase {
         XCTAssertEqual(state.album, "")
         XCTAssertEqual(state.duration, 0)
         XCTAssertEqual(state.position, 0)
+    }
+
+    func testParsesAppleMusicDistributedNotificationAsFallback() throws {
+        let state = try XCTUnwrap(PlayerBridge.parseNotification([
+            "Player State": "Playing",
+            "Name": "Мотылёк",
+            "Artist": "Макс Корж",
+            "Album": "Жить в кайф",
+            "Total Time": NSNumber(value: 241_000),
+            "Player Position": NSNumber(value: 37.5),
+        ]))
+
+        XCTAssertTrue(state.isPlaying)
+        XCTAssertEqual(state.title, "Мотылёк")
+        XCTAssertEqual(state.duration, 241)
+        XCTAssertEqual(state.position, 37.5)
+        XCTAssertTrue(state.positionIsKnown)
+    }
+
+    func testNotificationWithoutTitleIsNotPresentedAsTrack() {
+        XCTAssertNil(PlayerBridge.parseNotification([
+            "Player State": "Playing",
+            "Artist": "Artist",
+        ]))
     }
 
     func testEmptyTitleIsNotPresentedAsAPlayingTrack() {

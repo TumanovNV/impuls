@@ -2,32 +2,26 @@ import AppKit
 import ApplicationServices
 import ImageIO
 
-/// Public-API bridge to the two scriptable players macOS ships with support
-/// for. Everything goes through AppleScript (state, artwork, transport) and
-/// distributed notifications (change events) — no private frameworks.
+/// Public-API bridge dedicated to the native Apple Music application.
+///
+/// State is read through the application's scripting interface. Distributed
+/// player notifications provide a second metadata path, which matters when a
+/// transient scripting reply is unavailable even though Music is visibly
+/// playing. No private Now Playing framework is linked or loaded.
 enum PlayerApp: String, CaseIterable, Hashable {
-    case music, spotify
+    case music
 
     var bundleID: String {
-        switch self {
-        case .music: return "com.apple.Music"
-        case .spotify: return "com.spotify.client"
-        }
+        "com.apple.Music"
     }
 
     var displayName: String {
-        switch self {
-        case .music: return "Apple Music"
-        case .spotify: return "Spotify"
-        }
+        "Apple Music"
     }
 
     /// Distributed notification the player posts on every state change.
     var changeNotification: Notification.Name {
-        switch self {
-        case .music: return Notification.Name("com.apple.Music.playerInfo")
-        case .spotify: return Notification.Name("com.spotify.client.PlaybackStateChanged")
-        }
+        Notification.Name("com.apple.Music.playerInfo")
     }
 
     var isRunning: Bool {
@@ -55,6 +49,7 @@ struct PlayerScanResult {
     var state: PlayerState?
     var accessIssue: PlayerAccessIssue?
     var hasRunningPlayer: Bool
+    var readFailed: Bool
 }
 
 struct PlayerState {
@@ -65,6 +60,7 @@ struct PlayerState {
     var album: String
     var duration: TimeInterval
     var position: TimeInterval
+    var positionIsKnown: Bool
     var artworkURL: URL?
     /// Identity of the track, used to decide when artwork must be refetched.
     var key: String { "\(app.rawValue)|\(title)|\(artist)|\(album)" }
@@ -81,6 +77,7 @@ enum PlayerBridge {
         case state(PlayerState)
         case noState
         case accessIssue(PlayerAccessIssue)
+        case readFailed
     }
 
     static func automationAuthorization(
@@ -123,27 +120,73 @@ enum PlayerBridge {
                     if code == Int(errAEEventWouldRequireUserConsent) {
                         return completion(.accessIssue(PlayerAccessIssue(app: app, authorization: .notDetermined)))
                     }
+                    return completion(.readFailed)
                 }
-                guard let raw = result.descriptor?.stringValue,
-                      !raw.isEmpty,
-                      let state = parse(raw, app: app) else {
-                    return completion(.noState)
-                }
+                guard let raw = result.descriptor?.stringValue else { return completion(.readFailed) }
+                guard !raw.isEmpty else { return completion(.noState) }
+                guard let state = parse(raw, app: app) else { return completion(.readFailed) }
                 completion(.state(state))
             }
         }
     }
 
-    /// Never launches a player: only already-running ones are queried, and a
-    /// playing app wins over a merely-open one.
+    /// Apple Music broadcasts public distributed notifications when its player
+    /// changes. Their payload is treated as a bounded fallback, not as an
+    /// authority for permissions or process discovery.
+    static func parseNotification(_ userInfo: [AnyHashable: Any]) -> PlayerState? {
+        func string(_ key: String) -> String {
+            guard let value = userInfo[key] as? String else { return "" }
+            return String(value.prefix(512)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        func number(_ key: String) -> Double? {
+            (userInfo[key] as? NSNumber)?.doubleValue
+        }
+
+        let title = string("Name")
+        guard !title.isEmpty else { return nil }
+        let durationMilliseconds = max(0, number("Total Time") ?? 0)
+        let duration = durationMilliseconds / 1000
+
+        let reportedPosition = number("Player Position") ?? number("Elapsed Time")
+        let position: TimeInterval
+        if let reportedPosition, reportedPosition.isFinite {
+            // Some Music versions report milliseconds and others seconds.
+            position = duration > 0 && reportedPosition > duration * 4
+                ? reportedPosition / 1000
+                : reportedPosition
+        } else {
+            position = 0
+        }
+        let nonnegativePosition = max(0, position)
+
+        return PlayerState(
+            app: .music,
+            isPlaying: string("Player State").lowercased() == "playing",
+            title: title,
+            artist: string("Artist"),
+            album: string("Album"),
+            duration: duration,
+            position: min(nonnegativePosition, duration > 0 ? duration : nonnegativePosition),
+            positionIsKnown: reportedPosition != nil,
+            artworkURL: nil
+        )
+    }
+
+    /// Never launches Music. The pane has a separate explicit action for that.
     static func currentState(completion: @escaping (PlayerScanResult) -> Void) {
         let candidates = PlayerApp.allCases.filter(\.isRunning)
         guard !candidates.isEmpty else {
-            return completion(PlayerScanResult(state: nil, accessIssue: nil, hasRunningPlayer: false))
+            return completion(PlayerScanResult(
+                state: nil,
+                accessIssue: nil,
+                hasRunningPlayer: false,
+                readFailed: false
+            ))
         }
 
         var results: [PlayerState] = []
         var accessIssues: [PlayerAccessIssue] = []
+        var readFailed = false
         let group = DispatchGroup()
         for app in candidates {
             group.enter()
@@ -152,6 +195,7 @@ enum PlayerBridge {
                 case .state(let state): results.append(state)
                 case .accessIssue(let issue): accessIssues.append(issue)
                 case .noState: break
+                case .readFailed: readFailed = true
                 }
                 group.leave()
             }
@@ -161,7 +205,12 @@ enum PlayerBridge {
             let issue = state == nil
                 ? accessIssues.first(where: { $0.authorization == .denied }) ?? accessIssues.first
                 : nil
-            completion(PlayerScanResult(state: state, accessIssue: issue, hasRunningPlayer: true))
+            completion(PlayerScanResult(
+                state: state,
+                accessIssue: issue,
+                hasRunningPlayer: true,
+                readFailed: readFailed
+            ))
         }
     }
 
@@ -169,12 +218,7 @@ enum PlayerBridge {
 
     static func playPause(_ app: PlayerApp) { command("playpause", on: app) }
     static func next(_ app: PlayerApp) { command("next track", on: app) }
-    static func previous(_ app: PlayerApp) {
-        // Spotify's `previous track` restarts the current song first, matching
-        // its own UI; Music behaves the same way. Seeking to 0 first is what
-        // users expect from a "skip back" button.
-        command(app == .spotify ? "set player position to 0\n    previous track" : "back track", on: app)
-    }
+    static func previous(_ app: PlayerApp) { command("back track", on: app) }
 
     static func seek(_ app: PlayerApp, to seconds: TimeInterval) {
         command("set player position to \(Int(seconds))", on: app)
@@ -189,47 +233,17 @@ enum PlayerBridge {
         """) { _ in }
     }
 
-    /// System-wide media key, used when no scriptable player is running.
-    /// Requires Accessibility permission; silently does nothing without it.
-    static func postMediaKey(_ key: Int32) {
-        for down in [true, false] {
-            let flags: Int = down ? 0xA00 : 0xB00
-            guard let event = NSEvent.otherEvent(
-                with: .systemDefined,
-                location: .zero,
-                modifierFlags: NSEvent.ModifierFlags(rawValue: UInt(flags)),
-                timestamp: 0,
-                windowNumber: 0,
-                context: nil,
-                subtype: 8,
-                data1: (Int(key) << 16) | flags,
-                data2: -1
-            ) else { continue }
-            event.cgEvent?.post(tap: .cghidEventTap)
-        }
-    }
-
-    enum MediaKey: Int32 {
-        case playPause = 16, next = 17, previous = 18
-    }
-
     // MARK: - Artwork
 
-    static func artwork(for state: PlayerState, completion: @escaping (NSImage?) -> Void) {
-        switch state.app {
-        case .spotify:
-            // Сетевая загрузка обложки отключена в локальной безопасной сборке.
-            completion(nil)
-        case .music:
-            runScript("""
-            tell application id "com.apple.Music"
-                if (count of artworks of current track) is 0 then return missing value
-                return raw data of artwork 1 of current track
-            end tell
-            """) { descriptor in
-                guard let data = descriptor?.data, !data.isEmpty else { return completion(nil) }
-                completion(thumbnailArtwork(from: data))
-            }
+    static func artwork(for _: PlayerState, completion: @escaping (NSImage?) -> Void) {
+        runScript("""
+        tell application id "com.apple.Music"
+            if (count of artworks of current track) is 0 then return missing value
+            return raw data of artwork 1 of current track
+        end tell
+        """) { descriptor in
+            guard let data = descriptor?.data, !data.isEmpty else { return completion(nil) }
+            completion(thumbnailArtwork(from: data))
         }
     }
 
@@ -257,72 +271,37 @@ enum PlayerBridge {
 
     // MARK: - Scripts
 
-    private static func stateScript(for app: PlayerApp) -> String {
+    private static func stateScript(for _: PlayerApp) -> String {
         let sep = "set sep to character id 1"
-        switch app {
-        case .spotify:
-            return """
-            \(sep)
-            tell application id "com.spotify.client"
-                set st to player state as text
-                set t to current track
-                set trackName to ""
-                set trackArtist to ""
-                set trackAlbum to ""
-                set trackDuration to 0
-                set pos to 0
-                set artworkURL to ""
-                try
-                    set trackName to name of t as text
-                end try
-                try
-                    set trackArtist to artist of t as text
-                end try
-                try
-                    set trackAlbum to album of t as text
-                end try
-                try
-                    set trackDuration to duration of t
-                end try
-                try
-                    set pos to (round ((player position) * 1000))
-                end try
-                try
-                    set artworkURL to artwork url of t as text
-                end try
-                return st & sep & trackName & sep & trackArtist & sep & trackAlbum & sep & trackDuration & sep & pos & sep & artworkURL
-            end tell
-            """
-        case .music:
-            return """
-            \(sep)
-            tell application id "com.apple.Music"
-                set st to player state as text
-                set t to current track
-                set trackName to ""
-                set trackArtist to ""
-                set trackAlbum to ""
-                set trackDuration to 0
-                set pos to 0
-                try
-                    set trackName to name of t as text
-                end try
-                try
-                    set trackArtist to artist of t as text
-                end try
-                try
-                    set trackAlbum to album of t as text
-                end try
-                try
-                    set trackDuration to (round ((duration of t) * 1000))
-                end try
-                try
-                    set pos to (round ((player position) * 1000))
-                end try
-                return st & sep & trackName & sep & trackArtist & sep & trackAlbum & sep & trackDuration & sep & pos & sep & ""
-            end tell
-            """
-        }
+        return """
+        \(sep)
+        tell application id "com.apple.Music"
+            set st to player state as text
+            if st is "stopped" then return ""
+            set t to current track
+            set trackName to ""
+            set trackArtist to ""
+            set trackAlbum to ""
+            set trackDuration to 0
+            set pos to 0
+            try
+                set trackName to name of t as text
+            end try
+            try
+                set trackArtist to artist of t as text
+            end try
+            try
+                set trackAlbum to album of t as text
+            end try
+            try
+                set trackDuration to (round ((duration of t) * 1000))
+            end try
+            try
+                set pos to (round ((player position) * 1000))
+            end try
+            return st & sep & trackName & sep & trackArtist & sep & trackAlbum & sep & trackDuration & sep & pos & sep & ""
+        end tell
+        """
     }
 
     static func parse(_ raw: String, app: PlayerApp) -> PlayerState? {
@@ -336,6 +315,7 @@ enum PlayerBridge {
             album: parts[3],
             duration: (Double(parts[4]) ?? 0) / 1000,
             position: (Double(parts[5]) ?? 0) / 1000,
+            positionIsKnown: true,
             artworkURL: parts.count > 6 ? URL(string: parts[6]) : nil
         )
     }

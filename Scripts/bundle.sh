@@ -66,7 +66,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>SUSignedFeedFailureExpirationInterval</key><integer>0</integer>
     <key>SUShowReleaseNotes</key><true/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Impuls читает название текущего трека и управляет воспроизведением в Apple Music и Spotify.</string>
+    <string>Impuls читает название текущего трека и управляет воспроизведением в приложении Apple Music.</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
     <string>Impuls показывает ближайшие встречи и кнопку подключения к ним.</string>
     <key>NSCalendarsUsageDescription</key>

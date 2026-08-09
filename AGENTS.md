@@ -25,15 +25,19 @@ is set and falls back to an ad-hoc signature otherwise.
 breaking one turns CI red rather than producing a subtly worse app. Read that
 workflow before arguing with this list.
 
-1. **Network access lives only in `Sources/Impuls/Services/UpdateService.swift`.**
+1. **Network access has two explicit owners.** `UpdateService.swift` owns the
+   opt-in Sparkle channel. `WebMusicPlayer.swift` may open only the official HTTPS
+   site selected by the user, and only from the explicit Open Web Player action;
+   merely launching Impuls or selecting a source must not construct `WKWebView`.
    `URLSession`, `NSURLSession`, `URLRequest`, `NSURLConnection`, `NWConnection`,
    `NWListener`, `webSocketTask` and `CFStreamCreatePairWithSocketToHost` are banned
-   in every other file. The only endpoint is the Sparkle appcast at
-   `https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml`.
+   everywhere else. The PR smoke test must still observe zero sockets at launch.
 2. **No private media APIs and no injection.** `/usr/bin/perl`, `MediaRemote`,
    `dl_load_file` and `DynaLoader` must not appear anywhere in `Sources` or `Scripts`.
-   Music metadata comes from the public scripting interfaces of Apple Music and
-   Spotify, guarded by `AEDeterminePermissionToAutomateTarget`.
+   Native Apple Music metadata comes from its scripting interface and bounded
+   player-change notifications, guarded by `AEDeterminePermissionToAutomateTarget`.
+   Web metadata comes only from the selected provider page's bounded Media Session
+   bridge after the user opens that page.
 3. **Sparkle is pinned.** `exact: "2.9.5"` in `Package.swift` and the matching
    revision in `Package.resolved`. Do not add, bump or replace dependencies.
 4. **The panel follows the system appearance.** `darkAqua`, `Color.white` and

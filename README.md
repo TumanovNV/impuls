@@ -14,7 +14,8 @@ file shelf, clipboard history, snippets, calendar, translator, and scratchpad.
 ## Privacy by design
 
 - no analytics, telemetry, advertising, or device fingerprinting;
-- no network connection unless the user explicitly allows update checks;
+- no network connection unless the user explicitly allows update checks or
+  opens a selected web music service;
 - update checks contact only the Impuls GitHub Releases endpoint;
 - an update is downloaded and installed only after the user acts;
 - clipboard content, notes, snippets, files, and calendar data never leave the Mac;
@@ -100,12 +101,16 @@ exported to and restored from a local JSON backup.
 
 ## Music support
 
-Apple Music and Spotify provide metadata, seeking, artwork where available, and
-transport controls through their public scripting interfaces. This requires the
-separate macOS Automation permission for each supported player. Other players
-and browser tabs may receive standard media-key controls when macOS grants the
-Accessibility permission. Apple does not provide a public API that exposes full
-metadata for every system Now Playing source.
+The Music pane now makes the source explicit. The native Apple Music adapter
+uses its scripting interface and player-change events, with Automation as its
+only music permission. Yandex Music is the first web choice, alongside VK Music,
+YouTube Music, and Spotify. Their official sites open in a separate system
+WebKit window only after the user presses **Open Web Player**; the notch then
+shows the page's bounded Media Session metadata and sends transport or seek
+actions back to that page. Selecting a source alone never starts a request.
+
+Impuls does not use unofficial catalogue APIs, copy audio, bypass a subscription
+or DRM, or claim access to the private system-wide Now Playing database.
 
 ## Requirements
 
@@ -130,7 +135,7 @@ manual Gatekeeper approval on another Mac.
 ## Update policy
 
 At first launch, Impuls asks whether it may check GitHub Releases. Choosing
-“Stay Offline” causes no update request. The decision can be changed from the
+“Do Not Check” causes no update request. The decision can be changed from the
 menu. Version 1.2.9 is the one-time transition install. Starting with 1.2.10,
 “Check for Updates…” downloads a signed ZIP to temporary system storage,
 verifies it before extraction, replaces Impuls, relaunches the app, and cleans

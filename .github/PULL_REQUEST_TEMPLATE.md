@@ -9,7 +9,8 @@
 
 - [ ] `swift test -c release` passes locally
 - [ ] `./Scripts/bundle.sh release` produces a launchable `build/Impuls.app`
-- [ ] No new network call outside `Sources/Impuls/Services/UpdateService.swift`
+- [ ] Network is confined to `UpdateService.swift` and the user-opened
+      `WebMusicPlayer.swift`; launch still opens no socket
 - [ ] No `Color.white`, `foregroundStyle(.white)` or `darkAqua` in `UI/` or `Notch/`
 - [ ] Panel checked in **both** light and dark system appearance
 - [ ] New `localized("…")` keys added to `en.lproj` **and** `ru.lproj`
