@@ -194,7 +194,7 @@ jobs:
           PY
 
       - name: Smoke-test application without unsolicited networking
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
@@ -216,7 +216,7 @@ jobs:
           trap - EXIT
 
       - name: Build test update artifacts
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         shell: bash
         run: |
           set -euo pipefail
@@ -234,7 +234,7 @@ jobs:
           codesign --verify --deep --strict "$EXTRACTED/Impuls.app"
 
       - name: Store test artifacts
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Impuls-test-${{ github.run_id }}
