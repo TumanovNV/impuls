@@ -37,6 +37,15 @@ and per-application exclusions. History remains memory-only by default. Optional
 between-launch persistence encrypts the local archive with AES-GCM and stores its
 random key in macOS Keychain.
 
+## File tools
+
+Impuls 1.2.2 adds local file actions to the shelf. Images can be converted to
+PNG, JPEG, or HEIC, reduced to a selected maximum dimension, combined into a
+multi-page PDF, or processed with Apple Vision to recognize text and remove the
+background. The shelf also exposes AirDrop, the macOS Share menu, path copying,
+and safe renaming. Transformations always create a uniquely named sibling file;
+the source is never overwritten or uploaded.
+
 ## Settings and keyboard control
 
 The native Settings window can configure the global shortcut,

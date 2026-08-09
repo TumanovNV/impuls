@@ -9,12 +9,13 @@ extension NSPasteboard.PasteboardType {
 
 struct ShelfItem: Identifiable, Equatable {
     let id = UUID()
-    let url: URL
+    var url: URL
     /// Starts as the file-type icon and is replaced by a real preview once
     /// QuickLook renders one — a shelf of identical PNG icons is useless when
     /// what it holds is screenshots.
     var icon: NSImage
     var name: String { url.lastPathComponent }
+    var isImage: Bool { ClipboardContentClassifier.kind(for: url) == .image }
 
     static func == (lhs: ShelfItem, rhs: ShelfItem) -> Bool { lhs.url == rhs.url }
 }
@@ -87,6 +88,18 @@ final class ShelfStore: ObservableObject {
         persist()
     }
 
+    /// Files an operation started on `item` should use. It mirrors Finder:
+    /// when the card belongs to the current selection the operation applies to
+    /// the whole selection, otherwise only to the card that opened the menu.
+    func operationURLs(startingAt item: ShelfItem) -> [URL] {
+        guard selection.contains(item.id) else { return [item.url] }
+        return items.filter { selection.contains($0.id) }.map(\.url)
+    }
+
+    var selectedURLs: [URL] {
+        items.filter { selection.contains($0.id) }.map(\.url)
+    }
+
     // MARK: - Selection
 
     /// Plain click replaces the selection; ⌘ or ⇧ adds to it, matching Finder.
@@ -139,7 +152,60 @@ final class ShelfStore: ObservableObject {
         NSWorkspace.shared.open(item.url)
     }
 
+    /// Renames a file without allowing a path escape, extension change, or
+    /// overwrite. The file keeps its place and selection on the shelf.
+    @discardableResult
+    func rename(_ item: ShelfItem, baseName proposedBaseName: String) throws -> ShelfItem {
+        guard let index = items.firstIndex(where: { $0.id == item.id }) else {
+            throw ShelfRenameError.itemMissing
+        }
+        let target = try Self.safeRenameTarget(for: item.url, baseName: proposedBaseName)
+        guard target != item.url else { return items[index] }
+
+        try FileManager.default.moveItem(at: item.url, to: target)
+        items[index].url = target
+        items[index].icon = NSWorkspace.shared.icon(forFile: target.path)
+        let updated = items[index]
+        loadThumbnail(updated)
+        persist()
+        return updated
+    }
+
+    nonisolated static func safeRenameTarget(for source: URL, baseName proposedBaseName: String) throws -> URL {
+        let baseName = proposedBaseName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !baseName.isEmpty else { throw ShelfRenameError.emptyName }
+        guard baseName != ".", baseName != "..",
+              !baseName.contains("/"), !baseName.contains("\\"), !baseName.contains(":") else {
+            throw ShelfRenameError.invalidName
+        }
+
+        let ext = source.pathExtension
+        let fileName = ext.isEmpty ? baseName : "\(baseName).\(ext)"
+        let target = source.deletingLastPathComponent().appendingPathComponent(fileName)
+        if target.standardizedFileURL == source.standardizedFileURL { return source }
+        guard !FileManager.default.fileExists(atPath: target.path) else {
+            throw ShelfRenameError.alreadyExists
+        }
+        return target
+    }
+
     private func persist() {
         UserDefaults.standard.set(items.map(\.url.path), forKey: defaultsKey)
+    }
+}
+
+enum ShelfRenameError: LocalizedError, Equatable {
+    case itemMissing
+    case emptyName
+    case invalidName
+    case alreadyExists
+
+    var errorDescription: String? {
+        switch self {
+        case .itemMissing: return localized("The shelf item is no longer available.")
+        case .emptyName: return localized("Enter a file name.")
+        case .invalidName: return localized("The file name contains invalid characters.")
+        case .alreadyExists: return localized("A file with this name already exists.")
+        }
     }
 }
