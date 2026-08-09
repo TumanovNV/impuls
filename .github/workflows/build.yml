@@ -103,6 +103,15 @@ jobs:
           grep -F 'Theme.panelBackground' Sources/Impuls/UI/NotchContentView.swift
           grep -F 'Color(nsColor: .labelColor)' Sources/Impuls/UI/Theme.swift
 
+      - name: Verify hover context-menu lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=Sources/Impuls/Notch/NotchController.swift
+          grep -F 'NSMenu.didBeginTrackingNotification' "$FILE"
+          grep -F 'NSMenu.didEndTrackingNotification' "$FILE"
+          grep -F 'menuTrackingState.isHoldingPanelOpen' "$FILE"
+
       - name: Run automated tests
         run: swift test -c release
 

@@ -66,6 +66,9 @@ jobs:
             echo "Feedback collects or transmits data outside its allow-list" >&2
             exit 1
           fi
+          grep -F 'NSMenu.didBeginTrackingNotification' Sources/Impuls/Notch/NotchController.swift
+          grep -F 'NSMenu.didEndTrackingNotification' Sources/Impuls/Notch/NotchController.swift
+          grep -F 'menuTrackingState.isHoldingPanelOpen' Sources/Impuls/Notch/NotchController.swift
           ! grep -En 'https://|git@' Package.swift
 
       - name: Verify release-facing metadata

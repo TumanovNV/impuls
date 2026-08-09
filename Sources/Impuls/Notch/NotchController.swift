@@ -12,6 +12,8 @@ final class NotchController {
     private var closeActiveRectWork: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
     private var lifetimeCancellables = Set<AnyCancellable>()
+    private var menuTrackingObservers: [NSObjectProtocol] = []
+    private var menuTrackingState = PanelMenuTrackingState()
     /// Monotonic stamp for the deferred half of closing: any newer open or
     /// close outdates the one still in flight.
     private var openGeneration = 0
@@ -22,6 +24,7 @@ final class NotchController {
 
     func install() {
         build()
+        installMenuTrackingObservers()
         settings.objectWillChange
             .sink { [weak self] _ in
                 DispatchQueue.main.async { self?.settingsChanged() }
@@ -101,6 +104,11 @@ final class NotchController {
         viewModel?.stop()
         panel?.acceptsKeyboard = false
         panel?.orderOut(nil)
+        for observer in menuTrackingObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        menuTrackingObservers.removeAll()
+        menuTrackingState.reset()
         lifetimeCancellables.removeAll()
     }
 
@@ -234,7 +242,9 @@ final class NotchController {
         configurePointer(for: geometry, vm: vm)
         pointer.isDragging = { [weak root] in root?.isReceivingDrag ?? false }
         pointer.isPanelOpen = { [weak vm] in vm?.isOpen ?? false }
-        pointer.keepsOpenWithoutPointer = { [weak vm] in vm?.keyboardNavigationActive ?? false }
+        pointer.keepsOpenWithoutPointer = { [weak self, weak vm] in
+            (vm?.keyboardNavigationActive ?? false) || (self?.menuTrackingState.isHoldingPanelOpen ?? false)
+        }
         pointer.onChange = { [weak self] inside in
             self?.setOpen(inside)
         }
@@ -355,6 +365,59 @@ final class NotchController {
         }
     }
 
+    // MARK: - Menu tracking
+
+    /// SwiftUI presents a context menu in separate AppKit menu windows. Once
+    /// the pointer enters one of those windows it is, correctly, outside the
+    /// panel's hover rectangle. That must not be interpreted as leaving
+    /// Impuls: collapsing the source panel while AppKit is still tracking its
+    /// menu detaches nested submenus and can leave their windows on screen.
+    private func installMenuTrackingObservers() {
+        guard menuTrackingObservers.isEmpty else { return }
+        let center = NotificationCenter.default
+        menuTrackingObservers = [
+            center.addObserver(
+                forName: NSMenu.didBeginTrackingNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                MainActor.assumeIsolated {
+                    guard let self, let menu = notification.object as? NSMenu else { return }
+                    self.menuTrackingBegan(menu)
+                }
+            },
+            center.addObserver(
+                forName: NSMenu.didEndTrackingNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] notification in
+                MainActor.assumeIsolated {
+                    guard let self, let menu = notification.object as? NSMenu else { return }
+                    self.menuTrackingEnded(menu)
+                }
+            }
+        ]
+    }
+
+    private func menuTrackingBegan(_ menu: NSMenu) {
+        menuTrackingState.beginTracking(menu, panelIsOpen: viewModel?.isOpen == true)
+        guard menuTrackingState.isHoldingPanelOpen else { return }
+
+        // Invalidate both halves of a close that may already have been queued
+        // in the same run-loop turn as the right click.
+        openGeneration += 1
+        closeActiveRectWork?.cancel()
+        closeActiveRectWork = nil
+        pointer.setInside(true)
+    }
+
+    private func menuTrackingEnded(_ menu: NSMenu) {
+        guard menuTrackingState.endTracking(menu) else { return }
+        // Defer the geometry check until AppKit has completed dispatching the
+        // selected menu action and torn down every submenu window.
+        scheduleCollapseIfPointerAway()
+    }
+
     private func applyActiveRect(open: Bool) {
         guard let vm = viewModel, let rootView else { return }
         let size = open ? vm.geometry.expandedSize : vm.geometry.collapsedSize
@@ -396,5 +459,35 @@ final class NotchController {
             return
         }
         configurePointer(for: fresh, vm: vm)
+    }
+}
+
+/// Latches a panel that was already open for the complete lifetime of an
+/// AppKit menu chain. Tracking menu identity instead of a Boolean keeps nested
+/// menus and duplicate begin notifications from releasing the latch early.
+@MainActor
+struct PanelMenuTrackingState {
+    private var activeMenus: Set<ObjectIdentifier> = []
+    private(set) var isHoldingPanelOpen = false
+
+    mutating func beginTracking(_ menu: NSMenu, panelIsOpen: Bool) {
+        guard panelIsOpen || isHoldingPanelOpen else { return }
+        activeMenus.insert(ObjectIdentifier(menu))
+        isHoldingPanelOpen = true
+    }
+
+    /// Returns true exactly once, when the last tracked menu has closed and
+    /// the controller should resume its ordinary hover decision.
+    @discardableResult
+    mutating func endTracking(_ menu: NSMenu) -> Bool {
+        guard activeMenus.remove(ObjectIdentifier(menu)) != nil else { return false }
+        guard activeMenus.isEmpty, isHoldingPanelOpen else { return false }
+        isHoldingPanelOpen = false
+        return true
+    }
+
+    mutating func reset() {
+        activeMenus.removeAll()
+        isHoldingPanelOpen = false
     }
 }
