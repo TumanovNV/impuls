@@ -31,19 +31,6 @@ enum ImpulsActionValue: Equatable {
         guard case .text(let value) = self else { return nil }
         return value
     }
-
-    var url: URL? {
-        switch self {
-        case .file(let url):
-            return url
-        case .text(let value):
-            let candidate = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let url = URL(string: candidate),
-                  let scheme = url.scheme?.lowercased(),
-                  scheme == "http" || scheme == "https" else { return nil }
-            return url
-        }
-    }
 }
 
 enum ImpulsActionOrigin: Hashable {
@@ -58,6 +45,11 @@ enum ImpulsActionCommand: String, CaseIterable, Hashable, Identifiable {
     case createNote
     case translate
     case open
+    case email
+    case call
+    case formatJSON
+    case pin
+    case unpin
     case reveal
 
     var id: String { rawValue }
@@ -69,6 +61,11 @@ enum ImpulsActionCommand: String, CaseIterable, Hashable, Identifiable {
         case .createNote: return localized("To Notes")
         case .translate: return localized("Translate")
         case .open: return localized("Open")
+        case .email: return localized("New Email")
+        case .call: return localized("Call")
+        case .formatJSON: return localized("Format JSON")
+        case .pin: return localized("Pin")
+        case .unpin: return localized("Unpin")
         case .reveal: return localized("Show in Finder")
         }
     }
@@ -80,6 +77,11 @@ enum ImpulsActionCommand: String, CaseIterable, Hashable, Identifiable {
         case .createNote: return "note.text.badge.plus"
         case .translate: return "translate"
         case .open: return "arrow.up.forward.app"
+        case .email: return "envelope"
+        case .call: return "phone"
+        case .formatJSON: return "curlybraces"
+        case .pin: return "pin"
+        case .unpin: return "pin.slash"
         case .reveal: return "folder"
         }
     }
@@ -91,6 +93,8 @@ struct ImpulsActionResult: Identifiable, Equatable {
     let title: String
     let detail: String
     let value: ImpulsActionValue
+    let contentKind: ClipboardContentKind
+    let isPinned: Bool
 
     var id: String {
         switch origin {
@@ -101,27 +105,46 @@ struct ImpulsActionResult: Identifiable, Equatable {
     }
 
     var commands: [ImpulsActionCommand] {
+        var available: [ImpulsActionCommand]
         switch value {
         case .file:
-            return [.copy, .open, .reveal]
+            available = [.copy, .open, .reveal]
         case .text:
-            var available: [ImpulsActionCommand] = [.copy]
+            available = [.copy]
             if source != .snippets { available.append(.saveSnippet) }
             if source != .notes { available.append(.createNote) }
             available.append(.translate)
-            if value.url != nil { available.append(.open) }
-            return available
+            switch contentKind {
+            case .link: available.append(.open)
+            case .email: available.append(.email)
+            case .phone: available.append(.call)
+            case .json: available.append(.formatJSON)
+            default: break
+            }
+        }
+        if case .clipboard = origin {
+            available.append(isPinned ? .unpin : .pin)
+        }
+        return available
+    }
+
+    var externalURL: URL? {
+        guard case .text(let text) = value else {
+            guard case .file(let url) = value else { return nil }
+            return url
+        }
+        let candidate = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        switch contentKind {
+        case .link: return ClipboardContentClassifier.webURL(from: candidate)
+        case .email: return ClipboardContentClassifier.emailURL(from: candidate)
+        case .phone: return ClipboardContentClassifier.phoneURL(from: candidate)
+        default: return nil
         }
     }
 }
 
-/// Local search over content that Impuls already owns.
-///
-/// This is an index in the product sense, not a second database: results are
-/// built from the live stores whenever the pane redraws. Clipboard history is
-/// deliberately memory-only, while snippets and notes remain authoritative in
-/// their existing files. Actions therefore cannot drift out of sync or create
-/// another persistence and privacy surface to maintain.
+/// Local search over content that Impuls already owns. It builds results from
+/// the live stores instead of maintaining another search database.
 @MainActor
 final class ImpulsActionsStore: ObservableObject {
     @Published var query = ""
@@ -141,25 +164,26 @@ final class ImpulsActionsStore: ObservableObject {
         let needle = Self.fold(query.trimmingCharacters(in: .whitespacesAndNewlines))
 
         guard !needle.isEmpty else {
-            let recent = Array(all.filter { $0.source == .clipboard }.prefix(4))
+            return Array(all.filter { $0.source == .clipboard }.prefix(4))
                 + Array(all.filter { $0.source == .snippets }.prefix(3))
                 + Array(all.filter { $0.source == .notes }.prefix(3))
-            return recent
         }
 
         let tokens = needle.split(whereSeparator: \Character.isWhitespace).map(String.init)
         return all.enumerated().compactMap { order, result -> Ranked? in
             let title = Self.fold(result.title)
             let content = Self.fold(searchableValue(of: result))
-            let haystack = title + "\n" + content
+            let kind = Self.fold(result.contentKind.title)
+            let haystack = title + "\n" + content + "\n" + kind
             guard tokens.allSatisfy({ haystack.contains($0) }) else { return nil }
 
-            var score = sourcePriority(result.source)
+            var score = sourcePriority(result.source) + (result.isPinned ? 500 : 0)
             if title == needle { score += 1_000 }
             else if title.hasPrefix(needle) { score += 700 }
             else if title.contains(needle) { score += 450 }
             if content.hasPrefix(needle) { score += 300 }
             else if content.contains(needle) { score += 180 }
+            if kind == needle { score += 220 }
             score += tokens.reduce(0) { partial, token in
                 partial + (title.hasPrefix(token) ? 80 : title.contains(token) ? 40 : 10)
             }
@@ -185,7 +209,7 @@ final class ImpulsActionsStore: ObservableObject {
             case .text(let text):
                 value = .text(text)
                 title = Self.summary(text)
-                detail = ""
+                detail = item.contentKind.title
             case .file(let url):
                 value = .file(url)
                 title = url.lastPathComponent
@@ -196,29 +220,37 @@ final class ImpulsActionsStore: ObservableObject {
                 source: .clipboard,
                 title: title,
                 detail: detail,
-                value: value
+                value: value,
+                contentKind: item.contentKind,
+                isPinned: item.isPinned
             )
         }
 
         let saved = snippets.map { snippet in
-            ImpulsActionResult(
+            let kind = ClipboardContentClassifier.kind(for: snippet.text)
+            return ImpulsActionResult(
                 origin: .snippet(snippet.id),
                 source: .snippets,
                 title: snippet.label.isEmpty ? Self.summary(snippet.text) : snippet.label,
-                detail: snippet.label.isEmpty ? "" : snippet.text,
-                value: .text(snippet.text)
+                detail: snippet.label.isEmpty ? kind.title : snippet.text,
+                value: .text(snippet.text),
+                contentKind: kind,
+                isPinned: false
             )
         }
 
         let drafts = notes.compactMap { note -> ImpulsActionResult? in
             let text = note.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return nil }
+            let kind = ClipboardContentClassifier.kind(for: text)
             return ImpulsActionResult(
                 origin: .note(note.id),
                 source: .notes,
                 title: Self.summary(text),
-                detail: "",
-                value: .text(note.text)
+                detail: kind.title,
+                value: .text(note.text),
+                contentKind: kind,
+                isPinned: false
             )
         }
 

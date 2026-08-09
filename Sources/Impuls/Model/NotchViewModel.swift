@@ -101,6 +101,10 @@ final class NotchViewModel: ObservableObject {
         self.snippets = SnippetStore()
         self.notes = NoteStore()
 
+        self.clipboard.isApplicationExcluded = { [weak settings] bundleIdentifier in
+            settings?.excludedClipboardBundleIdentifiers.contains(bundleIdentifier) ?? false
+        }
+
         if let first = settings.enabledTabs.first, !settings.enabledTabs.contains(tab) {
             tab = first
         }
@@ -147,6 +151,13 @@ final class NotchViewModel: ObservableObject {
                     self.tab = first
                 }
                 self.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        settings.$persistClipboardHistory
+            .combineLatest(settings.$clipboardRetention)
+            .sink { [weak self] enabled, retention in
+                self?.clipboard.configurePersistence(enabled: enabled, retention: retention)
             }
             .store(in: &cancellables)
     }
@@ -228,9 +239,31 @@ final class NotchViewModel: ObservableObject {
             return nil
 
         case .open:
-            guard let url = result.value.url else { return nil }
+            guard let url = result.externalURL else { return nil }
             NSWorkspace.shared.open(url)
             return localized("Opened")
+
+        case .email:
+            guard result.contentKind == .email, let url = result.externalURL else { return nil }
+            NSWorkspace.shared.open(url)
+            return localized("Email Opened")
+
+        case .call:
+            guard result.contentKind == .phone, let url = result.externalURL else { return nil }
+            NSWorkspace.shared.open(url)
+            return localized("Call Opened")
+
+        case .formatJSON:
+            guard let text = result.value.text,
+                  let formatted = ClipboardContentClassifier.prettyPrintedJSON(text) else { return nil }
+            clipboard.copy(.text(formatted))
+            return localized("Formatted JSON Copied")
+
+        case .pin, .unpin:
+            guard case .clipboard(let id) = result.origin else { return nil }
+            let pinned = command == .pin
+            clipboard.setPinned(id: id, pinned: pinned)
+            return pinned ? localized("Pinned") : localized("Unpinned")
 
         case .reveal:
             guard case .file(let url) = result.value else { return nil }
@@ -240,11 +273,9 @@ final class NotchViewModel: ObservableObject {
     }
 
     private func writeToPasteboard(_ value: ImpulsActionValue) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
         switch value {
-        case .text(let text): pasteboard.setString(text, forType: .string)
-        case .file(let url): pasteboard.writeObjects([url as NSURL])
+        case .text(let text): clipboard.copy(.text(text))
+        case .file(let url): clipboard.copy(.file(url))
         }
     }
 
@@ -266,9 +297,10 @@ final class NotchViewModel: ObservableObject {
         // exactly the machines whose owners turned the feature off.
         clipboard.wantsImages = { [weak settings] in settings?.saveClipboardImages ?? true }
         clipboard.onImage = { [weak self] png in
-            guard let self, let url = ScreenshotVault.save(png) else { return }
+            guard let self, let url = ScreenshotVault.save(png) else { return nil }
             self.shelf.add([url])
             self.tab = .shelf
+            return url
         }
         clipboard.start()
     }

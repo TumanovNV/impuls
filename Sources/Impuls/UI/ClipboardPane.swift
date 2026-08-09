@@ -6,10 +6,16 @@ struct ClipboardPane: View {
     var body: some View {
         VStack(spacing: 0) {
             if clipboard.items.isEmpty {
-                Image(systemName: "list.clipboard")
-                    .font(.system(size: 20, weight: .light))
-                    .foregroundStyle(Theme.tertiary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 5) {
+                    Image(systemName: clipboard.isPaused ? "pause.circle" : "list.clipboard")
+                        .font(.system(size: 20, weight: .light))
+                    if clipboard.isPaused {
+                        Text("Monitoring Paused")
+                            .font(.system(size: 10))
+                    }
+                }
+                .foregroundStyle(Theme.tertiary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 3) {
@@ -19,19 +25,26 @@ struct ClipboardPane: View {
                     }
                     .padding(.vertical, 4)
                 }
-                footer
             }
+            footer
         }
         .padding(.top, 2)
     }
 
     private var footer: some View {
-        HStack {
-            Spacer()
-            Button("Clear") { clipboard.clear() }
+        HStack(spacing: 10) {
+            Button(clipboard.isPaused ? localized("Resume") : localized("Pause")) {
+                clipboard.togglePause()
+            }
+                .buttonStyle(.plain)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(clipboard.isPaused ? Color.orange : Theme.secondary)
+            Spacer(minLength: 6)
+            Button("Clear Unpinned") { clipboard.clearUnpinned() }
                 .buttonStyle(.plain)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(Theme.secondary)
+                .disabled(!clipboard.items.contains { !$0.isPinned })
         }
         .padding(.top, 2)
     }
@@ -56,6 +69,15 @@ private struct ClipRow: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 6)
+            if item.isPinned || hovering {
+                Button { clipboard.togglePinned(item) } label: {
+                    Image(systemName: item.isPinned ? "pin.fill" : "pin")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(item.isPinned ? Color.orange : Theme.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(item.isPinned ? localized("Unpin") : localized("Pin"))
+            }
             if hovering {
                 Button { clipboard.remove(item) } label: {
                     Image(systemName: "xmark")

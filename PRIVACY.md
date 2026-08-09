@@ -22,8 +22,14 @@ playback data, analytics identifiers, or hardware serial numbers.
 - notes and snippets are stored in `~/Library/Application Support/Impuls`;
 - saved clipboard screenshots are stored in `~/Pictures/Impuls` when available;
 - shelf references and preferences are stored in macOS UserDefaults;
-- clipboard history is held in memory and is not uploaded;
-- concealed password-manager entries are excluded.
+- clipboard history is held in memory by default and is not uploaded;
+- if the user explicitly enables persistence, clipboard history is stored as
+  an AES-GCM encrypted local archive; its random encryption key is kept in the
+  user's macOS Keychain and the archive is removed when persistence is disabled;
+- pinned clipboard entries, retention limits, monitoring pause, and application
+  exclusions are processed locally; excluded applications are stored only as
+  bundle identifiers in settings;
+- concealed password-manager entries are excluded;
 - an exported backup is a user-selected local JSON file containing settings,
   snippets, and notes; Impuls never uploads it.
 - Impuls Actions searches the live clipboard, snippet, and note stores locally;
@@ -34,7 +40,7 @@ playback data, analytics identifiers, or hardware serial numbers.
 - Calendar access is requested only from the Calendar module or Settings;
 - Accessibility is requested only when the user explicitly enables support for
   standard system media-key events;
-- notification permission is not requested in Impuls 1.2.0 and remains reserved
+- notification permission is not requested in Impuls 1.2.1 and remains reserved
   for optional reminder functions in a later update.
 
 Notes and snippets are not encrypted by Impuls. FileVault is recommended for

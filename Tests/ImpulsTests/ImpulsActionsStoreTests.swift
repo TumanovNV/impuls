@@ -46,10 +46,30 @@ final class ImpulsActionsStoreTests: XCTestCase {
             let linkResult = results.first { $0.origin == .clipboard(link.id) }
             let snippetResult = results.first { $0.source == .snippets }
 
-            XCTAssertEqual(fileResult?.commands, [.copy, .open, .reveal])
+            XCTAssertEqual(fileResult?.commands, [.copy, .open, .reveal, .pin])
             XCTAssertTrue(linkResult?.commands.contains(.open) == true)
             XCTAssertFalse(snippetResult?.commands.contains(.saveSnippet) == true)
             XCTAssertTrue(snippetResult?.commands.contains(.createNote) == true)
+        }
+    }
+
+    func testContextCommandsFollowDetectedClipboardContent() async {
+        await MainActor.run {
+            let store = ImpulsActionsStore()
+            let email = ClipItem(payload: .text("hello@example.com"), date: Date())
+            let phone = ClipItem(payload: .text("+7 999 123-45-67"), date: Date())
+            let json = ClipItem(payload: .text(#"{"ready":true}"#), date: Date(), isPinned: true)
+
+            let results = store.results(clipboard: [email, phone, json], snippets: [], notes: [])
+            let emailResult = results.first { $0.origin == .clipboard(email.id) }
+            let phoneResult = results.first { $0.origin == .clipboard(phone.id) }
+            let jsonResult = results.first { $0.origin == .clipboard(json.id) }
+
+            XCTAssertEqual(emailResult?.contentKind, .email)
+            XCTAssertTrue(emailResult?.commands.contains(.email) == true)
+            XCTAssertTrue(phoneResult?.commands.contains(.call) == true)
+            XCTAssertTrue(jsonResult?.commands.contains(.formatJSON) == true)
+            XCTAssertTrue(jsonResult?.commands.contains(.unpin) == true)
         }
     }
 }

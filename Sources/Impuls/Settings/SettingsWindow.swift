@@ -1,6 +1,7 @@
 import AppKit
 import ServiceManagement
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
@@ -29,8 +30,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let hosting = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: hosting)
         window.title = localized("Impuls Settings")
-        window.setContentSize(NSSize(width: 680, height: 510))
-        window.minSize = NSSize(width: 620, height: 470)
+        window.setContentSize(NSSize(width: 700, height: 540))
+        window.minSize = NSSize(width: 640, height: 500)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.isReleasedWhenClosed = false
         window.center()
@@ -54,6 +55,8 @@ private struct SettingsView: View {
                 .tabItem { Label("General", systemImage: "gearshape") }
             ModuleSettingsPane(settings: settings)
                 .tabItem { Label("Modules", systemImage: "square.grid.2x2") }
+            ClipboardSettingsPane(settings: settings)
+                .tabItem { Label("Clipboard", systemImage: "list.clipboard") }
             PermissionSettingsPane(permissions: permissions)
                 .tabItem { Label("Permissions", systemImage: "hand.raised") }
             DataSettingsPane(onExport: onExport, onImport: onImport)
@@ -117,7 +120,6 @@ private struct GeneralSettingsPane: View {
                     get: { launchAtLogin },
                     set: { updateLaunchAtLogin($0) }
                 ))
-                Toggle("Save Clipboard Screenshots", isOn: $settings.saveClipboardImages)
                 if !launchError.isEmpty {
                     Text(launchError)
                         .font(.caption)
@@ -141,6 +143,85 @@ private struct GeneralSettingsPane: View {
             launchError = error.localizedDescription
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
+    }
+}
+
+private struct ClipboardSettingsPane: View {
+    @ObservedObject var settings: SettingsStore
+    @State private var applicationError = ""
+
+    var body: some View {
+        Form {
+            Section("History") {
+                Toggle("Save Clipboard Screenshots", isOn: $settings.saveClipboardImages)
+                Picker("Keep Unpinned Items", selection: $settings.clipboardRetention) {
+                    ForEach(SettingsStore.ClipboardRetention.allCases) { retention in
+                        Text(retention.title).tag(retention)
+                    }
+                }
+                Toggle("Keep History Between Launches", isOn: $settings.persistClipboardHistory)
+                Text("History stays in memory by default. If persistence is enabled, the archive is encrypted and its key is stored in macOS Keychain.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Excluded Applications") {
+                Text("Copies made while an excluded application is active are ignored. Concealed password-manager entries are always ignored.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                ForEach(settings.excludedClipboardBundleIdentifiers, id: \.self) { identifier in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(applicationName(for: identifier))
+                            Text(identifier)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Remove") {
+                            settings.includeClipboardApp(bundleIdentifier: identifier)
+                        }
+                        .controlSize(.small)
+                    }
+                }
+
+                HStack {
+                    Button("Choose Application…", action: chooseApplication)
+                    if !applicationError.isEmpty {
+                        Text(applicationError)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private func chooseApplication() {
+        let panel = NSOpenPanel()
+        panel.title = localized("Exclude Application from Clipboard History")
+        panel.prompt = localized("Exclude")
+        panel.allowedContentTypes = [.applicationBundle]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.directoryURL = URL(fileURLWithPath: "/Applications", isDirectory: true)
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard let identifier = Bundle(url: url)?.bundleIdentifier else {
+            applicationError = localized("The selected application has no bundle identifier.")
+            return
+        }
+        settings.excludeClipboardApp(bundleIdentifier: identifier)
+        applicationError = ""
+    }
+
+    private func applicationName(for identifier: String) -> String {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: identifier) else {
+            return identifier
+        }
+        return FileManager.default.displayName(atPath: url.path)
     }
 }
 
@@ -304,7 +385,7 @@ private struct DataSettingsPane: View {
     var body: some View {
         Form {
             Section("Backup") {
-                Text("A backup contains panel settings, module order, snippets, and notes. Clipboard history, shelf files, and screenshots are not copied.")
+                Text("A backup contains panel and clipboard settings, module order, snippets, and notes. Clipboard history, shelf files, and screenshots are not copied.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 HStack {

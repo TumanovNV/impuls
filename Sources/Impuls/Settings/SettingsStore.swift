@@ -16,6 +16,59 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
     var selectedDisplayID: UInt32?
     var modules: [ModulePreference]
     var saveClipboardImages: Bool
+    var persistClipboardHistory: Bool
+    var clipboardRetention: SettingsStore.ClipboardRetention
+    var excludedClipboardBundleIdentifiers: [String]
+
+    init(
+        hotKey: SettingsStore.HotKeyPreset,
+        activationMode: SettingsStore.ActivationMode,
+        openDelay: SettingsStore.OpenDelay,
+        panelSize: SettingsStore.PanelSize,
+        selectedDisplayID: UInt32?,
+        modules: [ModulePreference],
+        saveClipboardImages: Bool,
+        persistClipboardHistory: Bool = false,
+        clipboardRetention: SettingsStore.ClipboardRetention = .sevenDays,
+        excludedClipboardBundleIdentifiers: [String] = []
+    ) {
+        self.hotKey = hotKey
+        self.activationMode = activationMode
+        self.openDelay = openDelay
+        self.panelSize = panelSize
+        self.selectedDisplayID = selectedDisplayID
+        self.modules = modules
+        self.saveClipboardImages = saveClipboardImages
+        self.persistClipboardHistory = persistClipboardHistory
+        self.clipboardRetention = clipboardRetention
+        self.excludedClipboardBundleIdentifiers = excludedClipboardBundleIdentifiers
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case hotKey, activationMode, openDelay, panelSize, selectedDisplayID, modules
+        case saveClipboardImages, persistClipboardHistory, clipboardRetention
+        case excludedClipboardBundleIdentifiers
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        hotKey = try container.decode(SettingsStore.HotKeyPreset.self, forKey: .hotKey)
+        activationMode = try container.decode(SettingsStore.ActivationMode.self, forKey: .activationMode)
+        openDelay = try container.decode(SettingsStore.OpenDelay.self, forKey: .openDelay)
+        panelSize = try container.decode(SettingsStore.PanelSize.self, forKey: .panelSize)
+        selectedDisplayID = try container.decodeIfPresent(UInt32.self, forKey: .selectedDisplayID)
+        modules = try container.decode([ModulePreference].self, forKey: .modules)
+        saveClipboardImages = try container.decodeIfPresent(Bool.self, forKey: .saveClipboardImages) ?? true
+        persistClipboardHistory = try container.decodeIfPresent(Bool.self, forKey: .persistClipboardHistory) ?? false
+        clipboardRetention = try container.decodeIfPresent(
+            SettingsStore.ClipboardRetention.self,
+            forKey: .clipboardRetention
+        ) ?? .sevenDays
+        excludedClipboardBundleIdentifiers = try container.decodeIfPresent(
+            [String].self,
+            forKey: .excludedClipboardBundleIdentifiers
+        ) ?? []
+    }
 }
 
 @MainActor
@@ -95,6 +148,33 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    enum ClipboardRetention: String, CaseIterable, Codable, Identifiable {
+        case oneHour
+        case oneDay
+        case sevenDays
+        case thirtyDays
+
+        var id: String { rawValue }
+
+        var timeInterval: TimeInterval {
+            switch self {
+            case .oneHour: return 60 * 60
+            case .oneDay: return 24 * 60 * 60
+            case .sevenDays: return 7 * 24 * 60 * 60
+            case .thirtyDays: return 30 * 24 * 60 * 60
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .oneHour: return localized("1 Hour")
+            case .oneDay: return localized("1 Day")
+            case .sevenDays: return localized("7 Days")
+            case .thirtyDays: return localized("30 Days")
+            }
+        }
+    }
+
     struct DisplayOption: Identifiable, Equatable {
         let id: UInt32
         let name: String
@@ -110,6 +190,9 @@ final class SettingsStore: ObservableObject {
     @Published var selectedDisplayID: UInt32? { didSet { persist() } }
     @Published private(set) var modules: [ModulePreference] { didSet { persist() } }
     @Published var saveClipboardImages: Bool { didSet { persist() } }
+    @Published var persistClipboardHistory: Bool { didSet { persist() } }
+    @Published var clipboardRetention: ClipboardRetention { didSet { persist() } }
+    @Published private(set) var excludedClipboardBundleIdentifiers: [String] { didSet { persist() } }
     @Published private(set) var displays: [DisplayOption] = []
     @Published private(set) var hotKeyError: String?
 
@@ -129,6 +212,11 @@ final class SettingsStore: ObservableObject {
         selectedDisplayID = snapshot.selectedDisplayID
         modules = Self.normalizedModules(snapshot.modules)
         saveClipboardImages = snapshot.saveClipboardImages
+        persistClipboardHistory = snapshot.persistClipboardHistory
+        clipboardRetention = snapshot.clipboardRetention
+        excludedClipboardBundleIdentifiers = Self.normalizedBundleIdentifiers(
+            snapshot.excludedClipboardBundleIdentifiers
+        )
         hotKeyError = nil
         refreshDisplays()
     }
@@ -141,7 +229,10 @@ final class SettingsStore: ObservableObject {
             panelSize: panelSize,
             selectedDisplayID: selectedDisplayID,
             modules: modules,
-            saveClipboardImages: saveClipboardImages
+            saveClipboardImages: saveClipboardImages,
+            persistClipboardHistory: persistClipboardHistory,
+            clipboardRetention: clipboardRetention,
+            excludedClipboardBundleIdentifiers: excludedClipboardBundleIdentifiers
         )
     }
 
@@ -162,6 +253,20 @@ final class SettingsStore: ObservableObject {
         modules.swapAt(source, destination)
     }
 
+    func excludeClipboardApp(bundleIdentifier: String) {
+        let identifier = bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !identifier.isEmpty,
+              identifier != Bundle.main.bundleIdentifier,
+              !excludedClipboardBundleIdentifiers.contains(identifier),
+              excludedClipboardBundleIdentifiers.count < 50 else { return }
+        excludedClipboardBundleIdentifiers.append(identifier)
+        excludedClipboardBundleIdentifiers.sort()
+    }
+
+    func includeClipboardApp(bundleIdentifier: String) {
+        excludedClipboardBundleIdentifiers.removeAll { $0 == bundleIdentifier }
+    }
+
     func apply(_ snapshot: ImpulsSettingsSnapshot) {
         isApplying = true
         hotKey = snapshot.hotKey
@@ -171,6 +276,11 @@ final class SettingsStore: ObservableObject {
         selectedDisplayID = snapshot.selectedDisplayID
         modules = Self.normalizedModules(snapshot.modules)
         saveClipboardImages = snapshot.saveClipboardImages
+        persistClipboardHistory = snapshot.persistClipboardHistory
+        clipboardRetention = snapshot.clipboardRetention
+        excludedClipboardBundleIdentifiers = Self.normalizedBundleIdentifiers(
+            snapshot.excludedClipboardBundleIdentifiers
+        )
         refreshDisplays()
         isApplying = false
         persist()
@@ -207,6 +317,14 @@ final class SettingsStore: ObservableObject {
         return result
     }
 
+    static func normalizedBundleIdentifiers(_ supplied: [String]) -> [String] {
+        Array(Set(supplied.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }))
+            .filter { !$0.isEmpty && $0 != Bundle.main.bundleIdentifier }
+            .sorted()
+            .prefix(50)
+            .map { $0 }
+    }
+
     private static func defaultSnapshot(defaults: UserDefaults) -> ImpulsSettingsSnapshot {
         let savesImages: Bool
         if defaults.object(forKey: saveClipboardImagesKey) == nil {
@@ -221,7 +339,10 @@ final class SettingsStore: ObservableObject {
             panelSize: .standard,
             selectedDisplayID: nil,
             modules: NotchViewModel.Tab.allCases.map { ModulePreference(tab: $0, isEnabled: true) },
-            saveClipboardImages: savesImages
+            saveClipboardImages: savesImages,
+            persistClipboardHistory: false,
+            clipboardRetention: .sevenDays,
+            excludedClipboardBundleIdentifiers: []
         )
     }
 
