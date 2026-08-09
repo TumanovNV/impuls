@@ -97,7 +97,7 @@ jobs:
           print(key.publicKey.rawRepresentation.base64EncodedString())
           SWIFT
           )"
-          test "$DERIVED_PUBLIC_KEY" = '0DYvURjJ3IEoRET6KVmsYuNLpllj9lpXLxZ8yvYJbTA='
+          test "$DERIVED_PUBLIC_KEY" = '/fAb0WKLYV8FTT+VkvGKgtIXfsiVG74NlJ+to0BusDg='
 
       - name: Verify release-facing metadata
         shell: bash
