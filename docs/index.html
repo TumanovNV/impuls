@@ -518,7 +518,10 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   .hero .btn-ghost:hover{color:#1f4fae}
   .install-note a{color:#334b80;text-decoration-color:rgba(51,75,128,.32)}
   .install-note a:hover{color:#1f3c76}
-  h1 .grad{background:linear-gradient(100deg,#315fbd,#7058d7 55%,#168659)}
+  /* background-image, а не сокращение background: сокращение сбрасывает
+     background-clip в border-box, градиент перестаёт обрезаться по буквам,
+     и прозрачный текст заголовка становится невидимым. */
+  h1 .grad{background-image:linear-gradient(100deg,#315fbd,#7058d7 55%,#168659)}
   .card .ci{background:rgba(47,98,208,.11);color:#315fbd}
   kbd{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(232,236,244,.84));box-shadow:0 2px 0 rgba(24,32,52,.14)}
   .privacy{background:linear-gradient(165deg,rgba(19,138,90,.075),rgba(255,255,255,.66) 55%)}
