@@ -86,7 +86,7 @@
 /* Updates and network consent */
 "Check for Updates…" = "Check for Updates…";
 "Allow Impuls to check for updates?" = "Allow Impuls to check for updates?";
-"If allowed, Impuls contacts only GitHub Releases to check the current version. It sends no notes, clipboard contents, files, calendar data, analytics, or device identifiers. Updates are never downloaded without your action." = "If allowed, Impuls contacts only GitHub Releases to check the current version. It sends no notes, clipboard contents, files, calendar data, analytics, or device identifiers. Updates are never downloaded without your action.";
+"If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action." = "If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action.";
 "Allow Update Checks" = "Allow Update Checks";
 "Stay Offline" = "Stay Offline";
 "Could Not Check for Updates" = "Could Not Check for Updates";
@@ -102,7 +102,7 @@
 "Open Download Page" = "Open Download Page";
 "Later" = "Later";
 "Update Checks Are Off" = "Update Checks Are Off";
-"Impuls is not allowed to access the internet. You can enable update checks from the menu bar." = "Impuls is not allowed to access the internet. You can enable update checks from the menu bar.";
+"Impuls is not allowed to access the internet. Enable update checks from the menu bar, then try again." = "Impuls is not allowed to access the internet. Enable update checks from the menu bar, then try again.";
 
 /* Settings */
 "Settings…" = "Settings…";

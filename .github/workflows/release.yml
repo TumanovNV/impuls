@@ -46,9 +46,16 @@ jobs:
             echo "Network API found outside UpdateService.swift" >&2
             exit 1
           fi
-          grep -F 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources/Impuls/Services/UpdateService.swift
-          grep -F 'URLSessionDataDelegate' Sources/Impuls/Services/UpdateService.swift
-          grep -F 'BoundedDataAccumulator(maximumBytes:' Sources/Impuls/Services/UpdateService.swift
+          grep -F 'https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml' Sources/Impuls/Services/UpdateService.swift
+          grep -F 'import Sparkle' Sources/Impuls/Services/UpdateService.swift
+          ! grep -RFn 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources
+          grep -F 'exact: "2.9.5"' Package.swift
+          grep -F '79bc9e872948e47877e76f194cb0c8e0412b0b90' Package.resolved
+          grep -F 'SUVerifyUpdateBeforeExtraction' Scripts/bundle.sh
+          grep -F 'SURequireSignedFeed' Scripts/bundle.sh
+          grep -F 'SUEnableSystemProfiling' Scripts/bundle.sh
+          grep -F 'SUSignedFeedFailureExpirationInterval' Scripts/bundle.sh
+          ! grep -F 'codesign --force --deep' Scripts/bundle.sh
           grep -F 'BoundedFileReader.read' Sources/Impuls/Services/ClipboardHistoryPersistence.swift
           grep -F 'static let maximumSearchCharacters = 16 * 1_024' Sources/Impuls/Services/ImpulsActionsStore.swift
           grep -F 'clipboard-history.writer' Sources/Impuls/Services/ClipboardHistoryPersistence.swift
@@ -69,7 +76,28 @@ jobs:
           grep -F 'NSMenu.didBeginTrackingNotification' Sources/Impuls/Notch/NotchController.swift
           grep -F 'NSMenu.didEndTrackingNotification' Sources/Impuls/Notch/NotchController.swift
           grep -F 'menuTrackingState.isHoldingPanelOpen' Sources/Impuls/Notch/NotchController.swift
-          ! grep -En 'https://|git@' Package.swift
+
+      - name: Verify Sparkle signing secret
+        env:
+          SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SPARKLE_EDDSA_PRIVATE_KEY"
+          DERIVED_PUBLIC_KEY="$(swift - <<'SWIFT'
+          import CryptoKit
+          import Foundation
+
+          guard let encoded = ProcessInfo.processInfo.environment["SPARKLE_EDDSA_PRIVATE_KEY"],
+                let seed = Data(base64Encoded: encoded),
+                seed.count == 32 else {
+              exit(1)
+          }
+          let key = try Curve25519.Signing.PrivateKey(rawRepresentation: seed)
+          print(key.publicKey.rawRepresentation.base64EncodedString())
+          SWIFT
+          )"
+          test "$DERIVED_PUBLIC_KEY" = '/fAb0WKLYV8FTT+VkvGKgtIXfsiVG74NlJ+to0BusDg='
 
       - name: Verify release-facing metadata
         shell: bash
@@ -128,29 +156,86 @@ jobs:
           cleanup
           trap - EXIT
 
-      - name: Build and verify DMG
+      - name: Build and verify release artifacts
+        env:
+          SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           ./Scripts/dmg.sh
           APP="build/Impuls.app"
           DMG="build/Impuls-$VERSION.dmg"
+          ZIP="build/Impuls-$VERSION.zip"
+          APPCAST="build/appcast.xml"
+          ditto -c -k --keepParent "$APP" "$ZIP"
           codesign --verify --deep --strict "$APP"
           test -s "$APP/Contents/Resources/AppIcon.icns"
           test -s "$APP/Contents/Resources/ImpulsStatusTemplate.png"
+          test -s "$APP/Contents/Resources/ThirdPartyNotices.md"
           ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
           codesign -d --entitlements - --xml "$APP" > "$ENTITLEMENTS"
           test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.personal-information.calendars' "$ENTITLEMENTS")" = true
           hdiutil verify "$DMG"
-          shasum -a 256 "$DMG" > "$DMG.sha256"
+          EXTRACTED="$RUNNER_TEMP/impuls-update"
+          mkdir -p "$EXTRACTED"
+          ditto -x -k "$ZIP" "$EXTRACTED"
+          codesign --verify --deep --strict "$EXTRACTED/Impuls.app"
 
-      - name: Store installation image
+          GENERATE_APPCAST="$(find .build/artifacts -type f -path '*/bin/generate_appcast' -perm -111 -print -quit)"
+          SIGN_UPDATE="$(find .build/artifacts -type f -path '*/bin/sign_update' -perm -111 -print -quit)"
+          test -x "$GENERATE_APPCAST"
+          test -x "$SIGN_UPDATE"
+          UPDATES="$RUNNER_TEMP/impuls-updates"
+          mkdir -p "$UPDATES"
+          cp "$ZIP" "$UPDATES/"
+          cp "docs/releases/$VERSION.md" "$UPDATES/Impuls-$VERSION.md"
+          printf '%s\n' "$SPARKLE_EDDSA_PRIVATE_KEY" | "$GENERATE_APPCAST" \
+            --ed-key-file - \
+            --download-url-prefix "https://github.com/TumanovNV/impuls/releases/download/v$VERSION/" \
+            --embed-release-notes \
+            --maximum-deltas 0 \
+            --link 'https://github.com/TumanovNV/impuls' \
+            -o "$APPCAST" \
+            "$UPDATES"
+          xmllint --noout "$APPCAST"
+          grep -F "https://github.com/TumanovNV/impuls/releases/download/v$VERSION/Impuls-$VERSION.zip" "$APPCAST"
+          grep -F 'sparkle:edSignature=' "$APPCAST"
+          grep -F '<sparkle:version>'"$VERSION"'</sparkle:version>' "$APPCAST"
+          printf '%s\n' "$SPARKLE_EDDSA_PRIVATE_KEY" | "$SIGN_UPDATE" \
+            --ed-key-file - --verify "$APPCAST"
+          read -r ARCHIVE_SIGNATURE ARCHIVE_LENGTH < <(python3 - "$APPCAST" <<'PY'
+          import sys
+          import xml.etree.ElementTree as ET
+
+          enclosure = ET.parse(sys.argv[1]).find('.//enclosure')
+          if enclosure is None:
+              raise SystemExit('Missing appcast enclosure')
+          signature = enclosure.attrib.get('{http://www.andymatuschak.org/xml-namespaces/sparkle}edSignature')
+          length = enclosure.attrib.get('length')
+          if not signature or not length:
+              raise SystemExit('Missing archive signature metadata')
+          print(signature, length)
+          PY
+          )
+          test "$ARCHIVE_LENGTH" = "$(stat -f %z "$ZIP")"
+          printf '%s\n' "$SPARKLE_EDDSA_PRIVATE_KEY" | "$SIGN_UPDATE" \
+            --ed-key-file - --verify "$ZIP" "$ARCHIVE_SIGNATURE"
+
+          shasum -a 256 "$DMG" > "$DMG.sha256"
+          shasum -a 256 "$ZIP" > "$ZIP.sha256"
+          shasum -a 256 "$APPCAST" > "$APPCAST.sha256"
+
+      - name: Store release artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: Impuls-${{ env.VERSION }}
           path: |
             build/Impuls-${{ env.VERSION }}.dmg
             build/Impuls-${{ env.VERSION }}.dmg.sha256
+            build/Impuls-${{ env.VERSION }}.zip
+            build/Impuls-${{ env.VERSION }}.zip.sha256
+            build/appcast.xml
+            build/appcast.xml.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -161,7 +246,12 @@ jobs:
         run: |
           set -euo pipefail
           DMG="build/Impuls-$VERSION.dmg"
-          gh release create "$TAG" "$DMG" "$DMG.sha256" \
+          ZIP="build/Impuls-$VERSION.zip"
+          APPCAST="build/appcast.xml"
+          gh release create "$TAG" \
+            "$DMG" "$DMG.sha256" \
+            "$ZIP" "$ZIP.sha256" \
+            "$APPCAST" "$APPCAST.sha256" \
             --target "$GITHUB_SHA" \
             --title "Impuls $VERSION" \
             --notes-file "docs/releases/$VERSION.md" \

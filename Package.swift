@@ -7,9 +7,18 @@ let package = Package(
     products: [
         .executable(name: "Impuls", targets: ["Impuls"])
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/sparkle-project/Sparkle",
+            exact: "2.9.5"
+        )
+    ],
     targets: [
         .target(
             name: "ImpulsCore",
+            dependencies: [
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             path: "Sources/Impuls",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -17,7 +26,13 @@ let package = Package(
             name: "Impuls",
             dependencies: ["ImpulsCore"],
             path: "Sources/ImpulsLauncher",
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v5)],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "@executable_path/../Frameworks"
+                ])
+            ]
         ),
         .testTarget(
             name: "ImpulsTests",

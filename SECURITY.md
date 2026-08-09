@@ -12,11 +12,15 @@ include user data, credentials, or exploit payloads in public discussions.
 
 ## Security boundaries
 
-- all application networking is confined to `UpdateService.swift`;
-- the only allowed endpoint is the fixed HTTPS GitHub Releases API URL;
-- update requests use an ephemeral session, reject cross-endpoint redirects,
-  cap response size while bytes arrive, require an exact matching release-tag
-  URL, and do not permit parallel checks;
+- Impuls initiates update checks only through `UpdateService.swift`; the pinned
+  Sparkle 2.9.5 framework owns the download and installation transport;
+- the update feed is the fixed HTTPS GitHub Releases asset URL and archive links
+  are generated only for versioned assets in `TumanovNV/impuls`;
+- the appcast is Ed25519-signed, archive verification is mandatory before
+  extraction, signed-feed failures never expire, and the private key exists only
+  in protected release infrastructure;
+- automatic downloads, unattended installation, system profiling, analytics,
+  and device identifiers are disabled;
 - feedback uses no in-app network request: a length-bounded report is copied
   locally and the system browser may open only the exact Impuls new-issue URL;
 - feedback diagnostics are allow-listed and never inspect user content, paths,
@@ -26,10 +30,11 @@ include user data, credentials, or exploit payloads in public discussions.
 - release credentials belong only in protected GitHub Actions secrets;
 - optional clipboard persistence uses AES-GCM and keeps the device-only archive
   key in macOS Keychain; clipboard persistence remains disabled by default;
-- CI rejects networking APIs outside the update service and checks that no
-  MediaRemote/perl helper is bundled;
-- automatic in-app installation is disabled until Developer ID signing,
-  notarization, and signed update archives are configured.
+- CI rejects Impuls-owned networking APIs outside the update service, pins the
+  Sparkle version and revision, validates security Info.plist keys, verifies the
+  embedded framework, and checks that no MediaRemote/perl helper is bundled;
+- release CI creates a symlink-preserving ZIP, signs and verifies both the feed
+  and archive, then publishes them with checksums only after all tests pass;
 - full-resolution image operations reject dimensions above a defined pixel
   budget before decoding, and oversized clipboard payloads are not retained.
 - local stores use bounded streaming reads, and meeting links are restricted to
@@ -41,9 +46,15 @@ include user data, credentials, or exploit payloads in public discussions.
 
 ## Known limitations
 
-Development releases are ad-hoc signed and not notarized. Gatekeeper therefore
-cannot authenticate their publisher. This is a distribution limitation, not a
-condition to bypass silently.
+Public releases are still ad-hoc signed and not notarized. Gatekeeper therefore
+cannot authenticate the publisher on first installation. The ad-hoc build uses
+the minimum temporary Library Validation exception required to load the
+separately signed Sparkle framework; the Developer ID path does not carry that
+exception. This is a transition limitation, not a condition to bypass silently.
+
+The Sparkle signing key is the update channel's root of trust until Developer ID
+is available. Losing every protected copy would prevent safe updates to existing
+1.2.9 installations.
 
 The latest documented review is
-[`docs/audits/1.2.6-security.md`](docs/audits/1.2.6-security.md).
+[`docs/audits/1.2.9-update-security.md`](docs/audits/1.2.9-update-security.md).
