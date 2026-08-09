@@ -8,7 +8,7 @@ APP="$ROOT/build/Impuls.app"
 VERSION="$(sed -n 's/^VERSION=//p' "$ROOT/Scripts/version" 2>/dev/null || echo 1.0.0)"
 ENTITLEMENTS="$ROOT/Resources/Impuls.entitlements"
 ADHOC_ENTITLEMENTS="$ROOT/Resources/Impuls.AdHoc.entitlements"
-SPARKLE_PUBLIC_KEY="0DYvURjJ3IEoRET6KVmsYuNLpllj9lpXLxZ8yvYJbTA="
+SPARKLE_PUBLIC_KEY="/fAb0WKLYV8FTT+VkvGKgtIXfsiVG74NlJ+to0BusDg="
 SPARKLE_FEED_URL="https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml"
 
 echo "==> swift build -c $CONFIG"
