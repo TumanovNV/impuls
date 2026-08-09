@@ -72,4 +72,21 @@ final class ImpulsActionsStoreTests: XCTestCase {
             XCTAssertTrue(jsonResult?.commands.contains(.unpin) == true)
         }
     }
+
+    func testLargeSearchCorpusIsBoundedOnTheMainActor() async {
+        await MainActor.run {
+            let store = ImpulsActionsStore()
+            let large = String(repeating: "x", count: ImpulsActionsStore.maximumSearchCharacters * 4)
+            let item = ClipItem(payload: .text(large), date: Date())
+
+            let results = store.results(clipboard: [item], snippets: [], notes: [])
+            guard let result = results.first else {
+                return XCTFail("Expected the large clipboard item in recent results")
+            }
+            let searchable = ImpulsActionsStore.searchableValue(of: result)
+
+            XCTAssertEqual(searchable.count, ImpulsActionsStore.maximumSearchCharacters)
+            XCTAssertEqual(result.title.count, ImpulsActionsStore.maximumSummaryCharacters)
+        }
+    }
 }

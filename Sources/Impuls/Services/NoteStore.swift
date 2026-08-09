@@ -20,6 +20,8 @@ struct Note: Identifiable, Codable, Equatable {
 /// edit it by hand.
 @MainActor
 final class NoteStore: ObservableObject {
+    private static let maximumFileBytes = 10 * 1_024 * 1_024
+
     @Published private(set) var notes: [Note] = []
     /// Which note the editor shows. Lives here rather than in the pane so the
     /// choice survives the pane being unmounted with the panel.
@@ -87,7 +89,10 @@ final class NoteStore: ObservableObject {
     // MARK: - Persistence
 
     private func load() {
-        guard let data = try? Data(contentsOf: Self.file),
+        guard let data = try? BoundedFileReader.read(
+                  from: Self.file,
+                  maximumBytes: Self.maximumFileBytes
+              ),
               let stored = try? JSONDecoder().decode([Note].self, from: data) else { return }
         notes = stored
         selected = notes.first?.id

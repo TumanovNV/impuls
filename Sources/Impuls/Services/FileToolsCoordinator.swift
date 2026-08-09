@@ -128,7 +128,9 @@ final class FileToolsCoordinator: ObservableObject {
                 switch action {
                 case .generated(let records):
                     try await Task.detached(priority: .userInitiated) {
-                        try FileToolsService.moveGeneratedFilesToTrash(records)
+                        try autoreleasepool {
+                            try FileToolsService.moveGeneratedFilesToTrash(records)
+                        }
                     }.value
                     shelf.remove(urls: records.map(\.url))
                     showStatus(localized("Generated Files Moved to Trash"))
@@ -163,7 +165,7 @@ final class FileToolsCoordinator: ObservableObject {
             for (index, url) in urls.enumerated() {
                 do {
                     let text = try await Task.detached(priority: .userInitiated) {
-                        try operation(url)
+                        try autoreleasepool { try operation(url) }
                     }.value
                     recognized.append((url, text))
                 } catch {
@@ -204,7 +206,7 @@ final class FileToolsCoordinator: ObservableObject {
             for (index, url) in urls.enumerated() {
                 do {
                     let output = try await Task.detached(priority: .userInitiated) {
-                        try operation(url)
+                        try autoreleasepool { try operation(url) }
                     }.value
                     outputs.append(output)
                 } catch {
@@ -236,7 +238,7 @@ final class FileToolsCoordinator: ObservableObject {
         Task {
             do {
                 let url = try await Task.detached(priority: .userInitiated) {
-                    try operation()
+                    try autoreleasepool { try operation() }
                 }.value
                 shelf.add([url])
                 if let record = try? GeneratedFileRecord.capture(url) {
@@ -294,7 +296,7 @@ final class FileToolsCoordinator: ObservableObject {
 @MainActor
 private final class ShelfQuickLookController: NSObject,
     @preconcurrency QLPreviewPanelDataSource,
-    @preconcurrency QLPreviewPanelDelegate {
+    QLPreviewPanelDelegate {
     private var urls: [URL] = []
 
     func show(_ urls: [URL]) {

@@ -8,12 +8,19 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let settings: SettingsStore
     private let onExport: () -> Void
     private let onImport: () -> Void
+    private let onFeedback: () -> Void
     private var window: NSWindow?
 
-    init(settings: SettingsStore, onExport: @escaping () -> Void, onImport: @escaping () -> Void) {
+    init(
+        settings: SettingsStore,
+        onExport: @escaping () -> Void,
+        onImport: @escaping () -> Void,
+        onFeedback: @escaping () -> Void
+    ) {
         self.settings = settings
         self.onExport = onExport
         self.onImport = onImport
+        self.onFeedback = onFeedback
     }
 
     var presentedWindow: NSWindow? { window }
@@ -26,7 +33,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             return
         }
 
-        let view = SettingsView(settings: settings, onExport: onExport, onImport: onImport)
+        let view = SettingsView(
+            settings: settings,
+            onExport: onExport,
+            onImport: onImport,
+            onFeedback: onFeedback
+        )
         let hosting = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: hosting)
         window.title = localized("Impuls Settings")
@@ -48,6 +60,7 @@ private struct SettingsView: View {
     @StateObject private var permissions = PermissionCenter()
     let onExport: () -> Void
     let onImport: () -> Void
+    let onFeedback: () -> Void
 
     var body: some View {
         TabView {
@@ -61,6 +74,8 @@ private struct SettingsView: View {
                 .tabItem { Label("Permissions", systemImage: "hand.raised") }
             DataSettingsPane(onExport: onExport, onImport: onImport)
                 .tabItem { Label("Data", systemImage: "externaldrive") }
+            SupportSettingsPane(onFeedback: onFeedback)
+                .tabItem { Label("Feedback", systemImage: "bubble.left.and.bubble.right") }
         }
         .padding(18)
         .frame(minWidth: 600, minHeight: 430)
@@ -396,6 +411,34 @@ private struct DataSettingsPane: View {
 
             Section("Privacy") {
                 Text("The backup is a local JSON file. Impuls does not upload it or send it over the network.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+private struct SupportSettingsPane: View {
+    let onFeedback: () -> Void
+
+    var body: some View {
+        Form {
+            Section("Feedback") {
+                Text("Report a problem, suggest an improvement, or tell us about your experience. Impuls prepares a transparent report and opens GitHub only after your action.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("Send Feedback…", action: onFeedback)
+            }
+
+            Section("Privacy") {
+                Text("No feedback, analytics, diagnostics, or crash reports are sent automatically. GitHub issues are public, and the report can be reviewed before it leaves your Mac.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Security Reports") {
+                Text("Do not publish an unpatched vulnerability or confidential data in a public issue. Use the private security reporting process described in SECURITY.md.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }

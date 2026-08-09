@@ -84,4 +84,20 @@ final class BackupDocumentTests: XCTestCase {
             XCTAssertThrowsError(try ImpulsBackupDocument.decode(Data(json.utf8)))
         }
     }
+
+    func testOversizedBackupFileIsRejectedBeforeDecoding() async throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ImpulsOversizedBackup-\(UUID().uuidString).json")
+        FileManager.default.createFile(atPath: url.path, contents: nil)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.truncate(atOffset: UInt64(ImpulsBackupDocument.maximumEncodedBytes + 1))
+        try handle.close()
+
+        try await MainActor.run {
+            XCTAssertThrowsError(try BackupService.decode(contentsOf: url)) { error in
+                XCTAssertEqual(error as? BackupError, .fileTooLarge)
+            }
+        }
+    }
 }

@@ -3,6 +3,15 @@ import XCTest
 @testable import ImpulsCore
 
 final class ClipboardContentTests: XCTestCase {
+    func testLargeStructuredPayloadUsesBoundedClassification() {
+        let oversizedJSON = "{\"payload\":\"" + String(
+            repeating: "x",
+            count: ClipboardContentClassifier.maximumStructuredTextBytes
+        ) + "\"}"
+
+        XCTAssertEqual(ClipboardContentClassifier.kind(for: oversizedJSON), .text)
+    }
+
     func testRecognizesSupportedTextKinds() {
         XCTAssertEqual(ClipboardContentClassifier.kind(for: "https://example.com/a"), .link)
         XCTAssertEqual(ClipboardContentClassifier.kind(for: "hello@example.com"), .email)

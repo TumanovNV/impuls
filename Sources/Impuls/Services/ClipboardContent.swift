@@ -42,7 +42,17 @@ enum ClipboardContentKind: String, Codable, Equatable {
 }
 
 enum ClipboardContentClassifier {
+    static let maximumStructuredTextBytes = 64 * 1_024
+    private static let maximumCodeSampleCharacters = 16 * 1_024
+
     static func kind(for text: String) -> ClipboardContentKind {
+        // URL/JSON parsing and case-insensitive token searches can allocate a
+        // second copy of their input. Large clipboard entries remain usable as
+        // plain text, but only a bounded prefix is inspected for code markers.
+        guard text.lengthOfBytes(using: .utf8) <= maximumStructuredTextBytes else {
+            let sample = String(text.prefix(maximumCodeSampleCharacters))
+            return looksLikeCode(sample) ? .code : .text
+        }
         let candidate = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !candidate.isEmpty else { return .text }
         if webURL(from: candidate) != nil { return .link }

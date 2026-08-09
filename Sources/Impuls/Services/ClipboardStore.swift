@@ -1,7 +1,8 @@
 import AppKit
+import ImageIO
 
-struct ClipItem: Identifiable, Codable, Equatable {
-    enum Payload: Codable, Equatable {
+struct ClipItem: Identifiable, Codable, Equatable, Sendable {
+    enum Payload: Codable, Equatable, Sendable {
         case text(String)
         case file(URL)
 
@@ -69,6 +70,9 @@ struct ClipItem: Identifiable, Codable, Equatable {
 /// twice a second, and nothing at all is read until the counter moves.
 @MainActor
 final class ClipboardStore: ObservableObject {
+    static let maximumTextBytes = 512 * 1_024
+    static let maximumImageBytes = 64 * 1_024 * 1_024
+
     @Published private(set) var items: [ClipItem] = []
     @Published private(set) var isPaused = false
 
@@ -123,6 +127,7 @@ final class ClipboardStore: ObservableObject {
         timer?.invalidate()
         timer = nil
         persist()
+        persistence?.flush()
     }
 
     func togglePause() {
@@ -221,6 +226,7 @@ final class ClipboardStore: ObservableObject {
         }
 
         guard let string = pasteboard.string(forType: .string),
+              Self.isTextPayloadAllowed(string),
               !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         record(ClipItem(
             payload: .text(string),
@@ -233,6 +239,7 @@ final class ClipboardStore: ObservableObject {
             let pasteboard = NSPasteboard.general
             guard pasteboard.changeCount == changeCount,
                   let string = pasteboard.string(forType: .string),
+                  Self.isTextPayloadAllowed(string),
                   !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
             record(ClipItem(
                 payload: .text(string),
@@ -261,15 +268,19 @@ final class ClipboardStore: ObservableObject {
     }
 
     private func pngFromPasteboard(_ pasteboard: NSPasteboard) -> Data? {
-        if let png = pasteboard.data(forType: .png) { return png }
+        if let png = pasteboard.data(forType: .png), Self.isImagePayloadAllowed(png) { return png }
         guard let tiff = pasteboard.data(forType: .tiff),
-              let rep = NSBitmapImageRep(data: tiff) else { return nil }
-        return rep.representation(using: .png, properties: [:])
+              Self.isImagePayloadAllowed(tiff),
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]),
+              png.count <= Self.maximumImageBytes else { return nil }
+        return png
     }
 
     /// Internal so the deterministic history rules can be exercised without
     /// mutating the real system pasteboard in XCTest.
     func record(_ item: ClipItem) {
+        guard Self.isPayloadAllowed(item.payload) else { return }
         let existing = items.first(where: { $0 == item })
         var replacement = item
         if let existing {
@@ -291,7 +302,7 @@ final class ClipboardStore: ObservableObject {
         let cutoff = now.addingTimeInterval(-retentionInterval)
         items.removeAll { !$0.isPinned && $0.date < cutoff }
         if items.count > limit {
-            let pinned = items.filter(\.isPinned)
+            let pinned = Array(items.filter(\.isPinned).prefix(limit))
             let recent = Array(items.filter { !$0.isPinned }.prefix(max(0, limit - pinned.count)))
             items = pinned + recent
         }
@@ -299,10 +310,28 @@ final class ClipboardStore: ObservableObject {
     }
 
     private func merge(_ restored: [ClipItem]) {
-        for item in restored where !items.contains(where: { $0 == item }) {
+        for item in restored where Self.isPayloadAllowed(item.payload)
+            && !items.contains(where: { $0 == item }) {
             items.append(item)
         }
         sortItems()
+    }
+
+    static func isTextPayloadAllowed(_ text: String) -> Bool {
+        text.lengthOfBytes(using: .utf8) <= maximumTextBytes
+    }
+
+    static func isImagePayloadAllowed(_ data: Data) -> Bool {
+        guard data.count <= maximumImageBytes,
+              let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
+        return (try? FileToolsService.validateImageDimensions(in: source)) != nil
+    }
+
+    private static func isPayloadAllowed(_ payload: ClipItem.Payload) -> Bool {
+        switch payload {
+        case .text(let text): return isTextPayloadAllowed(text)
+        case .file: return true
+        }
     }
 
     private func sortItems() {

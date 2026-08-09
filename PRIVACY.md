@@ -1,7 +1,8 @@
 # Privacy Policy
 
 Impuls is designed to work locally. It has no analytics, advertising, telemetry,
-crash-report upload, remote configuration, account system, or device identifier.
+automatic crash-report upload, remote configuration, account system, or device
+identifier.
 
 ## Network access
 
@@ -16,6 +17,20 @@ GitHub receives the IP address required for an internet connection, ordinary
 TLS/HTTP metadata, and a User-Agent containing the installed Impuls version.
 Impuls sends no clipboard data, notes, snippets, files, calendar content,
 playback data, analytics identifiers, or hardware serial numbers.
+
+## Feedback
+
+Impuls 1.2.5 includes a voluntary feedback window. The app prepares the report
+locally and shows exactly what will be shared. Basic technical context is
+optional and contains only the Impuls version, macOS version, and processor
+architecture. It never adds clipboard contents, notes, snippets, file names,
+file paths, calendar data, logs, hardware serial numbers, or device identifiers.
+
+Impuls does not upload the report. After an explicit button press, it copies the
+report to the pasteboard and asks the default browser to open a fixed public
+GitHub new-issue page. The user can review and edit the report again before
+submitting it. GitHub issues are public and are governed by GitHub's own privacy
+terms. No report, rating, or draft is retained by Impuls or sent automatically.
 
 ## Local data
 
@@ -44,7 +59,7 @@ playback data, analytics identifiers, or hardware serial numbers.
 - Calendar access is requested only from the Calendar module or Settings;
 - Accessibility is requested only when the user explicitly enables support for
   standard system media-key events;
-- notification permission is not requested in Impuls 1.2.3 and remains reserved
+- notification permission is not requested in Impuls 1.2.5 and remains reserved
   for optional reminder functions in a later update.
 
 Notes and snippets are not encrypted by Impuls. FileVault is recommended for

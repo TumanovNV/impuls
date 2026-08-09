@@ -225,21 +225,30 @@ enum MeetingLink {
         for text in haystacks {
             if let url = firstKnownLink(in: text) { return url }
         }
-        return event.url
+        return event.url.flatMap { isAllowedMeetingURL($0) ? $0 : nil }
     }
 
     private static func firstKnownLink(in text: String) -> URL? {
         guard let detector else { return nil }
         let range = NSRange(text.startIndex..., in: text)
         for match in detector.matches(in: text, range: range) {
-            guard let url = match.url, let host = url.host?.lowercased() else { continue }
-            if hosts.keys.contains(where: { host == $0 || host.hasSuffix(".\($0)") }) { return url }
+            guard let url = match.url, isAllowedMeetingURL(url) else { continue }
+            return url
         }
         return nil
     }
 
+    static func isAllowedMeetingURL(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(),
+              url.port == nil,
+              url.user == nil,
+              url.password == nil else { return false }
+        return hosts.keys.contains { host == $0 || host.hasSuffix(".\($0)") }
+    }
+
     static func provider(for url: URL) -> String? {
-        guard let host = url.host?.lowercased() else { return nil }
+        guard isAllowedMeetingURL(url), let host = url.host?.lowercased() else { return nil }
         return hosts.first { host == $0.key || host.hasSuffix(".\($0.key)") }?.value
     }
 }
