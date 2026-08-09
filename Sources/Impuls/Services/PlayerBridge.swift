@@ -151,7 +151,7 @@ enum PlayerBridge {
         let position: TimeInterval
         if let reportedPosition, reportedPosition.isFinite {
             // Some Music versions report milliseconds and others seconds.
-            position = duration > 0, reportedPosition > duration * 4
+            position = duration > 0 && reportedPosition > duration * 4
                 ? reportedPosition / 1000
                 : reportedPosition
         } else {
