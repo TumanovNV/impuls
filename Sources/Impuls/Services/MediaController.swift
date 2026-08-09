@@ -21,6 +21,7 @@ final class MediaController: ObservableObject {
     @Published private(set) var duration: TimeInterval = 0
     @Published private(set) var position: TimeInterval = 0
     @Published private(set) var sourceName: String?
+    @Published private(set) var accessIssue: PlayerAccessIssue?
 
     private var activeApp: PlayerApp?
     private var artworkKey: String?
@@ -32,6 +33,7 @@ final class MediaController: ObservableObject {
     private var isStarted = false
     private var refreshInFlight = false
     private var refreshPending = false
+    private var consecutiveEmptyRefreshes = 0
 
     func start() {
         guard !isStarted else { return }
@@ -101,6 +103,24 @@ final class MediaController: ObservableObject {
         PlayerBridge.seek(activeApp, to: clamped)
     }
 
+    func resolveAutomationAccess() {
+        guard let issue = accessIssue else { return }
+        if issue.authorization == .notDetermined {
+            PlayerBridge.automationAuthorization(for: issue.app, prompt: true) { [weak self] _ in
+                self?.refreshFromPlayers()
+            }
+        } else {
+            openAutomationSettings()
+        }
+    }
+
+    private func openAutomationSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation"
+        ) else { return }
+        NSWorkspace.shared.open(url)
+    }
+
     private func refreshFromPlayers() {
         guard isStarted else { return }
         if refreshInFlight {
@@ -108,7 +128,7 @@ final class MediaController: ObservableObject {
             return
         }
         refreshInFlight = true
-        PlayerBridge.currentState { [weak self] state in
+        PlayerBridge.currentState { [weak self] result in
             guard let self else { return }
             self.refreshInFlight = false
             guard self.isStarted else {
@@ -120,11 +140,24 @@ final class MediaController: ObservableObject {
             defer {
                 if shouldRefreshAgain { self.refreshFromPlayers() }
             }
-            guard let state else {
-                self.clear()
+            guard let state = result.state else {
+                if result.accessIssue == nil,
+                   result.hasRunningPlayer,
+                   self.track != nil,
+                   self.consecutiveEmptyRefreshes == 0 {
+                    self.consecutiveEmptyRefreshes = 1
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                        self?.refreshFromPlayers()
+                    }
+                    return
+                }
+                self.consecutiveEmptyRefreshes = 0
+                self.clear(accessIssue: result.accessIssue)
                 return
             }
 
+            self.consecutiveEmptyRefreshes = 0
+            self.accessIssue = nil
             self.activeApp = state.app
             self.sourceName = state.app.displayName
             self.track = Track(title: state.title, artist: state.artist, album: state.album, key: state.key)
@@ -153,7 +186,7 @@ final class MediaController: ObservableObject {
         }
     }
 
-    private func clear() {
+    private func clear(accessIssue: PlayerAccessIssue? = nil) {
         activeApp = nil
         track = nil
         artwork = nil
@@ -162,6 +195,7 @@ final class MediaController: ObservableObject {
         duration = 0
         position = 0
         sourceName = nil
+        self.accessIssue = accessIssue
         updateTicker()
     }
 

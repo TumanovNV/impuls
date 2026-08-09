@@ -1,10 +1,11 @@
 import AppKit
+import ApplicationServices
 import ImageIO
 
 /// Public-API bridge to the two scriptable players macOS ships with support
 /// for. Everything goes through AppleScript (state, artwork, transport) and
 /// distributed notifications (change events) — no private frameworks.
-enum PlayerApp: String, CaseIterable {
+enum PlayerApp: String, CaseIterable, Hashable {
     case music, spotify
 
     var bundleID: String {
@@ -32,6 +33,28 @@ enum PlayerApp: String, CaseIterable {
     var isRunning: Bool {
         !NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty
     }
+
+    var isInstalled: Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
+    }
+}
+
+enum AutomationAuthorization: Equatable {
+    case allowed
+    case denied
+    case notDetermined
+    case restricted
+}
+
+struct PlayerAccessIssue: Equatable {
+    var app: PlayerApp
+    var authorization: AutomationAuthorization
+}
+
+struct PlayerScanResult {
+    var state: PlayerState?
+    var accessIssue: PlayerAccessIssue?
+    var hasRunningPlayer: Bool
 }
 
 struct PlayerState {
@@ -54,31 +77,91 @@ enum PlayerBridge {
 
     // MARK: - State
 
-    static func state(of app: PlayerApp, completion: @escaping (PlayerState?) -> Void) {
-        guard app.isRunning else { return completion(nil) }
-        runScript(stateScript(for: app)) { descriptor in
-            guard let raw = descriptor?.stringValue, !raw.isEmpty else { return completion(nil) }
-            completion(parse(raw, app: app))
+    private enum StateQueryResult {
+        case state(PlayerState)
+        case noState
+        case accessIssue(PlayerAccessIssue)
+    }
+
+    static func automationAuthorization(
+        for app: PlayerApp,
+        prompt: Bool,
+        completion: @escaping (AutomationAuthorization) -> Void
+    ) {
+        queue.async {
+            let target = NSAppleEventDescriptor(bundleIdentifier: app.bundleID)
+            let status = AEDeterminePermissionToAutomateTarget(
+                target.aeDesc,
+                typeWildCard,
+                typeWildCard,
+                prompt
+            )
+            let authorization = automationAuthorization(for: status)
+            DispatchQueue.main.async { completion(authorization) }
+        }
+    }
+
+    static func automationAuthorization(for status: OSStatus) -> AutomationAuthorization {
+        if status == noErr { return .allowed }
+        if status == OSStatus(errAEEventNotPermitted) { return .denied }
+        if status == OSStatus(errAEEventWouldRequireUserConsent) { return .notDetermined }
+        return .restricted
+    }
+
+    private static func state(of app: PlayerApp, completion: @escaping (StateQueryResult) -> Void) {
+        guard app.isRunning else { return completion(.noState) }
+        automationAuthorization(for: app, prompt: false) { authorization in
+            guard authorization == .allowed else {
+                return completion(.accessIssue(PlayerAccessIssue(app: app, authorization: authorization)))
+            }
+
+            runScriptDetailed(stateScript(for: app)) { result in
+                if let code = result.errorNumber {
+                    if code == Int(errAEEventNotPermitted) {
+                        return completion(.accessIssue(PlayerAccessIssue(app: app, authorization: .denied)))
+                    }
+                    if code == Int(errAEEventWouldRequireUserConsent) {
+                        return completion(.accessIssue(PlayerAccessIssue(app: app, authorization: .notDetermined)))
+                    }
+                }
+                guard let raw = result.descriptor?.stringValue,
+                      !raw.isEmpty,
+                      let state = parse(raw, app: app) else {
+                    return completion(.noState)
+                }
+                completion(.state(state))
+            }
         }
     }
 
     /// Never launches a player: only already-running ones are queried, and a
     /// playing app wins over a merely-open one.
-    static func currentState(completion: @escaping (PlayerState?) -> Void) {
+    static func currentState(completion: @escaping (PlayerScanResult) -> Void) {
         let candidates = PlayerApp.allCases.filter(\.isRunning)
-        guard !candidates.isEmpty else { return completion(nil) }
+        guard !candidates.isEmpty else {
+            return completion(PlayerScanResult(state: nil, accessIssue: nil, hasRunningPlayer: false))
+        }
 
         var results: [PlayerState] = []
+        var accessIssues: [PlayerAccessIssue] = []
         let group = DispatchGroup()
         for app in candidates {
             group.enter()
-            state(of: app) { state in
-                if let state { results.append(state) }
+            state(of: app) { result in
+                switch result {
+                case .state(let state): results.append(state)
+                case .accessIssue(let issue): accessIssues.append(issue)
+                case .noState: break
+                }
                 group.leave()
             }
         }
         group.notify(queue: .main) {
-            completion(results.first(where: \.isPlaying) ?? results.first)
+            let state = results.first(where: \.isPlaying) ?? results.first
+            let issue = state == nil
+                ? accessIssues.first(where: { $0.authorization == .denied }) ?? accessIssues.first
+                : nil
+            completion(PlayerScanResult(state: state, accessIssue: issue, hasRunningPlayer: true))
         }
     }
 
@@ -181,42 +264,68 @@ enum PlayerBridge {
             return """
             \(sep)
             tell application id "com.spotify.client"
+                set st to player state as text
+                set t to current track
+                set trackName to ""
+                set trackArtist to ""
+                set trackAlbum to ""
+                set trackDuration to 0
+                set pos to 0
+                set artworkURL to ""
                 try
-                    set st to player state as text
-                    set t to current track
-                    try
-                        set pos to (round ((player position) * 1000))
-                    on error
-                        set pos to 0
-                    end try
-                    return st & sep & (name of t) & sep & (artist of t) & sep & (album of t) & sep & (duration of t) & sep & pos & sep & (artwork url of t)
-                on error
-                    return ""
+                    set trackName to name of t as text
                 end try
+                try
+                    set trackArtist to artist of t as text
+                end try
+                try
+                    set trackAlbum to album of t as text
+                end try
+                try
+                    set trackDuration to duration of t
+                end try
+                try
+                    set pos to (round ((player position) * 1000))
+                end try
+                try
+                    set artworkURL to artwork url of t as text
+                end try
+                return st & sep & trackName & sep & trackArtist & sep & trackAlbum & sep & trackDuration & sep & pos & sep & artworkURL
             end tell
             """
         case .music:
             return """
             \(sep)
             tell application id "com.apple.Music"
+                set st to player state as text
+                set t to current track
+                set trackName to ""
+                set trackArtist to ""
+                set trackAlbum to ""
+                set trackDuration to 0
+                set pos to 0
                 try
-                    set st to player state as text
-                    set t to current track
-                    try
-                        set pos to (round ((player position) * 1000))
-                    on error
-                        set pos to 0
-                    end try
-                    return st & sep & (name of t) & sep & (artist of t) & sep & (album of t) & sep & (round ((duration of t) * 1000)) & sep & pos & sep & ""
-                on error
-                    return ""
+                    set trackName to name of t as text
                 end try
+                try
+                    set trackArtist to artist of t as text
+                end try
+                try
+                    set trackAlbum to album of t as text
+                end try
+                try
+                    set trackDuration to (round ((duration of t) * 1000))
+                end try
+                try
+                    set pos to (round ((player position) * 1000))
+                end try
+                return st & sep & trackName & sep & trackArtist & sep & trackAlbum & sep & trackDuration & sep & pos & sep & ""
             end tell
             """
         }
     }
 
-    private static func parse(_ raw: String, app: PlayerApp) -> PlayerState? {
+    static func parse(_ raw: String, app: PlayerApp) -> PlayerState? {
         let parts = raw.components(separatedBy: "\u{1}")
         guard parts.count >= 6, !parts[1].isEmpty else { return nil }
         return PlayerState(
@@ -233,13 +342,27 @@ enum PlayerBridge {
 
     /// Shared AppleScript runner: one serial queue for every script the app sends.
     static func runScript(_ source: String, completion: @escaping (NSAppleEventDescriptor?) -> Void) {
+        runScriptDetailed(source) { completion($0.descriptor) }
+    }
+
+    private struct ScriptResult {
+        var descriptor: NSAppleEventDescriptor?
+        var errorNumber: Int?
+    }
+
+    private static func runScriptDetailed(
+        _ source: String,
+        completion: @escaping (ScriptResult) -> Void
+    ) {
         queue.async {
             var error: NSDictionary?
             let result = NSAppleScript(source: source)?.executeAndReturnError(&error)
-            if let error, let code = error[NSAppleScript.errorNumber] as? Int, code != 0 {
-                NSLog("Impuls: AppleScript error \(code): \(error[NSAppleScript.errorMessage] ?? "")")
+            let errorNumber = error?[NSAppleScript.errorNumber] as? Int
+            if let error, let errorNumber, errorNumber != 0 {
+                NSLog("Impuls: AppleScript error \(errorNumber): \(error[NSAppleScript.errorMessage] ?? "")")
             }
-            DispatchQueue.main.async { completion(result) }
+            let scriptResult = ScriptResult(descriptor: result, errorNumber: errorNumber)
+            DispatchQueue.main.async { completion(scriptResult) }
         }
     }
 }

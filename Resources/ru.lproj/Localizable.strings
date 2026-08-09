@@ -143,6 +143,9 @@
 "Shows upcoming meetings inside the Calendar module." = "Показывает ближайшие встречи в модуле «Календарь».";
 "Accessibility" = "Универсальный доступ";
 "Lets media controls send standard system media keys when no supported player is active." = "Разрешает управлению музыкой отправлять стандартные медиакоманды, когда поддерживаемый плеер не активен.";
+"Music Automation" = "Автоматизация музыки";
+"Reads track information and controls Apple Music and Spotify through macOS Automation." = "Читает данные трека и управляет Apple Music и Spotify через системную автоматизацию macOS.";
+"Allow Automation access to read %@." = "Разрешите доступ к автоматизации, чтобы Impuls мог читать данные %@.";
 "Notifications" = "Уведомления";
 "Will be used for optional meeting reminders in a later update. No permission is requested yet." = "Будут использоваться для необязательных напоминаний о встречах в одном из следующих обновлений. Сейчас разрешение не запрашивается.";
 "Open Settings" = "Открыть настройки";

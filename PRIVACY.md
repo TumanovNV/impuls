@@ -66,6 +66,9 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
 ## System permissions
 
 - Calendar access is requested only from the Calendar module or Settings;
+- Apple Events Automation is requested only after the user asks Impuls to read
+  or control an installed Apple Music or Spotify player; each target remains a
+  separate macOS permission;
 - Accessibility is requested only when the user explicitly enables support for
   standard system media-key events;
 - notification permission is not requested in Impuls 1.2.6 and remains reserved

@@ -55,6 +55,10 @@ jobs:
           grep -F 'SURequireSignedFeed' Scripts/bundle.sh
           grep -F 'SUEnableSystemProfiling' Scripts/bundle.sh
           grep -F 'SUSignedFeedFailureExpirationInterval' Scripts/bundle.sh
+          grep -F 'NSAppleEventsUsageDescription' Scripts/bundle.sh
+          grep -F 'com.apple.security.automation.apple-events' Resources/Impuls.entitlements
+          grep -F 'com.apple.security.automation.apple-events' Resources/Impuls.AdHoc.entitlements
+          grep -F 'AEDeterminePermissionToAutomateTarget' Sources/Impuls/Services/PlayerBridge.swift
           ! grep -F 'codesign --force --deep' Scripts/bundle.sh
           grep -F 'BoundedFileReader.read' Sources/Impuls/Services/ClipboardHistoryPersistence.swift
           grep -F 'static let maximumSearchCharacters = 16 * 1_024' Sources/Impuls/Services/ImpulsActionsStore.swift
@@ -172,9 +176,11 @@ jobs:
           test -s "$APP/Contents/Resources/AppIcon.icns"
           test -s "$APP/Contents/Resources/ImpulsStatusTemplate.png"
           test -s "$APP/Contents/Resources/ThirdPartyNotices.md"
+          test -n "$(/usr/libexec/PlistBuddy -c 'Print NSAppleEventsUsageDescription' "$APP/Contents/Info.plist")"
           ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
           codesign -d --entitlements - --xml "$APP" > "$ENTITLEMENTS"
           test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.personal-information.calendars' "$ENTITLEMENTS")" = true
+          test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.automation.apple-events' "$ENTITLEMENTS")" = true
           hdiutil verify "$DMG"
           EXTRACTED="$RUNNER_TEMP/impuls-update"
           mkdir -p "$EXTRACTED"

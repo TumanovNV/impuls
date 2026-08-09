@@ -144,6 +144,9 @@
 "Shows upcoming meetings inside the Calendar module." = "Shows upcoming meetings inside the Calendar module.";
 "Accessibility" = "Accessibility";
 "Lets media controls send standard system media keys when no supported player is active." = "Lets media controls send standard system media keys when no supported player is active.";
+"Music Automation" = "Music Automation";
+"Reads track information and controls Apple Music and Spotify through macOS Automation." = "Reads track information and controls Apple Music and Spotify through macOS Automation.";
+"Allow Automation access to read %@." = "Allow Automation access to read %@.";
 "Notifications" = "Notifications";
 "Will be used for optional meeting reminders in a later update. No permission is requested yet." = "Will be used for optional meeting reminders in a later update. No permission is requested yet.";
 "Open Settings" = "Open Settings";
