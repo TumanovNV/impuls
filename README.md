@@ -31,6 +31,10 @@ copies it, and the action bar can save it as a snippet, create a note, translate
 text, open links or files, and reveal files in Finder. The index is built from
 the live local stores and is never uploaded or persisted as another database.
 
+With the pointer, a single click selects a result without running it and a
+double-click copies it. Hover only highlights the row, so crossing other results
+on the way to the action bar no longer replaces the explicit selection.
+
 Impuls 1.2.1 adds pinned clipboard entries, content-aware actions for links,
 email addresses, phone numbers and JSON, monitoring pause, retention controls,
 and per-application exclusions. History remains memory-only by default. Optional
@@ -52,6 +56,10 @@ or rename operation. Generated results are moved to the Trash only while they
 remain unchanged; Impuls refuses to touch a file the user has modified.
 
 ## Stability and feedback
+
+Impuls 1.2.8 separates pointer hover, selection, and activation in Actions. The
+command bar now remains attached to the explicitly selected result while the
+pointer travels across the list; a click selects and a double-click copies.
 
 Impuls 1.2.7 keeps a hover-opened panel visible for the complete lifetime of a
 context menu, including nested image tools. Closing the menu restores the normal
