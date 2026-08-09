@@ -89,6 +89,19 @@ jobs:
             grep -F 'id: rating' "$FILE"
           done
 
+      - name: Verify Actions pointer selection lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=Sources/Impuls/UI/ActionsPane.swift
+          grep -F '.onHover { hovering = $0 }' "$FILE"
+          grep -F '.onTapGesture(perform: select)' "$FILE"
+          grep -F 'TapGesture(count: 2)' "$FILE"
+          if grep -F 'if $0 { select() }' "$FILE"; then
+            echo "Actions selection must not follow pointer hover" >&2
+            exit 1
+          fi
+
       - name: Build application
         run: |
           swift test -c release

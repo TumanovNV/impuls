@@ -270,11 +270,20 @@ private struct ActionResultRow: View {
                 .fill(isSelected ? Theme.surfaceHover : hovering ? Theme.surface : .clear)
         )
         .contentShape(Rectangle())
-        .onHover {
-            hovering = $0
-            if $0 { select() }
-        }
-        .onTapGesture(perform: run)
+        // Hover is only a visual affordance. If it changed selection, moving
+        // from a result near the top of the list to its command bar would
+        // select every intervening row and replace the commands before the
+        // pointer could reach them.
+        .onHover { hovering = $0 }
+        .onTapGesture(perform: select)
+        // Keep the first click immediate and let the second one retain the
+        // keyboard's default action. The gestures are simultaneous on
+        // purpose: selecting twice is harmless, while making the single tap
+        // wait for the double-click interval makes the command bar feel late.
+        .simultaneousGesture(
+            TapGesture(count: 2)
+                .onEnded { run() }
+        )
         .animation(Theme.contentAnimation, value: hovering)
         .animation(Theme.contentAnimation, value: isSelected)
     }
