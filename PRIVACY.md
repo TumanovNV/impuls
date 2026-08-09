@@ -34,13 +34,17 @@ playback data, analytics identifiers, or hardware serial numbers.
   snippets, and notes; Impuls never uploads it.
 - Impuls Actions searches the live clipboard, snippet, and note stores locally;
   it creates no separate search database and sends no query or result anywhere.
+- OCR, background removal, image conversion, resizing, and PDF creation run on
+  the Mac with Apple system frameworks. Impuls does not upload source files or
+  generated files. Sharing occurs only when the user explicitly chooses AirDrop
+  or a service from the macOS Share menu.
 
 ## System permissions
 
 - Calendar access is requested only from the Calendar module or Settings;
 - Accessibility is requested only when the user explicitly enables support for
   standard system media-key events;
-- notification permission is not requested in Impuls 1.2.1 and remains reserved
+- notification permission is not requested in Impuls 1.2.2 and remains reserved
   for optional reminder functions in a later update.
 
 Notes and snippets are not encrypted by Impuls. FileVault is recommended for

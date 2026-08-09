@@ -81,6 +81,7 @@ final class NotchViewModel: ObservableObject {
     let media: MediaController
     let actions: ImpulsActionsStore
     let shelf: ShelfStore
+    let fileTools: FileToolsCoordinator
     let clipboard: ClipboardStore
     let calendar: CalendarStore
     let translator: Translator
@@ -95,6 +96,7 @@ final class NotchViewModel: ObservableObject {
         self.actions = ImpulsActionsStore()
         self.media = MediaController()
         self.shelf = ShelfStore()
+        self.fileTools = FileToolsCoordinator(shelf: self.shelf)
         self.clipboard = ClipboardStore()
         self.calendar = CalendarStore()
         self.translator = Translator()
@@ -131,6 +133,7 @@ final class NotchViewModel: ObservableObject {
         for child in [
             media.objectWillChange,
             shelf.objectWillChange,
+            fileTools.objectWillChange,
             clipboard.objectWillChange,
             calendar.objectWillChange,
         ] {

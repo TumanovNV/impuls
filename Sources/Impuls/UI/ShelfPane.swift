@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ShelfPane: View {
     @ObservedObject var shelf: ShelfStore
+    @ObservedObject var tools: FileToolsCoordinator
     var isTargeted: Bool
 
     /// Which card the pointer is over — decided by the pane, not by the cards.
@@ -27,7 +28,12 @@ struct ShelfPane: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(shelf.items) { item in
-                            ShelfCard(item: item, shelf: shelf, isHovered: hoveredID == item.id)
+                            ShelfCard(
+                                item: item,
+                                shelf: shelf,
+                                tools: tools,
+                                isHovered: hoveredID == item.id
+                            )
                                 .background(
                                     GeometryReader { geo in
                                         Color.clear.preference(
@@ -91,6 +97,22 @@ struct ShelfPane: View {
 
     private var footer: some View {
         HStack(spacing: 10) {
+            if tools.isWorking {
+                ProgressView()
+                    .controlSize(.mini)
+                Text(tools.statusMessage ?? localized("Working…"))
+                    .font(.system(size: 9))
+                    .foregroundStyle(Theme.tertiary)
+                    .lineLimit(1)
+            } else if let message = tools.statusMessage {
+                Image(systemName: tools.statusIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(tools.statusIsError ? Color.orange : Color.green)
+                Text(message)
+                    .font(.system(size: 9))
+                    .foregroundStyle(Theme.tertiary)
+                    .lineLimit(1)
+            }
             if !shelf.selection.isEmpty {
                 Text(localized("Selected: %d", shelf.selection.count))
                     .font(.system(size: 9))
@@ -98,6 +120,13 @@ struct ShelfPane: View {
             }
             Spacer()
             if !shelf.selection.isEmpty {
+                ShelfToolsMenu(
+                    urls: shelf.selectedURLs,
+                    renameItem: shelf.selection.count == 1
+                        ? shelf.items.first(where: { shelf.selection.contains($0.id) })
+                        : nil,
+                    tools: tools
+                )
                 Button("Deselect") { shelf.clearSelection() }
                     .buttonStyle(.plain)
                     .font(.system(size: 10, weight: .medium))
@@ -122,6 +151,7 @@ private struct CardFramesKey: PreferenceKey {
 private struct ShelfCard: View {
     let item: ShelfItem
     @ObservedObject var shelf: ShelfStore
+    @ObservedObject var tools: FileToolsCoordinator
     /// Handed down from the pane, which is the one place that can know it
     /// correctly when cards move under a stationary pointer.
     let isHovered: Bool
@@ -189,13 +219,68 @@ private struct ShelfCard: View {
         }
         .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .contextMenu {
+            let operationURLs = shelf.operationURLs(startingAt: item)
             Button("Copy") { shelf.copy(item) }
             Button("Open") { shelf.open(item) }
             Button("Show in Finder") { shelf.reveal(item) }
+            ShelfToolsMenu(
+                urls: operationURLs,
+                renameItem: operationURLs.count == 1 ? item : nil,
+                tools: tools
+            )
             Divider()
             Button("Remove from Shelf") { shelf.remove(item) }
         }
         .animation(Theme.contentAnimation, value: isHovered)
         .animation(Theme.contentAnimation, value: isSelected)
+    }
+}
+
+private struct ShelfToolsMenu: View {
+    let urls: [URL]
+    let renameItem: ShelfItem?
+    @ObservedObject var tools: FileToolsCoordinator
+
+    private var images: [URL] { FileToolsService.imageURLs(urls) }
+    private var singleImage: URL? { urls.count == 1 ? images.first : nil }
+
+    var body: some View {
+        Menu {
+            Button("Copy Path") { tools.copyPath(urls) }
+            Button("AirDrop") { tools.airDrop(urls) }
+            Button("Share…") { tools.share(urls) }
+            Divider()
+
+            if let image = singleImage {
+                Button("Recognize Text") { tools.recognizeText(in: image) }
+                Menu("Convert Image") {
+                    ForEach(ImageOutputFormat.allCases) { format in
+                        Button(format.title) { tools.convert(image, to: format) }
+                    }
+                }
+                Menu("Reduce Image") {
+                    ForEach(ImageResizePreset.allCases) { preset in
+                        Button(preset.title) { tools.resize(image, preset: preset) }
+                    }
+                }
+                Button("Remove Background") { tools.removeBackground(from: image) }
+            }
+
+            if images.count >= 2 {
+                Button("Combine Images into PDF") { tools.combineIntoPDF(images) }
+            }
+
+            if let renameItem {
+                if singleImage != nil || images.count >= 2 { Divider() }
+                Button("Rename…") { tools.requestRename(renameItem) }
+            }
+        } label: {
+            Label("Tools", systemImage: "wand.and.stars")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Theme.secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .disabled(tools.isWorking || urls.isEmpty)
     }
 }

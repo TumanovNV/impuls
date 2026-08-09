@@ -18,7 +18,7 @@ final class BackupDocumentTests: XCTestCase {
             )
             let document = ImpulsBackupDocument(
                 createdAt: Date(timeIntervalSince1970: 1_700_000_000),
-                appVersion: "1.2.1",
+                appVersion: "1.2.2",
                 settings: settings,
                 snippets: [Snippet(label: "Office", text: "info@example.com")],
                 notes: [Note(id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!, text: "Call back", edited: Date(timeIntervalSince1970: 1_700_000_100))]
