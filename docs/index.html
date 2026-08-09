@@ -8,8 +8,9 @@
 <meta name="author" content="Интегра Импульс">
 <meta name="application-name" content="Impuls">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-<meta name="theme-color" content="#0a0a0c">
-<meta name="color-scheme" content="dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f8fb">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0c">
+<meta name="color-scheme" content="light dark">
 <link rel="canonical" href="https://tumanovnv.github.io/impuls/">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/impuls-icon.svg" type="image/svg+xml">
@@ -88,6 +89,7 @@
 </script>
 <style>
 :root{
+  color-scheme:dark;
   --bg:#08080a;
   --bg-2:#0f0f13;
   --surface:rgba(255,255,255,.045);
@@ -479,6 +481,53 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     color:#fff;background:linear-gradient(160deg,#6d99ff,#4a6fe8);font-weight:680;font-size:14px;
     box-shadow:0 16px 45px rgba(0,0,0,.58),0 8px 30px rgba(91,140,255,.35)}
   .mobile-cta svg{width:16px;height:16px}
+}
+
+/* ---------- system light appearance ---------- */
+/* The site follows the operating-system appearance. Product previews remain dark
+   intentionally: they show the actual Impuls interface, not the page theme. */
+@media(prefers-color-scheme:light){
+  :root{
+    color-scheme:light;
+    --bg:#f7f8fb;
+    --bg-2:#ffffff;
+    --surface:rgba(255,255,255,.74);
+    --surface-2:rgba(255,255,255,.98);
+    --line:rgba(24,32,52,.12);
+    --line-strong:rgba(24,32,52,.21);
+    --text:#151925;
+    --muted:#505a6e;
+    --dim:#626c7d;
+    --accent:#2f62d0;
+    --accent-2:#7058d7;
+    --green:#138a5a;
+    --amber:#a86600;
+  }
+  body::before{
+    background:
+      radial-gradient(900px 520px at 50% -12%, rgba(84,126,235,.18), transparent 65%),
+      radial-gradient(700px 420px at 88% 8%, rgba(139,112,234,.11), transparent 62%),
+      radial-gradient(600px 400px at 6% 30%, rgba(31,163,105,.06), transparent 60%);
+  }
+  body::after{opacity:.016}
+  header{background:rgba(247,248,251,.76)}
+  .mark{background:linear-gradient(145deg,#5478d7,#243d8b 58%,#18234b);box-shadow:0 4px 16px rgba(58,95,196,.24)}
+  .btn-primary,.mobile-cta{background:linear-gradient(160deg,#4a6ed0,#3158bd)}
+  .btn-ghost:hover{border-color:rgba(24,32,52,.28)}
+  .hero .btn-ghost{color:#315fbd}
+  .hero .btn-ghost:hover{color:#1f4fae}
+  .install-note a{color:#334b80;text-decoration-color:rgba(51,75,128,.32)}
+  .install-note a:hover{color:#1f3c76}
+  h1 .grad{background:linear-gradient(100deg,#315fbd,#7058d7 55%,#168659)}
+  .card .ci{background:rgba(47,98,208,.11);color:#315fbd}
+  kbd{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(232,236,244,.84));box-shadow:0 2px 0 rgba(24,32,52,.14)}
+  .privacy{background:linear-gradient(165deg,rgba(19,138,90,.075),rgba(255,255,255,.66) 55%)}
+  .privacy::before{background:radial-gradient(circle,rgba(19,138,90,.12),transparent 68%)}
+  .ins code{background:rgba(47,98,208,.07);color:#304f9d}
+  .hashrow .h{color:#315fbd}
+  .copy:hover{background:rgba(24,32,52,.08)}
+  .fnote{color:#687184}
+  .mobile-cta{box-shadow:0 16px 45px rgba(25,40,76,.22),0 8px 30px rgba(91,140,255,.22)}
 }
 </style>
 </head>
