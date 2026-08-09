@@ -293,7 +293,7 @@ final class FileToolsCoordinator: ObservableObject {
 
 @MainActor
 private final class ShelfQuickLookController: NSObject,
-    QLPreviewPanelDataSource,
+    @preconcurrency QLPreviewPanelDataSource,
     QLPreviewPanelDelegate {
     private var urls: [URL] = []
 
