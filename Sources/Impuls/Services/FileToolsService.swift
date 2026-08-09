@@ -87,20 +87,23 @@ struct GeneratedFileRecord: Equatable, Sendable {
     let resourceIdentifier: String?
 
     static func capture(_ url: URL) throws -> GeneratedFileRecord {
-        let values = try url.resourceValues(forKeys: [
-            .fileSizeKey,
-            .contentModificationDateKey,
-            .fileResourceIdentifierKey,
-        ])
-        guard let fileSize = values.fileSize,
-              let modificationDate = values.contentModificationDate else {
+        // URLResourceValues may reuse metadata cached by the URL instance. Undo
+        // must observe the file system as it exists now, otherwise a file edited
+        // after generation could still look unchanged.
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        guard let fileSize = (attributes[.size] as? NSNumber)?.intValue,
+              let modificationDate = attributes[.modificationDate] as? Date else {
             throw FileToolsError.undoUnavailable
         }
+        let freshURL = URL(fileURLWithPath: url.path)
+        let resourceIdentifier = try? freshURL.resourceValues(
+            forKeys: [.fileResourceIdentifierKey]
+        ).fileResourceIdentifier
         return GeneratedFileRecord(
             url: url,
             fileSize: fileSize,
             modificationDate: modificationDate,
-            resourceIdentifier: values.fileResourceIdentifier.map { String(describing: $0) }
+            resourceIdentifier: resourceIdentifier.map { String(describing: $0) }
         )
     }
 
