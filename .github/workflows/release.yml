@@ -55,6 +55,7 @@ jobs:
           grep -F 'private var webPlayer: WebMusicPlayer?' Sources/Impuls/Services/MediaController.swift
           grep -F 'let player = webPlayer ?? makeWebPlayer()' Sources/Impuls/Services/MediaController.swift
           test "$(grep -RFl 'WebMusicPlayer()' Sources --include='*.swift' | tr '\n' ' ')" = 'Sources/Impuls/Services/MediaController.swift '
+          test -s docs/audits/1.3.0-web-music-security.md
           ! grep -RFn 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources
           grep -F 'exact: "2.9.5"' Package.swift
           grep -F '79bc9e872948e47877e76f194cb0c8e0412b0b90' Package.resolved
