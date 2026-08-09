@@ -103,7 +103,7 @@ jobs:
           test -s "$APP/Contents/Resources/AppIcon.icns"
           test -s "$APP/Contents/Resources/ImpulsStatusTemplate.png"
           ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
-          codesign -d --entitlements :- "$APP" > "$ENTITLEMENTS"
+          codesign -d --entitlements - --xml "$APP" > "$ENTITLEMENTS"
           test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.personal-information.calendars' "$ENTITLEMENTS")" = true
           hdiutil verify "$DMG"
           shasum -a 256 "$DMG" > "$DMG.sha256"

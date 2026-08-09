@@ -99,7 +99,7 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")" = "$VERSION"
           codesign --verify --deep --strict "$APP"
           ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
-          codesign -d --entitlements :- "$APP" > "$ENTITLEMENTS"
+          codesign -d --entitlements - --xml "$APP" > "$ENTITLEMENTS"
           test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.personal-information.calendars' "$ENTITLEMENTS")" = true
           if otool -L "$APP/Contents/MacOS/Impuls" | grep -q MediaRemote; then
             echo "Impuls links MediaRemote" >&2
