@@ -46,6 +46,11 @@ background. The shelf also exposes AirDrop, the macOS Share menu, path copying,
 and safe renaming. Transformations always create a uniquely named sibling file;
 the source is never overwritten or uploaded.
 
+Impuls 1.2.3 extends those actions to multiple selected images, reports batch
+progress, adds system Quick Look, and can safely undo the latest generated-file
+or rename operation. Generated results are moved to the Trash only while they
+remain unchanged; Impuls refuses to touch a file the user has modified.
+
 ## Settings and keyboard control
 
 The native Settings window can configure the global shortcut,

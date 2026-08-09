@@ -220,15 +220,20 @@
 "30 Days" = "30 дней";
 "A backup contains panel and clipboard settings, module order, snippets, and notes. Clipboard history, shelf files, and screenshots are not copied." = "Резервная копия содержит настройки панели и буфера, порядок модулей, заготовки и заметки. История буфера, файлы с полки и скриншоты не копируются.";
 
-/* Файловые инструменты 1.2.2 */
+/* Файловые инструменты 1.2.3 */
 "Tools" = "Инструменты";
+"Select All" = "Выбрать все";
+"Undo" = "Отменить";
+"Quick Look" = "Быстрый просмотр";
 "Copy Path" = "Копировать путь";
 "AirDrop" = "AirDrop";
 "Share…" = "Поделиться…";
 "Recognize Text" = "Распознать текст";
+"Recognize Text in Images" = "Распознать текст на изображениях";
 "Convert Image" = "Конвертировать изображение";
 "Reduce Image" = "Уменьшить изображение";
 "Remove Background" = "Удалить фон";
+"Remove Backgrounds" = "Удалить фон у изображений";
 "Combine Images into PDF" = "Объединить изображения в PDF";
 "Rename…" = "Переименовать…";
 "Working…" = "Выполняется…";
@@ -262,3 +267,11 @@
 "Select at least two images." = "Выберите не менее двух изображений.";
 "Impuls could not create the PDF." = "Impuls не удалось создать PDF.";
 "The macOS sharing service is not available." = "Системное меню «Поделиться» недоступно.";
+"Undoing File Operation…" = "Отмена файловой операции…";
+"Generated Files Moved to Trash" = "Созданные файлы перемещены в Корзину";
+"Original File Name Restored" = "Исходное имя файла восстановлено";
+"%@ %d of %d" = "%@ %d из %d";
+"Processed: %d" = "Обработано: %d";
+"Processed: %d · Skipped: %d" = "Обработано: %d · Пропущено: %d";
+"A generated file changed after the operation and was not moved to the Trash." = "Созданный файл изменился после операции и не был перемещён в Корзину.";
+"The last file operation can no longer be undone." = "Последнюю файловую операцию больше нельзя отменить.";

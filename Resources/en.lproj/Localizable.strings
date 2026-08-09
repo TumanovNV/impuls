@@ -221,15 +221,20 @@
 "30 Days" = "30 Days";
 "A backup contains panel and clipboard settings, module order, snippets, and notes. Clipboard history, shelf files, and screenshots are not copied." = "A backup contains panel and clipboard settings, module order, snippets, and notes. Clipboard history, shelf files, and screenshots are not copied.";
 
-/* File Tools 1.2.2 */
+/* File Tools 1.2.3 */
 "Tools" = "Tools";
+"Select All" = "Select All";
+"Undo" = "Undo";
+"Quick Look" = "Quick Look";
 "Copy Path" = "Copy Path";
 "AirDrop" = "AirDrop";
 "Share…" = "Share…";
 "Recognize Text" = "Recognize Text";
+"Recognize Text in Images" = "Recognize Text in Images";
 "Convert Image" = "Convert Image";
 "Reduce Image" = "Reduce Image";
 "Remove Background" = "Remove Background";
+"Remove Backgrounds" = "Remove Backgrounds";
 "Combine Images into PDF" = "Combine Images into PDF";
 "Rename…" = "Rename…";
 "Working…" = "Working…";
@@ -263,3 +268,11 @@
 "Select at least two images." = "Select at least two images.";
 "Impuls could not create the PDF." = "Impuls could not create the PDF.";
 "The macOS sharing service is not available." = "The macOS sharing service is not available.";
+"Undoing File Operation…" = "Undoing File Operation…";
+"Generated Files Moved to Trash" = "Generated Files Moved to Trash";
+"Original File Name Restored" = "Original File Name Restored";
+"%@ %d of %d" = "%@ %d of %d";
+"Processed: %d" = "Processed: %d";
+"Processed: %d · Skipped: %d" = "Processed: %d · Skipped: %d";
+"A generated file changed after the operation and was not moved to the Trash." = "A generated file changed after the operation and was not moved to the Trash.";
+"The last file operation can no longer be undone." = "The last file operation can no longer be undone.";

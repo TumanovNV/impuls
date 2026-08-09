@@ -56,6 +56,8 @@ enum FileToolsError: LocalizedError, Equatable, Sendable {
     case requiresTwoImages
     case couldNotCreatePDF
     case sharingUnavailable
+    case generatedFileChanged
+    case undoUnavailable
 
     var errorDescription: String? {
         switch self {
@@ -68,7 +70,48 @@ enum FileToolsError: LocalizedError, Equatable, Sendable {
         case .requiresTwoImages: return localized("Select at least two images.")
         case .couldNotCreatePDF: return localized("Impuls could not create the PDF.")
         case .sharingUnavailable: return localized("The macOS sharing service is not available.")
+        case .generatedFileChanged: return localized("A generated file changed after the operation and was not moved to the Trash.")
+        case .undoUnavailable: return localized("The last file operation can no longer be undone.")
         }
+    }
+}
+
+/// A lightweight identity snapshot used to make Undo conservative. Impuls only
+/// trashes a generated file when it is still the same file, with the same size
+/// and modification date, that the operation just created. If the user edits or
+/// replaces it, Undo refuses to touch it.
+struct GeneratedFileRecord: Equatable, Sendable {
+    let url: URL
+    let fileSize: Int
+    let modificationDate: Date
+    let resourceIdentifier: String?
+
+    static func capture(_ url: URL) throws -> GeneratedFileRecord {
+        // URLResourceValues may reuse metadata cached by the URL instance. Undo
+        // must observe the file system as it exists now, otherwise a file edited
+        // after generation could still look unchanged.
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        guard let fileSize = (attributes[.size] as? NSNumber)?.intValue,
+              let modificationDate = attributes[.modificationDate] as? Date else {
+            throw FileToolsError.undoUnavailable
+        }
+        let freshURL = URL(fileURLWithPath: url.path)
+        let resourceIdentifier = try? freshURL.resourceValues(
+            forKeys: [.fileResourceIdentifierKey]
+        ).fileResourceIdentifier
+        return GeneratedFileRecord(
+            url: url,
+            fileSize: fileSize,
+            modificationDate: modificationDate,
+            resourceIdentifier: resourceIdentifier.map { String(describing: $0) }
+        )
+    }
+
+    func matchesCurrentFile() -> Bool {
+        guard let current = try? Self.capture(url) else { return false }
+        return fileSize == current.fileSize
+            && modificationDate == current.modificationDate
+            && resourceIdentifier == current.resourceIdentifier
     }
 }
 
@@ -259,6 +302,19 @@ enum FileToolsService {
             index += 1
         }
         return candidate
+    }
+
+    /// Moves files created by the last Impuls operation to the macOS Trash. A
+    /// complete preflight happens before the first move so one edited result
+    /// cannot leave a batch half-undone.
+    static func moveGeneratedFilesToTrash(_ records: [GeneratedFileRecord]) throws {
+        guard !records.isEmpty else { throw FileToolsError.undoUnavailable }
+        guard records.allSatisfy({ $0.matchesCurrentFile() }) else {
+            throw FileToolsError.generatedFileChanged
+        }
+        for record in records {
+            try FileManager.default.trashItem(at: record.url, resultingItemURL: nil)
+        }
     }
 
     private static func loadImage(at url: URL) throws -> CGImage {
