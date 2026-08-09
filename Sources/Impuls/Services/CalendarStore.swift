@@ -7,6 +7,7 @@ import EventKit
 /// sensitive, and nobody should be asked for it just because the app launched.
 @MainActor
 final class CalendarStore: ObservableObject {
+    private static let maximumMeetings = 250
     enum Access: Equatable {
         case notRequested
         case granted
@@ -171,11 +172,14 @@ final class CalendarStore: ObservableObject {
         meetings = store.events(matching: predicate)
             .filter { !$0.isAllDay && $0.status != .canceled }
             .sorted { $0.startDate < $1.startDate }
+            .prefix(Self.maximumMeetings)
             .map { event in
                 let link = MeetingLink.find(in: event)
+                let title = BoundedText.firstLine(event.title ?? "", maximumCharacters: 240)
                 return Meeting(
-                    id: event.eventIdentifier ?? "\(event.startDate.timeIntervalSince1970)-\(event.title ?? "")",
-                    title: event.title ?? localized("Untitled"),
+                    id: event.eventIdentifier
+                        ?? "\(event.startDate.timeIntervalSince1970)-\(event.endDate.timeIntervalSince1970)",
+                    title: title.isEmpty ? localized("Untitled") : title,
                     start: event.startDate,
                     end: event.endDate,
                     calendarColor: event.calendar.color ?? .systemBlue,
@@ -206,6 +210,7 @@ final class CalendarStore: ObservableObject {
 /// Finds the video call in an event. Providers put the link wherever they like:
 /// Google Meet in the notes, Zoom often in the location, Teams in both.
 enum MeetingLink {
+    static let maximumScannedCharacters = 32 * 1_024
     private static let hosts = [
         "meet.google.com": "Google Meet",
         "zoom.us": "Zoom",
@@ -228,10 +233,11 @@ enum MeetingLink {
         return event.url.flatMap { isAllowedMeetingURL($0) ? $0 : nil }
     }
 
-    private static func firstKnownLink(in text: String) -> URL? {
+    static func firstKnownLink(in text: String) -> URL? {
         guard let detector else { return nil }
-        let range = NSRange(text.startIndex..., in: text)
-        for match in detector.matches(in: text, range: range) {
+        let sample = BoundedText.prefix(text, maximumCharacters: maximumScannedCharacters)
+        let range = NSRange(sample.startIndex..., in: sample)
+        for match in detector.matches(in: sample, range: range) {
             guard let url = match.url, isAllowedMeetingURL(url) else { continue }
             return url
         }

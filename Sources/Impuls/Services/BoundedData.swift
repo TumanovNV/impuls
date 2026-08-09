@@ -37,7 +37,10 @@ enum BoundedFileReader {
         var accumulator = BoundedDataAccumulator(maximumBytes: maximumBytes)
         while true {
             let remaining = maximumBytes - accumulator.data.count
-            let requestSize = min(64 * 1_024, remaining + 1)
+            // Avoid `remaining + 1` overflowing when this reusable helper is
+            // given `Int.max`; current application budgets are smaller, but a
+            // bounds primitive should remain correct for every valid input.
+            let requestSize = remaining < 64 * 1_024 ? remaining + 1 : 64 * 1_024
             guard let chunk = try handle.read(upToCount: requestSize), !chunk.isEmpty else {
                 return accumulator.data
             }

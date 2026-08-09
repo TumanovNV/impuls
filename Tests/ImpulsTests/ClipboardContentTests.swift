@@ -41,4 +41,20 @@ final class ClipboardContentTests: XCTestCase {
             .file
         )
     }
+
+    func testSnippetIdentityAndRowsStayCompactForLargeText() {
+        let text = String(repeating: "x", count: 100_000)
+        let first = Snippet(text: text)
+        let second = Snippet(text: text)
+
+        XCTAssertEqual(first.id, second.id)
+        XCTAssertLessThan(first.id.count, 64)
+        XCTAssertEqual(first.preview.count, 240)
+        XCTAssertEqual(first.symbol, "text.alignleft")
+    }
+
+    func testNotePreviewDoesNotWalkTheWholeNote() {
+        let note = Note(id: UUID(), text: String(repeating: "n", count: 100_000), edited: Date())
+        XCTAssertEqual(note.preview.count, 160)
+    }
 }

@@ -17,4 +17,13 @@ final class BoundedDataTests: XCTestCase {
             XCTAssertEqual(error as? BoundedDataError, .limitExceeded)
         }
     }
+
+    func testIntMaxBudgetDoesNotOverflow() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ImpulsBoundedIntMax-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try Data([1, 2, 3]).write(to: url)
+
+        XCTAssertEqual(try BoundedFileReader.read(from: url, maximumBytes: .max), Data([1, 2, 3]))
+    }
 }

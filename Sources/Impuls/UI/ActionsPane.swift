@@ -20,27 +20,28 @@ struct ActionsPane: View {
         )
     }
 
-    private var selected: ImpulsActionResult? {
-        results.first(where: { $0.id == selectedID }) ?? results.first
-    }
-
     var body: some View {
+        // SwiftUI may ask several child builders for their value in one render
+        // pass. Search is the expensive part, so compute the shared snapshot
+        // once instead of rebuilding it for the list, footer and selection.
+        let currentResults = results
+        let currentSelected = selected(in: currentResults)
         VStack(spacing: 6) {
             search
-            resultList
-            footer
+            resultList(currentResults, selected: currentSelected)
+            footer(currentSelected)
         }
         .padding(.top, 2)
         .onAppear {
-            selectedID = results.first?.id
+            selectedID = currentResults.first?.id
             focused = wantsKeyboard
         }
         .onChange(of: wantsKeyboard) { _, wants in focused = wants }
         .onChange(of: actions.query) { _, _ in
-            selectedID = results.first?.id
+            selectedID = currentResults.first?.id
             feedback = nil
         }
-        .onChange(of: results.map(\.id)) { _, identifiers in
+        .onChange(of: currentResults.map(\.id)) { _, identifiers in
             guard !identifiers.isEmpty else {
                 selectedID = nil
                 return
@@ -94,7 +95,10 @@ struct ActionsPane: View {
     }
 
     @ViewBuilder
-    private var resultList: some View {
+    private func resultList(
+        _ results: [ImpulsActionResult],
+        selected: ImpulsActionResult?
+    ) -> some View {
         if results.isEmpty {
             VStack(spacing: 5) {
                 Image(systemName: "magnifyingglass")
@@ -135,7 +139,7 @@ struct ActionsPane: View {
     }
 
     @ViewBuilder
-    private var footer: some View {
+    private func footer(_ selected: ImpulsActionResult?) -> some View {
         if let selected {
             HStack(spacing: 5) {
                 if let feedback {
@@ -189,15 +193,20 @@ struct ActionsPane: View {
     }
 
     private func moveSelection(by offset: Int) {
-        guard !results.isEmpty else { return }
-        let current = results.firstIndex(where: { $0.id == selectedID }) ?? 0
-        let destination = (current + offset + results.count) % results.count
-        selectedID = results[destination].id
+        let currentResults = results
+        guard !currentResults.isEmpty else { return }
+        let current = currentResults.firstIndex(where: { $0.id == selectedID }) ?? 0
+        let destination = (current + offset + currentResults.count) % currentResults.count
+        selectedID = currentResults[destination].id
     }
 
     private func runDefault() {
-        guard let selected else { return }
+        guard let selected = selected(in: results) else { return }
         run(.copy, selected)
+    }
+
+    private func selected(in results: [ImpulsActionResult]) -> ImpulsActionResult? {
+        results.first(where: { $0.id == selectedID }) ?? results.first
     }
 
     private func run(_ command: ImpulsActionCommand, _ result: ImpulsActionResult) {

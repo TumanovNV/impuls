@@ -93,6 +93,14 @@ final class FileToolsServiceTests: XCTestCase {
         XCTAssertThrowsError(try FileToolsService.validateImageDimensions(width: 0, height: 100))
     }
 
+    func testPlayerArtworkIsDownsampledToItsDisplayBudget() throws {
+        let source = try makeImage(named: "artwork.png", width: 2_000, height: 1_000)
+        let data = try Data(contentsOf: source)
+        let image = try XCTUnwrap(PlayerBridge.thumbnailArtwork(from: data))
+
+        XCTAssertLessThanOrEqual(max(image.size.width, image.size.height), CGFloat(PlayerBridge.artworkPixelSize))
+    }
+
     func testGeneratedFileRecordDetectsAChangedFile() throws {
         let output = temporaryDirectory.appendingPathComponent("generated.bin")
         try Data([0]).write(to: output)
@@ -101,6 +109,20 @@ final class FileToolsServiceTests: XCTestCase {
         XCTAssertTrue(record.matchesCurrentFile())
 
         try Data([0, 1, 2]).write(to: output)
+        XCTAssertFalse(record.matchesCurrentFile())
+    }
+
+    func testGeneratedFileRecordDetectsSameSizeChangeWithRestoredTimestamp() throws {
+        let output = temporaryDirectory.appendingPathComponent("generated-same-size.bin")
+        try Data([0, 1, 2]).write(to: output)
+        let record = try GeneratedFileRecord.capture(output)
+
+        try Data([2, 1, 0]).write(to: output)
+        try FileManager.default.setAttributes(
+            [.modificationDate: record.modificationDate],
+            ofItemAtPath: output.path
+        )
+
         XCTAssertFalse(record.matchesCurrentFile())
     }
 

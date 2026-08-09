@@ -52,6 +52,14 @@ jobs:
           grep -F 'static let maximumSearchCharacters = 16 * 1_024' Sources/Impuls/Services/ImpulsActionsStore.swift
           grep -F 'clipboard-history.writer' Sources/Impuls/Services/ClipboardHistoryPersistence.swift
           grep -F 'isAllowedMeetingURL' Sources/Impuls/Services/CalendarStore.swift
+          grep -F 'maximumScannedCharacters = 32 * 1_024' Sources/Impuls/Services/CalendarStore.swift
+          grep -F 'io.tumanov.impuls.notes.writer' Sources/Impuls/Services/NoteStore.swift
+          grep -F 'io.tumanov.impuls.screenshot-vault' Sources/Impuls/Services/ScreenshotVault.swift
+          grep -F 'maximumPendingSaves = 2' Sources/Impuls/Services/ScreenshotVault.swift
+          grep -F 'maximumArtworkBytes = 16 * 1_024 * 1_024' Sources/Impuls/Services/PlayerBridge.swift
+          grep -F 'let contentDigest: Data' Sources/Impuls/Services/FileToolsService.swift
+          grep -F 'hasher.update(data: chunk)' Sources/Impuls/Services/FileToolsService.swift
+          grep -F 'BoundedText.firstLine' Sources/Impuls/Services/ImpulsActionsStore.swift
 
       - name: Verify the feedback privacy boundary
         shell: bash
@@ -77,6 +85,12 @@ jobs:
           test -s .github/ISSUE_TEMPLATE/bug_report.yml
           test -s .github/ISSUE_TEMPLATE/feature_request.yml
           test -s .github/ISSUE_TEMPLATE/experience.yml
+          grep -F 'blank_issues_enabled: false' .github/ISSUE_TEMPLATE/config.yml
+          for FILE in .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/feature_request.yml .github/ISSUE_TEMPLATE/experience.yml; do
+            grep -F 'id: module' "$FILE"
+            grep -F 'id: frequency' "$FILE"
+            grep -F 'id: rating' "$FILE"
+          done
 
       - name: Verify adaptive panel appearance
         shell: bash
@@ -136,6 +150,28 @@ jobs:
           sys.exit(1 if bad else 0)
           PY
 
+      - name: Smoke-test application without unsolicited networking
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/Impuls.app"
+          LOG="$RUNNER_TEMP/impuls-smoke.log"
+          CI=true "$APP/Contents/MacOS/Impuls" >"$LOG" 2>&1 &
+          APP_PID=$!
+          cleanup() { kill "$APP_PID" >/dev/null 2>&1 || true; wait "$APP_PID" >/dev/null 2>&1 || true; }
+          trap cleanup EXIT
+
+          for _ in {1..20}; do
+            kill -0 "$APP_PID" >/dev/null 2>&1 || { cat "$LOG"; exit 1; }
+            sleep 0.5
+          done
+
+          CONNECTIONS="$(lsof -nP -a -p "$APP_PID" -i 2>/dev/null || true)"
+          test -z "$CONNECTIONS" || { echo "$CONNECTIONS" >&2; exit 1; }
+          cleanup
+          trap - EXIT
+
       - name: Build test DMG
         if: github.event_name == 'pull_request'
         shell: bash
@@ -144,6 +180,8 @@ jobs:
           ./Scripts/dmg.sh
           VERSION="$(sed -n 's/^VERSION=//p' Scripts/version)"
           shasum -a 256 "build/Impuls-$VERSION.dmg" > "build/Impuls-$VERSION.dmg.sha256"
+          hdiutil verify "build/Impuls-$VERSION.dmg"
+          shasum -a 256 -c "build/Impuls-$VERSION.dmg.sha256"
 
       - name: Store test DMG
         if: github.event_name == 'pull_request'

@@ -23,4 +23,17 @@ final class CalendarStoreTests: XCTestCase {
             try XCTUnwrap(URL(string: "file:///tmp/invitation.command"))
         ))
     }
+
+    func testMeetingLinkScanHasABoundedCorpus() {
+        XCTAssertEqual(
+            MeetingLink.firstKnownLink(in: "Join https://meet.google.com/abc-defg-hij now")?.host,
+            "meet.google.com"
+        )
+
+        let outsideBudget = String(
+            repeating: "x",
+            count: MeetingLink.maximumScannedCharacters
+        ) + " https://meet.google.com/abc-defg-hij"
+        XCTAssertNil(MeetingLink.firstKnownLink(in: outsideBudget))
+    }
 }

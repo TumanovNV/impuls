@@ -1,15 +1,41 @@
 import AppKit
 
 struct Snippet: Identifiable, Codable, Equatable {
-    var id: String { label.isEmpty ? text : label }
+    /// Compact, process-stable identity. The previous computed ID returned the
+    /// full snippet text when no label existed, making SwiftUI repeatedly hash
+    /// up to the entire 10 MB store merely to diff a row.
+    let id: String
     /// Optional name. Without one the row shows the value itself, which is
     /// usually enough for an address or a phone number.
-    var label: String = ""
-    var text: String
+    let label: String
+    let text: String
+
+    private enum CodingKeys: String, CodingKey { case label, text }
+
+    init(label: String = "", text: String) {
+        self.id = Self.makeIdentifier(label: label, text: text)
+        self.label = label
+        self.text = text
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let label = try container.decodeIfPresent(String.self, forKey: .label) ?? ""
+        let text = try container.decode(String.self, forKey: .text)
+        self.init(label: label, text: text)
+    }
+
+    var displayLabel: String {
+        BoundedText.firstLine(label, maximumCharacters: 160)
+    }
+
+    var preview: String {
+        BoundedText.firstLine(text, maximumCharacters: 240)
+    }
 
     /// Guessed from the value, so a row is recognisable before it is read.
     var symbol: String {
-        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = BoundedText.firstLine(text, maximumCharacters: 512)
         if value.contains("@"), !value.contains(" ") { return "at" }
         if value.hasPrefix("http://") || value.hasPrefix("https://") { return "link" }
         let digits = value.filter(\.isNumber).count
@@ -25,6 +51,18 @@ struct Snippet: Identifiable, Codable, Equatable {
         if !label.isEmpty { try container.encode(label, forKey: .label) }
         try container.encode(text, forKey: .text)
     }
+
+    private static func makeIdentifier(label: String, text: String) -> String {
+        var hasher = Hasher()
+        if label.isEmpty {
+            hasher.combine(0)
+            hasher.combine(text)
+        } else {
+            hasher.combine(1)
+            hasher.combine(label)
+        }
+        return "snippet:\(UInt(bitPattern: hasher.finalize()))"
+    }
 }
 
 /// A hand-kept list of things worth not retyping.
@@ -37,16 +75,31 @@ struct Snippet: Identifiable, Codable, Equatable {
 @MainActor
 final class SnippetStore: ObservableObject {
     private static let maximumFileBytes = 10 * 1_024 * 1_024
+    private static let maximumItems = 5_000
+    static let maximumSearchCharacters = 16 * 1_024
+    static let maximumQueryCharacters = 256
 
     @Published private(set) var items: [Snippet] = []
-    @Published var query = ""
+    @Published var query = "" {
+        didSet {
+            let end = query.index(
+                query.startIndex,
+                offsetBy: Self.maximumQueryCharacters,
+                limitedBy: query.endIndex
+            )
+            if let end, end < query.endIndex { query = String(query[..<end]) }
+        }
+    }
 
     /// Matches the name and the value alike: one remembers an address either by
     /// what it is called or by what is in it, rarely reliably by both.
     var filtered: [Snippet] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !needle.isEmpty else { return items }
-        return items.filter { $0.label.matches(needle) || $0.text.matches(needle) }
+        return items.filter {
+            BoundedText.prefix($0.label, maximumCharacters: Self.maximumSearchCharacters).matches(needle)
+                || BoundedText.prefix($0.text, maximumCharacters: Self.maximumSearchCharacters).matches(needle)
+        }
     }
 
     /// `~/Library/Application Support/Impuls/snippets.json`. A plain array of
@@ -59,22 +112,53 @@ final class SnippetStore: ObservableObject {
         return folder.appendingPathComponent("snippets.json")
     }()
 
+    private struct FileSignature: Equatable {
+        let size: UInt64
+        let modificationDate: Date
+        let resourceIdentifier: String?
+    }
+
+    private var hasLoaded = false
+    private var loadedSignature: FileSignature?
+
     /// Re-read on every visit to the tab. The file is edited from outside the
     /// app, so the only sensible moment to trust what is in memory is the
     /// moment before it is shown.
     func reload() {
-        guard let data = try? BoundedFileReader.read(
-            from: Self.file,
-            maximumBytes: Self.maximumFileBytes
-        ) else {
+        let initialSignature = Self.fileSignature()
+        if hasLoaded, initialSignature == loadedSignature { return }
+        guard initialSignature != nil else {
             items = []
+            hasLoaded = true
+            loadedSignature = nil
             return
         }
-        do {
-            items = try JSONDecoder().decode([Snippet].self, from: data)
-        } catch {
-            NSLog("Impuls: snippets.json is not readable: \(error.localizedDescription)")
+
+        // The file is intentionally user-editable. Retry once if an editor
+        // replaces it during the bounded read, and never publish a mixed or
+        // stale snapshot into the UI.
+        for _ in 0..<2 {
+            guard let before = Self.fileSignature() else { break }
+            do {
+                let data = try BoundedFileReader.read(
+                    from: Self.file,
+                    maximumBytes: Self.maximumFileBytes
+                )
+                let decoded = try JSONDecoder().decode([Snippet].self, from: data)
+                guard decoded.count <= Self.maximumItems else {
+                    throw SnippetStoreError.tooManyItems
+                }
+                guard let after = Self.fileSignature(), before == after else { continue }
+                items = decoded
+                hasLoaded = true
+                loadedSignature = after
+                return
+            } catch {
+                NSLog("Impuls: snippets.json is not readable: \(error.localizedDescription)")
+                return
+            }
         }
+        NSLog("Impuls: snippets.json changed while it was being read")
     }
 
     /// Adds one and writes the file.
@@ -115,6 +199,8 @@ final class SnippetStore: ObservableObject {
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
         do {
             try encoder.encode(items).write(to: Self.file, options: .atomic)
+            hasLoaded = true
+            loadedSignature = Self.fileSignature()
         } catch {
             NSLog("Impuls: cannot write snippets.json: \(error.localizedDescription)")
         }
@@ -133,6 +219,29 @@ final class SnippetStore: ObservableObject {
 
     static func reveal() {
         NSWorkspace.shared.activateFileViewerSelecting([file])
+    }
+
+    private static func fileSignature() -> FileSignature? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
+              let size = (attributes[.size] as? NSNumber)?.uint64Value,
+              let modificationDate = attributes[.modificationDate] as? Date else { return nil }
+        let freshURL = URL(fileURLWithPath: file.path)
+        let resourceIdentifier = try? freshURL.resourceValues(
+            forKeys: [.fileResourceIdentifierKey]
+        ).fileResourceIdentifier
+        return FileSignature(
+            size: size,
+            modificationDate: modificationDate,
+            resourceIdentifier: resourceIdentifier.map { String(describing: $0) }
+        )
+    }
+}
+
+private enum SnippetStoreError: LocalizedError {
+    case tooManyItems
+
+    var errorDescription: String? {
+        "snippets.json contains more than 5,000 items"
     }
 }
 

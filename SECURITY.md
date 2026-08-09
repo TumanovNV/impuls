@@ -34,6 +34,10 @@ include user data, credentials, or exploit payloads in public discussions.
   budget before decoding, and oversized clipboard payloads are not retained.
 - local stores use bounded streaming reads, and meeting links are restricted to
   known HTTPS providers before macOS is asked to open them.
+- screenshot and note writes run on bounded serial queues instead of the UI
+  thread; media artwork is byte-, dimension-, and display-size bounded.
+- generated-file Undo verifies a streaming SHA-256 content digest in addition
+  to size, modification date, and filesystem resource identity.
 
 ## Known limitations
 
@@ -42,4 +46,4 @@ cannot authenticate their publisher. This is a distribution limitation, not a
 condition to bypass silently.
 
 The latest documented review is
-[`docs/audits/1.2.5-security.md`](docs/audits/1.2.5-security.md).
+[`docs/audits/1.2.6-security.md`](docs/audits/1.2.6-security.md).

@@ -1,5 +1,6 @@
 import CoreGraphics
 import CoreImage
+import CryptoKit
 import Foundation
 import ImageIO
 import UniformTypeIdentifiers
@@ -79,19 +80,51 @@ enum FileToolsError: LocalizedError, Equatable, Sendable {
 }
 
 /// A lightweight identity snapshot used to make Undo conservative. Impuls only
-/// trashes a generated file when it is still the same file, with the same size
-/// and modification date, that the operation just created. If the user edits or
-/// replaces it, Undo refuses to touch it.
+/// trashes a generated file when its digest and stable metadata still match the
+/// result the operation created. If the user edits or replaces it, Undo refuses
+/// to touch it.
 struct GeneratedFileRecord: Equatable, Sendable {
+    private static let maximumDigestBytes = 512 * 1_024 * 1_024
+
     let url: URL
     let fileSize: Int
     let modificationDate: Date
     let resourceIdentifier: String?
+    let contentDigest: Data
 
     static func capture(_ url: URL) throws -> GeneratedFileRecord {
         // URLResourceValues may reuse metadata cached by the URL instance. Undo
         // must observe the file system as it exists now, otherwise a file edited
         // after generation could still look unchanged.
+        let before = try metadata(for: url)
+        guard before.fileSize <= maximumDigestBytes else { throw FileToolsError.undoUnavailable }
+        let contentDigest = try digest(of: url, expectedSize: before.fileSize)
+        let after = try metadata(for: url)
+        guard before == after else { throw FileToolsError.generatedFileChanged }
+        return GeneratedFileRecord(
+            url: url,
+            fileSize: after.fileSize,
+            modificationDate: after.modificationDate,
+            resourceIdentifier: after.resourceIdentifier,
+            contentDigest: contentDigest
+        )
+    }
+
+    func matchesCurrentFile() -> Bool {
+        guard let current = try? Self.capture(url) else { return false }
+        return fileSize == current.fileSize
+            && modificationDate == current.modificationDate
+            && resourceIdentifier == current.resourceIdentifier
+            && contentDigest == current.contentDigest
+    }
+
+    private struct Metadata: Equatable {
+        let fileSize: Int
+        let modificationDate: Date
+        let resourceIdentifier: String?
+    }
+
+    private static func metadata(for url: URL) throws -> Metadata {
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         guard let fileSize = (attributes[.size] as? NSNumber)?.intValue,
               let modificationDate = attributes[.modificationDate] as? Date else {
@@ -101,19 +134,27 @@ struct GeneratedFileRecord: Equatable, Sendable {
         let resourceIdentifier = try? freshURL.resourceValues(
             forKeys: [.fileResourceIdentifierKey]
         ).fileResourceIdentifier
-        return GeneratedFileRecord(
-            url: url,
+        return Metadata(
             fileSize: fileSize,
             modificationDate: modificationDate,
             resourceIdentifier: resourceIdentifier.map { String(describing: $0) }
         )
     }
 
-    func matchesCurrentFile() -> Bool {
-        guard let current = try? Self.capture(url) else { return false }
-        return fileSize == current.fileSize
-            && modificationDate == current.modificationDate
-            && resourceIdentifier == current.resourceIdentifier
+    private static func digest(of url: URL, expectedSize: Int) throws -> Data {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        var bytesRead = 0
+        while let chunk = try handle.read(upToCount: 1 * 1_024 * 1_024), !chunk.isEmpty {
+            guard chunk.count <= maximumDigestBytes - bytesRead else {
+                throw FileToolsError.undoUnavailable
+            }
+            bytesRead += chunk.count
+            hasher.update(data: chunk)
+        }
+        guard bytesRead == expectedSize else { throw FileToolsError.generatedFileChanged }
+        return Data(hasher.finalize())
     }
 }
 
@@ -150,7 +191,7 @@ enum FileToolsService {
             return lhs.boundingBox.midY > rhs.boundingBox.midY
         }
         let text = observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        guard text.contains(where: { !$0.isWhitespace }) else {
             throw FileToolsError.noTextFound
         }
         return text
@@ -305,11 +346,16 @@ enum FileToolsService {
         let normalizedExtension = fileExtension.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         var candidate = directory.appendingPathComponent(stem).appendingPathExtension(normalizedExtension)
         var index = 2
-        while FileManager.default.fileExists(atPath: candidate.path) {
+        while index <= 1_000, FileManager.default.fileExists(atPath: candidate.path) {
             candidate = directory
                 .appendingPathComponent("\(stem)-\(index)")
                 .appendingPathExtension(normalizedExtension)
             index += 1
+        }
+        if FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = directory
+                .appendingPathComponent("\(stem)-\(UUID().uuidString)")
+                .appendingPathExtension(normalizedExtension)
         }
         return candidate
     }

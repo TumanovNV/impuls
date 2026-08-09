@@ -14,6 +14,33 @@ body:
         - 1 — Poor / Плохо
     validations:
       required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Related area / Связанный раздел
+      options:
+        - Whole app / Всё приложение
+        - Actions
+        - Shelf / Полка
+        - Clipboard / Буфер обмена
+        - Calendar / Календарь
+        - Media / Музыка
+        - Translate / Перевод
+        - Notes or Snippets / Заметки или заготовки
+        - Settings or other / Настройки или другое
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often do you use this workflow? / Как часто вы используете этот сценарий?
+      options:
+        - Every day / Каждый день
+        - Several times a week / Несколько раз в неделю
+        - Several times a month / Несколько раз в месяц
+        - Rarely / Редко
+    validations:
+      required: true
   - type: textarea
     id: useful
     attributes:
@@ -30,6 +57,11 @@ body:
     id: missing
     attributes:
       label: What should change first? / Что нужно изменить в первую очередь?
+  - type: input
+    id: version
+    attributes:
+      label: Impuls version (optional) / Версия Impuls (необязательно)
+      placeholder: Shown in Impuls → About Impuls / Указана в Impuls → Об Impuls
   - type: checkboxes
     id: privacy
     attributes:

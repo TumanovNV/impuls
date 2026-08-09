@@ -10,6 +10,7 @@ import Translation
 final class Translator: ObservableObject {
     static let russian = Locale.Language(identifier: "ru")
     static let english = Locale.Language(identifier: "en")
+    static let maximumInputCharacters = 20_000
 
     /// Both ends are always named. Leaving the source to the framework looks
     /// tempting, but its identifier is a separate asset that is not installed
@@ -27,7 +28,16 @@ final class Translator: ObservableObject {
         var attempt: Int
     }
 
-    @Published var input = ""
+    @Published var input = "" {
+        didSet {
+            let end = input.index(
+                input.startIndex,
+                offsetBy: Self.maximumInputCharacters,
+                limitedBy: input.endIndex
+            )
+            if let end, end < input.endIndex { input = String(input[..<end]) }
+        }
+    }
     @Published private(set) var output = ""
     @Published private(set) var failure: String?
     /// The failure is a missing language pack, which is a thing the user can

@@ -59,7 +59,7 @@ enum ClipboardContentClassifier {
         if emailURL(from: candidate) != nil { return .email }
         if phoneURL(from: candidate) != nil { return .phone }
         if isColor(candidate) { return .color }
-        if prettyPrintedJSON(candidate) != nil { return .json }
+        if isJSONObject(candidate) { return .json }
         if looksLikeCode(candidate) { return .code }
         return .text
     }
@@ -112,6 +112,16 @@ enum ClipboardContentClassifier {
         return String(data: formatted, encoding: .utf8)
     }
 
+    /// Classification only needs to know whether the value is JSON. Avoid
+    /// sorting keys and serializing a second complete document merely to pick
+    /// the row icon; formatting remains an explicit user action.
+    private static func isJSONObject(_ text: String) -> Bool {
+        guard let first = text.first, first == "{" || first == "[",
+              let data = text.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data) else { return false }
+        return JSONSerialization.isValidJSONObject(object)
+    }
+
     private static func isColor(_ text: String) -> Bool {
         text.range(
             of: #"^#(?:[0-9A-F]{3}|[0-9A-F]{4}|[0-9A-F]{6}|[0-9A-F]{8})$"#,
@@ -122,10 +132,11 @@ enum ClipboardContentClassifier {
     private static func looksLikeCode(_ text: String) -> Bool {
         let tokens = [
             "func ", "class ", "struct ", "enum ", "protocol ", "import ",
-            "let ", "var ", "def ", "function ", "const ", "SELECT ",
-            "INSERT ", "UPDATE ", "#!/", "<?xml", "<html", "</"
+            "let ", "var ", "def ", "function ", "const ", "select ",
+            "insert ", "update ", "#!/", "<?xml", "<html", "</"
         ]
-        if tokens.contains(where: { text.localizedCaseInsensitiveContains($0) }) { return true }
+        let folded = text.lowercased()
+        if tokens.contains(where: { folded.contains($0) }) { return true }
         let hasBraces = text.contains("{") && text.contains("}")
         let hasCodePunctuation = text.contains(";") || text.contains("=>") || text.contains("::")
         return text.contains("\n") && hasBraces && hasCodePunctuation

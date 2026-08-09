@@ -53,10 +53,11 @@ remain unchanged; Impuls refuses to touch a file the user has modified.
 
 ## Stability and feedback
 
-Impuls 1.2.5 is a stabilization release. Full-resolution operations validate
-image dimensions before decoding, clipboard history rejects excessive payloads,
-update checks enforce their response limit while bytes arrive, and expensive
-clipboard persistence and search work is bounded or moved off the main thread.
+Impuls 1.2.6 continues the stabilization work. Compact rows and local search use
+bounded text projections, screenshot and note writes no longer occupy the UI
+thread, player refreshes are coalesced, artwork is downsampled before display,
+and Calendar link discovery has an explicit processing budget. Generated-file
+Undo now verifies a SHA-256 content digest before moving a result to the Trash.
 
 A feedback center in the menu and Settings collects a problem report, an
 improvement idea, or a general rating. The report is built locally and shown
@@ -65,6 +66,10 @@ version, macOS version, and processor architecture. Clipboard contents, notes,
 files, paths, calendar data, logs, and device identifiers are never added.
 Impuls uploads nothing itself: after an explicit action it copies the report and
 opens the public GitHub form in the system browser.
+
+Repository forms use the same core area, frequency, rating, and version fields
+and unstructured blank issues are disabled, keeping voluntary feedback useful
+for prioritization without adding analytics to the app.
 
 ## Settings and keyboard control
 

@@ -53,6 +53,14 @@ jobs:
           grep -F 'static let maximumSearchCharacters = 16 * 1_024' Sources/Impuls/Services/ImpulsActionsStore.swift
           grep -F 'clipboard-history.writer' Sources/Impuls/Services/ClipboardHistoryPersistence.swift
           grep -F 'isAllowedMeetingURL' Sources/Impuls/Services/CalendarStore.swift
+          grep -F 'maximumScannedCharacters = 32 * 1_024' Sources/Impuls/Services/CalendarStore.swift
+          grep -F 'io.tumanov.impuls.notes.writer' Sources/Impuls/Services/NoteStore.swift
+          grep -F 'io.tumanov.impuls.screenshot-vault' Sources/Impuls/Services/ScreenshotVault.swift
+          grep -F 'maximumPendingSaves = 2' Sources/Impuls/Services/ScreenshotVault.swift
+          grep -F 'maximumArtworkBytes = 16 * 1_024 * 1_024' Sources/Impuls/Services/PlayerBridge.swift
+          grep -F 'let contentDigest: Data' Sources/Impuls/Services/FileToolsService.swift
+          grep -F 'hasher.update(data: chunk)' Sources/Impuls/Services/FileToolsService.swift
+          grep -F 'BoundedText.firstLine' Sources/Impuls/Services/ImpulsActionsStore.swift
           grep -F 'https://github.com/TumanovNV/impuls/issues/new' Sources/Impuls/Services/FeedbackService.swift
           if grep -En 'URLSession|URLRequest|IOKit|IOPlatformSerialNumber|hostName|machineIdentifier' Sources/Impuls/Services/FeedbackService.swift; then
             echo "Feedback collects or transmits data outside its allow-list" >&2
@@ -71,6 +79,12 @@ jobs:
           test -s .github/ISSUE_TEMPLATE/bug_report.yml
           test -s .github/ISSUE_TEMPLATE/feature_request.yml
           test -s .github/ISSUE_TEMPLATE/experience.yml
+          grep -F 'blank_issues_enabled: false' .github/ISSUE_TEMPLATE/config.yml
+          for FILE in .github/ISSUE_TEMPLATE/bug_report.yml .github/ISSUE_TEMPLATE/feature_request.yml .github/ISSUE_TEMPLATE/experience.yml; do
+            grep -F 'id: module' "$FILE"
+            grep -F 'id: frequency' "$FILE"
+            grep -F 'id: rating' "$FILE"
+          done
 
       - name: Build application
         run: |

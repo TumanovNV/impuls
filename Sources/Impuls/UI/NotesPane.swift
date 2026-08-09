@@ -204,10 +204,7 @@ private struct NoteRow: View {
     /// The first line stands in for a title — notes here are too short-lived
     /// to deserve naming as a separate step.
     private var preview: String {
-        let line = note.text
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .newlines).first ?? ""
-        return line.isEmpty ? localized("Empty note") : line
+        note.preview.isEmpty ? localized("Empty note") : note.preview
     }
 }
 

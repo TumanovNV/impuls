@@ -15,9 +15,10 @@ struct SnippetsPane: View {
     @State private var draftText = ""
 
     var body: some View {
+        let filtered = snippets.filtered
         VStack(spacing: 6) {
             if isAdding { editor } else { search }
-            list
+            list(filtered)
         }
         .padding(.top, 2)
         .onChange(of: wantsKeyboard) { _, wants in
@@ -183,8 +184,8 @@ struct SnippetsPane: View {
     // MARK: - List
 
     @ViewBuilder
-    private var list: some View {
-        if snippets.filtered.isEmpty {
+    private func list(_ filtered: [Snippet]) -> some View {
+        if filtered.isEmpty {
             VStack(spacing: 6) {
                 Image(systemName: snippets.items.isEmpty ? "pin" : "magnifyingglass")
                     .font(.system(size: 18, weight: .light))
@@ -199,7 +200,7 @@ struct SnippetsPane: View {
         } else {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 3) {
-                    ForEach(snippets.filtered) { item in
+                    ForEach(filtered) { item in
                         SnippetRow(item: item, snippets: snippets)
                     }
                 }
@@ -222,16 +223,16 @@ private struct SnippetRow: View {
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(justCopied ? Color.green : Theme.tertiary)
                 .frame(width: 14)
-            if !item.label.isEmpty {
-                Text(item.label)
+            if !item.displayLabel.isEmpty {
+                Text(item.displayLabel)
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Theme.primary)
                     .lineLimit(1)
                     .layoutPriority(1)
             }
-            Text(item.text.replacingOccurrences(of: "\n", with: " "))
+            Text(item.preview)
                 .font(.system(size: 11))
-                .foregroundStyle(item.label.isEmpty ? Theme.primary : Theme.secondary)
+                .foregroundStyle(item.displayLabel.isEmpty ? Theme.primary : Theme.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer(minLength: 6)

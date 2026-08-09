@@ -63,7 +63,7 @@ private struct ClipRow: View {
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(justCopied ? Color.green : Theme.tertiary)
                 .frame(width: 14)
-            Text(item.preview.replacingOccurrences(of: "\n", with: " "))
+            Text(item.preview)
                 .font(.system(size: 11))
                 .foregroundStyle(Theme.primary)
                 .lineLimit(1)
