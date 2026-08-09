@@ -3,17 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Impuls — быстрые действия, буфер и файлы для macOS</title>
-<meta name="description" content="Бесплатная утилита Impuls для macOS: быстрый поиск, история буфера, полка файлов, OCR, календарь, переводчик и заметки у верхнего края экрана.">
+<title>Impuls для macOS — буфер обмена, файлы и быстрые действия</title>
+<meta name="description" content="Impuls — бесплатная утилита для macOS: история буфера, полка файлов, OCR, переводчик, календарь и заметки. Локально, без регистрации и облака.">
 <meta name="author" content="Интегра Импульс">
+<meta name="application-name" content="Impuls">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-<meta name="theme-color" content="#0a0a0c">
-<meta name="color-scheme" content="dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f8fb">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0c">
+<meta name="color-scheme" content="light dark">
 <link rel="canonical" href="https://tumanovnv.github.io/impuls/">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/impuls-icon.svg" type="image/svg+xml">
-<meta property="og:title" content="Impuls — быстрые действия для macOS">
-<meta property="og:description" content="Поиск, история буфера и файловые инструменты прямо у верхнего края экрана. Бесплатно, локально, с открытым кодом.">
+<meta property="og:title" content="Impuls для macOS — 8 инструментов, один хоткей">
+<meta property="og:description" content="Буфер обмена, файлы, OCR, календарь, переводчик и заметки у верхнего края экрана. Бесплатно и локально.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Impuls">
 <meta property="og:locale" content="ru_RU">
@@ -21,10 +23,10 @@
 <meta property="og:image" content="https://tumanovnv.github.io/impuls/assets/og-impuls.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Impuls — быстрые действия macOS у верхнего края экрана">
+<meta property="og:image:alt" content="Impuls для macOS — восемь инструментов в одной панели">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Impuls — быстрые действия для macOS">
-<meta name="twitter:description" content="Поиск, история буфера и файловые инструменты прямо у верхнего края экрана.">
+<meta name="twitter:title" content="Impuls для macOS — 8 инструментов, один хоткей">
+<meta name="twitter:description" content="История буфера, полка файлов, OCR, календарь, переводчик и заметки. Бесплатно и локально.">
 <meta name="twitter:image" content="https://tumanovnv.github.io/impuls/assets/og-impuls.png">
 <script type="application/ld+json" id="software-schema">
 {
@@ -35,18 +37,23 @@
       "@id": "https://tumanovnv.github.io/impuls/#software",
       "name": "Impuls",
       "alternateName": "Impuls для macOS",
-      "description": "Локальная утилита для macOS: быстрый поиск по буферу, заготовкам и заметкам, полка файлов, календарь, переводчик и управление музыкой.",
+      "description": "Бесплатная локальная утилита для macOS: история буфера, единый поиск, полка файлов, OCR, переводчик, календарь, заметки и управление музыкой.",
       "applicationCategory": "UtilitiesApplication",
       "operatingSystem": "macOS 15 or later",
-      "softwareVersion": "1.2.3",
-      "fileSize": "2.3 MB",
-      "downloadUrl": "https://github.com/TumanovNV/impuls/releases/download/v1.2.3/Impuls-1.2.3.dmg",
-      "installUrl": "https://github.com/TumanovNV/impuls/releases/download/v1.2.3/Impuls-1.2.3.dmg",
-      "releaseNotes": "https://github.com/TumanovNV/impuls/releases/tag/v1.2.3",
+      "softwareVersion": "1.2.8",
+      "fileSize": "2.4 MB",
+      "downloadUrl": "https://github.com/TumanovNV/impuls/releases/download/v1.2.8/Impuls-1.2.8.dmg",
+      "installUrl": "https://github.com/TumanovNV/impuls/releases/download/v1.2.8/Impuls-1.2.8.dmg",
+      "releaseNotes": "https://github.com/TumanovNV/impuls/releases/tag/v1.2.8",
       "softwareHelp": "https://github.com/TumanovNV/impuls/issues",
       "license": "https://github.com/TumanovNV/impuls/blob/main/LICENSE",
       "codeRepository": "https://github.com/TumanovNV/impuls",
       "author": {"@type": "Organization", "name": "Интегра Импульс"},
+      "publisher": {"@type": "Organization", "name": "Интегра Импульс"},
+      "image": "https://tumanovnv.github.io/impuls/assets/og-impuls.png",
+      "screenshot": "https://tumanovnv.github.io/impuls/assets/og-impuls.png",
+      "softwareRequirements": "macOS 15 or later; Apple Silicon or Intel",
+      "isAccessibleForFree": true,
       "offers": {"@type": "Offer", "price": "0", "priceCurrency": "RUB"},
       "featureList": [
         "Поиск по истории буфера, заготовкам и заметкам",
@@ -82,6 +89,7 @@
 </script>
 <style>
 :root{
+  color-scheme:dark;
   --bg:#08080a;
   --bg-2:#0f0f13;
   --surface:rgba(255,255,255,.045);
@@ -89,14 +97,14 @@
   --line:rgba(255,255,255,.10);
   --line-strong:rgba(255,255,255,.18);
   --text:#f2f3f7;
-  --muted:#9a9dab;
-  --dim:#6d707e;
+  --muted:#aeb1bd;
+  --dim:#7d808d;
   --accent:#5b8cff;
   --accent-2:#8f7bff;
   --green:#3ecf8e;
   --amber:#f0b429;
   --radius:18px;
-  --maxw:1120px;
+  --maxw:1180px;
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter","Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
 }
@@ -119,6 +127,10 @@ body::after{
 }
 a{color:inherit;text-decoration:none}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.skip-link{position:fixed;left:16px;top:10px;z-index:1000;padding:10px 14px;border-radius:10px;
+  background:#fff;color:#090a0e;font-weight:650;transform:translateY(-140%);transition:transform .2s}
+.skip-link:focus{transform:none}
+:focus-visible{outline:2px solid #91afff;outline-offset:3px}
 
 /* ---------- nav ---------- */
 header{position:sticky;top:0;z-index:60;backdrop-filter:blur(18px) saturate(1.6);
@@ -148,36 +160,56 @@ header.stuck{border-bottom-color:var(--line)}
 @media(max-width:820px){.nav nav{display:none}.nav .right .btn-primary{display:none}}
 
 /* ---------- hero ---------- */
-.hero{padding:74px 0 20px;text-align:center;position:relative}
+.hero{padding:64px 0 80px;position:relative}
+.hero-shell{max-width:1240px;margin:0 auto;padding:0 32px;display:flex;flex-direction:column;align-items:center;gap:48px}
+.hero-copy{width:100%;max-width:940px;min-width:0;text-align:center;margin:0 auto}
 .pill{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);
-  border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;margin-bottom:26px}
+  border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;margin-bottom:22px}
 .pill b{color:var(--text);font-weight:600}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
-h1{font-size:clamp(34px,5.6vw,62px);line-height:1.04;letter-spacing:-.035em;font-weight:680;
-  max-width:17ch;margin:0 auto}
+h1{font-size:clamp(46px,5.35vw,76px);line-height:.98;letter-spacing:-.052em;font-weight:700;
+  max-width:14ch;margin:0 auto}
 h1 .grad{background:linear-gradient(100deg,#7fa6ff,#b39dff 55%,#7fd8b4);
   -webkit-background-clip:text;background-clip:text;color:transparent}
-.sub{color:var(--muted);font-size:clamp(15px,1.9vw,19px);max-width:60ch;margin:22px auto 0;line-height:1.6}
-.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:32px}
-.meta{margin-top:16px;font-size:12.5px;color:var(--dim);display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
+.sub{color:var(--muted);font-size:clamp(17px,1.55vw,21px);max-width:62ch;margin:24px auto 0;line-height:1.55}
+.cta{display:flex;gap:18px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:30px}
+.hero .btn{min-height:46px;padding:11px 18px}
+.hero .btn-ghost{border:0;background:transparent;padding-left:4px;padding-right:4px;color:#8fb0ff}
+.hero .btn-ghost:hover{background:transparent;color:#b7cbff}
+.meta{margin-top:18px;font-size:12.5px;color:var(--dim);display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
 .meta span:not(:last-child)::after{content:"·";margin-left:7px;opacity:.5}
-.hero-facts{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin:24px auto 0;max-width:760px}
+.hero-facts{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:22px auto 0;max-width:760px}
 .hero-fact{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:rgba(255,255,255,.035);
   border-radius:999px;padding:7px 12px;font-size:12px;color:var(--muted)}
 .hero-fact svg{width:14px;height:14px;color:var(--green);flex:none}
+.install-note{display:flex;align-items:flex-start;justify-content:center;gap:8px;margin:16px auto 0;max-width:70ch;
+  color:var(--dim);font-size:11.5px;line-height:1.5}
+.install-note i{width:7px;height:7px;border-radius:50%;background:var(--amber);flex:none;margin-top:5px}
+.install-note a{color:#d8dbe5;text-decoration:underline;text-decoration-color:rgba(216,219,229,.3);text-underline-offset:3px}
+.install-note a:hover{color:#fff}
+
+@media(max-width:1120px){.hero-shell{max-width:960px;gap:44px}}
+@media(max-width:640px){
+  .hero{padding:42px 0 60px}.hero-shell{padding:0 18px;gap:36px}
+  h1{font-size:clamp(38px,12vw,52px);max-width:11ch}
+  .sub{font-size:16px}.hero .cta{display:grid;grid-template-columns:1fr;width:100%}
+  .hero .btn{justify-content:center;width:100%}.pill{font-size:11.5px;margin-bottom:18px}
+}
 
 /* ---------- demo ---------- */
-.demo-zone{margin:48px auto 0;max-width:960px;padding:0 24px}
+.demo-zone{width:100%;margin:0 auto;max-width:1180px;padding:0;min-width:0;position:relative}
+.demo-zone::before{content:"";position:absolute;inset:36px 8% -20px;z-index:-1;
+  background:radial-gradient(circle,rgba(91,140,255,.26),transparent 66%);filter:blur(24px)}
 .demo-label{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 4px 12px;
   color:var(--muted);font-size:12px}
 .demo-label span:first-child{display:flex;align-items:center;gap:8px;color:var(--text);font-weight:580}
 .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 10px rgba(62,207,142,.72)}
-.demo-caption{max-width:76ch;margin:14px auto 0;color:var(--dim);font-size:12px;line-height:1.6;text-align:center}
+.demo-caption{max-width:70ch;margin:14px auto 0;color:var(--dim);font-size:11.5px;line-height:1.55;text-align:center}
 .screen{
   position:relative;border-radius:16px;padding:0 0 34px;overflow:hidden;
   background:linear-gradient(170deg,#1c2340 0%,#241d3d 42%,#12172c 100%);
   border:1px solid rgba(255,255,255,.12);
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.9),0 0 0 8px rgba(255,255,255,.025);
+  box-shadow:0 45px 110px -34px rgba(0,0,0,.95),0 0 0 8px rgba(255,255,255,.025);
   min-height:360px;
 }
 .screen::before{
@@ -329,6 +361,7 @@ h1 .grad{background:linear-gradient(100deg,#7fa6ff,#b39dff 55%,#7fd8b4);
 .proof strong{display:block;font-size:15px;margin:10px 0 7px}
 .proof p{font-size:12.5px;line-height:1.6;color:var(--muted)}
 .proof svg{width:19px;height:19px;color:var(--green)}
+.trust-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:28px}
 @media(max-width:900px){.proof-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.proof-grid{grid-template-columns:1fr}}
 
@@ -440,9 +473,66 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
 .reveal{opacity:0;transform:translateY(18px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
 .reveal.in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.reveal{opacity:1;transform:none}}
+.mobile-cta{display:none}
+@media(max-width:720px){
+  body{padding-bottom:76px}
+  .mobile-cta{display:flex;position:fixed;z-index:70;left:12px;right:12px;bottom:12px;
+    align-items:center;justify-content:center;gap:8px;min-height:52px;border-radius:14px;
+    color:#fff;background:linear-gradient(160deg,#6d99ff,#4a6fe8);font-weight:680;font-size:14px;
+    box-shadow:0 16px 45px rgba(0,0,0,.58),0 8px 30px rgba(91,140,255,.35)}
+  .mobile-cta svg{width:16px;height:16px}
+}
+
+/* ---------- system light appearance ---------- */
+/* The site follows the operating-system appearance. Product previews remain dark
+   intentionally: they show the actual Impuls interface, not the page theme. */
+@media(prefers-color-scheme:light){
+  :root{
+    color-scheme:light;
+    --bg:#f7f8fb;
+    --bg-2:#ffffff;
+    --surface:rgba(255,255,255,.74);
+    --surface-2:rgba(255,255,255,.98);
+    --line:rgba(24,32,52,.12);
+    --line-strong:rgba(24,32,52,.21);
+    --text:#151925;
+    --muted:#505a6e;
+    --dim:#626c7d;
+    --accent:#2f62d0;
+    --accent-2:#7058d7;
+    --green:#138a5a;
+    --amber:#a86600;
+  }
+  body::before{
+    background:
+      radial-gradient(900px 520px at 50% -12%, rgba(84,126,235,.18), transparent 65%),
+      radial-gradient(700px 420px at 88% 8%, rgba(139,112,234,.11), transparent 62%),
+      radial-gradient(600px 400px at 6% 30%, rgba(31,163,105,.06), transparent 60%);
+  }
+  body::after{opacity:.016}
+  header{background:rgba(247,248,251,.76)}
+  .mark{background:linear-gradient(145deg,#5478d7,#243d8b 58%,#18234b);box-shadow:0 4px 16px rgba(58,95,196,.24)}
+  .btn-primary,.mobile-cta{background:linear-gradient(160deg,#4a6ed0,#3158bd)}
+  .btn-ghost:hover{border-color:rgba(24,32,52,.28)}
+  .hero .btn-ghost{color:#315fbd}
+  .hero .btn-ghost:hover{color:#1f4fae}
+  .install-note a{color:#334b80;text-decoration-color:rgba(51,75,128,.32)}
+  .install-note a:hover{color:#1f3c76}
+  h1 .grad{background:linear-gradient(100deg,#315fbd,#7058d7 55%,#168659)}
+  .card .ci{background:rgba(47,98,208,.11);color:#315fbd}
+  kbd{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(232,236,244,.84));box-shadow:0 2px 0 rgba(24,32,52,.14)}
+  .privacy{background:linear-gradient(165deg,rgba(19,138,90,.075),rgba(255,255,255,.66) 55%)}
+  .privacy::before{background:radial-gradient(circle,rgba(19,138,90,.12),transparent 68%)}
+  .ins code{background:rgba(47,98,208,.07);color:#304f9d}
+  .hashrow .h{color:#315fbd}
+  .copy:hover{background:rgba(24,32,52,.08)}
+  .fnote{color:#687184}
+  .mobile-cta{box-shadow:0 16px 45px rgba(25,40,76,.22),0 8px 30px rgba(91,140,255,.22)}
+}
 </style>
 </head>
 <body>
+<a class="skip-link" href="#main-content" data-i="a11y.skip">Перейти к содержимому</a>
 
 <header id="hdr">
   <div class="wrap nav">
@@ -463,7 +553,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
         <button type="button" id="ru" class="on" aria-label="Русский" aria-pressed="true" onclick="setLang('ru')">RU</button>
         <button type="button" id="en" aria-label="English" aria-pressed="false" onclick="setLang('en')">EN</button>
       </div>
-      <a class="btn btn-primary" data-conversion="download" data-placement="header" href="https://github.com/TumanovNV/impuls/releases/download/v1.2.3/Impuls-1.2.3.dmg">
+      <a class="btn btn-primary" data-conversion="download" data-placement="header" href="https://github.com/TumanovNV/impuls/releases/download/v1.2.8/Impuls-1.2.8.dmg">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
         <span data-i="cta.download">Скачать</span>
       </a>
@@ -471,43 +561,43 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   </div>
 </header>
 
-<main id="top">
+<main id="main-content">
 
 <!-- HERO -->
-<div class="hero">
-  <div class="wrap">
-    <div class="pill"><span class="dot"></span><b data-i="hero.pill.v">Impuls 1.2.3</b> <span data-i="hero.pill.t">— файловые инструменты работают локально</span></div>
-    <h1 data-i="hero.h1">Быстрые действия macOS <span class="grad">у верхнего края экрана</span></h1>
-    <p class="sub" data-i="hero.sub">Impuls превращает чёлку MacBook — или компактную вкладку на любом другом Mac — в быстрый поиск, историю буфера, полку файлов, календарь, переводчик и заметки. Без регистрации и передачи рабочих данных.</p>
+<div class="hero" id="top">
+  <div class="hero-shell">
+    <div class="hero-copy">
+    <div class="pill"><span class="dot"></span><b data-i="hero.pill.v">Impuls 1.2.8</b> <span data-i="hero.pill.t">— бесплатно, нативно, локально</span></div>
+    <h1 data-i="hero.h1">8 инструментов для Mac. <span class="grad">Один хоткей.</span></h1>
+    <p class="sub" data-i="hero.sub">Буфер обмена, файлы, OCR, календарь, переводчик и заметки — у верхнего края экрана. Быстрее, чем переключаться между приложениями.</p>
     <div class="cta">
-      <a class="btn btn-primary" data-conversion="download" data-placement="hero" href="https://github.com/TumanovNV/impuls/releases/download/v1.2.3/Impuls-1.2.3.dmg">
+      <a class="btn btn-primary" data-conversion="download" data-placement="hero" href="https://github.com/TumanovNV/impuls/releases/download/v1.2.8/Impuls-1.2.8.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
-        <span data-i="cta.dl.mac">Скачать Impuls 1.2.3 бесплатно</span>
+        <span data-i="cta.dl.mac">Скачать бесплатно для macOS</span>
       </a>
-      <a class="btn btn-ghost" data-conversion="github" data-placement="hero" href="https://github.com/TumanovNV/impuls" rel="noopener">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.4-3.4-1.4-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.2-4.6-5.2 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.7 1 .8-.2 1.7-.3 2.5-.3s1.7.1 2.5.3c1.9-1.3 2.7-1 2.7-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 4-2.4 4.9-4.6 5.1.4.3.7.9.7 1.9v2.8c0 .3.2.6.7.5 3.9-1.4 6.8-5.2 6.8-9.7C22 6.6 17.5 2 12 2z"/></svg>
-        <span data-i="cta.github">Открыть на GitHub</span>
+      <a class="btn btn-ghost" data-conversion="demo" data-placement="hero" href="#demo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+        <span data-i="cta.demo">Посмотреть, как работает</span>
       </a>
     </div>
     <div class="meta">
       <span data-i="hero.m1">macOS 15 и новее</span>
-      <span data-i="hero.m2">2,3 МБ</span>
+      <span data-i="hero.m2">2,4 МБ</span>
       <span data-i="hero.m3">Apple Silicon и Intel</span>
-      <span data-i="hero.m4">Открытый код, GPL-3.0</span>
       <span data-i="hero.m5">Бесплатно</span>
     </div>
     <div class="hero-facts" role="list" aria-label="Проверяемые свойства Impuls">
-      <span class="hero-fact" role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m4 12 5 5L20 6"/></svg><span data-i="hero.f1">Без учётной записи</span></span>
-      <span class="hero-fact" role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m4 12 5 5L20 6"/></svg><span data-i="hero.f2">Контрольная сумма SHA-256</span></span>
-      <span class="hero-fact" role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m4 12 5 5L20 6"/></svg><span data-i="hero.f3">Исходный код открыт</span></span>
+      <span class="hero-fact" role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m4 12 5 5L20 6"/></svg><span data-i="hero.f1">Рабочие данные остаются на Mac</span></span>
+      <span class="hero-fact" role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m4 12 5 5L20 6"/></svg><span data-i="hero.f2">Без учётной записи</span></span>
+      <span class="hero-fact" role="listitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m4 12 5 5L20 6"/></svg><span data-i="hero.f3">Открытый исходный код</span></span>
     </div>
   </div>
 
   <!-- INTERACTIVE DEMO -->
-  <div class="demo-zone">
+  <div class="demo-zone" id="demo">
     <div class="demo-label">
-      <span><i class="live-dot"></i><span data-i="demo.label">Интерактивная демонстрация Impuls</span></span>
-      <span data-i="demo.action">Наведите курсор на вырез</span>
+      <span><i class="live-dot"></i><span data-i="demo.label">Impuls в работе</span></span>
+      <span data-i="demo.action">Наведите на вырез или выберите модуль</span>
     </div>
     <div class="screen">
       <div class="menubar">
@@ -618,7 +708,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
             <div class="pane" data-p="clip">
               <div class="rows">
                 <div class="row"><span class="txt">github.com/TumanovNV/impuls</span><span class="when" data-i="w1">2 мин</span></div>
-                <div class="row"><span class="txt" data-i="cl2">sha256: c4a3c941136842f05d31c5aaa4db88f2…</span><span class="when" data-i="w2">14 мин</span></div>
+                <div class="row"><span class="txt" data-release-hash-prefix>sha256: 2d47122aa76e4540312047b65834f951…</span><span class="when" data-i="w2">14 мин</span></div>
                 <div class="row"><span class="txt" data-i="cl3">Снимок экрана 21.03</span><span class="when" data-i="w3">1 ч</span></div>
               </div>
               <div class="actionbar"><span class="chip sm" data-i="cl4">Записи менеджеров паролей исключены из истории</span></div>
@@ -664,7 +754,9 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
         </div>
       </div>
     </div>
-    <p class="demo-caption" data-i="demo.caption">Это интерактивная реконструкция актуальной компоновки Impuls, а не выдуманный макет: шесть модулей расположены слева, перевод и заметки — справа, как в текущей публичной версии Impuls.</p>
+    <p class="demo-caption" data-i="demo.caption">Интерактивная демонстрация повторяет актуальную компоновку приложения. Нажмите на значок модуля, чтобы увидеть его интерфейс.</p>
+    <p class="install-note"><i></i><span data-i="hero.install">Сборка пока не нотаризована Apple: первый запуск нужно подтвердить вручную. <a href="#install">Показать инструкцию</a></span></p>
+  </div>
   </div>
 </div>
 
@@ -672,14 +764,14 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
 <section id="benefits">
   <div class="wrap">
     <div class="center reveal">
-      <div class="eyebrow" data-i="b.eyebrow">Польза в ежедневной работе</div>
-      <h2 data-i="b.h2">Меньше переключений. Быстрее результат.</h2>
-      <p class="lead" data-i="b.lead">Impuls не пытается заменить ваши приложения. Он сокращает мелкие действия между ними — поиск, копирование, перенос и быструю обработку файлов.</p>
+      <div class="eyebrow" data-i="b.eyebrow">Ежедневные сценарии</div>
+      <h2 data-i="b.h2">Меньше микродействий. Больше времени на основную работу.</h2>
+      <p class="lead" data-i="b.lead">Impuls не заменяет ваши приложения. Он убирает лишние переходы между ними — когда нужно найти, скопировать, перенести или быстро обработать файл.</p>
     </div>
     <div class="outcomes">
-      <article class="outcome reveal"><div class="num">01</div><h3 data-i="b1">Находите то, что уже было</h3><p data-i="b1d">Один запрос ищет по истории буфера, заготовкам и заметкам. Ссылку, реквизиты или команду не нужно вспоминать по месту хранения.</p></article>
-      <article class="outcome reveal"><div class="num">02</div><h3 data-i="b2">Переносите файлы без суеты</h3><p data-i="b2d">Положите файлы на полку и заберите их в другом окне. Оригиналы остаются на месте, пока вы сами не решите иначе.</p></article>
-      <article class="outcome reveal"><div class="num">03</div><h3 data-i="b3">Закрывайте мелкие задачи на месте</h3><p data-i="b3d">OCR, удаление фона, конвертация изображений, уменьшение размера и сборка PDF работают локально — без загрузки в онлайн-сервисы.</p></article>
+      <article class="outcome reveal"><div class="num">01</div><h3 data-i="b1">Верните то, что копировали раньше</h3><p data-i="b1d">Один поиск находит ссылку, реквизиты или команду в истории буфера, заготовках и заметках — даже если вы не помните, где это было.</p></article>
+      <article class="outcome reveal"><div class="num">02</div><h3 data-i="b2">Перенесите файл между приложениями</h3><p data-i="b2d">Положите файлы на полку Impuls и заберите их в нужном окне. Оригиналы остаются на месте.</p></article>
+      <article class="outcome reveal"><div class="num">03</div><h3 data-i="b3">Обработайте изображение локально</h3><p data-i="b3d">Распознайте текст, удалите фон, измените формат или размер, соберите PDF — без загрузки рабочих файлов в онлайн-сервисы.</p></article>
     </div>
   </div>
 </section>
@@ -689,8 +781,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   <div class="wrap split">
     <div class="reveal">
       <div class="eyebrow" data-i="a.eyebrow">Impuls Actions</div>
-      <h2 data-i="a.h2">Один хоткей вместо семи мест, где вы это уже видели</h2>
-      <p class="lead" data-i="a.lead">Скопированная ссылка, сохранённая заготовка, старая заметка — обычно всё это лежит в разных местах, и вы помните только, что «где-то было». Actions ищет по всем трём хранилищам сразу: без учёта регистра и диакритики, точные совпадения выше.</p>
+      <h2 data-i="a.h2">Найдите нужное раньше, чем откроете исходное приложение</h2>
+      <p class="lead" data-i="a.lead">Actions одним запросом ищет по истории буфера, заготовкам и заметкам. Точные совпадения поднимаются выше, а результат можно сразу скопировать, открыть, сохранить или перевести.</p>
       <div class="keyrow">
         <kbd>&#8963;</kbd><kbd>&#8997;</kbd><kbd>Space</kbd>
         <span class="lbl" data-i="a.key">— открывает Actions из любого приложения</span>
@@ -723,7 +815,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
         </div>
         <div class="res">
           <svg class="ri" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="5.5" y="4" width="13" height="17" rx="2.6"/><rect x="9" y="2" width="6" height="4" rx="1.6"/></svg>
-          <span class="txt" data-i="ar4">Impuls-1.2.3.dmg</span>
+          <span class="txt" data-i="ar4">Impuls-1.2.8.dmg</span>
         </div>
         <div class="actionbar">
           <span class="src"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="5.5" y="4" width="13" height="17" rx="2.6"/><rect x="9" y="2" width="6" height="4" rx="1.6"/></svg><span data-i="b.clip">Буфер</span></span>
@@ -741,8 +833,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   <div class="wrap">
     <div class="center reveal">
       <div class="eyebrow" data-i="m.eyebrow">Модули</div>
-      <h2 data-i="m.h2">Восемь инструментов в полосе, которая всё равно пустует</h2>
-      <p class="lead" data-i="m.lead">Включайте только нужные и расставляйте в своём порядке. Панель открывается наведением или хоткеем, переключается стрелками, закрывается по Esc.</p>
+      <h2 data-i="m.h2">Восемь инструментов. Включите только те, которыми пользуетесь.</h2>
+      <p class="lead" data-i="m.lead">Настройте состав и порядок модулей под свою работу. Панель открывается наведением или хоткеем, переключается стрелками и закрывается по Esc.</p>
     </div>
     <div class="grid g4">
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div><h3 data-i="mod1">Actions</h3><p data-i="mod1d">Один поиск по истории буфера, заготовкам и заметкам с действиями прямо из результата.</p></div>
@@ -767,15 +859,19 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
 <section id="trust">
   <div class="wrap">
     <div class="center reveal">
-      <div class="eyebrow" data-i="trust.eyebrow">Проверяемые факты</div>
-      <h2 data-i="trust.h2">Доверие без выдуманных цифр и отзывов</h2>
-      <p class="lead" data-i="trust.lead">У Impuls пока нет публичной статистики скачиваний и отзывов, которую можно честно показать. Поэтому здесь только то, что вы можете проверить самостоятельно.</p>
+      <div class="eyebrow" data-i="trust.eyebrow">Проверяемое доверие</div>
+      <h2 data-i="trust.h2">Не верьте обещаниям. Проверьте код, сборку и сетевые границы.</h2>
+      <p class="lead" data-i="trust.lead">Impuls открыт для технической проверки: исходный код, история изменений, модель приватности и контрольная сумма каждого DMG находятся в публичном доступе.</p>
     </div>
     <div class="proof-grid">
       <article class="proof reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 9 4 12l4 3M16 9l4 3-4 3M14 5l-4 14"/></svg><strong data-i="trust.p1">Открытый исходный код</strong><p data-i="trust.p1d">Реализация, модель приватности и история изменений доступны в публичном репозитории.</p></article>
       <article class="proof reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 12 5 5L20 6"/></svg><strong data-i="trust.p2">Проверки перед релизом</strong><p data-i="trust.p2d">Сборочный процесс запускает тесты, проверяет подпись DMG и отсутствие неожиданных сетевых соединений.</p></article>
       <article class="proof reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 3h10v4h4v14H3V7h4zM7 3v4h10V3M8 13h8M8 17h5"/></svg><strong data-i="trust.p3">SHA-256 каждой сборки</strong><p data-i="trust.p3d">Контрольная сумма позволяет сверить скачанный DMG с файлом, опубликованным в релизе.</p></article>
       <article class="proof reveal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg><strong data-i="trust.p4">Рабочие данные остаются на Mac</strong><p data-i="trust.p4d">Буфер, файлы, заметки и календарь не отправляются на сервер; проверка обновлений включается отдельно.</p></article>
+    </div>
+    <div class="trust-actions reveal">
+      <a class="btn btn-ghost" data-conversion="github" data-placement="trust" href="https://github.com/TumanovNV/impuls" rel="noopener"><span data-i="trust.code">Посмотреть исходный код</span></a>
+      <a class="btn btn-ghost" data-conversion="releases" data-placement="trust" href="https://github.com/TumanovNV/impuls/releases" rel="noopener"><span data-i="trust.releases">Открыть историю релизов</span></a>
     </div>
   </div>
 </section>
@@ -810,8 +906,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   <div class="wrap">
     <div class="center reveal">
       <div class="eyebrow" data-i="i.eyebrow">Установка</div>
-      <h2 data-i="i.h2">Три шага и одно честное предупреждение</h2>
-      <p class="lead" data-i="i.lead">Impuls 1.2.3 &#183; DMG 2,3 МБ &#183; macOS 15 и новее</p>
+      <h2 data-i="i.h2">Три шага до запуска Impuls</h2>
+      <p class="lead" data-i="i.lead">Impuls 1.2.8 &#183; DMG 2,4 МБ &#183; macOS 15 и новее</p>
     </div>
     <div class="install-grid">
       <div class="ins reveal"><div class="num">01</div><h4 data-i="i.s1">Скачайте и откройте DMG</h4><p data-i="i.s1d">Перетащите Impuls в «Программы», заменив предыдущую версию, если она была.</p></div>
@@ -824,10 +920,10 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     </div>
     <div class="hashrow reveal">
       <span class="lbl">SHA-256</span>
-      <span class="h" id="hash">c4a3c941136842f05d31c5aaa4db88f2e0facf306a15f26e05ebddbfc52b2d1d</span>
+      <span class="h" id="hash">2d47122aa76e4540312047b65834f9518662b0f10af623f068e0f3a7e3b68cf4</span>
       <button type="button" class="copy" onclick="copyHash(this)" data-i="i.copy">Копировать</button>
     </div>
-    <p class="dl-note reveal" style="text-align:center;margin-top:26px" data-i="i.verify">Проверить: <code style="font-family:var(--mono)">shasum -a 256 ~/Downloads/Impuls-1.2.3.dmg</code></p>
+    <p class="dl-note reveal" style="text-align:center;margin-top:26px" data-i="i.verify">Проверить: <code style="font-family:var(--mono)">shasum -a 256 ~/Downloads/Impuls-1.2.8.dmg</code></p>
   </div>
 </section>
 
@@ -859,20 +955,25 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
 <section class="final">
   <div class="wrap">
     <div class="reveal">
-      <h2 data-i="fin.h2">Полоса над экраном у вас уже есть. Осталось ей воспользоваться.</h2>
+      <h2 data-i="fin.h2">Попробуйте Impuls на своём Mac — бесплатно.</h2>
       <div class="cta">
-        <a class="btn btn-primary" data-conversion="download" data-placement="final" href="https://github.com/TumanovNV/impuls/releases/download/v1.2.3/Impuls-1.2.3.dmg">
+        <a class="btn btn-primary" data-conversion="download" data-placement="final" href="https://github.com/TumanovNV/impuls/releases/download/v1.2.8/Impuls-1.2.8.dmg">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
-          <span data-i="fin.dl">Скачать Impuls 1.2.3 бесплатно</span>
+          <span data-i="fin.dl">Скачать бесплатно для macOS</span>
         </a>
         <a class="btn btn-ghost" data-conversion="releases" data-placement="final" href="https://github.com/TumanovNV/impuls/releases" rel="noopener"><span data-i="fin.rel">Все релизы</span></a>
       </div>
-      <p class="dl-note" data-i="fin.note">Бесплатно и с открытым кодом &#183; macOS 15+ &#183; 2,3 МБ &#183; без учётной записи</p>
+      <p class="dl-note" data-i="fin.note">Бесплатно и с открытым кодом &#183; macOS 15+ &#183; 2,4 МБ &#183; без учётной записи</p>
     </div>
   </div>
 </section>
 
 </main>
+
+<a class="mobile-cta" data-conversion="download" data-placement="mobile-sticky" href="https://github.com/TumanovNV/impuls/releases/download/v1.2.8/Impuls-1.2.8.dmg">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4.5-4.5M12 15l-4.5-4.5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+  <span data-i="mobile.cta">Скачать Impuls бесплатно</span>
+</a>
 
 <footer>
   <div class="wrap">
@@ -901,15 +1002,16 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
 const I = {
  en:{
   "nav.actions":"Actions","nav.modules":"Modules","nav.trust":"Trust","nav.privacy":"Privacy","nav.install":"Install","nav.faq":"FAQ",
-  "cta.download":"Download","cta.dl.mac":"Download Impuls 1.2.3 free","cta.github":"View on GitHub",
-  "hero.pill.v":"Impuls 1.2.3","hero.pill.t":"— local file tools included",
-  "hero.h1":"Fast macOS actions <span class='grad'>at the top edge of your screen</span>",
-  "hero.sub":"Impuls turns the MacBook notch — or a compact tab on any other Mac — into action search, clipboard history, a file shelf, calendar, translator, and notes. No account and no work data sent away.",
-  "hero.m1":"macOS 15 or newer","hero.m2":"2.3 MB","hero.m3":"Apple Silicon and Intel","hero.m4":"Open source, GPL-3.0","hero.m5":"Free",
-  "hero.f1":"No account required","hero.f2":"Published SHA-256","hero.f3":"Open source",
+  "a11y.skip":"Skip to content","cta.download":"Download","cta.dl.mac":"Download free for macOS","cta.demo":"See how it works",
+  "hero.pill.v":"Impuls 1.2.8","hero.pill.t":"— free, native, local",
+  "hero.h1":"8 tools for your Mac. <span class='grad'>One shortcut.</span>",
+  "hero.sub":"Clipboard history, files, OCR, calendar, translator, and notes — at the top edge of your screen. Faster than switching between apps.",
+  "hero.m1":"macOS 15 or newer","hero.m2":"2.4 MB","hero.m3":"Apple Silicon and Intel","hero.m5":"Free",
+  "hero.f1":"Work data stays on your Mac","hero.f2":"No account required","hero.f3":"Open source",
+  "hero.install":"The build is not yet notarized by Apple, so the first launch needs manual approval. <a href='#install'>See the instructions</a>",
   "mb.finder":"Finder","mb.file":"File","mb.edit":"Edit","mb.view":"View",
-  "demo.label":"Interactive Impuls demo","demo.action":"Move the pointer to the notch",
-  "demo.hint":"Move the pointer to the notch","demo.caption":"This is an interactive reconstruction of the current Impuls layout, not an invented concept: six modules sit on the left, while Translate and Notes sit on the right, matching the current public Impuls release.",
+  "demo.label":"Impuls in action","demo.action":"Hover the notch or choose a module",
+  "demo.hint":"Move the pointer to the notch","demo.caption":"This interactive demo mirrors the current app layout. Select a module icon to preview its interface.",
   "tab.act":"Actions","tab.play":"Player","tab.shelf":"Shelf","tab.clip":"Clipboard","tab.snip":"Snippets","tab.cal":"Calendar","tab.tr":"Translate","tab.note":"Notes",
   "head.act":"Actions","head.play":"Player","head.shelf":"Shelf","head.clip":"Clipboard","head.snip":"Snippets","head.cal":"Calendar","head.tr":"Translate","head.note":"Notes",
   "s.ph":"Search clipboard, snippets, and notes",
@@ -920,25 +1022,25 @@ const I = {
   "p1":"Apple Music and Spotify — metadata, seeking, artwork","p2":"Others — media keys",
   "s.drop":"Drop files here","s1":"Files wait on the shelf between apps","s2":"Drag in and out",
   "w1":"2 min","w2":"14 min","w3":"1 h",
-  "cl2":"sha256: c4a3c941136842f05d31c5aaa4db88f2…","cl3":"Screenshot 21.03","cl4":"Password-manager entries are excluded from history",
+  "cl3":"Screenshot 21.03","cl4":"Password-manager entries are excluded from history",
   "sn1":"Invoice details","sn2":"Support reply template","sn3":"git commit --amend --no-edit","sn4":"Export and restore via local JSON",
   "e1":"Sprint planning","e1p":"Zoom · 45 min","e2":"Call with designer","e2p":"Meeting room · 30 min","e3":"Review the latest Impuls release","e3p":"All day",
   "t1":"Translate selected text right from Actions",
   "n1":"Impuls: 1.3 release plan","n2":"A quick thought without launching another app",
-  "b.eyebrow":"Everyday value","b.h2":"Less switching. Faster outcomes.",
-  "b.lead":"Impuls does not try to replace your apps. It shortens the small actions between them — finding, copying, moving, and quickly processing files.",
-  "b1":"Find what you already had","b1d":"One query searches clipboard history, snippets, and notes. You no longer need to remember where a link, account detail, or command was stored.",
-  "b2":"Move files without the shuffle","b2d":"Put files on the shelf and pick them up in another window. Originals stay where they are until you decide otherwise.",
-  "b3":"Finish small tasks in place","b3d":"OCR, background removal, image conversion, resizing, and PDF creation run locally — without uploading files to an online service.",
-  "a.eyebrow":"Impuls Actions","a.h2":"One shortcut instead of seven places you already saw it",
-  "a.lead":"A link you copied, a snippet you saved, an old note — normally these live in three different places, and all you remember is that it was “somewhere.” Actions searches all three at once: case- and diacritic-insensitive, exact matches ranked higher.",
+  "b.eyebrow":"Everyday workflows","b.h2":"Fewer micro-actions. More time for the work that matters.",
+  "b.lead":"Impuls does not replace your apps. It removes needless trips between them when you need to find, copy, move, or quickly process a file.",
+  "b1":"Bring back what you copied earlier","b1d":"One search finds a link, account detail, or command across clipboard history, snippets, and notes — even when you cannot remember where it was.",
+  "b2":"Move a file between apps","b2d":"Put files on the Impuls shelf and pick them up in the window you need. Originals stay in place.",
+  "b3":"Process an image locally","b3d":"Run OCR, remove a background, change format or size, or assemble a PDF without uploading work files to an online service.",
+  "a.eyebrow":"Impuls Actions","a.h2":"Find it before you reopen the original app",
+  "a.lead":"Actions searches clipboard history, snippets, and notes in one query. Exact matches rise to the top, and you can copy, open, save, or translate the result immediately.",
   "a.key":"— opens Actions from any app",
   "a.s1":"Type a query","a.s1d":"The index is built from live local stores when the panel appears. No separate search database is created.",
   "a.s2":"Pick with arrow keys","a.s2d":"Up and down through results, Enter to copy. Your hands never leave the keyboard.",
   "a.s3":"Act from the panel","a.s3d":"Save as a snippet, create a note, translate text, open a link or file, reveal a file in Finder.",
-  "ar1":"github.com/TumanovNV/impuls/releases","ar2":"Impuls: 1.3 release plan","ar3":"Release announcement template","ar4":"Impuls-1.2.3.dmg",
-  "m.eyebrow":"Modules","m.h2":"Eight tools in a strip that sits empty anyway",
-  "m.lead":"Turn on only what you need and order it your way. The panel opens on hover or by shortcut, moves with arrow keys, and closes with Esc.",
+  "ar1":"github.com/TumanovNV/impuls/releases","ar2":"Impuls: 1.3 release plan","ar3":"Release announcement template","ar4":"Impuls-1.2.8.dmg",
+  "m.eyebrow":"Modules","m.h2":"Eight tools. Enable only the ones you use.",
+  "m.lead":"Tune the module set and order to your workflow. The panel opens on hover or by shortcut, moves with arrow keys, and closes with Esc.",
   "mod1":"Actions","mod1d":"One search across clipboard history, snippets, and notes, with actions right from the result.",
   "mod2":"Player","mod2d":"Apple Music and Spotify through public interfaces: metadata, seeking, artwork. Everything else gets media keys.",
   "mod3":"File shelf","mod3d":"Move files between windows, run OCR, remove backgrounds, convert images, create PDFs, AirDrop, and rename safely.",
@@ -950,12 +1052,13 @@ const I = {
   "x1":"Keyboard-first control","x1d":"A shortcut chosen from safe combinations, arrow keys between modules, Esc to close. A mouse is optional.",
   "x2":"Not just for notched Macs","x2d":"Notch geometry is detected from the display safe area. On Macs without one, Impuls shows a compact 96 × 10 pt tab at the top edge.",
   "x3":"Tuned to your setup","x3d":"Panel size, target display, hover behaviour and delay, module visibility and order. Backups go to a local JSON file.",
-  "trust.eyebrow":"Verifiable facts","trust.h2":"Trust without invented numbers or testimonials",
-  "trust.lead":"Impuls does not yet have public download statistics or testimonials we can honestly display. So this section contains only claims you can verify yourself.",
+  "trust.eyebrow":"Verifiable trust","trust.h2":"Do not take the claims on faith. Check the code, build, and network boundaries.",
+  "trust.lead":"Impuls is open to technical inspection: source code, change history, privacy model, and the SHA-256 of every DMG are public.",
   "trust.p1":"Open source","trust.p1d":"Implementation, privacy model, and change history are available in the public repository.",
   "trust.p2":"Pre-release checks","trust.p2d":"The release workflow runs tests, verifies the DMG signature, and checks for unexpected network connections.",
   "trust.p3":"SHA-256 for every build","trust.p3d":"The checksum lets you compare the downloaded DMG with the asset published in the release.",
   "trust.p4":"Work data stays on the Mac","trust.p4d":"Clipboard, files, notes, and calendar data are not sent to a server; update checks are enabled separately.",
+  "trust.code":"View source code","trust.releases":"Open release history",
   "pr.eyebrow":"Privacy by design, not by promise",
   "pr.h2":"Your work data should not leave your Mac",
   "pr.lead":"Impuls can see your clipboard, notes, files, and calendar, so it processes that data locally. The only optional in-app network channel is signed updates through GitHub; feedback opens GitHub in your browser only after you act.",
@@ -967,13 +1070,13 @@ const I = {
   "pr6":"<b>The search index is ephemeral</b> — built when the panel appears, never persisted as another database.",
   "pr7":"<b>No private MediaRemote framework</b>, no <code style='font-family:var(--mono);font-size:12px'>/usr/bin/perl</code>, and no process injection; updates use documented Sparkle components.",
   "pr.b1":"Privacy model","pr.b2":"Security policy","pr.b3":"Read the source",
-  "i.eyebrow":"Install","i.h2":"Three steps and one honest warning",
-  "i.lead":"Impuls 1.2.3 · DMG 2.3 MB · macOS 15 or newer",
+  "i.eyebrow":"Install","i.h2":"Three steps to launch Impuls",
+  "i.lead":"Impuls 1.2.8 · DMG 2.4 MB · macOS 15 or newer",
   "i.s1":"Download and open the DMG","i.s1d":"Drag Impuls into Applications, replacing an earlier version if you had one.",
   "i.s2":"First launch","i.s2d":"macOS will warn about an unidentified developer. Open <code>System Settings → Privacy & Security</code> and click <code>Open Anyway</code>.",
   "i.s3":"Permissions only when needed","i.s3d":"Calendar — when you first open that tab. Accessibility — only if you want media keys for third-party players. Nothing is requested upfront.",
   "i.warn":"<b>Why macOS shows a warning.</b> The public build is currently ad-hoc signed and not notarized by Apple, so the first installation needs manual approval in Privacy & Security. Beginning with 1.2.9, later versions install inside Impuls through a signed channel — without GitHub, a DMG, or clutter in Downloads.",
-  "i.copy":"Copy","i.verify":"Verify: <code style='font-family:var(--mono)'>shasum -a 256 ~/Downloads/Impuls-1.2.3.dmg</code>",
+  "i.copy":"Copy","i.verify":"Verify: <code style='font-family:var(--mono)'>shasum -a 256 ~/Downloads/Impuls-1.2.8.dmg</code>",
   "f.eyebrow":"FAQ","f.h2":"What people usually ask",
   "q1":"My Mac has no notch. Is Impuls for me?",
   "q1a":"Yes. On those Macs, Impuls shows a compact 96 × 10 pt tab at the top edge with a 120 × 16 pt hover target. MacBook notch geometry is detected automatically from the display safe area, so there is nothing to configure.",
@@ -987,9 +1090,10 @@ const I = {
   "q5a":"Settings, notes, and snippets export to a local JSON file and restore from it. Backups in the 1.1 format are readable by 1.2 — module order migrates automatically and the new Actions module is added to your existing configuration.",
   "q6":"What does it cost, and can I build it myself?",
   "q6a":"It is free. Building from source needs Swift 6: <code style='font-family:var(--mono)'>swift test -c release</code>, then <code style='font-family:var(--mono)'>./Scripts/bundle.sh release</code>. Impuls is derived from akalikbergenov/cyclop; MIT portions keep their notice and new work is GPL-3.0-or-later.",
-  "fin.h2":"The strip above your screen is already there. Time to use it.",
-  "fin.dl":"Download Impuls 1.2.3 free","fin.rel":"All releases",
-  "fin.note":"Free and open source · macOS 15+ · 2.3 MB · no account required",
+  "fin.h2":"Try Impuls on your Mac — free.",
+  "fin.dl":"Download free for macOS","fin.rel":"All releases",
+  "fin.note":"Free and open source · macOS 15+ · 2.4 MB · no account required",
+  "mobile.cta":"Download Impuls free",
   "ft.tag":"A native macOS utility. Local by default.",
   "ft.rel":"Releases","ft.sitepriv":"Website data","ft.priv":"App privacy","ft.sec":"Security","ft.iss":"Feedback",
   "ft.note":"Impuls is derived from akalikbergenov/cyclop. Original MIT-licensed portions retain their notice in THIRD_PARTY_NOTICES.md; new Impuls work is distributed under GPL-3.0-or-later. The code license does not grant rights to the Impuls name or branding — see TRADEMARKS.md. Apple, macOS, MacBook, Apple Music, and Spotify are trademarks of their respective owners."
@@ -1002,14 +1106,14 @@ let LANG = 'ru';
 
 const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';
 const FALLBACK_RELEASE = Object.freeze({
-  version:'1.2.3',
-  fileName:'Impuls-1.2.3.dmg',
+  version:'1.2.8',
+  fileName:'Impuls-1.2.8.dmg',
   fileSizeBytes:null,
-  sizeRu:'2,3 МБ',
-  sizeEn:'2.3 MB',
-  downloadUrl:'https://github.com/TumanovNV/impuls/releases/download/v1.2.3/Impuls-1.2.3.dmg',
-  pageUrl:'https://github.com/TumanovNV/impuls/releases/tag/v1.2.3',
-  hash:'c4a3c941136842f05d31c5aaa4db88f2e0facf306a15f26e05ebddbfc52b2d1d'
+  sizeRu:'2,4 МБ',
+  sizeEn:'2.4 MB',
+  downloadUrl:'https://github.com/TumanovNV/impuls/releases/download/v1.2.8/Impuls-1.2.8.dmg',
+  pageUrl:'https://github.com/TumanovNV/impuls/releases/tag/v1.2.8',
+  hash:'2d47122aa76e4540312047b65834f9518662b0f10af623f068e0f3a7e3b68cf4'
 });
 let RELEASE = {...FALLBACK_RELEASE};
 
@@ -1048,6 +1152,11 @@ function renderRelease(){
   document.querySelectorAll('[data-conversion="download"]').forEach(link=>{
     link.href=RELEASE.downloadUrl;
   });
+  if(RELEASE.hash){
+    document.querySelectorAll('[data-release-hash-prefix]').forEach(el=>{
+      el.textContent='sha256: '+RELEASE.hash.slice(0,32)+'…';
+    });
+  }
 
   const schemaEl=document.getElementById('software-schema');
   if(schemaEl){
@@ -1076,6 +1185,7 @@ function renderRelease(){
     if(hashRow) hashRow.hidden=true;
     if(verify) verify.hidden=true;
   }
+  marketingEvent('impuls_release_loaded',{version:RELEASE.version,fileSizeBytes:RELEASE.fileSizeBytes||0});
 }
 async function syncLatestRelease(){
   const controller=typeof AbortController==='function' ? new AbortController() : null;
@@ -1128,20 +1238,18 @@ function setLang(l){
   document.getElementById('ru').setAttribute('aria-pressed', String(l==='ru'));
   document.getElementById('en').setAttribute('aria-pressed', String(l==='en'));
   document.title = l==='en'
-    ? 'Impuls — fast actions, clipboard and files for macOS'
-    : 'Impuls — быстрые действия, буфер и файлы для macOS';
+    ? 'Impuls for macOS — clipboard, files, and fast actions'
+    : 'Impuls для macOS — буфер обмена, файлы и быстрые действия';
   const description = document.querySelector('meta[name="description"]');
   if(description) description.content = l==='en'
-    ? 'Free macOS utility: action search, clipboard history, file shelf, OCR, calendar, translator, and notes at the top edge of your screen.'
-    : 'Бесплатная утилита Impuls для macOS: быстрый поиск, история буфера, полка файлов, OCR, календарь, переводчик и заметки у верхнего края экрана.';
+    ? 'Impuls is a free macOS utility for clipboard history, a file shelf, OCR, translator, calendar, and notes. Local, account-free, and open source.'
+    : 'Impuls — бесплатная утилита для macOS: история буфера, полка файлов, OCR, переводчик, календарь и заметки. Локально, без регистрации и облака.';
   try{localStorage.setItem('impuls-lang', l)}catch(e){}
   restartTyping();
 }
 try{
   const saved = localStorage.getItem('impuls-lang');
-  const auto = (navigator.language||'').toLowerCase().startsWith('ru') ? 'ru':'en';
-  const pick = saved || auto;
-  if(pick==='en') setTimeout(()=>setLang('en'),0);
+  if(saved==='en') setTimeout(()=>setLang('en'),0);
 }catch(e){}
 syncLatestRelease();
 
@@ -1236,7 +1344,7 @@ addEventListener('scroll',()=>{
 /* ---------- copy hash ---------- */
 function copyHash(btn){
   const t = document.getElementById('hash').textContent.trim();
-  const done = ()=>{const o=btn.textContent;btn.textContent = LANG==='en'?'Copied':'Скопировано';setTimeout(()=>btn.textContent=o,1600)};
+  const done = ()=>{const o=btn.textContent;btn.textContent = LANG==='en'?'Copied':'Скопировано';marketingEvent('impuls_hash_copy',{version:RELEASE.version});setTimeout(()=>btn.textContent=o,1600)};
   if(navigator.clipboard){navigator.clipboard.writeText(t).then(done).catch(done)}
   else{const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();done()}
 }
@@ -1269,6 +1377,36 @@ document.querySelectorAll('details').forEach((item,index)=>{
     if(item.open) marketingEvent('impuls_faq_open',{question:index+1});
   });
 });
+tabs.forEach(tab=>tab.addEventListener('click',()=>marketingEvent('impuls_demo_module',{module:tab.dataset.p})));
+
+const installSection=document.getElementById('install');
+if(installSection){
+  const installObserver=new IntersectionObserver(entries=>{
+    if(entries.some(entry=>entry.isIntersecting)){
+      marketingEvent('impuls_install_view');
+      installObserver.disconnect();
+    }
+  },{threshold:.35});
+  installObserver.observe(installSection);
+}
+
+const reachedDepth=new Set();
+let depthQueued=false;
+addEventListener('scroll',()=>{
+  if(depthQueued) return;
+  depthQueued=true;
+  requestAnimationFrame(()=>{
+    depthQueued=false;
+    const max=document.documentElement.scrollHeight-innerHeight;
+    const pct=max>0 ? Math.round((scrollY/max)*100) : 100;
+    [25,50,75,90].forEach(mark=>{
+      if(pct>=mark && !reachedDepth.has(mark)){
+        reachedDepth.add(mark);
+        marketingEvent('impuls_scroll_depth',{percent:mark});
+      }
+    });
+  });
+},{passive:true});
 </script>
 </body>
 </html>
