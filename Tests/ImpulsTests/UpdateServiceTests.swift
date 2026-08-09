@@ -3,47 +3,30 @@ import XCTest
 @testable import ImpulsCore
 
 final class UpdateServiceTests: XCTestCase {
-    func testOnlyExactUpdateEndpointIsAllowed() throws {
-        XCTAssertTrue(UpdateService.isAllowedAPIURL(
-            try XCTUnwrap(URL(string: "https://api.github.com/repos/TumanovNV/impuls/releases/latest"))
+    func testOnlyExactSignedFeedEndpointIsAllowed() throws {
+        XCTAssertTrue(UpdateService.isAllowedFeedURL(
+            try XCTUnwrap(URL(string: "https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml"))
         ))
-        XCTAssertFalse(UpdateService.isAllowedAPIURL(
-            try XCTUnwrap(URL(string: "https://api.github.com/repos/TumanovNV/impuls/releases/latest?token=secret"))
+        XCTAssertFalse(UpdateService.isAllowedFeedURL(
+            try XCTUnwrap(URL(string: "https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml?token=secret"))
         ))
-        XCTAssertFalse(UpdateService.isAllowedAPIURL(
-            try XCTUnwrap(URL(string: "https://api.github.com.evil.example/repos/TumanovNV/impuls/releases/latest"))
+        XCTAssertFalse(UpdateService.isAllowedFeedURL(
+            try XCTUnwrap(URL(string: "https://github.com.evil.example/TumanovNV/impuls/releases/latest/download/appcast.xml"))
         ))
-        XCTAssertFalse(UpdateService.isAllowedAPIURL(
-            try XCTUnwrap(URL(string: "https://api.github.com:444/repos/TumanovNV/impuls/releases/latest"))
+        XCTAssertFalse(UpdateService.isAllowedFeedURL(
+            try XCTUnwrap(URL(string: "https://github.com:444/TumanovNV/impuls/releases/latest/download/appcast.xml"))
         ))
-    }
-
-    func testOnlyRepositoryReleasePagesAreAllowed() throws {
-        XCTAssertTrue(UpdateService.isAllowedReleaseURL(
-            try XCTUnwrap(URL(string: "https://github.com/TumanovNV/impuls/releases/tag/v1.2.5")),
-            tagName: "v1.2.5"
-        ))
-        XCTAssertFalse(UpdateService.isAllowedReleaseURL(
-            try XCTUnwrap(URL(string: "https://github.com/TumanovNV/other/releases/tag/v1.2.5"))
-        ))
-        XCTAssertFalse(UpdateService.isAllowedReleaseURL(
-            try XCTUnwrap(URL(string: "https://github.com/TumanovNV/impuls/releases/tag/v1.2.5?next=evil"))
-        ))
-        XCTAssertFalse(UpdateService.isAllowedReleaseURL(
-            try XCTUnwrap(URL(string: "https://attacker@github.com/TumanovNV/impuls/releases/tag/v1.2.5"))
-        ))
-        XCTAssertFalse(UpdateService.isAllowedReleaseURL(
-            try XCTUnwrap(URL(string: "https://github.com/TumanovNV/impuls/releases/tag/v1.2.5")),
-            tagName: "v1.2.6"
+        XCTAssertFalse(UpdateService.isAllowedFeedURL(
+            try XCTUnwrap(URL(string: "https://attacker@github.com/TumanovNV/impuls/releases/latest/download/appcast.xml"))
         ))
     }
 
-    func testNumericVersionComparison() {
-        XCTAssertTrue(UpdateService.isNewer("1.10.0", than: "1.9.9"))
-        XCTAssertFalse(UpdateService.isNewer("1.2.4", than: "1.2.4"))
-        XCTAssertFalse(UpdateService.isNewer("1.2.3", than: "1.2.4"))
-        XCTAssertFalse(UpdateService.isNewer("1.2.5-beta", than: "1.2.4"))
-        XCTAssertFalse(UpdateService.isNewer("1.2", than: "1.1.9"))
+    func testLegacyConsentMigrationAcceptsOnlyCompletedDecisions() {
+        XCTAssertEqual(UpdateService.legacyConsent(from: "allowed"), .allowed)
+        XCTAssertEqual(UpdateService.legacyConsent(from: "denied"), .denied)
+        XCTAssertNil(UpdateService.legacyConsent(from: "unknown"))
+        XCTAssertNil(UpdateService.legacyConsent(from: "invalid"))
+        XCTAssertNil(UpdateService.legacyConsent(from: nil))
     }
 
     func testChunkedResponseAccumulatorRejectsBytesBeyondLimit() throws {

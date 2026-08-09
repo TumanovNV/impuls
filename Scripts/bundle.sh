@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds Impuls.app without Xcode and signs it with Developer ID when configured.
+# Builds Impuls.app without Xcode, embeds Sparkle, and signs the bundle.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -7,6 +7,9 @@ CONFIG="${1:-release}"
 APP="$ROOT/build/Impuls.app"
 VERSION="$(sed -n 's/^VERSION=//p' "$ROOT/Scripts/version" 2>/dev/null || echo 1.0.0)"
 ENTITLEMENTS="$ROOT/Resources/Impuls.entitlements"
+ADHOC_ENTITLEMENTS="$ROOT/Resources/Impuls.AdHoc.entitlements"
+SPARKLE_PUBLIC_KEY="0DYvURjJ3IEoRET6KVmsYuNLpllj9lpXLxZ8yvYJbTA="
+SPARKLE_FEED_URL="https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml"
 
 echo "==> swift build -c $CONFIG"
 swift build -c "$CONFIG" --package-path "$ROOT"
@@ -14,8 +17,17 @@ BIN="$(swift build -c "$CONFIG" --package-path "$ROOT" --show-bin-path)/Impuls"
 
 echo "==> assembling $APP"
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
 cp "$BIN" "$APP/Contents/MacOS/Impuls"
+
+SPARKLE_FRAMEWORK="$(find "$ROOT/.build/artifacts" -type d \
+    -path '*/Sparkle.xcframework/macos-*/Sparkle.framework' -print -quit)"
+if [ -z "$SPARKLE_FRAMEWORK" ]; then
+    echo "Sparkle.framework was not resolved by Swift Package Manager" >&2
+    exit 1
+fi
+echo "==> Sparkle 2 framework"
+ditto "$SPARKLE_FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
 
 echo "==> application and menu-bar icons"
 swift "$ROOT/Scripts/make-icon.swift" \
@@ -43,6 +55,16 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>NSHighResolutionCapable</key><true/>
     <key>NSSupportsAutomaticTermination</key><false/>
     <key>NSSupportsSuddenTermination</key><false/>
+    <key>SUFeedURL</key><string>$SPARKLE_FEED_URL</string>
+    <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_KEY</string>
+    <key>SUEnableAutomaticChecks</key><false/>
+    <key>SUAutomaticallyUpdate</key><false/>
+    <key>SUAllowsAutomaticUpdates</key><false/>
+    <key>SUEnableSystemProfiling</key><false/>
+    <key>SUVerifyUpdateBeforeExtraction</key><true/>
+    <key>SURequireSignedFeed</key><true/>
+    <key>SUSignedFeedFailureExpirationInterval</key><integer>0</integer>
+    <key>SUShowReleaseNotes</key><true/>
     <key>NSAppleEventsUsageDescription</key>
     <string>Impuls читает название текущего трека и управляет воспроизведением в Apple Music и Spotify.</string>
     <key>NSCalendarsFullAccessUsageDescription</key>
@@ -60,16 +82,26 @@ for lproj in "$ROOT"/Resources/*.lproj; do
     [ -d "$lproj" ] || continue
     cp -R "$lproj" "$APP/Contents/Resources/"
 done
+cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/ThirdPartyNotices.md"
 
 if [ -n "${IMPULS_DEVELOPER_ID_APPLICATION:-}" ]; then
     echo "==> Developer ID signing"
-    codesign --force --deep --strict --options runtime --timestamp \
+    # Library Validation requires the embedded dynamic framework to carry the
+    # application's identity. Sign the framework first, then seal the app.
+    codesign --force --strict --options runtime --timestamp \
+        --sign "$IMPULS_DEVELOPER_ID_APPLICATION" \
+        "$APP/Contents/Frameworks/Sparkle.framework"
+    codesign --force --strict --options runtime --timestamp \
         --entitlements "$ENTITLEMENTS" \
         --sign "$IMPULS_DEVELOPER_ID_APPLICATION" "$APP"
 else
     echo "==> ad-hoc signing (Developer ID is not configured)"
-    codesign --force --deep --strict --options runtime \
-        --entitlements "$ENTITLEMENTS" --sign - "$APP"
+    # The upstream Sparkle framework keeps its own valid signature. An ad-hoc
+    # host has no Team ID, so Library Validation is disabled only for this
+    # transitional build. The production Developer ID path does not use this
+    # entitlement.
+    codesign --force --strict --options runtime \
+        --entitlements "$ADHOC_ENTITLEMENTS" --sign - "$APP"
 fi
 
 codesign --verify --deep --strict "$APP"

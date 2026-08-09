@@ -6,17 +6,26 @@ identifier.
 
 ## Network access
 
-On first launch, Impuls asks whether it may check for updates. If the user
-declines, Impuls performs no update request. The setting can be changed later.
+On first launch, Impuls asks whether it may check for updates. Existing 1.2.8
+decisions are preserved during migration. If the user declines, Impuls performs
+no update request. The setting can be changed later.
 
-When allowed, Impuls sends an HTTPS GET request to:
+When allowed, Sparkle checks the fixed HTTPS feed at:
 
-`https://api.github.com/repos/TumanovNV/impuls/releases/latest`
+`https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml`
 
-GitHub receives the IP address required for an internet connection, ordinary
-TLS/HTTP metadata, and a User-Agent containing the installed Impuls version.
-Impuls sends no clipboard data, notes, snippets, files, calendar content,
-playback data, analytics identifiers, or hardware serial numbers.
+After the user accepts an available update, Sparkle downloads the versioned ZIP
+from the same repository's GitHub Release. GitHub may redirect that download to
+its release-asset CDN. GitHub receives the IP address required for an internet
+connection, ordinary TLS/HTTP metadata, and a User-Agent containing application
+information. System profiling is explicitly disabled. Impuls sends no clipboard
+data, notes, snippets, files, calendar content, playback data, analytics
+identifiers, hardware serial numbers, or device identifiers.
+
+Update archives are stored in temporary system storage, authenticated before
+extraction, and cleaned by Sparkle after installation. Impuls does not place
+update installers in the Downloads folder. Automatic download and unattended
+installation are disabled.
 
 ## Feedback
 

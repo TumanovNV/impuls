@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var controller: NotchController?
     private var statusItem: NSStatusItem?
     private var clearVaultItem: NSMenuItem?
+    private var checkUpdatesItem: NSMenuItem?
     private var networkAccessItem: NSMenuItem?
     private var saveShotsItem: NSMenuItem?
     private var launchAtLoginItem: NSMenuItem?
@@ -103,6 +104,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         checkUpdates.target = self
         checkUpdates.isEnabled = true
         menu.addItem(checkUpdates)
+        checkUpdatesItem = checkUpdates
 
         let networkAccess = NSMenuItem(title: localized("Allow Update Checks"), action: #selector(toggleNetworkAccess), keyEquivalent: "")
         networkAccess.target = self
@@ -142,6 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let networkAccessItem {
             networkAccessItem.state = updateService.consent == .allowed ? .on : .off
         }
+        checkUpdatesItem?.isEnabled = updateService.canCheckForUpdates
 
         guard let clearVaultItem else { return }
         vaultUsageGeneration += 1

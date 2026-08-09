@@ -39,14 +39,21 @@ jobs:
             echo "Network API found outside UpdateService.swift" >&2
             exit 1
           fi
-          grep -F 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources/Impuls/Services/UpdateService.swift
+          grep -F 'https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml' Sources/Impuls/Services/UpdateService.swift
+          grep -F 'import Sparkle' Sources/Impuls/Services/UpdateService.swift
+          ! grep -RFn 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources
 
       - name: Verify security and performance budgets
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'URLSessionDataDelegate' Sources/Impuls/Services/UpdateService.swift
-          grep -F 'BoundedDataAccumulator(maximumBytes:' Sources/Impuls/Services/UpdateService.swift
+          grep -F 'exact: "2.9.5"' Package.swift
+          grep -F '79bc9e872948e47877e76f194cb0c8e0412b0b90' Package.resolved
+          grep -F 'SUVerifyUpdateBeforeExtraction' Scripts/bundle.sh
+          grep -F 'SURequireSignedFeed' Scripts/bundle.sh
+          grep -F 'SUEnableSystemProfiling' Scripts/bundle.sh
+          grep -F 'SUSignedFeedFailureExpirationInterval' Scripts/bundle.sh
+          ! grep -F 'codesign --force --deep' Scripts/bundle.sh
           grep -F 'BoundedFileReader.read' Sources/Impuls/Services/BackupService.swift
           grep -F 'BoundedFileReader.read' Sources/Impuls/Services/ClipboardHistoryPersistence.swift
           grep -F 'static let maximumSearchCharacters = 16 * 1_024' Sources/Impuls/Services/ImpulsActionsStore.swift
@@ -138,17 +145,31 @@ jobs:
           APP=build/Impuls.app
           VERSION="$(sed -n 's/^VERSION=//p' Scripts/version)"
           test -x "$APP/Contents/MacOS/Impuls"
+          test -d "$APP/Contents/Frameworks/Sparkle.framework"
           test ! -e "$APP/Contents/Resources/libcyclopmedia.dylib"
           test -s "$APP/Contents/Resources/AppIcon.icns"
           test -s "$APP/Contents/Resources/ImpulsStatusTemplate.png"
+          test -s "$APP/Contents/Resources/ThirdPartyNotices.md"
           test -f "$APP/Contents/Resources/en.lproj/Localizable.strings"
           test -f "$APP/Contents/Resources/ru.lproj/Localizable.strings"
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Contents/Info.plist")" = io.tumanov.impuls
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")" = "$VERSION"
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUFeedURL' "$APP/Contents/Info.plist")" = 'https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml'
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUPublicEDKey' "$APP/Contents/Info.plist")" = '0DYvURjJ3IEoRET6KVmsYuNLpllj9lpXLxZ8yvYJbTA='
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUEnableAutomaticChecks' "$APP/Contents/Info.plist")" = false
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUAutomaticallyUpdate' "$APP/Contents/Info.plist")" = false
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUAllowsAutomaticUpdates' "$APP/Contents/Info.plist")" = false
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUEnableSystemProfiling' "$APP/Contents/Info.plist")" = false
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUVerifyUpdateBeforeExtraction' "$APP/Contents/Info.plist")" = true
+          test "$(/usr/libexec/PlistBuddy -c 'Print SURequireSignedFeed' "$APP/Contents/Info.plist")" = true
+          test "$(/usr/libexec/PlistBuddy -c 'Print SUSignedFeedFailureExpirationInterval' "$APP/Contents/Info.plist")" = 0
+          otool -L "$APP/Contents/MacOS/Impuls" | grep -F '@rpath/Sparkle.framework/'
+          otool -l "$APP/Contents/MacOS/Impuls" | grep -A2 LC_RPATH | grep -F '@executable_path/../Frameworks'
           codesign --verify --deep --strict "$APP"
           ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
           codesign -d --entitlements - --xml "$APP" > "$ENTITLEMENTS"
           test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.personal-information.calendars' "$ENTITLEMENTS")" = true
+          test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.cs.disable-library-validation' "$ENTITLEMENTS")" = true
           if otool -L "$APP/Contents/MacOS/Impuls" | grep -q MediaRemote; then
             echo "Impuls links MediaRemote" >&2
             exit 1
@@ -194,18 +215,25 @@ jobs:
           cleanup
           trap - EXIT
 
-      - name: Build test DMG
+      - name: Build test update artifacts
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
           ./Scripts/dmg.sh
           VERSION="$(sed -n 's/^VERSION=//p' Scripts/version)"
+          ditto -c -k --keepParent build/Impuls.app "build/Impuls-$VERSION.zip"
           shasum -a 256 "build/Impuls-$VERSION.dmg" > "build/Impuls-$VERSION.dmg.sha256"
+          shasum -a 256 "build/Impuls-$VERSION.zip" > "build/Impuls-$VERSION.zip.sha256"
           hdiutil verify "build/Impuls-$VERSION.dmg"
           shasum -a 256 -c "build/Impuls-$VERSION.dmg.sha256"
+          shasum -a 256 -c "build/Impuls-$VERSION.zip.sha256"
+          EXTRACTED="$RUNNER_TEMP/impuls-update"
+          mkdir -p "$EXTRACTED"
+          ditto -x -k "build/Impuls-$VERSION.zip" "$EXTRACTED"
+          codesign --verify --deep --strict "$EXTRACTED/Impuls.app"
 
-      - name: Store test DMG
+      - name: Store test artifacts
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -213,5 +241,7 @@ jobs:
           path: |
             build/Impuls-*.dmg
             build/Impuls-*.dmg.sha256
+            build/Impuls-*.zip
+            build/Impuls-*.zip.sha256
           if-no-files-found: error
           retention-days: 14

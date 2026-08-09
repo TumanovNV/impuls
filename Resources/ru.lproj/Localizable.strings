@@ -85,7 +85,7 @@
 /* Обновления и разрешение на сеть */
 "Check for Updates…" = "Проверить обновления…";
 "Allow Impuls to check for updates?" = "Разрешить Impuls проверять обновления?";
-"If allowed, Impuls contacts only GitHub Releases to check the current version. It sends no notes, clipboard contents, files, calendar data, analytics, or device identifiers. Updates are never downloaded without your action." = "Если разрешить, Impuls обращается только к GitHub Releases для проверки версии. Заметки, буфер обмена, файлы, календарь, аналитика и идентификаторы устройства не отправляются. Обновление не скачивается без вашего действия.";
+"If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action." = "Если разрешить, Impuls обращается только к подписанному каналу обновлений в GitHub. Заметки, буфер обмена, файлы, календарь, аналитика, идентификаторы устройства и системный профиль не отправляются. Обновление скачивается и устанавливается только после вашего действия.";
 "Allow Update Checks" = "Разрешить проверку обновлений";
 "Stay Offline" = "Работать без интернета";
 "Could Not Check for Updates" = "Не удалось проверить обновления";
@@ -101,7 +101,7 @@
 "Open Download Page" = "Открыть страницу загрузки";
 "Later" = "Позже";
 "Update Checks Are Off" = "Проверка обновлений отключена";
-"Impuls is not allowed to access the internet. You can enable update checks from the menu bar." = "Impuls запрещён доступ в интернет. Проверку обновлений можно разрешить через меню приложения.";
+"Impuls is not allowed to access the internet. Enable update checks from the menu bar, then try again." = "Impuls запрещён доступ в интернет. Разрешите проверку обновлений через меню приложения и повторите попытку.";
 
 /* Настройки */
 "Settings…" = "Настройки…";

@@ -6,20 +6,21 @@ Impuls is a native macOS utility that turns the area around the MacBook notch �
 or a compact top-edge tab on other Macs — into a local action search, player,
 file shelf, clipboard history, snippets, calendar, translator, and scratchpad.
 
-> Public releases are currently ad-hoc signed and are not notarized by Apple.
-> macOS therefore requires manual Gatekeeper approval. Trusted automatic
-> installation remains disabled until Developer ID signing and notarization are configured.
+> Public releases are currently ad-hoc signed and are not notarized by Apple,
+> so the first installation still needs manual Gatekeeper approval. Beginning
+> with 1.2.9, later releases install from inside Impuls through a signed update
+> channel; Developer ID will remove the first-install warning when available.
 
 ## Privacy by design
 
 - no analytics, telemetry, advertising, or device fingerprinting;
 - no network connection unless the user explicitly allows update checks;
 - update checks contact only the Impuls GitHub Releases endpoint;
-- an update is never downloaded before the user acts;
+- an update is downloaded and installed only after the user acts;
 - clipboard content, notes, snippets, files, and calendar data never leave the Mac;
 - concealed password-manager pasteboard entries are excluded from history;
-- no private MediaRemote framework, `/usr/bin/perl`, dynamic-library injection,
-  or hidden helper process.
+- no private MediaRemote framework, `/usr/bin/perl`, or process injection; the
+  updater uses only Sparkle's documented, signed helper components.
 
 See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the precise model.
 
@@ -56,6 +57,12 @@ or rename operation. Generated results are moved to the Trash only while they
 remain unchanged; Impuls refuses to touch a file the user has modified.
 
 ## Stability and feedback
+
+Impuls 1.2.9 adds authenticated in-app updates through Sparkle 2.9.5. The app
+checks a fixed HTTPS feed only after consent, verifies the signed feed and the
+Ed25519 signature of the update before extraction, replaces the application,
+relaunches it, and leaves no installer in Downloads. Automatic installation and
+anonymous system profiling remain disabled.
 
 Impuls 1.2.8 separates pointer hover, selection, and activation in Actions. The
 command bar now remains attached to the explicitly selected result while the
@@ -123,9 +130,11 @@ manual Gatekeeper approval on another Mac.
 
 At first launch, Impuls asks whether it may check GitHub Releases. Choosing
 “Stay Offline” causes no update request. The decision can be changed from the
-menu. Until Developer ID and notarization are available, the safe update action
-opens the release page for a manual install; in-app unattended installation is
-intentionally disabled.
+menu. Version 1.2.9 is the one-time transition install. Starting with the next
+release, “Check for Updates…” downloads a signed ZIP to temporary system storage,
+verifies it before extraction, replaces Impuls, relaunches the app, and cleans
+the temporary files. Developer ID and notarization are still required to remove
+Gatekeeper approval from the first installation on a Mac.
 
 ## Licensing and origin
 

@@ -786,15 +786,15 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     <div class="privacy reveal">
       <div class="eyebrow" data-i="pr.eyebrow">Приватность по устройству, а не по обещанию</div>
       <h2 data-i="pr.h2">Рабочие данные не должны покидать ваш Mac</h2>
-      <p class="lead" data-i="pr.lead">Impuls видит буфер, заметки, файлы и календарь, поэтому эти данные обрабатываются локально. Единственный необязательный сетевой запрос внутри приложения — проверка новой версии на GitHub; обратная связь открывает GitHub в браузере только после вашего действия.</p>
+      <p class="lead" data-i="pr.lead">Impuls видит буфер, заметки, файлы и календарь, поэтому эти данные обрабатываются локально. Единственный необязательный сетевой канал внутри приложения — подписанные обновления через GitHub; обратная связь открывает GitHub в браузере только после вашего действия.</p>
       <div class="checks">
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr1"><b>Ноль аналитики и телеметрии.</b> Нет рекламы и отпечатков устройства.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr2"><b>Сеть только с вашего согласия.</b> При первом запуске приложение спрашивает, можно ли проверять обновления. «Остаться офлайн» — и сетевых запросов не будет вовсе.</span></div>
-        <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr3"><b>Единственный адрес внутри приложения</b> — API релизов Impuls на GitHub. Обновление не скачивается, пока вы не нажмёте.</span></div>
+        <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr3"><b>Единственный подписанный канал</b> — релизы Impuls на GitHub. Обновление скачивается и устанавливается только после вашего действия.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr4"><b>Буфер, заметки, заготовки, файлы и календарь</b> не покидают Mac ни при каких условиях.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr5"><b>Скрытые записи менеджеров паролей</b> исключаются из истории буфера.</span></div>
         <div class="check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5.5 5.5L20 7"/></svg><span data-i="pr6"><b>Индекс поиска эфемерный</b> — строится при показе панели и не сохраняется отдельной базой.</span></div>
-        <div class="noline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg><span data-i="pr7"><b>Без private-фреймворка MediaRemote</b>, без <code style="font-family:var(--mono);font-size:12px">/usr/bin/perl</code>, без внедрения библиотек и скрытых helper-процессов.</span></div>
+        <div class="noline"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg><span data-i="pr7"><b>Без private-фреймворка MediaRemote</b>, без <code style="font-family:var(--mono);font-size:12px">/usr/bin/perl</code> и внедрения библиотек; обновление использует документированные компоненты Sparkle.</span></div>
       </div>
       <div style="margin-top:34px;display:flex;gap:12px;flex-wrap:wrap;position:relative">
         <a class="btn btn-ghost" href="https://github.com/TumanovNV/impuls/blob/main/PRIVACY.md" rel="noopener"><span data-i="pr.b1">Модель приватности</span></a>
@@ -820,7 +820,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     </div>
     <div class="warn reveal">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
-      <p data-i="i.warn"><b>Почему macOS показывает предупреждение.</b> Публичная сборка пока подписана ad-hoc и не нотаризована Apple. Поэтому первый запуск нужно подтвердить вручную в настройках безопасности. Impuls не обходит Gatekeeper, не устанавливает обновления без вашего действия и публикует SHA-256 для проверки DMG.</p>
+      <p data-i="i.warn"><b>Почему macOS показывает предупреждение.</b> Публичная сборка пока подписана ad-hoc и не нотаризована Apple. Поэтому первую установку нужно подтвердить вручную в настройках безопасности. Начиная с 1.2.9, последующие версии устанавливаются внутри Impuls через подписанный канал — без GitHub, DMG и мусора в «Загрузках».</p>
     </div>
     <div class="hashrow reveal">
       <span class="lbl">SHA-256</span>
@@ -842,9 +842,9 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
       <details><summary><span data-i="q1">У меня Mac без чёлки. Impuls мне подходит?</span><span class="pm"></span></summary>
         <p data-i="q1a">Да. На таких Mac Impuls показывает компактную вкладку 96×10 pt у верхнего края экрана с областью наведения 120×16 pt. Геометрия чёлки MacBook определяется автоматически по safe area дисплея, поэтому подстраивать ничего не нужно.</p></details>
       <details><summary><span data-i="q2">Impuls действительно ничего не отправляет?</span><span class="pm"></span></summary>
-        <p data-i="q2a">Единственный сетевой запрос, который приложение может сделать, — проверка обновлений на странице релизов Impuls в GitHub. При первом запуске вы решаете, разрешать ли её; при выборе «Остаться офлайн» запрос не выполняется, и решение можно изменить в любой момент из меню. Содержимое буфера, заметок, заготовок, файлов и календаря не передаётся никогда.</p></details>
+        <p data-i="q2a">Сетевой доступ внутри приложения используется только для подписанного канала обновлений Impuls в GitHub. При первом запуске вы решаете, разрешать ли проверку; при выборе «Остаться офлайн» запросы не выполняются, и решение можно изменить в любой момент из меню. Содержимое буфера, заметок, заготовок, файлов и календаря не передаётся никогда.</p></details>
       <details><summary><span data-i="q3">Почему приложение не из App Store и не нотаризовано?</span><span class="pm"></span></summary>
-        <p data-i="q3a">Публичная сборка пока подписана ad-hoc и не нотаризована Apple, поэтому первый запуск требует ручного подтверждения Gatekeeper. Impuls не пытается обходить эту защиту: автоматическая установка обновлений отключена, а для каждой сборки публикуется SHA-256.</p></details>
+        <p data-i="q3a">Публичная сборка пока подписана ad-hoc и не нотаризована Apple, поэтому первая установка требует ручного подтверждения Gatekeeper. Impuls не обходит эту защиту. Начиная с 1.2.9, дальнейшие обновления устанавливаются внутри приложения после проверки подписанного feed и архива; Developer ID уберёт именно первый ручной барьер.</p></details>
       <details><summary><span data-i="q4">Почему у других плееров нет обложки и названия трека?</span><span class="pm"></span></summary>
         <p data-i="q4a">Apple Music и Spotify предоставляют публичные интерфейсы скриптинга — оттуда берутся метаданные, обложка и перемотка. Для прочих источников, включая вкладки браузера, Apple не даёт публичного API с полными данными Now Playing, поэтому Impuls ограничивается стандартными медиаклавишами при выданном разрешении «Универсальный доступ». Обходить это через private-фреймворки — сознательный отказ.</p></details>
       <details><summary><span data-i="q5">Что происходит с моими данными при переустановке?</span><span class="pm"></span></summary>
@@ -958,29 +958,29 @@ const I = {
   "trust.p4":"Work data stays on the Mac","trust.p4d":"Clipboard, files, notes, and calendar data are not sent to a server; update checks are enabled separately.",
   "pr.eyebrow":"Privacy by design, not by promise",
   "pr.h2":"Your work data should not leave your Mac",
-  "pr.lead":"Impuls can see your clipboard, notes, files, and calendar, so it processes that data locally. The only optional in-app network request is a GitHub update check that you enable separately; feedback opens GitHub in your browser only after you act.",
+  "pr.lead":"Impuls can see your clipboard, notes, files, and calendar, so it processes that data locally. The only optional in-app network channel is signed updates through GitHub; feedback opens GitHub in your browser only after you act.",
   "pr1":"<b>Zero analytics and telemetry.</b> No advertising, no device fingerprinting.",
   "pr2":"<b>Network only with your consent.</b> At first launch the app asks whether it may check for updates. Choose “Stay Offline” and no network request is made at all.",
-  "pr3":"<b>A single in-app endpoint</b> — the Impuls GitHub Releases API. An update is never downloaded before you act.",
+  "pr3":"<b>A single signed update channel</b> — Impuls GitHub Releases. An update is downloaded and installed only after you act.",
   "pr4":"<b>Clipboard, notes, snippets, files, and calendar</b> never leave the Mac under any circumstances.",
   "pr5":"<b>Concealed password-manager entries</b> are excluded from clipboard history.",
   "pr6":"<b>The search index is ephemeral</b> — built when the panel appears, never persisted as another database.",
-  "pr7":"<b>No private MediaRemote framework</b>, no <code style='font-family:var(--mono);font-size:12px'>/usr/bin/perl</code>, no dylib injection, no hidden helper process.",
+  "pr7":"<b>No private MediaRemote framework</b>, no <code style='font-family:var(--mono);font-size:12px'>/usr/bin/perl</code>, and no process injection; updates use documented Sparkle components.",
   "pr.b1":"Privacy model","pr.b2":"Security policy","pr.b3":"Read the source",
   "i.eyebrow":"Install","i.h2":"Three steps and one honest warning",
   "i.lead":"Impuls 1.2.3 · DMG 2.3 MB · macOS 15 or newer",
   "i.s1":"Download and open the DMG","i.s1d":"Drag Impuls into Applications, replacing an earlier version if you had one.",
   "i.s2":"First launch","i.s2d":"macOS will warn about an unidentified developer. Open <code>System Settings → Privacy & Security</code> and click <code>Open Anyway</code>.",
   "i.s3":"Permissions only when needed","i.s3d":"Calendar — when you first open that tab. Accessibility — only if you want media keys for third-party players. Nothing is requested upfront.",
-  "i.warn":"<b>Why macOS shows a warning.</b> The public build is currently ad-hoc signed and not notarized by Apple, so the first launch needs manual approval in Privacy & Security. Impuls does not bypass Gatekeeper, never installs an update without your action, and publishes a SHA-256 for the DMG.",
+  "i.warn":"<b>Why macOS shows a warning.</b> The public build is currently ad-hoc signed and not notarized by Apple, so the first installation needs manual approval in Privacy & Security. Beginning with 1.2.9, later versions install inside Impuls through a signed channel — without GitHub, a DMG, or clutter in Downloads.",
   "i.copy":"Copy","i.verify":"Verify: <code style='font-family:var(--mono)'>shasum -a 256 ~/Downloads/Impuls-1.2.3.dmg</code>",
   "f.eyebrow":"FAQ","f.h2":"What people usually ask",
   "q1":"My Mac has no notch. Is Impuls for me?",
   "q1a":"Yes. On those Macs, Impuls shows a compact 96 × 10 pt tab at the top edge with a 120 × 16 pt hover target. MacBook notch geometry is detected automatically from the display safe area, so there is nothing to configure.",
   "q2":"Does Impuls really send nothing?",
-  "q2a":"The only network request the app can make is an update check against the Impuls GitHub Releases page. At first launch you decide whether to allow it; choosing “Stay Offline” means no request is made, and you can change that from the menu at any time. Clipboard contents, notes, snippets, files, and calendar data are never transmitted.",
+  "q2a":"In-app network access is used only for the signed Impuls update channel on GitHub. At first launch you decide whether to allow checks; choosing “Stay Offline” means no request is made, and you can change that from the menu at any time. Clipboard contents, notes, snippets, files, and calendar data are never transmitted.",
   "q3":"Why is it not on the App Store or notarized?",
-  "q3a":"The public build is currently ad-hoc signed and not notarized by Apple, so the first launch needs manual Gatekeeper approval. Impuls does not try to bypass that protection: unattended updates are disabled, and every build includes a published SHA-256.",
+  "q3a":"The public build is currently ad-hoc signed and not notarized by Apple, so the first installation needs manual Gatekeeper approval. Impuls does not bypass that protection. Beginning with 1.2.9, later updates install in-app after the signed feed and archive are verified; Developer ID will remove the first manual barrier.",
   "q4":"Why do other players show no artwork or track title?",
   "q4a":"Apple Music and Spotify expose public scripting interfaces — that is where metadata, artwork, and seeking come from. For other sources, including browser tabs, Apple provides no public API with full Now Playing data, so Impuls sticks to standard media keys once Accessibility permission is granted. Reaching for private frameworks is a deliberate no.",
   "q5":"What happens to my data when I reinstall?",
