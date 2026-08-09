@@ -131,6 +131,18 @@ struct ShelfPane: View {
                     .buttonStyle(.plain)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Theme.secondary)
+            } else if shelf.items.count > 1 {
+                Button("Select All") { shelf.selectAll() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Theme.secondary)
+            }
+            if tools.canUndo {
+                Button("Undo") { tools.undoLastOperation() }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(Theme.secondary)
+                    .disabled(tools.isWorking)
             }
             Button("Clear") { shelf.clear() }
                 .buttonStyle(.plain)
@@ -222,6 +234,7 @@ private struct ShelfCard: View {
             let operationURLs = shelf.operationURLs(startingAt: item)
             Button("Copy") { shelf.copy(item) }
             Button("Open") { shelf.open(item) }
+            Button("Quick Look") { tools.quickLook(operationURLs) }
             Button("Show in Finder") { shelf.reveal(item) }
             ShelfToolsMenu(
                 urls: operationURLs,
@@ -242,28 +255,33 @@ private struct ShelfToolsMenu: View {
     @ObservedObject var tools: FileToolsCoordinator
 
     private var images: [URL] { FileToolsService.imageURLs(urls) }
-    private var singleImage: URL? { urls.count == 1 ? images.first : nil }
+    private var singleImage: URL? { images.count == 1 ? images.first : nil }
 
     var body: some View {
         Menu {
             Button("Copy Path") { tools.copyPath(urls) }
+            Button("Quick Look") { tools.quickLook(urls) }
             Button("AirDrop") { tools.airDrop(urls) }
             Button("Share…") { tools.share(urls) }
             Divider()
 
-            if let image = singleImage {
-                Button("Recognize Text") { tools.recognizeText(in: image) }
+            if !images.isEmpty {
+                Button(localized(images.count == 1 ? "Recognize Text" : "Recognize Text in Images")) {
+                    tools.recognizeText(in: images)
+                }
                 Menu("Convert Image") {
                     ForEach(ImageOutputFormat.allCases) { format in
-                        Button(format.title) { tools.convert(image, to: format) }
+                        Button(format.title) { tools.convert(images, to: format) }
                     }
                 }
                 Menu("Reduce Image") {
                     ForEach(ImageResizePreset.allCases) { preset in
-                        Button(preset.title) { tools.resize(image, preset: preset) }
+                        Button(preset.title) { tools.resize(images, preset: preset) }
                     }
                 }
-                Button("Remove Background") { tools.removeBackground(from: image) }
+                Button(localized(images.count == 1 ? "Remove Background" : "Remove Backgrounds")) {
+                    tools.removeBackground(from: images)
+                }
             }
 
             if images.count >= 2 {

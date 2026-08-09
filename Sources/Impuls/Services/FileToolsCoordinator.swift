@@ -1,63 +1,66 @@
 import AppKit
 import Foundation
+import QuickLookUI
+
+private enum ShelfUndoAction {
+    case generated([GeneratedFileRecord])
+    case renamed(itemID: UUID, currentURL: URL, originalURL: URL)
+}
 
 @MainActor
 final class FileToolsCoordinator: ObservableObject {
     @Published private(set) var isWorking = false
     @Published private(set) var statusMessage: String?
     @Published private(set) var statusIsError = false
+    @Published private(set) var canUndo = false
 
     private let shelf: ShelfStore
     private var sharingPicker: NSSharingServicePicker?
+    private let quickLook = ShelfQuickLookController()
     private var statusGeneration = 0
+    private var undoAction: ShelfUndoAction? {
+        didSet { canUndo = undoAction != nil }
+    }
 
     init(shelf: ShelfStore) {
         self.shelf = shelf
     }
 
-    func recognizeText(in url: URL) {
-        runText(
-            starting: localized("Recognizing Text…"),
-            success: localized("Recognized Text Copied")
-        ) {
+    func recognizeText(in urls: [URL]) {
+        runTextBatch(urls: urls, action: localized("Recognizing Text…")) { url in
             try FileToolsService.recognizeText(in: url)
         }
     }
 
-    func convert(_ url: URL, to format: ImageOutputFormat) {
-        runFile(
-            starting: localized("Converting Image…"),
-            success: localized("Converted Image Added to Shelf")
-        ) {
+    func convert(_ urls: [URL], to format: ImageOutputFormat) {
+        runFileBatch(urls: urls, action: localized("Converting Image…")) { url in
             try FileToolsService.convertImage(at: url, to: format)
         }
     }
 
-    func resize(_ url: URL, preset: ImageResizePreset) {
-        runFile(
-            starting: localized("Reducing Image…"),
-            success: localized("Reduced Image Added to Shelf")
-        ) {
+    func resize(_ urls: [URL], preset: ImageResizePreset) {
+        runFileBatch(urls: urls, action: localized("Reducing Image…")) { url in
             try FileToolsService.resizeImage(at: url, maxPixelSize: preset.rawValue)
         }
     }
 
     func combineIntoPDF(_ urls: [URL]) {
-        runFile(
-            starting: localized("Creating PDF…"),
-            success: localized("PDF Added to Shelf")
+        runSingleFile(
+            starting: localized("Creating PDF…")
         ) {
             try FileToolsService.combineImagesIntoPDF(urls)
         }
     }
 
-    func removeBackground(from url: URL) {
-        runFile(
-            starting: localized("Removing Background…"),
-            success: localized("Transparent Image Added to Shelf")
-        ) {
+    func removeBackground(from urls: [URL]) {
+        runFileBatch(urls: urls, action: localized("Removing Background…")) { url in
             try FileToolsService.removeBackground(from: url)
         }
+    }
+
+    func quickLook(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        quickLook.show(urls)
     }
 
     func copyPath(_ urls: [URL]) {
@@ -101,31 +104,43 @@ final class FileToolsCoordinator: ObservableObject {
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
+            let originalURL = item.url
             let updated = try shelf.rename(item, baseName: field.stringValue)
+            if updated.url != originalURL {
+                undoAction = .renamed(
+                    itemID: updated.id,
+                    currentURL: updated.url,
+                    originalURL: originalURL
+                )
+            }
             showStatus(localized("Renamed to %@", updated.name))
         } catch {
             showError(error)
         }
     }
 
-    private func runText(
-        starting message: String,
-        success successMessage: String,
-        operation: @escaping @Sendable () throws -> String
-    ) {
-        guard !isWorking else { return }
+    func undoLastOperation() {
+        guard !isWorking, let action = undoAction else { return }
         isWorking = true
-        showStatus(message, isError: false, automaticallyClear: false)
+        showStatus(localized("Undoing File Operation…"), automaticallyClear: false)
         Task {
             do {
-                let text = try await Task.detached(priority: .userInitiated) {
-                    try operation()
-                }.value
-                let pasteboard = NSPasteboard.general
-                pasteboard.clearContents()
-                pasteboard.setData(Data(), forType: .impulsInternal)
-                pasteboard.setString(text, forType: .string)
-                showStatus(successMessage)
+                switch action {
+                case .generated(let records):
+                    try await Task.detached(priority: .userInitiated) {
+                        try FileToolsService.moveGeneratedFilesToTrash(records)
+                    }.value
+                    shelf.remove(urls: records.map(\.url))
+                    showStatus(localized("Generated Files Moved to Trash"))
+                case .renamed(let itemID, let currentURL, let originalURL):
+                    _ = try shelf.restoreName(
+                        itemID: itemID,
+                        currentURL: currentURL,
+                        originalURL: originalURL
+                    )
+                    showStatus(localized("Original File Name Restored"))
+                }
+                undoAction = nil
             } catch {
                 showError(error)
             }
@@ -133,25 +148,123 @@ final class FileToolsCoordinator: ObservableObject {
         }
     }
 
-    private func runFile(
+    private func runTextBatch(
+        urls: [URL],
+        action: String,
+        operation: @escaping @Sendable (URL) throws -> String
+    ) {
+        guard !urls.isEmpty else { return }
+        guard !isWorking else { return }
+        isWorking = true
+        showProgress(action: action, completed: 0, total: urls.count)
+        Task {
+            var recognized: [(URL, String)] = []
+            var failures: [Error] = []
+            for (index, url) in urls.enumerated() {
+                do {
+                    let text = try await Task.detached(priority: .userInitiated) {
+                        try operation(url)
+                    }.value
+                    recognized.append((url, text))
+                } catch {
+                    failures.append(error)
+                }
+                showProgress(action: action, completed: index + 1, total: urls.count)
+            }
+
+            if !recognized.isEmpty {
+                let text = recognized.count == 1
+                    ? recognized[0].1
+                    : recognized.map { "\($0.0.lastPathComponent)\n\($0.1)" }.joined(separator: "\n\n")
+                let pasteboard = NSPasteboard.general
+                pasteboard.clearContents()
+                pasteboard.setData(Data(), forType: .impulsInternal)
+                pasteboard.setString(text, forType: .string)
+                finishBatch(successes: recognized.count, failures: failures)
+            } else {
+                showError(failures.first ?? FileToolsError.noTextFound)
+            }
+            isWorking = false
+        }
+    }
+
+    private func runFileBatch(
+        urls: [URL],
+        action: String,
+        operation: @escaping @Sendable (URL) throws -> URL
+    ) {
+        guard !urls.isEmpty else { return }
+        guard !isWorking else { return }
+        isWorking = true
+        undoAction = nil
+        showProgress(action: action, completed: 0, total: urls.count)
+        Task {
+            var outputs: [URL] = []
+            var failures: [Error] = []
+            for (index, url) in urls.enumerated() {
+                do {
+                    let output = try await Task.detached(priority: .userInitiated) {
+                        try operation(url)
+                    }.value
+                    outputs.append(output)
+                } catch {
+                    failures.append(error)
+                }
+                showProgress(action: action, completed: index + 1, total: urls.count)
+            }
+
+            if !outputs.isEmpty {
+                shelf.add(outputs)
+                let records = outputs.compactMap { try? GeneratedFileRecord.capture($0) }
+                undoAction = records.count == outputs.count ? .generated(records) : nil
+                finishBatch(successes: outputs.count, failures: failures)
+            } else {
+                showError(failures.first ?? FileToolsError.couldNotWriteImage)
+            }
+            isWorking = false
+        }
+    }
+
+    private func runSingleFile(
         starting message: String,
-        success successMessage: String,
         operation: @escaping @Sendable () throws -> URL
     ) {
         guard !isWorking else { return }
         isWorking = true
-        showStatus(message, isError: false, automaticallyClear: false)
+        undoAction = nil
+        showStatus(message, automaticallyClear: false)
         Task {
             do {
                 let url = try await Task.detached(priority: .userInitiated) {
                     try operation()
                 }.value
                 shelf.add([url])
-                showStatus(successMessage)
+                if let record = try? GeneratedFileRecord.capture(url) {
+                    undoAction = .generated([record])
+                }
+                showStatus(localized("Processed: %d", 1))
             } catch {
                 showError(error)
             }
             isWorking = false
+        }
+    }
+
+    private func showProgress(action: String, completed: Int, total: Int) {
+        showStatus(
+            localized("%@ %d of %d", action, completed, total),
+            automaticallyClear: false
+        )
+    }
+
+    private func finishBatch(successes: Int, failures: [Error]) {
+        if failures.isEmpty {
+            showStatus(localized("Processed: %d", successes))
+        } else {
+            showStatus(
+                localized("Processed: %d · Skipped: %d", successes, failures.count),
+                isError: true
+            )
         }
     }
 
@@ -175,5 +288,27 @@ final class FileToolsCoordinator: ObservableObject {
             statusMessage = nil
             statusIsError = false
         }
+    }
+}
+
+@MainActor
+private final class ShelfQuickLookController: NSObject, QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+    private var urls: [URL] = []
+
+    func show(_ urls: [URL]) {
+        self.urls = urls
+        guard let panel = QLPreviewPanel.shared() else { return }
+        panel.dataSource = self
+        panel.delegate = self
+        panel.currentPreviewItemIndex = 0
+        panel.reloadData()
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { urls.count }
+
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! {
+        guard urls.indices.contains(index) else { return nil }
+        return urls[index] as NSURL
     }
 }

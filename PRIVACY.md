@@ -44,7 +44,7 @@ playback data, analytics identifiers, or hardware serial numbers.
 - Calendar access is requested only from the Calendar module or Settings;
 - Accessibility is requested only when the user explicitly enables support for
   standard system media-key events;
-- notification permission is not requested in Impuls 1.2.2 and remains reserved
+- notification permission is not requested in Impuls 1.2.3 and remains reserved
   for optional reminder functions in a later update.
 
 Notes and snippets are not encrypted by Impuls. FileVault is recommended for

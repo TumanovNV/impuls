@@ -88,6 +88,14 @@ final class ShelfStore: ObservableObject {
         persist()
     }
 
+    func remove(urls: [URL]) {
+        let removed = Set(urls)
+        let removedIDs = Set(items.filter { removed.contains($0.url) }.map(\.id))
+        items.removeAll { removed.contains($0.url) }
+        selection.subtract(removedIDs)
+        persist()
+    }
+
     /// Files an operation started on `item` should use. It mirrors Finder:
     /// when the card belongs to the current selection the operation applies to
     /// the whole selection, otherwise only to the card that opened the menu.
@@ -120,6 +128,8 @@ final class ShelfStore: ObservableObject {
     func isSelected(_ item: ShelfItem) -> Bool { selection.contains(item.id) }
 
     func clearSelection() { selection.removeAll() }
+
+    func selectAll() { selection = Set(items.map(\.id)) }
 
     /// Files a drag started on `item` should carry: the whole selection when
     /// the grabbed card belongs to it, otherwise just that card.
@@ -169,6 +179,28 @@ final class ShelfStore: ObservableObject {
         loadThumbnail(updated)
         persist()
         return updated
+    }
+
+    /// Reverses a rename only while the card still references the renamed file
+    /// and the original path remains free. File contents are preserved.
+    @discardableResult
+    func restoreName(itemID: UUID, currentURL: URL, originalURL: URL) throws -> ShelfItem {
+        guard let index = items.firstIndex(where: { $0.id == itemID }),
+              items[index].url.standardizedFileURL == currentURL.standardizedFileURL,
+              FileManager.default.fileExists(atPath: currentURL.path) else {
+            throw ShelfRenameError.itemMissing
+        }
+        guard !FileManager.default.fileExists(atPath: originalURL.path) else {
+            throw ShelfRenameError.alreadyExists
+        }
+
+        try FileManager.default.moveItem(at: currentURL, to: originalURL)
+        items[index].url = originalURL
+        items[index].icon = NSWorkspace.shared.icon(forFile: originalURL.path)
+        let restored = items[index]
+        loadThumbnail(restored)
+        persist()
+        return restored
     }
 
     nonisolated static func safeRenameTarget(for source: URL, baseName proposedBaseName: String) throws -> URL {

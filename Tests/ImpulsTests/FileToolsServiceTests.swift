@@ -83,6 +83,43 @@ final class FileToolsServiceTests: XCTestCase {
         }
     }
 
+    func testGeneratedFileRecordDetectsAChangedFile() throws {
+        let output = temporaryDirectory.appendingPathComponent("generated.bin")
+        try Data([0]).write(to: output)
+        let record = try GeneratedFileRecord.capture(output)
+
+        XCTAssertTrue(record.matchesCurrentFile())
+
+        try Data([0, 1, 2]).write(to: output)
+        XCTAssertFalse(record.matchesCurrentFile())
+    }
+
+    func testRenameCanBeRestoredAndSelectionSurvives() async throws {
+        let source = try makeImage(named: "restore-me.png", width: 10, height: 10)
+        try await MainActor.run {
+            UserDefaults.standard.removeObject(forKey: "shelf.urls")
+            defer { UserDefaults.standard.removeObject(forKey: "shelf.urls") }
+
+            let store = ShelfStore()
+            store.add([source])
+            let original = try XCTUnwrap(store.items.first)
+            store.selectAll()
+
+            let renamed = try store.rename(original, baseName: "renamed")
+            XCTAssertEqual(renamed.name, "renamed.png")
+
+            let restored = try store.restoreName(
+                itemID: renamed.id,
+                currentURL: renamed.url,
+                originalURL: source
+            )
+            XCTAssertEqual(restored.url, source)
+            XCTAssertTrue(store.selection.contains(restored.id))
+            XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+            store.clear()
+        }
+    }
+
     private func makeImage(named name: String, width: Int, height: Int) throws -> URL {
         let context = try XCTUnwrap(CGContext(
             data: nil,
