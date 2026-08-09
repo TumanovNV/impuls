@@ -122,6 +122,7 @@ final class UpdateService {
 
         checkGeneration += 1
         let generation = checkGeneration
+        let maximumResponseBytes = Self.maximumResponseBytes
         let task = session.dataTask(with: request) { data, response, error in
             let result: Result<Release, Error>
             do {
@@ -145,8 +146,8 @@ final class UpdateService {
                 }
 
                 guard let data else { throw UpdateError.invalidResponse }
-                if http.expectedContentLength > Self.maximumResponseBytes
-                    || Int64(data.count) > Self.maximumResponseBytes {
+                if http.expectedContentLength > maximumResponseBytes
+                    || Int64(data.count) > maximumResponseBytes {
                     throw UpdateError.responseTooLarge
                 }
                 let release = try JSONDecoder().decode(Release.self, from: data)
@@ -212,10 +213,10 @@ final class UpdateService {
 
     nonisolated static func isAllowedAPIURL(_ url: URL?) -> Bool {
         guard let url else { return false }
-        return url.scheme == releaseURL.scheme
-            && url.host == releaseURL.host
-            && url.port == releaseURL.port
-            && url.path == releaseURL.path
+        return url.scheme == "https"
+            && url.host == "api.github.com"
+            && url.port == nil
+            && url.path == "/repos/TumanovNV/impuls/releases/latest"
             && url.query == nil
             && url.fragment == nil
             && url.user == nil

@@ -198,13 +198,14 @@ enum FeedbackService {
         details: String,
         diagnostics: FeedbackDiagnostics?
     ) -> String {
+        let ratingText = (1...5).contains(rating) ? "\(rating)/5" : "not specified"
         var sections = [
             "<!-- impuls-feedback:v1 -->",
             "## Feedback",
             "- Category: \(category.rawValue)",
             "- Area: \(area.rawValue)",
             "- Frequency: \(frequency.rawValue)",
-            "- Rating: \((1...5).contains(rating) ? \"\(rating)/5\" : \"not specified\")",
+            "- Rating: \(ratingText)",
             "",
             "## Summary",
             summary,
