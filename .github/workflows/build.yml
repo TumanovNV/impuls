@@ -53,6 +53,10 @@ jobs:
           grep -F 'SURequireSignedFeed' Scripts/bundle.sh
           grep -F 'SUEnableSystemProfiling' Scripts/bundle.sh
           grep -F 'SUSignedFeedFailureExpirationInterval' Scripts/bundle.sh
+          grep -F 'NSAppleEventsUsageDescription' Scripts/bundle.sh
+          grep -F 'com.apple.security.automation.apple-events' Resources/Impuls.entitlements
+          grep -F 'com.apple.security.automation.apple-events' Resources/Impuls.AdHoc.entitlements
+          grep -F 'AEDeterminePermissionToAutomateTarget' Sources/Impuls/Services/PlayerBridge.swift
           ! grep -F 'codesign --force --deep' Scripts/bundle.sh
           grep -F 'BoundedFileReader.read' Sources/Impuls/Services/BackupService.swift
           grep -F 'BoundedFileReader.read' Sources/Impuls/Services/ClipboardHistoryPersistence.swift
@@ -163,12 +167,14 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print SUVerifyUpdateBeforeExtraction' "$APP/Contents/Info.plist")" = true
           test "$(/usr/libexec/PlistBuddy -c 'Print SURequireSignedFeed' "$APP/Contents/Info.plist")" = true
           test "$(/usr/libexec/PlistBuddy -c 'Print SUSignedFeedFailureExpirationInterval' "$APP/Contents/Info.plist")" = 0
+          test -n "$(/usr/libexec/PlistBuddy -c 'Print NSAppleEventsUsageDescription' "$APP/Contents/Info.plist")"
           otool -L "$APP/Contents/MacOS/Impuls" | grep -F '@rpath/Sparkle.framework/'
           otool -l "$APP/Contents/MacOS/Impuls" | grep -A2 LC_RPATH | grep -F '@executable_path/../Frameworks'
           codesign --verify --deep --strict "$APP"
           ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
           codesign -d --entitlements - --xml "$APP" > "$ENTITLEMENTS"
           test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.personal-information.calendars' "$ENTITLEMENTS")" = true
+          test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.automation.apple-events' "$ENTITLEMENTS")" = true
           test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.cs.disable-library-validation' "$ENTITLEMENTS")" = true
           if otool -L "$APP/Contents/MacOS/Impuls" | grep -q MediaRemote; then
             echo "Impuls links MediaRemote" >&2

@@ -155,14 +155,26 @@ struct MediaPane: View {
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Image(systemName: "music.note.list")
+            Image(systemName: media.accessIssue == nil ? "music.note.list" : "hand.raised")
                 .font(.system(size: 22, weight: .light))
                 .foregroundStyle(Theme.tertiary)
-            // Status, not instruction: an empty pane on its own would not say
-            // whether nothing is playing or nothing could be read.
-            Text("Nothing is playing")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Theme.secondary)
+            if let issue = media.accessIssue {
+                Text(localized("Allow Automation access to read %@.", issue.app.displayName))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.secondary)
+                Button(
+                    issue.authorization == .notDetermined ? localized("Allow") : localized("Open Settings"),
+                    action: media.resolveAutomationAccess
+                )
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            } else {
+                // Status, not instruction: an empty pane on its own would not say
+                // whether nothing is playing or nothing could be read.
+                Text("Nothing is playing")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Theme.secondary)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

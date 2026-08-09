@@ -309,37 +309,52 @@ private struct PermissionSettingsPane: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
-            permissionRow(
-                title: localized("Calendar"),
-                detail: localized("Shows upcoming meetings inside the Calendar module."),
-                symbol: "calendar",
-                state: permissions.calendar,
-                primaryTitle: permissions.calendar == .notRequested ? localized("Allow") : nil,
-                primaryAction: permissions.requestCalendar,
-                settingsAction: permissions.openCalendarSettings
-            )
+            ScrollView {
+                VStack(spacing: 12) {
+                    permissionRow(
+                        title: localized("Calendar"),
+                        detail: localized("Shows upcoming meetings inside the Calendar module."),
+                        symbol: "calendar",
+                        state: permissions.calendar,
+                        primaryTitle: permissions.calendar == .notRequested ? localized("Allow") : nil,
+                        primaryAction: permissions.requestCalendar,
+                        settingsAction: permissions.openCalendarSettings
+                    )
 
-            permissionRow(
-                title: localized("Accessibility"),
-                detail: localized("Lets media controls send standard system media keys when no supported player is active."),
-                symbol: "accessibility",
-                state: permissions.accessibility,
-                primaryTitle: permissions.accessibility == .allowed ? nil : localized("Allow"),
-                primaryAction: permissions.requestAccessibility,
-                settingsAction: permissions.openAccessibilitySettings
-            )
+                    permissionRow(
+                        title: localized("Accessibility"),
+                        detail: localized("Lets media controls send standard system media keys when no supported player is active."),
+                        symbol: "accessibility",
+                        state: permissions.accessibility,
+                        primaryTitle: permissions.accessibility == .allowed ? nil : localized("Allow"),
+                        primaryAction: permissions.requestAccessibility,
+                        settingsAction: permissions.openAccessibilitySettings,
+                        alwaysShowSettings: true
+                    )
 
-            permissionRow(
-                title: localized("Notifications"),
-                detail: localized("Will be used for optional meeting reminders in a later update. No permission is requested yet."),
-                symbol: "bell",
-                state: permissions.notifications,
-                primaryTitle: nil,
-                primaryAction: {},
-                settingsAction: permissions.openNotificationSettings
-            )
+                    permissionRow(
+                        title: localized("Music Automation"),
+                        detail: localized("Reads track information and controls Apple Music and Spotify through macOS Automation."),
+                        symbol: "music.note",
+                        state: permissions.musicAutomation,
+                        primaryTitle: permissions.musicAutomation == .notRequested ? localized("Allow") : nil,
+                        primaryAction: permissions.requestMusicAutomation,
+                        settingsAction: permissions.openAutomationSettings,
+                        alwaysShowSettings: true
+                    )
 
-            Spacer()
+                    permissionRow(
+                        title: localized("Notifications"),
+                        detail: localized("Will be used for optional meeting reminders in a later update. No permission is requested yet."),
+                        symbol: "bell",
+                        state: permissions.notifications,
+                        primaryTitle: nil,
+                        primaryAction: {},
+                        settingsAction: permissions.openNotificationSettings
+                    )
+                }
+            }
+
             HStack {
                 Spacer()
                 Button("Refresh Status") { permissions.refresh() }
@@ -356,7 +371,8 @@ private struct PermissionSettingsPane: View {
         state: PermissionCenter.State,
         primaryTitle: String?,
         primaryAction: @escaping () -> Void,
-        settingsAction: @escaping () -> Void
+        settingsAction: @escaping () -> Void,
+        alwaysShowSettings: Bool = false
     ) -> some View {
         HStack(spacing: 14) {
             Image(systemName: symbol)
@@ -381,7 +397,7 @@ private struct PermissionSettingsPane: View {
                     if let primaryTitle {
                         Button(primaryTitle, action: primaryAction)
                     }
-                    if state == .denied || state == .restricted || title == localized("Accessibility") {
+                    if state == .denied || state == .restricted || alwaysShowSettings {
                         Button("Open Settings", action: settingsAction)
                     }
                 }
@@ -389,6 +405,7 @@ private struct PermissionSettingsPane: View {
             }
         }
         .padding(12)
+        .frame(maxWidth: .infinity)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
     }
 }

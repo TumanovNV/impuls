@@ -101,10 +101,11 @@ exported to and restored from a local JSON backup.
 ## Music support
 
 Apple Music and Spotify provide metadata, seeking, artwork where available, and
-transport controls through their public scripting interfaces. Other players and
-browser tabs may receive standard media-key controls when macOS grants the
-required Accessibility permission. Apple does not provide a public API that
-exposes full metadata for every system Now Playing source.
+transport controls through their public scripting interfaces. This requires the
+separate macOS Automation permission for each supported player. Other players
+and browser tabs may receive standard media-key controls when macOS grants the
+Accessibility permission. Apple does not provide a public API that exposes full
+metadata for every system Now Playing source.
 
 ## Requirements
 
@@ -130,8 +131,8 @@ manual Gatekeeper approval on another Mac.
 
 At first launch, Impuls asks whether it may check GitHub Releases. Choosing
 “Stay Offline” causes no update request. The decision can be changed from the
-menu. Version 1.2.9 is the one-time transition install. Starting with the next
-release, “Check for Updates…” downloads a signed ZIP to temporary system storage,
+menu. Version 1.2.9 is the one-time transition install. Starting with 1.2.10,
+“Check for Updates…” downloads a signed ZIP to temporary system storage,
 verifies it before extraction, replaces Impuls, relaunches the app, and cleans
 the temporary files. Developer ID and notarization are still required to remove
 Gatekeeper approval from the first installation on a Mac.

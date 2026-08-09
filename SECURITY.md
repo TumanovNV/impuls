@@ -26,6 +26,9 @@ include user data, credentials, or exploit payloads in public discussions.
 - feedback diagnostics are allow-listed and never inspect user content, paths,
   logs, device identifiers, or clipboard history;
 - no private frameworks or process injection;
+- Apple Music and Spotify metadata uses public scripting interfaces only; the
+  Hardened Runtime bundle carries the explicit Apple Events Automation
+  entitlement and macOS remains the permission authority;
 - no embedded GitHub tokens or release credentials;
 - release credentials belong only in protected GitHub Actions secrets;
 - optional clipboard persistence uses AES-GCM and keeps the device-only archive
@@ -55,6 +58,10 @@ exception. This is a transition limitation, not a condition to bypass silently.
 The Sparkle signing key is the update channel's root of trust until Developer ID
 is available. Losing every protected copy would prevent safe updates to existing
 1.2.9 installations.
+
+Because public releases are ad-hoc signed, macOS may ask for Automation access
+again after an update. A stable Developer ID signature is still the long-term
+fix for durable TCC identity across releases.
 
 The latest documented review is
 [`docs/audits/1.2.9-update-security.md`](docs/audits/1.2.9-update-security.md).
