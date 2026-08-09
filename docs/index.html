@@ -26,7 +26,7 @@
 <meta name="twitter:title" content="Impuls — быстрые действия для macOS">
 <meta name="twitter:description" content="Поиск, история буфера и файловые инструменты прямо у верхнего края экрана.">
 <meta name="twitter:image" content="https://tumanovnv.github.io/impuls/assets/og-impuls.png">
-<script type="application/ld+json">
+<script type="application/ld+json" id="software-schema">
 {
   "@context": "https://schema.org",
   "@graph": [
@@ -497,7 +497,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   <!-- INTERACTIVE DEMO -->
   <div class="demo-zone">
     <div class="demo-label">
-      <span><i class="live-dot"></i><span data-i="demo.label">Интерактивная демонстрация Impuls 1.2.2</span></span>
+      <span><i class="live-dot"></i><span data-i="demo.label">Интерактивная демонстрация Impuls</span></span>
       <span data-i="demo.action">Наведите курсор на вырез</span>
     </div>
     <div class="screen">
@@ -627,7 +627,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
             <div class="pane" data-p="cal">
               <div class="evt"><span class="tm">10:00</span><div><div class="ti" data-i="e1">Планирование спринта</div><div class="pl" data-i="e1p">Zoom &#183; 45 мин</div></div></div>
               <div class="evt"><span class="tm">14:30</span><div><div class="ti" data-i="e2">Созвон с дизайнером</div><div class="pl" data-i="e2p">Переговорная &#183; 30 мин</div></div></div>
-              <div class="evt"><span class="tm">18:00</span><div><div class="ti" data-i="e3">Проверить Impuls 1.2.2</div><div class="pl" data-i="e3p">Весь день</div></div></div>
+              <div class="evt"><span class="tm">18:00</span><div><div class="ti" data-i="e3">Проверить новую версию Impuls</div><div class="pl" data-i="e3p">Весь день</div></div></div>
             </div>
             <!-- translate -->
             <div class="pane" data-p="tr">
@@ -655,7 +655,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
         </div>
       </div>
     </div>
-    <p class="demo-caption" data-i="demo.caption">Это интерактивная реконструкция актуальной компоновки Impuls, а не выдуманный макет: шесть модулей расположены слева, перевод и заметки — справа, как в версии 1.2.2.</p>
+    <p class="demo-caption" data-i="demo.caption">Это интерактивная реконструкция актуальной компоновки Impuls, а не выдуманный макет: шесть модулей расположены слева, перевод и заметки — справа, как в текущей публичной версии Impuls.</p>
   </div>
 </div>
 
@@ -899,8 +899,8 @@ const I = {
   "hero.m1":"macOS 15 or newer","hero.m2":"2.2 MB","hero.m3":"Apple Silicon and Intel","hero.m4":"Open source, GPL-3.0","hero.m5":"Free",
   "hero.f1":"No account required","hero.f2":"Published SHA-256","hero.f3":"Open source",
   "mb.finder":"Finder","mb.file":"File","mb.edit":"Edit","mb.view":"View",
-  "demo.label":"Interactive Impuls 1.2.2 demo","demo.action":"Move the pointer to the notch",
-  "demo.hint":"Move the pointer to the notch","demo.caption":"This is an interactive reconstruction of the current Impuls layout, not an invented concept: six modules sit on the left, while Translate and Notes sit on the right, matching version 1.2.2.",
+  "demo.label":"Interactive Impuls demo","demo.action":"Move the pointer to the notch",
+  "demo.hint":"Move the pointer to the notch","demo.caption":"This is an interactive reconstruction of the current Impuls layout, not an invented concept: six modules sit on the left, while Translate and Notes sit on the right, matching the current public Impuls release.",
   "tab.act":"Actions","tab.play":"Player","tab.shelf":"Shelf","tab.clip":"Clipboard","tab.snip":"Snippets","tab.cal":"Calendar","tab.tr":"Translate","tab.note":"Notes",
   "head.act":"Actions","head.play":"Player","head.shelf":"Shelf","head.clip":"Clipboard","head.snip":"Snippets","head.cal":"Calendar","head.tr":"Translate","head.note":"Notes",
   "s.ph":"Search clipboard, snippets, and notes",
@@ -913,7 +913,7 @@ const I = {
   "w1":"2 min","w2":"14 min","w3":"1 h",
   "cl2":"sha256: bc8089a414da35c7538b83c15705837…","cl3":"Screenshot 21.03","cl4":"Password-manager entries are excluded from history",
   "sn1":"Invoice details","sn2":"Support reply template","sn3":"git commit --amend --no-edit","sn4":"Export and restore via local JSON",
-  "e1":"Sprint planning","e1p":"Zoom · 45 min","e2":"Call with designer","e2p":"Meeting room · 30 min","e3":"Review Impuls 1.2.2","e3p":"All day",
+  "e1":"Sprint planning","e1p":"Zoom · 45 min","e2":"Call with designer","e2p":"Meeting room · 30 min","e3":"Review the latest Impuls release","e3p":"All day",
   "t1":"Translate selected text right from Actions",
   "n1":"Impuls: 1.3 release plan","n2":"A quick thought without launching another app",
   "b.eyebrow":"Everyday value","b.h2":"Less switching. Faster outcomes.",
@@ -991,12 +991,127 @@ document.querySelectorAll('[data-i]').forEach(el=>{RU[el.dataset.i]=el.innerHTML
 const TYPED = {ru:"github", en:"github"};
 let LANG = 'ru';
 
+const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';
+const FALLBACK_RELEASE = Object.freeze({
+  version:'1.2.2',
+  fileName:'Impuls-1.2.2.dmg',
+  fileSizeBytes:null,
+  sizeRu:'2,2 МБ',
+  sizeEn:'2.2 MB',
+  downloadUrl:'https://github.com/TumanovNV/impuls/releases/download/v1.2.2/Impuls-1.2.2.dmg',
+  pageUrl:'https://github.com/TumanovNV/impuls/releases/tag/v1.2.2',
+  hash:'bc8089a414da35c7538b83c157058370de34bf140f3642a7604e8c639582d27d'
+});
+let RELEASE = {...FALLBACK_RELEASE};
+
+function formatReleaseSize(l){
+  if(!Number.isFinite(RELEASE.fileSizeBytes) || RELEASE.fileSizeBytes<=0){
+    return l==='en' ? FALLBACK_RELEASE.sizeEn : FALLBACK_RELEASE.sizeRu;
+  }
+  const mb=(RELEASE.fileSizeBytes/1000000).toFixed(1);
+  return l==='en' ? mb+' MB' : mb.replace('.',',')+' МБ';
+}
+function releaseText(value,l){
+  return String(value)
+    .split(FALLBACK_RELEASE.fileName).join(RELEASE.fileName)
+    .split(FALLBACK_RELEASE.version).join(RELEASE.version)
+    .split(l==='en' ? FALLBACK_RELEASE.sizeEn : FALLBACK_RELEASE.sizeRu)
+    .join(formatReleaseSize(l));
+}
+function trustedGitHubUrl(value){
+  try{
+    const url=new URL(String(value));
+    const host=url.hostname.toLowerCase();
+    return url.protocol==='https:' && (host==='github.com' || host.endsWith('.githubusercontent.com'))
+      ? url.href
+      : '';
+  }catch(e){return ''}
+}
+function releaseHash(asset,body){
+  const digest=String(asset && asset.digest || '').match(/^sha256:([a-f0-9]{64})$/i);
+  if(digest) return digest[1].toLowerCase();
+  const inBody=String(body||'').match(/\b([a-f0-9]{64})\b/i);
+  return inBody ? inBody[1].toLowerCase() : '';
+}
+function renderRelease(){
+  setLang(LANG);
+  document.body.dataset.releaseVersion=RELEASE.version;
+  document.querySelectorAll('[data-conversion="download"]').forEach(link=>{
+    link.href=RELEASE.downloadUrl;
+  });
+
+  const schemaEl=document.getElementById('software-schema');
+  if(schemaEl){
+    try{
+      const schema=JSON.parse(schemaEl.textContent);
+      const apps=Array.isArray(schema['@graph']) ? schema['@graph'] : [schema];
+      const app=apps.find(item=>item && item['@type']==='SoftwareApplication');
+      if(app){
+        app.softwareVersion=RELEASE.version;
+        app.fileSize=formatReleaseSize('en');
+        app.downloadUrl=RELEASE.downloadUrl;
+        app.installUrl=RELEASE.downloadUrl;
+        app.releaseNotes=RELEASE.pageUrl;
+        schemaEl.textContent=JSON.stringify(schema);
+      }
+    }catch(e){}
+  }
+
+  const hashRow=document.querySelector('.hashrow');
+  const verify=document.querySelector('[data-i="i.verify"]');
+  if(RELEASE.hash){
+    document.getElementById('hash').textContent=RELEASE.hash;
+    if(hashRow) hashRow.hidden=false;
+    if(verify) verify.hidden=false;
+  }else if(RELEASE.version!==FALLBACK_RELEASE.version){
+    if(hashRow) hashRow.hidden=true;
+    if(verify) verify.hidden=true;
+  }
+}
+async function syncLatestRelease(){
+  const controller=typeof AbortController==='function' ? new AbortController() : null;
+  const timer=setTimeout(()=>{if(controller) controller.abort()},5000);
+  try{
+    const response=await fetch(RELEASE_API,{
+      headers:{Accept:'application/vnd.github+json'},
+      signal:controller ? controller.signal : undefined,
+      cache:'no-store'
+    });
+    if(!response.ok) return;
+    const data=await response.json();
+    const version=String(data.tag_name||'').trim().replace(/^v(?=\d)/i,'');
+    if(!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) return;
+    const assets=Array.isArray(data.assets) ? data.assets : [];
+    const dmg=assets.find(asset=>asset && /\.dmg$/i.test(String(asset.name||'')));
+    if(!dmg || !/^[0-9A-Za-z._()+ -]+\.dmg$/i.test(String(dmg.name||''))) return;
+    const downloadUrl=trustedGitHubUrl(dmg.browser_download_url);
+    const pageUrl=trustedGitHubUrl(data.html_url);
+    if(!downloadUrl || !pageUrl) return;
+    RELEASE={
+      version,
+      fileName:String(dmg.name),
+      fileSizeBytes:Number(dmg.size)||null,
+      sizeRu:FALLBACK_RELEASE.sizeRu,
+      sizeEn:FALLBACK_RELEASE.sizeEn,
+      downloadUrl,
+      pageUrl,
+      hash:releaseHash(dmg,data.body)
+    };
+    renderRelease();
+  }catch(e){
+    // The static fallback keeps the page and download usable when GitHub is unavailable.
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
+
 function setLang(l){
   LANG = l;
   const d = l==='en' ? I.en : RU;
   document.querySelectorAll('[data-i]').forEach(el=>{
     const v = d[el.dataset.i];
-    if(v!==undefined) el.innerHTML = v;
+    if(v!==undefined) el.innerHTML = releaseText(v,l);
   });
   document.documentElement.lang = l;
   document.getElementById('ru').classList.toggle('on', l==='ru');
@@ -1019,6 +1134,7 @@ try{
   const pick = saved || auto;
   if(pick==='en') setTimeout(()=>setLang('en'),0);
 }catch(e){}
+syncLatestRelease();
 
 /* ---------- clock ---------- */
 (function tick(){
