@@ -53,7 +53,11 @@ remain unchanged; Impuls refuses to touch a file the user has modified.
 
 ## Stability and feedback
 
-Impuls 1.2.6 continues the stabilization work. Compact rows and local search use
+Impuls 1.2.7 keeps a hover-opened panel visible for the complete lifetime of a
+context menu, including nested image tools. Closing the menu restores the normal
+hover decision, preventing detached submenus and visual artifacts.
+
+The 1.2.6 stabilization work also keeps compact rows and local search on
 bounded text projections, screenshot and note writes no longer occupy the UI
 thread, player refreshes are coalesced, artwork is downsampled before display,
 and Calendar link discovery has an explicit processing budget. Generated-file
