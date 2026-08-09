@@ -149,8 +149,18 @@ struct ImpulsActionResult: Identifiable, Equatable {
 final class ImpulsActionsStore: ObservableObject {
     static let maximumSearchCharacters = 16 * 1_024
     static let maximumSummaryCharacters = 160
+    static let maximumQueryCharacters = 256
 
-    @Published var query = ""
+    @Published var query = "" {
+        didSet {
+            let end = query.index(
+                query.startIndex,
+                offsetBy: Self.maximumQueryCharacters,
+                limitedBy: query.endIndex
+            )
+            if let end, end < query.endIndex { query = String(query[..<end]) }
+        }
+    }
 
     private struct Ranked {
         let result: ImpulsActionResult
@@ -163,22 +173,31 @@ final class ImpulsActionsStore: ObservableObject {
         snippets: [Snippet],
         notes: [Note]
     ) -> [ImpulsActionResult] {
-        let all = makeResults(clipboard: clipboard, snippets: snippets, notes: notes)
         let needle = Self.fold(query.trimmingCharacters(in: .whitespacesAndNewlines))
 
         guard !needle.isEmpty else {
-            return Array(all.filter { $0.source == .clipboard }.prefix(4))
-                + Array(all.filter { $0.source == .snippets }.prefix(3))
-                + Array(all.filter { $0.source == .notes }.prefix(3))
+            // The landing state shows ten rows. Building and classifying every
+            // note and snippet here made merely opening Actions proportional
+            // to the entire local store.
+            let recentNotes = notes.lazy
+                .filter { !BoundedText.firstLine($0.text, maximumCharacters: 1).isEmpty }
+                .prefix(3)
+            return makeResults(
+                clipboard: Array(clipboard.prefix(4)),
+                snippets: Array(snippets.prefix(3)),
+                notes: Array(recentNotes)
+            )
         }
 
+        let all = makeResults(clipboard: clipboard, snippets: snippets, notes: notes)
         let tokens = needle.split(whereSeparator: \Character.isWhitespace).map(String.init)
         return all.enumerated().compactMap { order, result -> Ranked? in
             let title = Self.fold(result.title)
             let content = Self.fold(Self.searchableValue(of: result))
             let kind = Self.fold(result.contentKind.title)
-            let haystack = title + "\n" + content + "\n" + kind
-            guard tokens.allSatisfy({ haystack.contains($0) }) else { return nil }
+            guard tokens.allSatisfy({ token in
+                title.contains(token) || content.contains(token) || kind.contains(token)
+            }) else { return nil }
 
             var score = sourcePriority(result.source) + (result.isPinned ? 500 : 0)
             if title == needle { score += 1_000 }
@@ -234,8 +253,8 @@ final class ImpulsActionsStore: ObservableObject {
             return ImpulsActionResult(
                 origin: .snippet(snippet.id),
                 source: .snippets,
-                title: snippet.label.isEmpty ? Self.summary(snippet.text) : snippet.label,
-                detail: snippet.label.isEmpty ? kind.title : snippet.text,
+                title: snippet.displayLabel.isEmpty ? Self.summary(snippet.text) : snippet.displayLabel,
+                detail: snippet.displayLabel.isEmpty ? kind.title : Self.summary(snippet.text),
                 value: .text(snippet.text),
                 contentKind: kind,
                 isPinned: false
@@ -243,13 +262,12 @@ final class ImpulsActionsStore: ObservableObject {
         }
 
         let drafts = notes.compactMap { note -> ImpulsActionResult? in
-            let text = note.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !text.isEmpty else { return nil }
-            let kind = ClipboardContentClassifier.kind(for: text)
+            guard !BoundedText.firstLine(note.text, maximumCharacters: 1).isEmpty else { return nil }
+            let kind = ClipboardContentClassifier.kind(for: note.text)
             return ImpulsActionResult(
                 origin: .note(note.id),
                 source: .notes,
-                title: Self.summary(text),
+                title: Self.summary(note.text),
                 detail: kind.title,
                 value: .text(note.text),
                 contentKind: kind,
@@ -285,17 +303,7 @@ final class ImpulsActionsStore: ObservableObject {
     }
 
     private static func summary(_ text: String) -> String {
-        var start = text.startIndex
-        while start < text.endIndex, text[start].isWhitespace {
-            text.formIndex(after: &start)
-        }
-        var end = start
-        var count = 0
-        while end < text.endIndex, !text[end].isNewline, count < maximumSummaryCharacters {
-            text.formIndex(after: &end)
-            count += 1
-        }
-        let oneLine = String(text[start..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let oneLine = BoundedText.firstLine(text, maximumCharacters: maximumSummaryCharacters)
         return oneLine.isEmpty ? localized("Untitled") : oneLine
     }
 

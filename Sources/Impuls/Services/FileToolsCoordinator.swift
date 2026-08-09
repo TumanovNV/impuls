@@ -202,13 +202,18 @@ final class FileToolsCoordinator: ObservableObject {
         showProgress(action: action, completed: 0, total: urls.count)
         Task {
             var outputs: [URL] = []
+            var records: [GeneratedFileRecord] = []
             var failures: [Error] = []
             for (index, url) in urls.enumerated() {
                 do {
-                    let output = try await Task.detached(priority: .userInitiated) {
-                        try autoreleasepool { try operation(url) }
+                    let generated = try await Task.detached(priority: .userInitiated) {
+                        try autoreleasepool {
+                            let output = try operation(url)
+                            return (output, try? GeneratedFileRecord.capture(output))
+                        }
                     }.value
-                    outputs.append(output)
+                    outputs.append(generated.0)
+                    if let record = generated.1 { records.append(record) }
                 } catch {
                     failures.append(error)
                 }
@@ -217,7 +222,6 @@ final class FileToolsCoordinator: ObservableObject {
 
             if !outputs.isEmpty {
                 shelf.add(outputs)
-                let records = outputs.compactMap { try? GeneratedFileRecord.capture($0) }
                 undoAction = records.count == outputs.count ? .generated(records) : nil
                 finishBatch(successes: outputs.count, failures: failures)
             } else {
@@ -237,11 +241,15 @@ final class FileToolsCoordinator: ObservableObject {
         showStatus(message, automaticallyClear: false)
         Task {
             do {
-                let url = try await Task.detached(priority: .userInitiated) {
-                    try autoreleasepool { try operation() }
+                let generated = try await Task.detached(priority: .userInitiated) {
+                    try autoreleasepool {
+                        let url = try operation()
+                        return (url, try? GeneratedFileRecord.capture(url))
+                    }
                 }.value
+                let url = generated.0
                 shelf.add([url])
-                if let record = try? GeneratedFileRecord.capture(url) {
+                if let record = generated.1 {
                     undoAction = .generated([record])
                 }
                 showStatus(localized("Processed: %d", 1))

@@ -49,7 +49,7 @@ struct ClipItem: Identifiable, Codable, Equatable, Sendable {
 
     var preview: String {
         switch payload {
-        case .text(let string): return string.trimmingCharacters(in: .whitespacesAndNewlines)
+        case .text(let string): return BoundedText.firstLine(string, maximumCharacters: 240)
         case .file(let url): return url.lastPathComponent
         }
     }
@@ -78,7 +78,10 @@ final class ClipboardStore: ObservableObject {
 
     /// The saved PNG URL lets the clipboard keep an image entry while the
     /// shelf remains the owner of the actual file.
-    var onImage: ((Data) -> URL?)?
+    /// Image persistence is deliberately asynchronous. A clipboard image may
+    /// be tens of megabytes; writing it from the pasteboard poll used to block
+    /// the main thread and the whole panel until the atomic file write ended.
+    var onImage: ((Data, Date) -> Void)?
     var wantsImages: () -> Bool = { true }
     var isApplicationExcluded: (String) -> Bool = { _ in false }
 
@@ -194,8 +197,11 @@ final class ClipboardStore: ObservableObject {
         guard pasteboard.changeCount != lastChangeCount else { return }
         lastChangeCount = pasteboard.changeCount
 
-        guard pasteboard.data(forType: concealed) == nil else { return }
-        guard pasteboard.data(forType: .impulsInternal) == nil else { return }
+        // Presence is enough. Materialising marker data lets another process
+        // force an unnecessary allocation before Impuls has inspected the
+        // actual clipboard payload.
+        guard pasteboard.availableType(from: [concealed]) == nil else { return }
+        guard pasteboard.availableType(from: [.impulsInternal]) == nil else { return }
 
         let sourceBundleIdentifier = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         if let sourceBundleIdentifier, isApplicationExcluded(sourceBundleIdentifier) { return }
@@ -211,11 +217,8 @@ final class ClipboardStore: ObservableObject {
         }
 
         if wantsImages() {
-            if let png = pngFromPasteboard(pasteboard), let url = onImage?(png) {
-                record(ClipItem(
-                    payload: .file(url),
-                    date: Date()
-                ))
+            if let png = pngFromPasteboard(pasteboard), let onImage {
+                onImage(png, Date())
                 return
             }
 
@@ -227,7 +230,7 @@ final class ClipboardStore: ObservableObject {
 
         guard let string = pasteboard.string(forType: .string),
               Self.isTextPayloadAllowed(string),
-              !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+              string.contains(where: { !$0.isWhitespace }) else { return }
         record(ClipItem(
             payload: .text(string),
             date: Date()
@@ -240,7 +243,7 @@ final class ClipboardStore: ObservableObject {
             guard pasteboard.changeCount == changeCount,
                   let string = pasteboard.string(forType: .string),
                   Self.isTextPayloadAllowed(string),
-                  !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+                  string.contains(where: { !$0.isWhitespace }) else { return }
             record(ClipItem(
                 payload: .text(string),
                 date: Date()
@@ -252,11 +255,8 @@ final class ClipboardStore: ObservableObject {
                 guard let self else { return }
                 let pasteboard = NSPasteboard.general
                 guard pasteboard.changeCount == changeCount else { return }
-                if let png = self.pngFromPasteboard(pasteboard), let url = self.onImage?(png) {
-                    self.record(ClipItem(
-                        payload: .file(url),
-                        date: Date()
-                    ))
+                if let png = self.pngFromPasteboard(pasteboard), let onImage = self.onImage {
+                    onImage(png, Date())
                     return
                 }
                 self.awaitImage(

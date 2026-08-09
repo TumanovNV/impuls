@@ -4,7 +4,7 @@ import XCTest
 
 final class FeedbackServiceTests: XCTestCase {
     private let diagnostics = FeedbackDiagnostics(
-        appVersion: "1.2.5",
+        appVersion: "1.2.6",
         macOSVersion: "15.6.1",
         architecture: "Apple Silicon"
     )
@@ -29,7 +29,7 @@ final class FeedbackServiceTests: XCTestCase {
         XCTAssertTrue(submission.report.contains("Area: wholeApp"))
         XCTAssertTrue(submission.report.contains("Frequency: often"))
         XCTAssertTrue(submission.report.contains("Rating: 2/5"))
-        XCTAssertTrue(submission.report.contains("Impuls: 1.2.5"))
+        XCTAssertTrue(submission.report.contains("Impuls: 1.2.6"))
 
         let components = try XCTUnwrap(URLComponents(url: submission.issueURL, resolvingAgainstBaseURL: false))
         let title = components.queryItems?.first(where: { $0.name == "title" })?.value
@@ -104,5 +104,25 @@ final class FeedbackServiceTests: XCTestCase {
         XCTAssertFalse(FeedbackService.isAllowedIssueURL(
             try XCTUnwrap(URL(string: "https://attacker@github.com/TumanovNV/impuls/issues/new"))
         ))
+    }
+
+    func testDirectOversizedInputIsBoundedBeforeReportConstruction() throws {
+        let submission = try XCTUnwrap(FeedbackService.makeSubmission(
+            draft: FeedbackDraft(
+                category: .problem,
+                area: .wholeApp,
+                frequency: .often,
+                rating: 3,
+                summary: String(repeating: "word ", count: 100_000),
+                details: String(repeating: "detail ", count: 100_000),
+                includeDiagnostics: false
+            ),
+            diagnostics: diagnostics
+        ))
+
+        let title = URLComponents(url: submission.issueURL, resolvingAgainstBaseURL: false)?
+            .queryItems?.first(where: { $0.name == "title" })?.value ?? ""
+        XCTAssertLessThanOrEqual(title.count, FeedbackService.maximumSummaryLength + 10)
+        XCTAssertLessThan(submission.report.count, FeedbackService.maximumDetailsLength + 1_000)
     }
 }

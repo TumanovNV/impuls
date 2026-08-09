@@ -84,4 +84,24 @@ final class SettingsStoreTests: XCTestCase {
             XCTAssertTrue(decoded.excludedClipboardBundleIdentifiers.isEmpty)
         }
     }
+
+    func testClipboardExclusionsRejectMalformedOrExcessiveIdentifiers() async {
+        await MainActor.run {
+            let supplied = [
+                "com.example.safe",
+                "../Applications/Secrets",
+                "com.example.\nmalicious",
+                String(repeating: "a", count: 256),
+                String(repeating: " ", count: 100_000) + "com.example.hidden",
+                ".com.example.leading",
+            ]
+
+            XCTAssertEqual(
+                SettingsStore.normalizedBundleIdentifiers(supplied),
+                ["com.example.safe"]
+            )
+            XCTAssertFalse(SettingsStore.isValidBundleIdentifier("ru.company-passwords.app_1"))
+            XCTAssertTrue(SettingsStore.isValidBundleIdentifier("ru.company-passwords.app-1"))
+        }
+    }
 }

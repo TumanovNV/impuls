@@ -234,12 +234,14 @@ enum FeedbackService {
     }
 
     private static func normalized(_ value: String, limit: Int, singleLine: Bool) -> String {
-        var value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        // UI bindings already enforce these limits, but the service is kept
+        // safe in isolation too: never scan or duplicate an arbitrarily large
+        // direct input before applying its budget.
+        let inspectionLimit = limit <= Int.max - 1_024 ? limit + 1_024 : Int.max
+        var value = BoundedText.prefix(value, maximumCharacters: inspectionLimit)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         if singleLine {
-            value = value
-                .components(separatedBy: .newlines)
-                .joined(separator: " ")
-                .replacingOccurrences(of: "  ", with: " ")
+            value = value.split(whereSeparator: \Character.isWhitespace).joined(separator: " ")
         }
         return String(value.prefix(limit))
     }

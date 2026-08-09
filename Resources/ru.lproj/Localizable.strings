@@ -276,7 +276,7 @@
 "A generated file changed after the operation and was not moved to the Trash." = "Созданный файл изменился после операции и не был перемещён в Корзину.";
 "The last file operation can no longer be undone." = "Последнюю файловую операцию больше нельзя отменить.";
 
-/* Стабильность и обратная связь 1.2.5 */
+/* Стабильность и обратная связь 1.2.6 */
 "Send Feedback" = "Отправить обратную связь";
 "Send Feedback…" = "Отправить обратную связь…";
 "Feedback" = "Обратная связь";

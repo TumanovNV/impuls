@@ -27,6 +27,22 @@ body:
     validations:
       required: true
   - type: dropdown
+    id: module
+    attributes:
+      label: Related area / Связанный раздел
+      options:
+        - Whole app / Всё приложение
+        - Actions
+        - Shelf / Полка
+        - Clipboard / Буфер обмена
+        - Calendar / Календарь
+        - Media / Музыка
+        - Translate / Перевод
+        - Notes or Snippets / Заметки или заготовки
+        - Settings or other / Настройки или другое
+    validations:
+      required: true
+  - type: dropdown
     id: frequency
     attributes:
       label: Frequency / Частота
@@ -41,9 +57,20 @@ body:
     id: version
     attributes:
       label: Impuls version / Версия Impuls
-      placeholder: 1.2.4
+      placeholder: Shown in Impuls → About Impuls / Указана в Impuls → Об Impuls
     validations:
       required: true
+  - type: dropdown
+    id: rating
+    attributes:
+      label: Overall experience / Общая оценка
+      options:
+        - Not specified / Не указана
+        - 5 — Excellent / Отлично
+        - 4 — Good / Хорошо
+        - 3 — Acceptable / Приемлемо
+        - 2 — Difficult / Неудобно
+        - 1 — Poor / Плохо
   - type: input
     id: system
     attributes:

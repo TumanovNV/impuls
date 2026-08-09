@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 
 /// Public-API bridge to the two scriptable players macOS ships with support
 /// for. Everything goes through AppleScript (state, artwork, transport) and
@@ -48,6 +49,8 @@ struct PlayerState {
 
 enum PlayerBridge {
     private static let queue = DispatchQueue(label: "io.tumanov.impuls.applescript", qos: .utility)
+    static let maximumArtworkBytes = 16 * 1_024 * 1_024
+    static let artworkPixelSize = 512
 
     // MARK: - State
 
@@ -142,9 +145,31 @@ enum PlayerBridge {
             end tell
             """) { descriptor in
                 guard let data = descriptor?.data, !data.isEmpty else { return completion(nil) }
-                completion(NSImage(data: data))
+                completion(thumbnailArtwork(from: data))
             }
         }
+    }
+
+    /// Artwork only occupies a 118-point card. Downsampling through ImageIO
+    /// avoids retaining a full source bitmap and validates its dimensions
+    /// before AppKit is asked to display it.
+    static func thumbnailArtwork(from data: Data) -> NSImage? {
+        guard data.count <= maximumArtworkBytes,
+              let source = CGImageSourceCreateWithData(data as CFData, nil),
+              (try? FileToolsService.validateImageDimensions(in: source)) != nil else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: artworkPixelSize,
+            kCGImageSourceShouldCacheImmediately: true,
+        ]
+        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        return NSImage(
+            cgImage: image,
+            size: NSSize(width: CGFloat(image.width), height: CGFloat(image.height))
+        )
     }
 
     // MARK: - Scripts

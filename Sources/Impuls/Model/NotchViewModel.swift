@@ -299,11 +299,13 @@ final class NotchViewModel: ObservableObject {
         // to PNG in full just to be dropped on this doorstep — pure heat on
         // exactly the machines whose owners turned the feature off.
         clipboard.wantsImages = { [weak settings] in settings?.saveClipboardImages ?? true }
-        clipboard.onImage = { [weak self] png in
-            guard let self, let url = ScreenshotVault.save(png) else { return nil }
-            self.shelf.add([url])
-            self.tab = .shelf
-            return url
+        clipboard.onImage = { [weak self] png, date in
+            ScreenshotVault.save(png, at: date) { [weak self] url in
+                guard let self, let url else { return }
+                self.shelf.add([url])
+                self.clipboard.record(ClipItem(payload: .file(url), date: date))
+                self.tab = .shelf
+            }
         }
         clipboard.start()
     }
@@ -313,7 +315,7 @@ final class NotchViewModel: ObservableObject {
         clipboard.stop()
         calendar.stop()
         // Whatever was typed makes it to disk even when quitting mid-thought.
-        notes.flush()
+        notes.flushSynchronously()
     }
 
     func accept(urls: [URL]) -> Bool {

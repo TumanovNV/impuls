@@ -20,7 +20,7 @@ playback data, analytics identifiers, or hardware serial numbers.
 
 ## Feedback
 
-Impuls 1.2.5 includes a voluntary feedback window. The app prepares the report
+Impuls 1.2.6 includes a voluntary feedback window. The app prepares the report
 locally and shows exactly what will be shared. Basic technical context is
 optional and contains only the Impuls version, macOS version, and processor
 architecture. It never adds clipboard contents, notes, snippets, file names,
@@ -59,7 +59,7 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
 - Calendar access is requested only from the Calendar module or Settings;
 - Accessibility is requested only when the user explicitly enables support for
   standard system media-key events;
-- notification permission is not requested in Impuls 1.2.5 and remains reserved
+- notification permission is not requested in Impuls 1.2.6 and remains reserved
   for optional reminder functions in a later update.
 
 Notes and snippets are not encrypted by Impuls. FileVault is recommended for

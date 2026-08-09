@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var networkAccessItem: NSMenuItem?
     private var saveShotsItem: NSMenuItem?
     private var launchAtLoginItem: NSMenuItem?
+    private var vaultUsageGeneration = 0
     private var cancellables = Set<AnyCancellable>()
     private let updateService = UpdateService()
     private lazy var feedbackWindowController = FeedbackWindowController()
@@ -143,14 +144,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         guard let clearVaultItem else { return }
-        let usage = ScreenshotVault.usage()
-        if usage.files == 0 {
-            clearVaultItem.title = localized("Clear Screenshots Folder")
-            clearVaultItem.isEnabled = false
-        } else {
-            let size = ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file)
-            clearVaultItem.title = localized("Clear Screenshots Folder (%@)", size)
-            clearVaultItem.isEnabled = true
+        vaultUsageGeneration += 1
+        let generation = vaultUsageGeneration
+        clearVaultItem.title = localized("Clear Screenshots Folder")
+        clearVaultItem.isEnabled = false
+        ScreenshotVault.usage { [weak self, weak clearVaultItem] usage in
+            guard let self, self.vaultUsageGeneration == generation, let clearVaultItem else { return }
+            if usage.files == 0 {
+                clearVaultItem.title = localized("Clear Screenshots Folder")
+                clearVaultItem.isEnabled = false
+            } else {
+                let size = ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file)
+                clearVaultItem.title = localized("Clear Screenshots Folder (%@)", size)
+                clearVaultItem.isEnabled = true
+            }
         }
     }
 
@@ -159,8 +166,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openFeedback() { feedbackWindowController.show() }
 
     @objc private func clearScreenshots() {
-        ScreenshotVault.clear()
-        controller?.reloadShelf()
+        vaultUsageGeneration += 1
+        clearVaultItem?.isEnabled = false
+        ScreenshotVault.clear { [weak self] in
+            self?.controller?.reloadShelf()
+        }
     }
 
     @objc private func quit() { NSApp.terminate(nil) }

@@ -1,9 +1,13 @@
 import AppKit
 
-struct Note: Identifiable, Codable, Equatable {
+struct Note: Identifiable, Codable, Equatable, Sendable {
     let id: UUID
     var text: String
     var edited: Date
+
+    var preview: String {
+        BoundedText.firstLine(text, maximumCharacters: 160)
+    }
 }
 
 /// Scratch notes: somewhere to put a thought down for an hour.
@@ -21,6 +25,7 @@ struct Note: Identifiable, Codable, Equatable {
 @MainActor
 final class NoteStore: ObservableObject {
     private static let maximumFileBytes = 10 * 1_024 * 1_024
+    private static let maximumItems = 5_000
 
     @Published private(set) var notes: [Note] = []
     /// Which note the editor shows. Lives here rather than in the pane so the
@@ -35,7 +40,8 @@ final class NoteStore: ObservableObject {
         return folder.appendingPathComponent("notes.json")
     }()
 
-    private var saveWork: DispatchWorkItem?
+    private let writeQueue = DispatchQueue(label: "io.tumanov.impuls.notes.writer", qos: .utility)
+    private var saveGeneration = 0
 
     init() {
         load()
@@ -72,7 +78,7 @@ final class NoteStore: ObservableObject {
     /// sweep themselves out. They cost one hover to recreate, and a trail of
     /// blank cards is exactly the clutter a scratchpad exists to avoid.
     func leave() {
-        notes.removeAll { $0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        notes.removeAll { !$0.text.contains(where: { !$0.isWhitespace }) }
         if let selected, !notes.contains(where: { $0.id == selected }) {
             self.selected = notes.first?.id
         }
@@ -93,7 +99,8 @@ final class NoteStore: ObservableObject {
                   from: Self.file,
                   maximumBytes: Self.maximumFileBytes
               ),
-              let stored = try? JSONDecoder().decode([Note].self, from: data) else { return }
+              let stored = try? JSONDecoder().decode([Note].self, from: data),
+              stored.count <= Self.maximumItems else { return }
         notes = stored
         selected = notes.first?.id
     }
@@ -102,19 +109,39 @@ final class NoteStore: ObservableObject {
     /// lives in memory either way, and the file only has to be right by the
     /// time somebody could read it.
     private func scheduleSave() {
-        saveWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            MainActor.assumeIsolated { self?.flush() }
+        saveGeneration += 1
+        let generation = saveGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self, self.saveGeneration == generation else { return }
+            let snapshot = self.notes
+            let fileURL = Self.file
+            let queue = self.writeQueue
+            queue.async { Self.persist(snapshot, to: fileURL) }
         }
-        saveWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8, execute: work)
     }
 
+    /// Enqueues the latest snapshot without making the interface wait for JSON
+    /// encoding or the atomic disk write.
     func flush() {
-        saveWork?.cancel()
-        saveWork = nil
+        saveGeneration += 1
+        let snapshot = notes
+        let fileURL = Self.file
+        writeQueue.async { Self.persist(snapshot, to: fileURL) }
+    }
+
+    /// Shutdown is the one path where durability is more important than a
+    /// short wait. The serial queue first drains older snapshots, then writes
+    /// the exact final state before the process exits.
+    func flushSynchronously() {
+        saveGeneration += 1
+        let snapshot = notes
+        let fileURL = Self.file
+        writeQueue.sync { Self.persist(snapshot, to: fileURL) }
+    }
+
+    nonisolated private static func persist(_ notes: [Note], to fileURL: URL) {
         do {
-            try JSONEncoder().encode(notes).write(to: Self.file, options: .atomic)
+            try JSONEncoder().encode(notes).write(to: fileURL, options: .atomic)
         } catch {
             NSLog("Impuls: cannot write notes.json: \(error.localizedDescription)")
         }

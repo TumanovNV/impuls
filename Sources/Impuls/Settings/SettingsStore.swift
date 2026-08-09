@@ -255,7 +255,7 @@ final class SettingsStore: ObservableObject {
 
     func excludeClipboardApp(bundleIdentifier: String) {
         let identifier = bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !identifier.isEmpty,
+        guard Self.isValidBundleIdentifier(identifier),
               identifier != Bundle.main.bundleIdentifier,
               !excludedClipboardBundleIdentifiers.contains(identifier),
               excludedClipboardBundleIdentifiers.count < 50 else { return }
@@ -318,11 +318,35 @@ final class SettingsStore: ObservableObject {
     }
 
     static func normalizedBundleIdentifiers(_ supplied: [String]) -> [String] {
-        Array(Set(supplied.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }))
-            .filter { !$0.isEmpty && $0 != Bundle.main.bundleIdentifier }
-            .sorted()
-            .prefix(50)
-            .map { $0 }
+        var result = Set<String>()
+        // Backups are bounded as files, but an attacker can still fill one
+        // field or array with excessive values. Inspect only enough candidates
+        // to populate the 50 entries the settings model can retain.
+        for suppliedIdentifier in supplied.prefix(500) {
+            let identifier = BoundedText.prefix(suppliedIdentifier, maximumCharacters: 256)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard isValidBundleIdentifier(identifier),
+                  identifier != Bundle.main.bundleIdentifier else { continue }
+            result.insert(identifier)
+            if result.count == 50 { break }
+        }
+        return result.sorted()
+    }
+
+    static func isValidBundleIdentifier(_ identifier: String) -> Bool {
+        guard !identifier.isEmpty,
+              identifier.lengthOfBytes(using: .utf8) <= 255,
+              !identifier.hasPrefix("."),
+              !identifier.hasSuffix("."),
+              !identifier.contains("..") else { return false }
+        return identifier.unicodeScalars.allSatisfy { scalar in
+            switch scalar.value {
+            case 45, 46, 48...57, 65...90, 97...122:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     private static func defaultSnapshot(defaults: UserDefaults) -> ImpulsSettingsSnapshot {

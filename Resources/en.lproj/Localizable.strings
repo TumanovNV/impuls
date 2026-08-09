@@ -277,7 +277,7 @@
 "A generated file changed after the operation and was not moved to the Trash." = "A generated file changed after the operation and was not moved to the Trash.";
 "The last file operation can no longer be undone." = "The last file operation can no longer be undone.";
 
-/* Stability and feedback 1.2.5 */
+/* Stability and feedback 1.2.6 */
 "Send Feedback" = "Send Feedback";
 "Send Feedback…" = "Send Feedback…";
 "Feedback" = "Feedback";

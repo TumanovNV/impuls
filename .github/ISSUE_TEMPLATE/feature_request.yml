@@ -45,6 +45,17 @@ body:
         - Settings or other / Настройки или другое
     validations:
       required: true
+  - type: dropdown
+    id: rating
+    attributes:
+      label: Current experience with this workflow / Текущая оценка сценария
+      options:
+        - Not specified / Не указана
+        - 5 — Excellent / Отлично
+        - 4 — Good / Хорошо
+        - 3 — Acceptable / Приемлемо
+        - 2 — Difficult / Неудобно
+        - 1 — Poor / Плохо
   - type: checkboxes
     id: privacy
     attributes:

@@ -29,8 +29,13 @@ final class MediaController: ObservableObject {
     private var ticker: Timer?
     private var observers: [Any] = []
     private var isActive = false
+    private var isStarted = false
+    private var refreshInFlight = false
+    private var refreshPending = false
 
     func start() {
+        guard !isStarted else { return }
+        isStarted = true
         let center = DistributedNotificationCenter.default()
         for app in PlayerApp.allCases {
             observers.append(center.addObserver(
@@ -46,6 +51,8 @@ final class MediaController: ObservableObject {
     }
 
     func stop() {
+        isStarted = false
+        refreshPending = false
         observers.forEach { DistributedNotificationCenter.default().removeObserver($0) }
         observers.removeAll()
         ticker?.invalidate()
@@ -95,9 +102,28 @@ final class MediaController: ObservableObject {
     }
 
     private func refreshFromPlayers() {
+        guard isStarted else { return }
+        if refreshInFlight {
+            refreshPending = true
+            return
+        }
+        refreshInFlight = true
         PlayerBridge.currentState { [weak self] state in
             guard let self else { return }
-            guard let state else { return self.clear() }
+            self.refreshInFlight = false
+            guard self.isStarted else {
+                self.refreshPending = false
+                return
+            }
+            let shouldRefreshAgain = self.refreshPending
+            self.refreshPending = false
+            defer {
+                if shouldRefreshAgain { self.refreshFromPlayers() }
+            }
+            guard let state else {
+                self.clear()
+                return
+            }
 
             self.activeApp = state.app
             self.sourceName = state.app.displayName
@@ -161,9 +187,15 @@ final class MediaController: ObservableObject {
     }
 
     private func updateTicker() {
-        ticker?.invalidate()
-        ticker = nil
-        guard isPlaying, isActive else { return }
+        guard isPlaying, isActive else {
+            ticker?.invalidate()
+            ticker = nil
+            return
+        }
+        // Player notifications can be frequent. Keep the existing clock when
+        // its required state did not change instead of allocating a new timer
+        // after every metadata refresh.
+        guard ticker == nil else { return }
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
