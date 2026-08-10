@@ -11,7 +11,13 @@ final class PowerMonitor: ObservableObject {
     private var isActive = false
     private var isStarted = false
 
-    init(provider: PowerSourceProviding = IOKitPowerSourceProvider()) {
+    init() {
+        let provider = IOKitPowerSourceProvider()
+        self.provider = provider
+        observer = provider
+    }
+
+    init(provider: PowerSourceProviding) {
         self.provider = provider
         observer = provider as? PowerSourceObserving
     }
