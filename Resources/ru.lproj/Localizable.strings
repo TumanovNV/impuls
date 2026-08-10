@@ -350,7 +350,8 @@
 "Connection" = "Подключение";
 "MagSafe" = "MagSafe";
 "USB-C" = "USB-C";
-"External Power" = "Сеть";
+"External Power" = "От адаптера";
+"Not Connected" = "Не подключено";
 "Unknown" = "Не определено";
 "Temperature" = "Температура";
 "Maximum Capacity" = "Макс. ёмкость";

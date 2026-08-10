@@ -57,6 +57,19 @@ final class PowerMonitorTests: XCTestCase {
         XCTAssertEqual(snapshot.timeToFullCharge, .minutes(0))
     }
 
+    func testChargedBatteryReportsZeroPowerInsteadOfAnUnavailableValue() {
+        let snapshot = PowerNormalizer.snapshot(from: .portable(
+            providing: .ac,
+            state: .ac,
+            charged: true,
+            charging: false,
+            voltage: 12_000,
+            amperage: 0
+        ))
+
+        XCTAssertEqual(snapshot.batteryPowerWatts, 0)
+    }
+
     func testPluggedInButNotChargingIsNotReportedAsDischarging() {
         let snapshot = PowerNormalizer.snapshot(from: .portable(
             providing: .ac,
@@ -95,7 +108,7 @@ final class PowerMonitorTests: XCTestCase {
             timeToEmpty: -7,
             voltage: -1,
             amperage: Int.min,
-            temperature: 3_000,
+            temperature: 10_000,
             cycles: -1
         ))
 
@@ -103,6 +116,14 @@ final class PowerMonitorTests: XCTestCase {
         XCTAssertNil(snapshot.batteryPowerWatts)
         XCTAssertNil(snapshot.temperatureCelsius)
         XCTAssertNil(snapshot.cycleCount)
+    }
+
+    func testSmartBatteryTenthsOfKelvinAreNormalizedToCelsius() {
+        let snapshot = PowerNormalizer.snapshot(from: .portable(
+            temperature: 3_056
+        ))
+
+        XCTAssertEqual(snapshot.temperatureCelsius ?? 0, 32.45, accuracy: 0.01)
     }
 
     func testCapacityHealthNeedsBothPositiveCapacities() {
@@ -131,6 +152,27 @@ final class PowerMonitorTests: XCTestCase {
 
         reading.connectionType = .unknown
         XCTAssertEqual(PowerNormalizer.snapshot(from: reading).connectionType, .unknown)
+
+        reading.connectionType = .externalPower
+        XCTAssertEqual(PowerNormalizer.snapshot(from: reading).connectionType, .externalPower)
+
+        reading.connectionType = .unplugged
+        XCTAssertEqual(PowerNormalizer.snapshot(from: reading).connectionType, .unplugged)
+    }
+
+    func testConnectionDetectorReportsOnlyTheEvidenceAvailableFromIOKit() {
+        XCTAssertEqual(
+            ChargeConnectionDetector.currentConnection(providingPowerSource: .ac, adapterDetails: nil),
+            .externalPower
+        )
+        XCTAssertEqual(
+            ChargeConnectionDetector.currentConnection(providingPowerSource: .battery, adapterDetails: nil),
+            .unplugged
+        )
+        XCTAssertEqual(
+            ChargeConnectionDetector.currentConnection(providingPowerSource: .unknown, adapterDetails: nil),
+            .unknown
+        )
     }
 
     func testDesktopDoesNotExposeBatteryCardsOrInventWallPower() {

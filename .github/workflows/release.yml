@@ -111,6 +111,7 @@ jobs:
           )"
           test "$DERIVED_PUBLIC_KEY" = '/fAb0WKLYV8FTT+VkvGKgtIXfsiVG74NlJ+to0BusDg='
 
+
       - name: Verify release-facing metadata
         shell: bash
         run: |
@@ -146,6 +147,7 @@ jobs:
         run: |
           swift test -c release
           ./Scripts/bundle.sh release
+
 
       - name: Verify no unsolicited network connection
         shell: bash

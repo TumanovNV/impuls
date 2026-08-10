@@ -352,6 +352,7 @@
 "MagSafe" = "MagSafe";
 "USB-C" = "USB-C";
 "External Power" = "External Power";
+"Not Connected" = "Not Connected";
 "Unknown" = "Unknown";
 "Temperature" = "Temperature";
 "Maximum Capacity" = "Maximum Capacity";
