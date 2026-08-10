@@ -4,29 +4,69 @@ import XCTest
 
 final class MusicSourceTests: XCTestCase {
     func testYandexAllowsServiceAndPassportButRejectsLookalikeHost() throws {
-        XCTAssertTrue(MusicSource.yandexMusic.allowsTopLevelNavigation(
+        XCTAssertTrue(MusicSource.yandexMusic.allowsMainFrameNavigation(
             to: try XCTUnwrap(URL(string: "https://music.yandex.ru/home"))
         ))
-        XCTAssertTrue(MusicSource.yandexMusic.allowsTopLevelNavigation(
+        XCTAssertTrue(MusicSource.yandexMusic.allowsMainFrameNavigation(
             to: try XCTUnwrap(URL(string: "https://passport.yandex.ru/auth"))
         ))
-        XCTAssertFalse(MusicSource.yandexMusic.allowsTopLevelNavigation(
+        XCTAssertFalse(MusicSource.yandexMusic.allowsMainFrameNavigation(
             to: try XCTUnwrap(URL(string: "https://yandex.ru.example.com/login"))
         ))
     }
 
-    func testWebSourcesRequireHTTPS() throws {
-        XCTAssertFalse(MusicSource.spotifyWeb.allowsTopLevelNavigation(
-            to: try XCTUnwrap(URL(string: "http://open.spotify.com"))
+    /// vk.com/audio hands an unauthenticated visitor to vk.ru, and YouTube Music
+    /// hands one to accounts.google.com. Both used to be dead ends.
+    func testSignInRedirectsStayInsideTheirProvider() throws {
+        XCTAssertTrue(MusicSource.vkMusic.allowsMainFrameNavigation(
+            to: try XCTUnwrap(URL(string: "https://vk.ru/?to=L2F1ZGlv"))
         ))
-        XCTAssertFalse(MusicSource.appleMusic.allowsTopLevelNavigation(
+        XCTAssertTrue(MusicSource.vkMusic.allowsMainFrameNavigation(
+            to: try XCTUnwrap(URL(string: "https://id.vk.com/auth"))
+        ))
+        XCTAssertTrue(MusicSource.youtubeMusic.allowsMainFrameNavigation(
+            to: try XCTUnwrap(URL(string: "https://accounts.google.com/ServiceLogin"))
+        ))
+        XCTAssertFalse(MusicSource.youtubeMusic.allowsMainFrameNavigation(
+            to: try XCTUnwrap(URL(string: "https://vk.com/audio"))
+        ))
+    }
+
+    /// A captcha or consent widget is a third-party subframe by design. Holding
+    /// subframes to the main-frame list is what left the sign-in pages blank.
+    func testSubframesAreNotHeldToTheMainFrameList() throws {
+        XCTAssertTrue(MusicSource.allowsSubframeNavigation(
+            to: try XCTUnwrap(URL(string: "https://www.google.com/recaptcha/api2/anchor"))
+        ))
+        XCTAssertTrue(MusicSource.allowsSubframeNavigation(
+            to: try XCTUnwrap(URL(string: "about:blank"))
+        ))
+        XCTAssertFalse(MusicSource.allowsSubframeNavigation(
+            to: try XCTUnwrap(URL(string: "file:///etc/passwd"))
+        ))
+    }
+
+    func testWebSourcesRequireHTTPS() throws {
+        XCTAssertFalse(MusicSource.youtubeMusic.allowsMainFrameNavigation(
+            to: try XCTUnwrap(URL(string: "http://music.youtube.com"))
+        ))
+        XCTAssertFalse(MusicSource.appleMusic.allowsMainFrameNavigation(
             to: try XCTUnwrap(URL(string: "https://music.apple.com"))
         ))
     }
 
+    /// about:blank is navigable — the failure page and popup shells use it —
+    /// but it must never be accepted as a source of playback state.
+    func testBlankPageMayLoadButMayNotReportState() throws {
+        let blank = try XCTUnwrap(URL(string: "about:blank"))
+        XCTAssertTrue(MusicSource.yandexMusic.allowsMainFrameNavigation(to: blank))
+        XCTAssertFalse(MusicSource.yandexMusic.allowsStateReport(from: blank))
+    }
+
     func testWebSnapshotIsBoundedAndClampsPosition() throws {
         let state = try XCTUnwrap(WebMusicState.decode([
-            "version": 1,
+            "version": 2,
+            "kind": "state",
             "page": "https://music.yandex.ru/home",
             "title": String(repeating: "Т", count: 700),
             "artist": "Исполнитель",
@@ -34,24 +74,101 @@ final class MusicSourceTests: XCTestCase {
             "duration": 180,
             "position": 500,
             "playing": true,
+            "artworkKey": "https://avatars.yandex.net/get-music-content/1/200x200",
         ], source: .yandexMusic))
 
         XCTAssertEqual(state.title.count, 512)
         XCTAssertEqual(state.position, 180)
         XCTAssertTrue(state.isPlaying)
+        XCTAssertEqual(state.artworkKey, "https://avatars.yandex.net/get-music-content/1/200x200")
     }
 
-    func testWebSnapshotRejectsAnotherProviderAndEmptyTrack() {
+    func testWebSnapshotRejectsAnotherProviderEmptyTrackAndOldVersion() {
         XCTAssertNil(WebMusicState.decode([
-            "version": 1,
-            "page": "https://open.spotify.com",
+            "version": 2,
+            "kind": "state",
+            "page": "https://music.youtube.com/",
             "title": "Track",
         ], source: .yandexMusic))
         XCTAssertNil(WebMusicState.decode([
-            "version": 1,
+            "version": 2,
+            "kind": "state",
             "page": "https://music.yandex.ru/home",
             "title": "",
         ], source: .yandexMusic))
+        XCTAssertNil(WebMusicState.decode([
+            "version": 1,
+            "kind": "state",
+            "page": "https://music.yandex.ru/home",
+            "title": "Track",
+        ], source: .yandexMusic))
+    }
+
+    func testArtworkPayloadIsBoundedAndOriginChecked() throws {
+        let bytes = Data([0xFF, 0xD8, 0xFF, 0xE0])
+        let artwork = try XCTUnwrap(WebMusicArtwork.decode([
+            "version": 2,
+            "kind": "artwork",
+            "page": "https://music.youtube.com/",
+            "key": "https://lh3.googleusercontent.com/cover",
+            "data": bytes.base64EncodedString(),
+        ], source: .youtubeMusic))
+        XCTAssertEqual(artwork.data, bytes)
+
+        XCTAssertNil(WebMusicArtwork.decode([
+            "version": 2,
+            "kind": "artwork",
+            "page": "https://music.youtube.com/",
+            "key": "https://lh3.googleusercontent.com/cover",
+            "data": String(repeating: "A", count: WebMusicArtwork.maximumEncodedCharacters + 4),
+        ], source: .youtubeMusic))
+
+        XCTAssertNil(WebMusicArtwork.decode([
+            "version": 2,
+            "kind": "artwork",
+            "page": "https://music.youtube.com/",
+            "key": "https://lh3.googleusercontent.com/cover",
+            "data": bytes.base64EncodedString(),
+        ], source: .yandexMusic))
+    }
+
+    /// The bridge's own status lines are bounded before they reach the log.
+    func testDiagnosticPayloadIsBoundedAndDistinctFromState() throws {
+        let diagnostic = try XCTUnwrap(WebMusicDiagnostic.decode([
+            "version": 2,
+            "kind": "diagnostic",
+            "level": "route",
+            "message": String(repeating: "x", count: 900),
+        ]))
+        XCTAssertEqual(diagnostic.level, "route")
+        XCTAssertEqual(diagnostic.message.count, 512)
+
+        XCTAssertNil(WebMusicDiagnostic.decode([
+            "version": 2, "kind": "diagnostic", "message": "",
+        ]))
+        XCTAssertNil(WebMusicDiagnostic.decode([
+            "version": 2,
+            "kind": "state",
+            "page": "https://music.yandex.ru/home",
+            "message": "not a diagnostic",
+        ]))
+    }
+
+    /// Spotify's web player decrypts through Widevine, which WebKit does not
+    /// implement, so it must not be offered as a source at all.
+    func testSpotifyIsNotOffered() {
+        XCTAssertNil(MusicSource(rawValue: "spotifyWeb"))
+        XCTAssertEqual(MusicSource.allCases.map(\.rawValue),
+                       ["appleMusic", "yandexMusic", "vkMusic", "youtubeMusic"])
+    }
+
+    /// The Safari token is what the providers sniff for. Without it the pages
+    /// render blank, which is the bug this release fixes.
+    @MainActor
+    func testUserAgentCarriesTheSafariToken() {
+        let token = WebMusicPlayer.safariUserAgentToken
+        XCTAssertTrue(token.hasPrefix("Version/"))
+        XCTAssertTrue(token.hasSuffix("Safari/605.1.15"))
     }
 
     @MainActor
@@ -69,5 +186,19 @@ final class MusicSourceTests: XCTestCase {
         XCTAssertEqual(restored.selectedSource, .yandexMusic)
         XCTAssertEqual(restored.emptyReason, .webPlayerNotOpen)
         XCTAssertFalse(restored.webPlayerWasOpened)
+    }
+
+    /// A stored source that no longer exists must fall back, not crash or leave
+    /// the pane pointing at a player Impuls cannot drive.
+    @MainActor
+    func testRemovedSourceFallsBackToAppleMusic() throws {
+        let suite = "MusicSourceTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        defaults.set("spotifyWeb", forKey: MediaController.selectedSourceKey)
+        let controller = MediaController(defaults: defaults)
+        XCTAssertEqual(controller.selectedSource, .appleMusic)
+        XCTAssertEqual(controller.emptyReason, .appleMusicNotRunning)
     }
 }

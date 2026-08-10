@@ -31,12 +31,17 @@ include user data, credentials, or exploit payloads in public discussions.
   Hardened Runtime bundle carries the explicit Apple Events Automation
   entitlement and macOS remains the permission authority;
 - web music is created only by the explicit Open Web Player action, uses the
-  system WebKit engine, allows top-level HTTPS navigation only within the
+  system WebKit engine, allows main-frame HTTPS navigation only within the
   selected provider and its authentication domains, and hands unrelated links
   to the default browser;
-- the page bridge accepts bounded playback metadata only from the currently
-  selected provider and never inspects passwords, cookies, or authentication
-  tokens;
+- subframes — captcha, consent and sign-in widgets — are allowed ordinary
+  HTTPS, because the bridge is installed for the main frame only and a subframe
+  therefore cannot reach Impuls at all;
+- the page bridge accepts bounded playback metadata only from an HTTPS page of
+  the currently selected provider and never inspects passwords, cookies, or
+  authentication tokens;
+- cover art is handed over by the page as bounded bytes and validated through
+  ImageIO; the application itself makes no request for it;
 - no embedded GitHub tokens or release credentials;
 - release credentials belong only in protected GitHub Actions secrets;
 - optional clipboard persistence uses AES-GCM and keeps the device-only archive
@@ -76,7 +81,11 @@ fix for durable TCC identity across releases.
 Web music depends on the provider's current HTML and Media Session behaviour.
 A provider can change its controls, authentication flow, playback policy, or
 WebKit support without notice. Impuls does not bypass DRM, subscriptions,
-regional restrictions, or provider access rules.
+regional restrictions, or provider access rules. Where a provider's playback
+depends on a DRM module WebKit does not implement — Spotify's web player and
+Widevine — the source is not offered rather than shipped as a tab that signs in
+but never plays. A provider may also refuse to sign a user in inside an
+embedded web view; Impuls surfaces that message instead of hiding it.
 
 The latest documented review is
-[`docs/audits/1.2.9-update-security.md`](docs/audits/1.2.9-update-security.md).
+[`docs/audits/1.3.1-web-music-boundary.md`](docs/audits/1.3.1-web-music-boundary.md).

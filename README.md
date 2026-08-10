@@ -103,11 +103,15 @@ exported to and restored from a local JSON backup.
 
 The Music pane now makes the source explicit. The native Apple Music adapter
 uses its scripting interface and player-change events, with Automation as its
-only music permission. Yandex Music is the first web choice, alongside VK Music,
-YouTube Music, and Spotify. Their official sites open in a separate system
+only music permission. Yandex Music is the first web choice, alongside VK Music
+and YouTube Music. Their official sites open in a separate system
 WebKit window only after the user presses **Open Web Player**; the notch then
 shows the page's bounded Media Session metadata and sends transport or seek
 actions back to that page. Selecting a source alone never starts a request.
+
+Spotify is deliberately not on that list: its web player decrypts through
+Widevine, which WebKit does not implement, so an embedded tab can sign in but
+never play.
 
 Impuls does not use unofficial catalogue APIs, copy audio, bypass a subscription
 or DRM, or claim access to the private system-wide Now Playing database.

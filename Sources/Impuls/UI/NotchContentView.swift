@@ -83,7 +83,7 @@ struct NotchContentView: View {
                 if vm.media.track != nil {
                     EqualizerBars(isAnimating: vm.media.isPlaying)
                 }
-                Text(vm.media.sourceName ?? "")
+                Text(vm.media.sourceName)
                     .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Theme.tertiary)
             }

@@ -39,6 +39,8 @@
 "Open the selected web player to sign in and choose music." = "Откройте выбранный веб-плеер, войдите в аккаунт и выберите музыку.";
 "Connecting to the selected web player…" = "Подключаем выбранный веб-плеер…";
 "Choose a track in %@." = "Выберите трек в %@.";
+"%@ could not be loaded." = "Не удалось загрузить %@.";
+"%@ could not be loaded: %@" = "Не удалось загрузить %@: %@";
 
 /* Заготовки */
 "Add a snippet" = "Добавить заготовку";
