@@ -59,32 +59,33 @@ func drawStatus(size s: CGFloat) -> NSBitmapImageRep {
     let ctx = NSGraphicsContext.current!.cgContext
     let k = s / 18
 
-    // At menu-bar size chrome and shadows become visual noise, so this keeps
-    // only the interlocking, rounded silhouette from the application icon.
-    let mark = CGMutablePath()
-    mark.move(to: CGPoint(x: 4.0 * k, y: 2.8 * k))
-    mark.addLine(to: CGPoint(x: 11.5 * k, y: 2.8 * k))
-    mark.addCurve(
-        to: CGPoint(x: 15.0 * k, y: 6.3 * k),
-        control1: CGPoint(x: 13.5 * k, y: 2.8 * k),
-        control2: CGPoint(x: 15.0 * k, y: 4.3 * k)
+    // The menu bar gets the essence of the brand rather than a miniature app
+    // icon: one rising, tapered pulse. A single unbroken silhouette preserves
+    // the upward movement at 18 points and avoids reading as a loop or spiral.
+    let pulse = CGMutablePath()
+    pulse.move(to: CGPoint(x: 2.15 * k, y: 2.25 * k))
+    pulse.addLine(to: CGPoint(x: 5.45 * k, y: 2.25 * k))
+    pulse.addCurve(
+        to: CGPoint(x: 15.75 * k, y: 15.75 * k),
+        control1: CGPoint(x: 9.15 * k, y: 2.25 * k),
+        control2: CGPoint(x: 13.65 * k, y: 8.35 * k)
     )
-    mark.addLine(to: CGPoint(x: 15.0 * k, y: 15.2 * k))
-    mark.move(to: CGPoint(x: 12.3 * k, y: 15.2 * k))
-    mark.addLine(to: CGPoint(x: 12.3 * k, y: 10.9 * k))
-    mark.addLine(to: CGPoint(x: 8.3 * k, y: 10.9 * k))
-    mark.addCurve(
-        to: CGPoint(x: 5.7 * k, y: 8.3 * k),
-        control1: CGPoint(x: 6.9 * k, y: 10.9 * k),
-        control2: CGPoint(x: 5.7 * k, y: 9.8 * k)
+    pulse.addLine(to: CGPoint(x: 15.75 * k, y: 12.35 * k))
+    pulse.addCurve(
+        to: CGPoint(x: 8.95 * k, y: 5.45 * k),
+        control1: CGPoint(x: 13.85 * k, y: 10.05 * k),
+        control2: CGPoint(x: 11.05 * k, y: 6.45 * k)
     )
-    mark.addLine(to: CGPoint(x: 5.7 * k, y: 2.8 * k))
-    ctx.addPath(mark)
-    ctx.setStrokeColor(CGColor(gray: 0, alpha: 1))
-    ctx.setLineWidth(2.35 * k)
-    ctx.setLineCap(.round)
-    ctx.setLineJoin(.round)
-    ctx.strokePath()
+    pulse.addCurve(
+        to: CGPoint(x: 5.45 * k, y: 4.45 * k),
+        control1: CGPoint(x: 7.55 * k, y: 4.75 * k),
+        control2: CGPoint(x: 6.35 * k, y: 4.45 * k)
+    )
+    pulse.addLine(to: CGPoint(x: 2.15 * k, y: 4.45 * k))
+    pulse.closeSubpath()
+    ctx.addPath(pulse)
+    ctx.setFillColor(CGColor(gray: 0, alpha: 1))
+    ctx.fillPath()
 
     NSGraphicsContext.restoreGraphicsState()
     return rep
