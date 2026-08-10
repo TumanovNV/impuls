@@ -133,30 +133,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let fallback = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
-            let mark = CGMutablePath()
-            mark.move(to: CGPoint(x: 4.0, y: 2.8))
-            mark.addLine(to: CGPoint(x: 11.5, y: 2.8))
-            mark.addCurve(
-                to: CGPoint(x: 15.0, y: 6.3),
-                control1: CGPoint(x: 13.5, y: 2.8),
-                control2: CGPoint(x: 15.0, y: 4.3)
+            // Match the generated template when the bundled PNG is unavailable.
+            // The one-piece rising pulse stays legible at menu-bar scale.
+            let pulse = CGMutablePath()
+            pulse.move(to: CGPoint(x: 2.15, y: 2.25))
+            pulse.addLine(to: CGPoint(x: 5.45, y: 2.25))
+            pulse.addCurve(
+                to: CGPoint(x: 15.75, y: 15.75),
+                control1: CGPoint(x: 9.15, y: 2.25),
+                control2: CGPoint(x: 13.65, y: 8.35)
             )
-            mark.addLine(to: CGPoint(x: 15.0, y: 15.2))
-            mark.move(to: CGPoint(x: 12.3, y: 15.2))
-            mark.addLine(to: CGPoint(x: 12.3, y: 10.9))
-            mark.addLine(to: CGPoint(x: 8.3, y: 10.9))
-            mark.addCurve(
-                to: CGPoint(x: 5.7, y: 8.3),
-                control1: CGPoint(x: 6.9, y: 10.9),
-                control2: CGPoint(x: 5.7, y: 9.8)
+            pulse.addLine(to: CGPoint(x: 15.75, y: 12.35))
+            pulse.addCurve(
+                to: CGPoint(x: 8.95, y: 5.45),
+                control1: CGPoint(x: 13.85, y: 10.05),
+                control2: CGPoint(x: 11.05, y: 6.45)
             )
-            mark.addLine(to: CGPoint(x: 5.7, y: 2.8))
-            context.addPath(mark)
-            context.setStrokeColor(CGColor(gray: 0, alpha: 1))
-            context.setLineWidth(2.35)
-            context.setLineCap(.round)
-            context.setLineJoin(.round)
-            context.strokePath()
+            pulse.addCurve(
+                to: CGPoint(x: 5.45, y: 4.45),
+                control1: CGPoint(x: 7.55, y: 4.75),
+                control2: CGPoint(x: 6.35, y: 4.45)
+            )
+            pulse.addLine(to: CGPoint(x: 2.15, y: 4.45))
+            pulse.closeSubpath()
+            context.addPath(pulse)
+            context.setFillColor(CGColor(gray: 0, alpha: 1))
+            context.fillPath()
             return true
         }
         fallback.isTemplate = true
