@@ -19,6 +19,24 @@ final class SettingsStoreTests: XCTestCase {
         }
     }
 
+    func testPowerModuleMigrationAppendsWithoutChangingExistingOrderOrEnablement() async {
+        await MainActor.run {
+            let legacyTabs = NotchViewModel.Tab.allCases.filter { $0 != .power }
+            let supplied = legacyTabs.enumerated().map { index, tab in
+                ModulePreference(tab: tab, isEnabled: index.isMultiple(of: 2))
+            }
+
+            let normalized = SettingsStore.normalizedModules(supplied)
+
+            XCTAssertEqual(Array(normalized.dropLast().map(\.tab)), legacyTabs)
+            XCTAssertEqual(
+                Array(normalized.dropLast().map(\.isEnabled)),
+                supplied.map(\.isEnabled)
+            )
+            XCTAssertEqual(normalized.last, ModulePreference(tab: .power, isEnabled: true))
+        }
+    }
+
     func testAtLeastOneModuleAlwaysRemainsEnabled() async {
         await MainActor.run {
             let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"

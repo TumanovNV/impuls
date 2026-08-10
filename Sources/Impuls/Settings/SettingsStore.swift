@@ -195,6 +195,9 @@ final class SettingsStore: ObservableObject {
     @Published private(set) var excludedClipboardBundleIdentifiers: [String] { didSet { persist() } }
     @Published private(set) var displays: [DisplayOption] = []
     @Published private(set) var hotKeyError: String?
+    /// Runtime-only presentation state. It intentionally is not persisted: the
+    /// same backup can be restored on a MacBook or a desktop Mac.
+    @Published private(set) var powerDeviceKind: PowerDeviceKind?
 
     private let defaults: UserDefaults
     private var isApplying = false
@@ -218,6 +221,7 @@ final class SettingsStore: ObservableObject {
             snapshot.excludedClipboardBundleIdentifiers
         )
         hotKeyError = nil
+        powerDeviceKind = nil
         refreshDisplays()
     }
 
@@ -251,6 +255,21 @@ final class SettingsStore: ObservableObject {
         let destination = source + offset
         guard modules.indices.contains(destination) else { return }
         modules.swapAt(source, destination)
+    }
+
+    func setPowerDeviceKind(_ kind: PowerDeviceKind) {
+        guard powerDeviceKind != kind else { return }
+        powerDeviceKind = kind
+    }
+
+    func moduleTitle(for tab: NotchViewModel.Tab) -> String {
+        guard tab == .power else { return tab.title }
+        return powerDeviceKind == .portable ? localized("Battery") : localized("Power")
+    }
+
+    func moduleSymbol(for tab: NotchViewModel.Tab) -> String {
+        guard tab == .power else { return tab.symbol }
+        return powerDeviceKind == .portable ? "battery.100percent" : "bolt.fill"
     }
 
     func excludeClipboardApp(bundleIdentifier: String) {

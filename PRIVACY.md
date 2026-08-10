@@ -76,6 +76,10 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
   snippets, and notes; Impuls never uploads it.
 - Impuls Actions searches the live clipboard, snippet, and note stores locally;
   it creates no separate search database and sends no query or result anywhere.
+- the Battery / Power module reads live power state locally from macOS public
+  IOPowerSources and, when available, a cycle-count value from the local
+  IORegistry. It stores no power telemetry, adapter identifiers, or hardware
+  serial numbers and sends none of this information anywhere;
 - OCR, background removal, image conversion, resizing, and PDF creation run on
   the Mac with Apple system frameworks. Impuls does not upload source files or
   generated files. Sharing occurs only when the user explicitly chooses AirDrop
