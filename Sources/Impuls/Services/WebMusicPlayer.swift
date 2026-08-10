@@ -594,13 +594,25 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
 
     // MARK: - Bridge messages
 
+    static func acceptsBridgeMessage(
+        source: MusicSource,
+        mainPageURL: URL?,
+        isMainFrame: Bool
+    ) -> Bool {
+        guard isMainFrame, let mainPageURL else { return false }
+        return source.allowsStateReport(from: mainPageURL)
+    }
+
     fileprivate func receive(_ message: WKScriptMessage) {
         guard message.name == "impulsMusic",
               let source,
               let webView = message.webView,
               !isPopup(webView),
-              let pageURL = webView.url,
-              source.allowsStateReport(from: pageURL) else { return }
+              Self.acceptsBridgeMessage(
+                  source: source,
+                  mainPageURL: webView.url,
+                  isMainFrame: message.frameInfo.isMainFrame
+              ) else { return }
 
         if let diagnostic = WebMusicDiagnostic.decode(message.body) {
             NSLog("Impuls: web music page \(diagnostic.level): \(diagnostic.message)")
@@ -627,7 +639,10 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
         evaluate("window.__impulsMusicBridge?.artwork()")
     }
 
-    private static let bridgeScript = #"""
+    /// Internal so the test suite can compile the complete embedded program
+    /// with JavaScriptCore. Swift treats it as an ordinary string and cannot
+    /// otherwise catch a JavaScript syntax error before WebKit injection.
+    static let bridgeScript = #"""
     (() => {
       if (window.__impulsMusicBridge) return;
 

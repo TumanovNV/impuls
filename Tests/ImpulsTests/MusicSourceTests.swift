@@ -1,5 +1,8 @@
 import Foundation
 import XCTest
+#if canImport(JavaScriptCore)
+import JavaScriptCore
+#endif
 @testable import ImpulsCore
 
 final class MusicSourceTests: XCTestCase {
@@ -152,6 +155,47 @@ final class MusicSourceTests: XCTestCase {
             "page": "https://music.yandex.ru/home",
             "message": "not a diagnostic",
         ]))
+    }
+
+    /// WKUserScript's main-frame flag controls where the bridge program is
+    /// installed, not where a named message handler is visible. The native
+    /// receiver must enforce the frame boundary independently.
+    @MainActor
+    func testBridgeAcceptsOnlyTheSelectedProviderMainFrame() throws {
+        let page = try XCTUnwrap(URL(string: "https://music.yandex.ru/home"))
+        XCTAssertTrue(WebMusicPlayer.acceptsBridgeMessage(
+            source: .yandexMusic,
+            mainPageURL: page,
+            isMainFrame: true
+        ))
+        XCTAssertFalse(WebMusicPlayer.acceptsBridgeMessage(
+            source: .yandexMusic,
+            mainPageURL: page,
+            isMainFrame: false
+        ))
+        XCTAssertFalse(WebMusicPlayer.acceptsBridgeMessage(
+            source: .youtubeMusic,
+            mainPageURL: page,
+            isMainFrame: true
+        ))
+    }
+
+    /// The bridge is embedded in Swift as a raw string, so Swift compilation
+    /// alone cannot detect a malformed JavaScript edit.
+    @MainActor
+    func testBridgeScriptParsesAsJavaScript() throws {
+        #if canImport(JavaScriptCore)
+        let context = try XCTUnwrap(JSContext())
+        context.setObject(
+            WebMusicPlayer.bridgeScript,
+            forKeyedSubscript: "impulsBridgeSource" as NSString
+        )
+        let function = context.evaluateScript("new Function(impulsBridgeSource)")
+        XCTAssertNil(context.exception, context.exception?.toString() ?? "JavaScript syntax error")
+        XCTAssertFalse(try XCTUnwrap(function).isUndefined)
+        #else
+        XCTFail("JavaScriptCore is required on the supported macOS platform")
+        #endif
     }
 
     /// Spotify's web player decrypts through Widevine, which WebKit does not

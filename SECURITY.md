@@ -35,8 +35,8 @@ include user data, credentials, or exploit payloads in public discussions.
   selected provider and its authentication domains, and hands unrelated links
   to the default browser;
 - subframes — captcha, consent and sign-in widgets — are allowed ordinary
-  HTTPS, because the bridge is installed for the main frame only and a subframe
-  therefore cannot reach Impuls at all;
+  HTTPS; the native receiver independently requires `frameInfo.isMainFrame`,
+  so a subframe cannot submit state, artwork or diagnostics to Impuls;
 - the page bridge accepts bounded playback metadata only from an HTTPS page of
   the currently selected provider and never inspects passwords, cookies, or
   authentication tokens;
