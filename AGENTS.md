@@ -59,9 +59,10 @@ workflow before arguing with this list.
 9. **Feedback collects nothing.** `FeedbackService.swift` may not reference
    `URLSession`, `URLRequest`, `IOKit`, `IOPlatformSerialNumber`, `hostName` or
    `machineIdentifier`. It opens a prefilled GitHub issue in the browser.
-10. **Sparkle is opt-in and verified.** Automatic checks, automatic updates and
-    system profiling are all `false` in `Info.plist`; signed feed and
-    verify-before-extraction are `true`. Do not relax these.
+10. **Sparkle is opt-in and verified.** Automatic checks and automatic installation
+    both default to `false`; system profiling is always `false`. A user may enable
+    automatic installation only after opting into update checks in Settings. Signed
+    feed and verify-before-extraction are always `true`.
 11. **Bounded reads everywhere.** Files and pasteboard payloads go through
     `BoundedFileReader`, `BoundedData` and `BoundedText`. Search input is capped at
     16 KiB, calendar scanning at 32 KiB, artwork at 16 MiB.
