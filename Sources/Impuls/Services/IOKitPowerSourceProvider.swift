@@ -50,7 +50,10 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
             return .unavailableDesktop
         }
 
-        let providing = providingPowerSource(from: IOPSGetProvidingPowerSourceType(info) as String?)
+        let providing = providingPowerSource(
+            from: IOPSGetProvidingPowerSourceType(info)
+                .map { $0.takeUnretainedValue() as String }
+        )
         let adapterPower = externalAdapterWatts()
 
         for source in sources {
