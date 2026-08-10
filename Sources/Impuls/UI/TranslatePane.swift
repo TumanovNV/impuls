@@ -48,14 +48,17 @@ struct TranslatePane: View {
         .translationTask(configuration) { session in
             await translator.run(session)
         }
-        .onAppear { focused = wantsKeyboard }
+        .onAppear {
+            focused = wantsKeyboard
+            translator.loadSupportedLanguages()
+        }
         .onChange(of: wantsKeyboard) { _, wants in focused = wants }
     }
 
     // MARK: - Left
 
     private func source(_ font: CGFloat) -> some View {
-        column(Translator.name(translator.route.source)) {
+        column(translator.route.source) {
             if !translator.input.isEmpty {
                 Button { translator.reset() } label: {
                     Image(systemName: "xmark")
@@ -102,7 +105,7 @@ struct TranslatePane: View {
     // MARK: - Right
 
     private func result(_ font: CGFloat) -> some View {
-        column(Translator.name(translator.route.target)) {
+        column(translator.route.target) {
             if !translator.output.isEmpty {
                 Button {
                     translator.copyOutput()
@@ -135,6 +138,7 @@ struct TranslatePane: View {
                         Button("Translation Languages…") { Translator.openLanguageSettings() }
                     }
                     Button("Retry") { translator.retry() }
+                    Button("Swap Languages") { translator.swap() }
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 10, weight: .medium))
@@ -195,16 +199,13 @@ struct TranslatePane: View {
     // MARK: - Shared
 
     private func column<Accessory: View, Content: View>(
-        _ title: String,
+        _ language: Locale.Language,
         @ViewBuilder accessory: () -> Accessory,
         @ViewBuilder content: () -> Content
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Text(title.uppercased())
-                    .font(.system(size: 9, weight: .semibold))
-                    .tracking(0.8)
-                    .foregroundStyle(Theme.tertiary)
+                languageMenu(for: language)
                 Spacer(minLength: 4)
                 accessory()
             }
@@ -213,6 +214,64 @@ struct TranslatePane: View {
             content()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    /// The column heading is the control. There is no room in the panel for a
+    /// row of pickers above two columns that are already short, and the heading
+    /// was already naming the language it would now let you change.
+    private func languageMenu(for language: Locale.Language) -> some View {
+        Menu {
+            Button(localized("Swap Languages"), action: translator.swap)
+            Divider()
+            ForEach(translator.supported, id: \.maximalIdentifier) { candidate in
+                let readiness = translator.readiness(choosing: candidate, replacing: language)
+                Button {
+                    translator.select(candidate, replacing: language)
+                } label: {
+                    entry(candidate, current: language, readiness: readiness)
+                }
+                // macOS translates a pair, not a language, and most of its
+                // pairs run through English. A language it cannot pair with the
+                // other side is shown greyed rather than hidden — the point is
+                // that the user can see it was considered.
+                .disabled(readiness == .unsupported)
+            }
+        } label: {
+            HStack(spacing: 3) {
+                Text(Translator.name(language).uppercased())
+                    .font(.system(size: 9, weight: .semibold))
+                    .tracking(0.8)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 6, weight: .bold))
+            }
+            .foregroundStyle(Theme.tertiary)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+    }
+
+    /// A tick for the language already shown, a download mark for a pair whose
+    /// pack is still missing, and nothing for one that is ready. Without the
+    /// middle mark every choice looks equally usable, and none of the packs
+    /// ships installed.
+    @ViewBuilder
+    private func entry(
+        _ candidate: Locale.Language,
+        current: Locale.Language,
+        readiness: Translator.Readiness
+    ) -> some View {
+        let name = Translator.name(candidate)
+        if Translator.same(candidate, current) {
+            Label(name, systemImage: "checkmark")
+        } else {
+            switch readiness {
+            case .installed: Text(name)
+            case .downloadable: Label(name, systemImage: "arrow.down.circle")
+            case .unsupported: Text(name)
+            }
+        }
     }
 
     // MARK: - Scheduling
@@ -229,8 +288,14 @@ struct TranslatePane: View {
         try? await Task.sleep(for: .milliseconds(320))
         guard !Task.isCancelled else { return }
 
-        let route = Translator.route(for: text)
-        if var current = configuration, current.source == route.source, current.target == route.target {
+        let route = translator.route(for: text)
+        // Compared by language, not by identity: the framework hands the
+        // configuration back with its own resolved value — "en-US" for the
+        // "en" it was given — so an exact comparison never matches and a fresh
+        // session gets built on every keystroke.
+        if var current = configuration,
+           let source = current.source, let target = current.target,
+           Translator.same(source, route.source), Translator.same(target, route.target) {
             // Same pair, different text. The modifier only re-runs when the
             // configuration changes, and invalidating is how one says "again".
             current.invalidate()
