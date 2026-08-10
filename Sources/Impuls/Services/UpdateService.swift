@@ -37,13 +37,21 @@ final class UpdateService {
         consent != .allowed || updaterController.updater.canCheckForUpdates
     }
 
+    var automaticUpdatesEnabled: Bool {
+        updaterController.updater.automaticallyDownloadsUpdates
+    }
+
+    var canAutomaticallyUpdate: Bool {
+        consent == .allowed && updaterController.updater.allowsAutomaticUpdates
+    }
+
     func requestConsentIfNeeded() {
         guard consent == .unknown,
               ProcessInfo.processInfo.environment["CI"] != "true" else { return }
 
         let alert = NSAlert()
         alert.messageText = localized("Allow Impuls to check for updates?")
-        alert.informativeText = localized("If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action.")
+        alert.informativeText = localized("If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. Updates require your action unless you later enable automatic installation in Settings.")
         alert.addButton(withTitle: localized("Allow Update Checks"))
         alert.addButton(withTitle: localized("Do Not Check"))
 
@@ -57,7 +65,15 @@ final class UpdateService {
     func setNetworkAccess(_ allowed: Bool) {
         UserDefaults.standard.set(true, forKey: Self.decisionRecordedKey)
         UserDefaults.standard.removeObject(forKey: Self.legacyConsentKey)
+        if !allowed {
+            updaterController.updater.automaticallyDownloadsUpdates = false
+        }
         updaterController.updater.automaticallyChecksForUpdates = allowed
+    }
+
+    func setAutomaticUpdates(_ enabled: Bool) {
+        guard consent == .allowed else { return }
+        updaterController.updater.automaticallyDownloadsUpdates = enabled
     }
 
     func checkForUpdates() {
