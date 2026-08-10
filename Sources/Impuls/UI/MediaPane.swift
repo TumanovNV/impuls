@@ -265,6 +265,11 @@ struct MediaPane: View {
             return localized("Connecting to the selected web player…")
         case .webPlayerIdle:
             return localized("Choose a track in %@.", media.sourceName)
+        case .webPlayerFailed:
+            guard let error = media.webPlayerError else {
+                return localized("%@ could not be loaded.", media.sourceName)
+            }
+            return localized("%@ could not be loaded: %@", media.sourceName, error)
         }
     }
 
@@ -278,12 +283,14 @@ struct MediaPane: View {
             return localized("Open Web Player")
         case .webPlayerLoading, .webPlayerIdle:
             return localized("Show Web Player")
+        case .webPlayerFailed:
+            return localized("Try Again")
         }
     }
 
     private func primaryEmptyAction() {
         switch media.emptyReason {
-        case .appleMusicUnreadable:
+        case .appleMusicUnreadable, .webPlayerFailed:
             media.retry()
         case .appleMusicNotRunning, .appleMusicIdle, .webPlayerNotOpen, .webPlayerLoading, .webPlayerIdle:
             media.openSelectedSource()

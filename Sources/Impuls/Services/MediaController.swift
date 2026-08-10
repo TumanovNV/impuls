@@ -19,6 +19,7 @@ final class MediaController: ObservableObject {
         case webPlayerNotOpen
         case webPlayerLoading
         case webPlayerIdle
+        case webPlayerFailed
     }
 
     static let selectedSourceKey = "music.selectedSource.v1"
@@ -32,6 +33,9 @@ final class MediaController: ObservableObject {
     @Published private(set) var accessIssue: PlayerAccessIssue?
     @Published private(set) var emptyReason: EmptyReason
     @Published private(set) var isLoading = false
+    /// What WebKit reported when a provider page refused to load, so the pane
+    /// can say why instead of showing an empty card.
+    @Published private(set) var webPlayerError: String?
 
     var sourceName: String { selectedSource.displayName }
     var canSeek: Bool { track != nil && duration > 0 }
@@ -150,6 +154,7 @@ final class MediaController: ObservableObject {
 
         let player = webPlayer ?? makeWebPlayer()
         isLoading = true
+        webPlayerError = nil
         emptyReason = .webPlayerLoading
         player.show(source: selectedSource)
     }
@@ -157,6 +162,10 @@ final class MediaController: ObservableObject {
     func retry() {
         if selectedSource == .appleMusic {
             refreshFromAppleMusic()
+        } else if emptyReason == .webPlayerFailed {
+            // A failed load leaves the window on the local error page, so the
+            // retry has to start the provider page again, not reload that.
+            openSelectedSource()
         } else if webPlayerWasOpened {
             webPlayer?.requestSnapshot()
         } else {
@@ -310,13 +319,29 @@ final class MediaController: ObservableObject {
             guard let self, self.selectedSource == source else { return }
             self.isLoading = false
             guard let state else {
-                self.clear(reason: .webPlayerIdle)
+                self.clear(reason: self.emptyReason == .webPlayerFailed
+                    ? .webPlayerFailed
+                    : .webPlayerIdle)
                 return
             }
             self.adopt(state, source: source)
         }
+        player.onArtwork = { [weak self] source, key, image in
+            guard let self, self.selectedSource == source,
+                  self.artworkKey == Self.artworkKey(source: source, cover: key) else { return }
+            self.artwork = image
+        }
+        player.onFailure = { [weak self] source, message in
+            guard let self, self.selectedSource == source else { return }
+            self.webPlayerError = String(message.prefix(200))
+            self.clear(reason: .webPlayerFailed)
+        }
         webPlayer = player
         return player
+    }
+
+    private static func artworkKey(source: MusicSource, cover: String) -> String? {
+        cover.isEmpty ? nil : "\(source.rawValue)|cover|\(cover)"
     }
 
     // MARK: - Shared presentation state
@@ -351,21 +376,27 @@ final class MediaController: ObservableObject {
     }
 
     private func adopt(_ state: WebMusicState, source: MusicSource) {
-        let key = "\(source.rawValue)|\(state.key)"
         accessIssue = nil
         emptyReason = .webPlayerIdle
+        webPlayerError = nil
         track = Track(
             title: state.title,
             artist: state.artist,
             album: state.album,
-            key: key
+            key: "\(source.rawValue)|\(state.key)"
         )
-        artwork = nil
-        artworkKey = key
         isPlaying = state.isPlaying
         duration = state.duration
         settlePosition(state.position)
         updateTicker()
+
+        // The cover is keyed by the image the page is showing, not by the
+        // track: a page can swap one without the other, and reloading on every
+        // snapshot would make the card flicker once a second.
+        let cover = Self.artworkKey(source: source, cover: state.artworkKey)
+        guard artworkKey != cover else { return }
+        artworkKey = cover
+        artwork = nil
     }
 
     private func settlePosition(_ reported: TimeInterval) {
@@ -392,6 +423,7 @@ final class MediaController: ObservableObject {
         pendingSeek = nil
         isLoading = reason == .webPlayerLoading
         emptyReason = reason
+        if reason != .webPlayerFailed { webPlayerError = nil }
         if !preservingAccessIssue { accessIssue = nil }
         updateTicker()
     }

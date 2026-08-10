@@ -3,12 +3,16 @@ import Foundation
 /// A source is selected explicitly inside the Music pane. Native playback is
 /// kept separate from web playback so Impuls never guesses which of several
 /// simultaneously running players the user intended to control.
+///
+/// Spotify is intentionally absent. Its web player decrypts audio through
+/// Widevine, which WebKit does not implement, so an embedded Spotify tab can
+/// authenticate but never play. Shipping a source that cannot produce sound is
+/// worse than not shipping it.
 enum MusicSource: String, CaseIterable, Identifiable {
     case appleMusic
     case yandexMusic
     case vkMusic
     case youtubeMusic
-    case spotifyWeb
 
     var id: String { rawValue }
 
@@ -18,7 +22,6 @@ enum MusicSource: String, CaseIterable, Identifiable {
         case .yandexMusic: return "Яндекс Музыка"
         case .vkMusic: return "VK Музыка"
         case .youtubeMusic: return "YouTube Music"
-        case .spotifyWeb: return "Spotify"
         }
     }
 
@@ -28,7 +31,6 @@ enum MusicSource: String, CaseIterable, Identifiable {
         case .yandexMusic: return "waveform"
         case .vkMusic: return "person.2.wave.2"
         case .youtubeMusic: return "play.rectangle.fill"
-        case .spotifyWeb: return "dot.radiowaves.left.and.right"
         }
     }
 
@@ -38,32 +40,41 @@ enum MusicSource: String, CaseIterable, Identifiable {
         switch self {
         case .appleMusic: return nil
         case .yandexMusic: return URL(string: "https://music.yandex.ru/home")
-        case .vkMusic: return URL(string: "https://vk.com/music")
-        case .youtubeMusic: return URL(string: "https://music.youtube.com")
-        case .spotifyWeb: return URL(string: "https://open.spotify.com")
+        case .vkMusic: return URL(string: "https://vk.com/audio")
+        case .youtubeMusic: return URL(string: "https://music.youtube.com/")
         }
     }
 
-    /// Top-level navigation is intentionally narrower than subresource access.
-    /// It keeps an authentication redirect inside the chosen provider while an
-    /// unrelated link is handed to the user's default browser.
-    func allowsTopLevelNavigation(to url: URL) -> Bool {
+    // MARK: - Navigation boundary
+
+    /// The main frame is what the metadata bridge reads, so it is held to the
+    /// provider's own domains plus the sign-in hosts that provider redirects
+    /// to. An unrelated link is handed to the default browser instead.
+    func allowsMainFrameNavigation(to url: URL) -> Bool {
         if url.absoluteString == "about:blank" { return true }
         guard isWeb, url.scheme?.lowercased() == "https", let host = url.host?.lowercased() else {
             return false
         }
-        return allowedExactHosts.contains(host) || allowedHostSuffixes.contains { suffix in
+        return allowedHostSuffixes.contains { suffix in
             host == suffix || host.hasSuffix(".\(suffix)")
         }
     }
 
-    private var allowedExactHosts: [String] {
-        switch self {
-        case .youtubeMusic:
-            return ["accounts.google.com", "consent.google.com"]
-        default:
-            return []
+    /// Subframes are a different question. A captcha widget, a consent frame or
+    /// an analytics pixel lives on a third-party host by design, and blocking
+    /// those is what left the sign-in pages blank. A subframe cannot reach the
+    /// Impuls message handler — the bridge script is injected into the main
+    /// frame only — so the boundary that matters is still enforced above.
+    static func allowsSubframeNavigation(to url: URL) -> Bool {
+        switch url.scheme?.lowercased() {
+        case "https", "about", "blob", "data": return true
+        default: return false
         }
+    }
+
+    /// Only a real provider page may deliver playback state.
+    func allowsStateReport(from url: URL) -> Bool {
+        url.scheme?.lowercased() == "https" && allowsMainFrameNavigation(to: url)
     }
 
     private var allowedHostSuffixes: [String] {
@@ -71,13 +82,23 @@ enum MusicSource: String, CaseIterable, Identifiable {
         case .appleMusic:
             return []
         case .yandexMusic:
-            return ["yandex.ru", "ya.ru"]
+            // music.yandex.* is the service; passport.yandex.* and ya.ru carry
+            // the Yandex ID sign-in flow.
+            return [
+                "yandex.ru", "yandex.com", "yandex.by", "yandex.kz",
+                "yandex.com.tr", "yandex.net", "ya.ru",
+            ]
         case .vkMusic:
-            return ["vk.com", "vk.ru"]
+            // vk.com/audio redirects to vk.ru for sign-in, and VK ID lives on
+            // id.vk.com / id.vk.ru, both covered by the suffixes below.
+            return ["vk.com", "vk.ru", "vk.me", "vkvideo.ru"]
         case .youtubeMusic:
-            return ["youtube.com"]
-        case .spotifyWeb:
-            return ["spotify.com"]
+            // YouTube Music authenticates through the Google account hosts:
+            // accounts.google.com, consent.google.com and myaccount.google.com.
+            return [
+                "youtube.com", "youtube-nocookie.com",
+                "google.com", "googleusercontent.com",
+            ]
         }
     }
 }

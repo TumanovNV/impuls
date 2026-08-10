@@ -30,7 +30,7 @@ installation are disabled.
 Web music is a separate, user-initiated network boundary. Choosing a source in
 the Music pane is local and performs no request. Only the explicit **Open Web
 Player** action creates a system `WKWebView` and opens the selected provider's
-official HTTPS site: Yandex Music, VK Music, YouTube Music, or Spotify. The site
+official HTTPS site: Yandex Music, VK Music, or YouTube Music. The site
 receives the ordinary connection data it would receive in a browser, including
 the IP address, TLS/HTTP metadata, cookies, and the WebKit User-Agent. Its own
 privacy policy and subscription terms apply.

@@ -695,7 +695,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
                   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6v12l9-6zM15 6h2v12h-2z"/></svg>
                 </div>
               </div>
-              <div class="actionbar"><span class="chip sm" data-i="p1">Apple Music и Яндекс Музыка — явный выбор источника</span><span class="chip sm" data-i="p2">VK, YouTube Music и Spotify — через WebKit</span></div>
+              <div class="actionbar"><span class="chip sm" data-i="p1">Apple Music и Яндекс Музыка — явный выбор источника</span><span class="chip sm" data-i="p2">VK и YouTube Music — через WebKit</span></div>
             </div>
             <!-- shelf -->
             <div class="pane" data-p="shelf">
@@ -841,7 +841,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     </div>
     <div class="grid g4">
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div><h3 data-i="mod1">Actions</h3><p data-i="mod1d">Один поиск по истории буфера, заготовкам и заметкам с действиями прямо из результата.</p></div>
-      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l12-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><h3 data-i="mod2">Плеер</h3><p data-i="mod2d">Apple Music нативно; Яндекс Музыка, VK, YouTube Music и Spotify — через официальные сайты в WebKit.</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l12-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><h3 data-i="mod2">Плеер</h3><p data-i="mod2d">Apple Music нативно; Яндекс Музыка, VK и YouTube Music — через официальные сайты в WebKit.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><h3 data-i="mod3">Полка файлов</h3><p data-i="mod3d">Перенос файлов между окнами, OCR, удаление фона, конвертация изображений, PDF, AirDrop и безопасное переименование.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="3" width="13" height="14" rx="2.5"/><path d="M16 21H5a2 2 0 0 1-2-2V8" stroke-linecap="round"/></svg></div><h3 data-i="mod4">История буфера</h3><p data-i="mod4d">Возврат к тому, что скопировали час назад. Скрытые записи менеджеров паролей исключены.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v17l-7-4-7 4z"/></svg></div><h3 data-i="mod5">Заготовки</h3><p data-i="mod5d">Часто повторяемые тексты и команды — вставляются без поиска по переписке.</p></div>
@@ -945,7 +945,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
       <details><summary><span data-i="q3">Почему приложение не из App Store и не нотаризовано?</span><span class="pm"></span></summary>
         <p data-i="q3a">Публичная сборка пока подписана ad-hoc и не нотаризована Apple, поэтому первая установка требует ручного подтверждения Gatekeeper. Impuls не обходит эту защиту. Начиная с 1.2.9, дальнейшие обновления устанавливаются внутри приложения после проверки подписанного feed и архива; Developer ID уберёт именно первый ручной барьер.</p></details>
       <details><summary><span data-i="q4">Какие музыкальные источники поддерживает Impuls?</span><span class="pm"></span></summary>
-        <p data-i="q4a">Источник выбирается прямо во вкладке. Apple Music работает через нативный адаптер. Яндекс Музыка, VK Музыка, YouTube Music и Spotify открываются официальными сайтами в отдельном окне WebKit; панель получает ограниченные Media Session-метаданные и управляет страницей. Неофициальные API, токены и private-фреймворки не используются.</p></details>
+        <p data-i="q4a">Источник выбирается прямо во вкладке. Apple Music работает через нативный адаптер. Яндекс Музыка, VK Музыка и YouTube Music открываются официальными сайтами в отдельном окне WebKit; панель получает ограниченные Media Session-метаданные и управляет страницей. Неофициальные API, токены и private-фреймворки не используются.</p></details>
       <details><summary><span data-i="q5">Что происходит с моими данными при переустановке?</span><span class="pm"></span></summary>
         <p data-i="q5a">Настройки, заметки и заготовки экспортируются в локальный JSON-файл и восстанавливаются из него. Резервные копии формата 1.1 читаются версией 1.2 — порядок модулей мигрирует автоматически, новый модуль Actions добавляется в существующую конфигурацию.</p></details>
       <details><summary><span data-i="q6">Сколько это стоит и можно ли собрать самому?</span><span class="pm"></span></summary>
@@ -996,7 +996,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
         <a href="https://github.com/TumanovNV/impuls/issues/new/choose" data-conversion="feedback" data-placement="footer" data-i="ft.iss">Обратная связь</a>
       </div>
     </div>
-    <p class="fnote" data-i="ft.note">Impuls происходит от проекта akalikbergenov/cyclop. MIT-части сохраняют своё уведомление в THIRD_PARTY_NOTICES.md, новая работа распространяется под GPL-3.0-or-later. Лицензия на код не даёт прав на имя и оформление Impuls — см. TRADEMARKS.md. Названия Apple Music, Яндекс Музыка, VK Музыка, YouTube Music и Spotify принадлежат соответствующим правообладателям.</p>
+    <p class="fnote" data-i="ft.note">Impuls происходит от проекта akalikbergenov/cyclop. MIT-части сохраняют своё уведомление в THIRD_PARTY_NOTICES.md, новая работа распространяется под GPL-3.0-or-later. Лицензия на код не даёт прав на имя и оформление Impuls — см. TRADEMARKS.md. Названия Apple Music, Яндекс Музыка, VK Музыка и YouTube Music принадлежат соответствующим правообладателям.</p>
   </div>
 </footer>
 
@@ -1022,7 +1022,7 @@ const I = {
   "r1":"https://github.com/TumanovNV/impuls/releases",
   "c1":"Copy","c2":"To snippets","c3":"To notes","c4":"Translate",
   "ar.q":"release",
-  "p1":"Apple Music and Yandex Music — explicit source choice","p2":"VK, YouTube Music, and Spotify — through WebKit",
+  "p1":"Apple Music and Yandex Music — explicit source choice","p2":"VK and YouTube Music — through WebKit",
   "s.drop":"Drop files here","s1":"Files wait on the shelf between apps","s2":"Drag in and out",
   "w1":"2 min","w2":"14 min","w3":"1 h",
   "cl3":"Screenshot 21.03","cl4":"Password-manager entries are excluded from history",
@@ -1045,7 +1045,7 @@ const I = {
   "m.eyebrow":"Modules","m.h2":"Eight tools. Enable only the ones you use.",
   "m.lead":"Tune the module set and order to your workflow. The panel opens on hover or by shortcut, moves with arrow keys, and closes with Esc.",
   "mod1":"Actions","mod1d":"One search across clipboard history, snippets, and notes, with actions right from the result.",
-  "mod2":"Player","mod2d":"Apple Music natively; Yandex Music, VK, YouTube Music, and Spotify through their official sites in WebKit.",
+  "mod2":"Player","mod2d":"Apple Music natively; Yandex Music, VK, and YouTube Music through their official sites in WebKit.",
   "mod3":"File shelf","mod3d":"Move files between windows, run OCR, remove backgrounds, convert images, create PDFs, AirDrop, and rename safely.",
   "mod4":"Clipboard history","mod4d":"Get back what you copied an hour ago. Concealed password-manager entries are excluded.",
   "mod5":"Snippets","mod5d":"Text and commands you repeat often — pasted without digging through old chats.",
@@ -1088,7 +1088,7 @@ const I = {
   "q3":"Why is it not on the App Store or notarized?",
   "q3a":"The public build is currently ad-hoc signed and not notarized by Apple, so the first installation needs manual Gatekeeper approval. Impuls does not bypass that protection. Beginning with 1.2.9, later updates install in-app after the signed feed and archive are verified; Developer ID will remove the first manual barrier.",
   "q4":"Which music sources does Impuls support?",
-  "q4a":"Choose the source in the Music pane. Apple Music uses a native adapter. Yandex Music, VK Music, YouTube Music, and Spotify open their official sites in a separate WebKit window; the panel receives bounded Media Session metadata and controls that page. No unofficial API, token harvesting, or private framework is used.",
+  "q4a":"Choose the source in the Music pane. Apple Music uses a native adapter. Yandex Music, VK Music, and YouTube Music open their official sites in a separate WebKit window; the panel receives bounded Media Session metadata and controls that page. No unofficial API, token harvesting, or private framework is used.",
   "q5":"What happens to my data when I reinstall?",
   "q5a":"Settings, notes, and snippets export to a local JSON file and restore from it. Backups in the 1.1 format are readable by 1.2 — module order migrates automatically and the new Actions module is added to your existing configuration.",
   "q6":"What does it cost, and can I build it myself?",
@@ -1099,7 +1099,7 @@ const I = {
   "mobile.cta":"Download Impuls free",
   "ft.tag":"A native macOS utility. Local by default.",
   "ft.rel":"Releases","ft.sitepriv":"Website data","ft.priv":"App privacy","ft.sec":"Security","ft.iss":"Feedback",
-  "ft.note":"Impuls is derived from akalikbergenov/cyclop. Original MIT-licensed portions retain their notice in THIRD_PARTY_NOTICES.md; new Impuls work is distributed under GPL-3.0-or-later. The code license does not grant rights to the Impuls name or branding — see TRADEMARKS.md. Apple Music, Yandex Music, VK Music, YouTube Music, and Spotify names belong to their respective owners."
+  "ft.note":"Impuls is derived from akalikbergenov/cyclop. Original MIT-licensed portions retain their notice in THIRD_PARTY_NOTICES.md; new Impuls work is distributed under GPL-3.0-or-later. The code license does not grant rights to the Impuls name or branding — see TRADEMARKS.md. Apple Music, Yandex Music, VK Music, and YouTube Music names belong to their respective owners."
  }
 };
 const RU = {};
