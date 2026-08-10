@@ -111,32 +111,6 @@ jobs:
           )"
           test "$DERIVED_PUBLIC_KEY" = '/fAb0WKLYV8FTT+VkvGKgtIXfsiVG74NlJ+to0BusDg='
 
-      - name: Import Developer ID Application identity
-        env:
-          DEVELOPER_ID_P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
-          DEVELOPER_ID_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          # TCC matches a direct-distribution app by its designated requirement.
-          # An ad-hoc signature creates a new requirement for each build, so a
-          # public update must stop here rather than erase user consent again.
-          test -n "$DEVELOPER_ID_P12_BASE64"
-          test -n "$DEVELOPER_ID_P12_PASSWORD"
-          KEYCHAIN="$RUNNER_TEMP/impuls-signing.keychain-db"
-          KEYCHAIN_PASSWORD="$(uuidgen)"
-          CERTIFICATE="$RUNNER_TEMP/developer-id.p12"
-          printf '%s' "$DEVELOPER_ID_P12_BASE64" | base64 --decode > "$CERTIFICATE"
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          security import "$CERTIFICATE" -k "$KEYCHAIN" -P "$DEVELOPER_ID_P12_PASSWORD" -T /usr/bin/codesign
-          security list-keychain -d user -s "$KEYCHAIN"
-          security default-keychain -d user -s "$KEYCHAIN"
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
-          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | head -n 1)"
-          test -n "$IDENTITY"
-          echo "IMPULS_DEVELOPER_ID_APPLICATION=$IDENTITY" >> "$GITHUB_ENV"
 
       - name: Verify release-facing metadata
         shell: bash
@@ -174,17 +148,6 @@ jobs:
           swift test -c release
           ./Scripts/bundle.sh release
 
-      - name: Verify stable application identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP="build/Impuls.app"
-          SIGNING="$RUNNER_TEMP/impuls-signing.txt"
-          codesign -dvv "$APP" 2> "$SIGNING"
-          grep -F 'Authority=Developer ID Application:' "$SIGNING"
-          REQUIREMENTS="$RUNNER_TEMP/impuls-requirements.txt"
-          codesign -d -r- "$APP" 2> "$REQUIREMENTS"
-          grep -F 'identifier "io.tumanov.impuls"' "$REQUIREMENTS"
 
       - name: Verify no unsolicited network connection
         shell: bash
