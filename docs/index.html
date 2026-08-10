@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Impuls для macOS — буфер обмена, файлы и быстрые действия</title>
-<meta name="description" content="Impuls — бесплатная утилита для macOS: история буфера, полка файлов, OCR, переводчик, календарь и заметки. Локально, без регистрации и облака.">
+<title>ИМПУЛЬС (Impuls) для macOS — панель у верхней кромки экрана</title>
+<meta name="description" content="Импульс — бесплатная утилита для macOS. Один хоткей открывает панель у верхней кромки экрана: буфер обмена, файлы, поиск и другие модули под рукой. Локально, без регистрации и облака.">
 <meta name="author" content="Интегра Импульс">
 <meta name="application-name" content="Impuls">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
@@ -14,8 +14,10 @@
 <link rel="canonical" href="https://tumanovnv.github.io/impuls/">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/impuls-icon.svg" type="image/svg+xml">
-<meta property="og:title" content="Impuls для macOS — 8 инструментов, один хоткей">
-<meta property="og:description" content="Буфер обмена, файлы, OCR, календарь, переводчик и заметки у верхнего края экрана. Бесплатно и локально.">
+<!-- Nothing here counts the modules or claims to list them all: the set changes
+     with every release, and a number in a shared link cannot be corrected later. -->
+<meta property="og:title" content="ИМПУЛЬС для macOS — один хоткей вместо десятка переключений">
+<meta property="og:description" content="Панель у верхней кромки экрана: то, за чем обычно лезешь в другое приложение, — под рукой. Бесплатно, локально, с открытым кодом.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Impuls">
 <meta property="og:locale" content="ru_RU">
@@ -23,10 +25,10 @@
 <meta property="og:image" content="https://tumanovnv.github.io/impuls/assets/og-impuls.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Impuls для macOS — восемь инструментов в одной панели">
+<meta property="og:image:alt" content="ИМПУЛЬС — панель у верхней кромки экрана Mac">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Impuls для macOS — 8 инструментов, один хоткей">
-<meta name="twitter:description" content="История буфера, полка файлов, OCR, календарь, переводчик и заметки. Бесплатно и локально.">
+<meta name="twitter:title" content="ИМПУЛЬС для macOS — один хоткей вместо десятка переключений">
+<meta name="twitter:description" content="Панель у верхней кромки экрана: то, за чем обычно лезешь в другое приложение, — под рукой. Бесплатно и локально.">
 <meta name="twitter:image" content="https://tumanovnv.github.io/impuls/assets/og-impuls.png">
 <script type="application/ld+json" id="software-schema">
 {
@@ -36,8 +38,8 @@
       "@type": "SoftwareApplication",
       "@id": "https://tumanovnv.github.io/impuls/#software",
       "name": "Impuls",
-      "alternateName": "Impuls для macOS",
-      "description": "Бесплатная локальная утилита для macOS: история буфера, единый поиск, полка файлов, OCR, переводчик, календарь, заметки и управление музыкой.",
+      "alternateName": ["ИМПУЛЬС", "Импульс для macOS"],
+      "description": "Бесплатная локальная утилита для macOS. Один хоткей открывает панель у верхней кромки экрана с набором модулей, который пользователь собирает сам.",
       "applicationCategory": "UtilitiesApplication",
       "operatingSystem": "macOS 15 or later",
       "softwareVersion": "1.2.8",
@@ -56,12 +58,12 @@
       "isAccessibleForFree": true,
       "offers": {"@type": "Offer", "price": "0", "priceCurrency": "RUB"},
       "featureList": [
+        "Панель у верхней кромки экрана по хоткею или наведению",
+        "Набор и порядок модулей настраиваются пользователем",
         "Поиск по истории буфера, заготовкам и заметкам",
-        "История буфера обмена",
-        "Полка файлов и локальные файловые инструменты",
-        "OCR и удаление фона через Apple Vision",
-        "Календарь, переводчик и быстрые заметки",
-        "Заряд аккумулятора и состояние питания из системного API"
+        "Полка файлов, OCR и удаление фона через Apple Vision",
+        "Календарь, переводчик, заметки, плеер и состояние питания",
+        "Работа без учётной записи, облака и телеметрии"
       ]
     },
     {
@@ -174,7 +176,10 @@ header.stuck{border-bottom-color:var(--line)}
 .pill b{color:var(--text);font-weight:600}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green)}
 h1{font-size:clamp(46px,5.35vw,76px);line-height:.98;letter-spacing:-.052em;font-weight:700;
-  max-width:14ch;margin:0 auto}
+  max-width:20ch;margin:0 auto}
+h1 .wordmark{display:block;letter-spacing:-.028em}
+h1 .claim{display:block;font-size:.46em;font-weight:660;letter-spacing:-.03em;line-height:1.16;
+  color:var(--muted);max-width:32ch;margin:20px auto 0}
 h1 .grad{background:linear-gradient(100deg,#7fa6ff,#b39dff 55%,#7fd8b4);
   -webkit-background-clip:text;background-clip:text;color:transparent}
 .sub{color:var(--muted);font-size:clamp(17px,1.55vw,21px);max-width:62ch;margin:24px auto 0;line-height:1.55}
@@ -596,8 +601,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   <div class="hero-shell">
     <div class="hero-copy">
     <div class="pill"><span class="dot"></span><b data-i="hero.pill.v">Impuls 1.2.8</b> <span data-i="hero.pill.t">— бесплатно, нативно, локально</span></div>
-    <h1 data-i="hero.h1">9 инструментов для Mac. <span class="grad">Один хоткей.</span></h1>
-    <p class="sub" data-i="hero.sub">Буфер обмена, файлы, OCR, календарь, переводчик, заметки и аккумулятор — у верхнего края экрана. Быстрее, чем переключаться между приложениями.</p>
+    <h1 data-i="hero.h1"><span class="wordmark grad">ИМПУЛЬС</span><span class="claim">Всё нужное — у верхней кромки</span></h1>
+    <p class="sub" data-i="hero.sub">Один хоткей открывает панель поверх любого приложения. То, за чем обычно лезешь в соседнее окно, оказывается под рукой — и так же быстро исчезает.</p>
     <div class="cta">
       <a class="btn btn-primary" data-conversion="download" data-placement="hero" href="https://github.com/TumanovNV/impuls/releases/download/v1.2.8/Impuls-1.2.8.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
@@ -880,13 +885,13 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   <div class="wrap">
     <div class="center reveal">
       <div class="eyebrow" data-i="m.eyebrow">Модули</div>
-      <h2 data-i="m.h2">Девять инструментов. Включите только те, которыми пользуетесь.</h2>
-      <p class="lead" data-i="m.lead">Настройте состав и порядок модулей под свою работу. Панель открывается наведением или хоткеем, переключается стрелками и закрывается по Esc.</p>
+      <h2 data-i="m.h2">Только те инструменты, которыми вы пользуетесь.</h2>
+      <p class="lead" data-i="m.lead">Каждый модуль включается и выключается отдельно, порядок вы задаёте сами. Панель открывается наведением или хоткеем, переключается стрелками и закрывается по Esc.</p>
     </div>
     <div class="grid g3">
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div><h3 data-i="mod1">Actions</h3><p data-i="mod1d">Один поиск по истории буфера, заготовкам и заметкам с действиями прямо из результата.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l12-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><h3 data-i="mod2">Плеер</h3><p data-i="mod2d">Apple Music нативно; Яндекс Музыка, VK и YouTube Music — через официальные сайты в WebKit.</p></div>
-      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><h3 data-i="mod3">Полка файлов</h3><p data-i="mod3d">Перенос файлов между окнами, OCR, удаление фона, конвертация изображений, PDF, AirDrop и безопасное переименование.</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><h3 data-i="mod3">Полка файлов</h3><p data-i="mod3d">Перенос файлов между окнами, OCR, удаление фона, конвертация изображений, PDF, AirDrop и безопасное переименование. Снимок экрана из буфера сохраняется на диск, а не исчезает после первой вставки.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="3" width="13" height="14" rx="2.5"/><path d="M16 21H5a2 2 0 0 1-2-2V8" stroke-linecap="round"/></svg></div><h3 data-i="mod4">История буфера</h3><p data-i="mod4d">Возврат к тому, что скопировали час назад. Скрытые записи менеджеров паролей исключены.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h14v17l-7-4-7 4z"/></svg></div><h3 data-i="mod5">Заготовки</h3><p data-i="mod5d">Часто повторяемые тексты и команды — вставляются без поиска по переписке.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><h3 data-i="mod6">Календарь</h3><p data-i="mod6d">Ближайшие встречи в поле зрения. Доступ запрашивается системным диалогом macOS.</p></div>
@@ -1054,8 +1059,8 @@ const I = {
   "nav.actions":"Actions","nav.modules":"Modules","nav.trust":"Trust","nav.privacy":"Privacy","nav.install":"Install","nav.faq":"FAQ",
   "a11y.skip":"Skip to content","cta.download":"Download","cta.dl.mac":"Download free for macOS","cta.demo":"See how it works",
   "hero.pill.v":"Impuls 1.2.8","hero.pill.t":"— free, native, local",
-  "hero.h1":"9 tools for your Mac. <span class='grad'>One shortcut.</span>",
-  "hero.sub":"Clipboard history, files, OCR, calendar, translator, notes, and battery — at the top edge of your screen. Faster than switching between apps.",
+  "hero.h1":"<span class='wordmark grad'>IMPULS</span><span class='claim'>Everything you need, at the top edge</span>",
+  "hero.sub":"One shortcut opens the panel over whatever app you are in. What you would normally switch windows for is right there — and gone again just as fast.",
   "hero.m1":"macOS 15 or newer","hero.m2":"2.4 MB","hero.m3":"Apple Silicon and Intel","hero.m5":"Free",
   "hero.f1":"Work data stays on your Mac","hero.f2":"No account required","hero.f3":"Open source",
   "hero.install":"The build is not yet notarized by Apple, so the first launch needs manual approval. <a href='#install'>See the instructions</a>",
@@ -1092,11 +1097,11 @@ const I = {
   "a.s2":"Pick with arrow keys","a.s2d":"Up and down through results, Enter to copy. Your hands never leave the keyboard.",
   "a.s3":"Act from the panel","a.s3d":"Save as a snippet, create a note, translate text, open a link or file, reveal a file in Finder.",
   "ar1":"github.com/TumanovNV/impuls/releases","ar2":"Impuls: 1.3 release plan","ar3":"Release announcement template","ar4":"Impuls-1.2.8.dmg",
-  "m.eyebrow":"Modules","m.h2":"Nine tools. Enable only the ones you use.",
-  "m.lead":"Tune the module set and order to your workflow. The panel opens on hover or by shortcut, moves with arrow keys, and closes with Esc.",
+  "m.eyebrow":"Modules","m.h2":"Only the tools you actually use.",
+  "m.lead":"Every module can be turned on or off on its own, in the order you choose. The panel opens on hover or by shortcut, moves with arrow keys, and closes with Esc.",
   "mod1":"Actions","mod1d":"One search across clipboard history, snippets, and notes, with actions right from the result.",
   "mod2":"Player","mod2d":"Apple Music natively; Yandex Music, VK, and YouTube Music through their official sites in WebKit.",
-  "mod3":"File shelf","mod3d":"Move files between windows, run OCR, remove backgrounds, convert images, create PDFs, AirDrop, and rename safely.",
+  "mod3":"File shelf","mod3d":"Move files between windows, run OCR, remove backgrounds, convert images, create PDFs, AirDrop, and rename safely. A screenshot taken to the clipboard is written to disk instead of vanishing after one paste.",
   "mod4":"Clipboard history","mod4d":"Get back what you copied an hour ago. Concealed password-manager entries are excluded.",
   "mod5":"Snippets","mod5d":"Text and commands you repeat often — pasted without digging through old chats.",
   "mod6":"Calendar","mod6d":"Your next meetings in view. Access is requested by the standard macOS dialog.",
