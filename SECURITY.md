@@ -26,6 +26,9 @@ include user data, credentials, or exploit payloads in public discussions.
 - feedback diagnostics are allow-listed and never inspect user content, paths,
   logs, device identifiers, or clipboard history;
 - no private frameworks or process injection;
+- the Battery / Power module uses only public IOPowerSources and public
+  IORegistry access, has no SMC client, helper, shell command, USB entitlement,
+  or network path, and keeps its optional live readings in memory only;
 - Apple Music metadata uses its scripting interface plus bounded distributed
   player notifications; the
   Hardened Runtime bundle carries the explicit Apple Events Automation

@@ -6,6 +6,12 @@ Impuls is a native macOS utility that turns the area around the MacBook notch â€
 or a compact top-edge tab on other Macs â€” into a local action search, player,
 file shelf, clipboard history, snippets, calendar, translator, and scratchpad.
 
+Impuls 1.4 adds a built-in **Battery** module. It shows charge, power state,
+estimated running or charging time, and the electrical and battery indicators
+that macOS actually makes available. On Macs without an internal battery, the
+same module becomes **Power**. The available values vary by Mac model and macOS
+version; unavailable hardware data is shown as unavailable rather than guessed.
+
 > Public releases are currently ad-hoc signed and are not notarized by Apple,
 > so the first installation still needs manual Gatekeeper approval. Beginning
 > with 1.2.9, later releases install from inside Impuls through a signed update
@@ -98,6 +104,21 @@ hover behaviour, panel size, target display, visible modules, and their order.
 When opened from the keyboard, use the left and right arrows to move between
 modules and Escape to close the panel. Settings, snippets, and notes can be
 exported to and restored from a local JSON backup.
+
+## Battery and power
+
+On a MacBook, the Battery module uses public IOPowerSources data for charge,
+charging state, estimated time to empty or full charge, current, voltage,
+temperature when published, and adapter rating. Battery-side power and adapter
+rating are deliberately separate: a 70 W adapter is not claimed to be charging
+the battery at 70 W. Cycle count is read locally through a small public IORegistry
+fallback when the Mac publishes it. No power data is stored or sent anywhere.
+
+MagSafe and USB-C are shown only when a reliable source provides that fact. The
+public adapter API describes the adapter but not the active charging port, so a
+connection otherwise remains unknown. On Mac mini, Mac Studio, iMac, and Mac Pro
+the module displays the available system power source without inventing a wall-
+power wattage.
 
 ## Music support
 

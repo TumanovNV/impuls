@@ -272,9 +272,9 @@ private struct ModuleSettingsPane: View {
                 set: { settings.setModule(preference.tab, enabled: $0) }
             )) {
                 Label {
-                    Text(preference.tab.title)
+                    Text(settings.moduleTitle(for: preference.tab))
                 } icon: {
-                    Image(systemName: preference.tab.symbol)
+                    Image(systemName: settings.moduleSymbol(for: preference.tab))
                 }
             }
             .toggleStyle(.switch)

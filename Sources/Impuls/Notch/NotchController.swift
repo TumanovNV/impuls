@@ -321,6 +321,7 @@ final class NotchController {
             withAnimation(Theme.openAnimation) { vm.isOpen = true }
             vm.media.setActive(true)
             vm.calendar.setActive(true)
+            vm.power.setActive(true)
         } else {
             // The keyboard goes first and the fold goes second — one run-loop
             // pass apart, never together. Dropped in the same pass, resigning
@@ -345,6 +346,7 @@ final class NotchController {
         withAnimation(Theme.openAnimation) { vm.isOpen = false }
         vm.media.setActive(false)
         vm.calendar.setActive(false)
+        vm.power.setActive(false)
         // Shrink only once the panel has finished collapsing. Doing it
         // while it is still visibly there would leave a window in which
         // clicks land on whatever is behind the panel.

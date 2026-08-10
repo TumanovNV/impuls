@@ -4,7 +4,7 @@ import Combine
 @MainActor
 final class NotchViewModel: ObservableObject {
     enum Tab: String, CaseIterable, Codable, Hashable, Identifiable {
-        case actions, media, shelf, clipboard, snippets, calendar, translate, notes
+        case actions, media, shelf, clipboard, snippets, calendar, translate, notes, power
         var id: String { rawValue }
 
         var symbol: String {
@@ -17,6 +17,7 @@ final class NotchViewModel: ObservableObject {
             case .calendar: return "calendar"
             case .translate: return "translate"
             case .notes: return "note.text"
+            case .power: return "bolt.fill"
             }
         }
 
@@ -30,6 +31,7 @@ final class NotchViewModel: ObservableObject {
             case .calendar: return localized("Calendar")
             case .translate: return localized("Translate")
             case .notes: return localized("Notes")
+            case .power: return localized("Power")
             }
         }
 
@@ -87,6 +89,7 @@ final class NotchViewModel: ObservableObject {
     let translator: Translator
     let snippets: SnippetStore
     let notes: NoteStore
+    let power: PowerMonitor
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -102,6 +105,7 @@ final class NotchViewModel: ObservableObject {
         self.translator = Translator()
         self.snippets = SnippetStore()
         self.notes = NoteStore()
+        self.power = PowerMonitor()
 
         self.clipboard.isApplicationExcluded = { [weak settings] bundleIdentifier in
             settings?.excludedClipboardBundleIdentifiers.contains(bundleIdentifier) ?? false
@@ -136,6 +140,7 @@ final class NotchViewModel: ObservableObject {
             fileTools.objectWillChange,
             clipboard.objectWillChange,
             calendar.objectWillChange,
+            power.objectWillChange,
         ] {
             child
                 .sink { [weak self] _ in
@@ -150,10 +155,17 @@ final class NotchViewModel: ObservableObject {
             .sink { [weak self] preferences in
                 guard let self else { return }
                 let enabled = preferences.compactMap { $0.isEnabled ? $0.tab : nil }
+                self.power.setEnabled(enabled.contains(.power))
                 if !enabled.contains(self.tab), let first = enabled.first {
                     self.tab = first
                 }
                 self.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        power.$snapshot
+            .sink { [weak settings] snapshot in
+                settings?.setPowerDeviceKind(snapshot.deviceKind)
             }
             .store(in: &cancellables)
 
@@ -171,6 +183,16 @@ final class NotchViewModel: ObservableObject {
     }
 
     var visibleTabs: [Tab] { settings.enabledTabs }
+
+    func title(for tab: Tab) -> String {
+        guard tab == .power else { return tab.title }
+        return power.snapshot.deviceKind == .portable ? localized("Battery") : localized("Power")
+    }
+
+    func symbol(for tab: Tab) -> String {
+        guard tab == .power else { return tab.symbol }
+        return power.snapshot.deviceKind == .portable ? "battery.100percent" : "bolt.fill"
+    }
 
     var leftRailTabs: [Tab] {
         Array(visibleTabs.prefix(6))
@@ -289,6 +311,7 @@ final class NotchViewModel: ObservableObject {
         // Only picks up where it left off if access was granted earlier; it
         // never prompts on its own.
         calendar.start()
+        power.setEnabled(visibleTabs.contains(.power))
 
         // Screenshots reach the shelf through here whether they were taken on
         // this Mac or on a phone: a copy made on the phone arrives in the same
@@ -314,6 +337,7 @@ final class NotchViewModel: ObservableObject {
         media.stop()
         clipboard.stop()
         calendar.stop()
+        power.stop()
         // Whatever was typed makes it to disk even when quitting mid-thought.
         notes.flushSynchronously()
     }

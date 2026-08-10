@@ -53,7 +53,7 @@ struct NotchContentView: View {
     private var header: some View {
         HStack(spacing: 0) {
             if isOpen {
-                Text(vm.tab.title.uppercased())
+                Text(vm.title(for: vm.tab).uppercased())
                     .font(.system(size: 9, weight: .semibold))
                     .tracking(0.8)
                     .foregroundStyle(Theme.tertiary)
@@ -105,6 +105,8 @@ struct NotchContentView: View {
             EmptyView()
         case .notes:
             NotesCounter(notes: vm.notes)
+        case .power:
+            EmptyView()
         }
     }
 
@@ -175,6 +177,8 @@ struct NotchContentView: View {
             TranslatePane(translator: vm.translator, wantsKeyboard: $vm.wantsKeyboard)
         case .notes:
             NotesPane(notes: vm.notes, wantsKeyboard: $vm.wantsKeyboard)
+        case .power:
+            PowerPane(power: vm.power)
         }
     }
 }
@@ -219,7 +223,7 @@ private struct Rail: View {
                 Button {
                     vm.select(tab)
                 } label: {
-                    Image(systemName: tab.symbol)
+                    Image(systemName: vm.symbol(for: tab))
                         .font(.system(size: 12, weight: .medium))
                         .frame(width: 30, height: 24)
                         .background(
@@ -235,7 +239,7 @@ private struct Rail: View {
                         .scaleEffect(hovered == tab ? 1.15 : 1)
                 }
                 .buttonStyle(.plain)
-                .help(tab.title)
+                .help(vm.title(for: tab))
                 .onHover { inside in
                     if inside {
                         hovered = tab
