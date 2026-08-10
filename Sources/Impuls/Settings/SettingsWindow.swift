@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let settings: SettingsStore
+    private let updateService: UpdateService
     private let onExport: () -> Void
     private let onImport: () -> Void
     private let onFeedback: () -> Void
@@ -13,11 +14,13 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     init(
         settings: SettingsStore,
+        updateService: UpdateService,
         onExport: @escaping () -> Void,
         onImport: @escaping () -> Void,
         onFeedback: @escaping () -> Void
     ) {
         self.settings = settings
+        self.updateService = updateService
         self.onExport = onExport
         self.onImport = onImport
         self.onFeedback = onFeedback
@@ -35,6 +38,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
         let view = SettingsView(
             settings: settings,
+            updateService: updateService,
             onExport: onExport,
             onImport: onImport,
             onFeedback: onFeedback
@@ -58,6 +62,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 private struct SettingsView: View {
     @ObservedObject var settings: SettingsStore
     @StateObject private var permissions = PermissionCenter()
+    let updateService: UpdateService
     let onExport: () -> Void
     let onImport: () -> Void
     let onFeedback: () -> Void
@@ -66,6 +71,8 @@ private struct SettingsView: View {
         TabView {
             GeneralSettingsPane(settings: settings)
                 .tabItem { Label("General", systemImage: "gearshape") }
+            UpdateSettingsPane(updateService: updateService)
+                .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
             ModuleSettingsPane(settings: settings)
                 .tabItem { Label("Modules", systemImage: "square.grid.2x2") }
             ClipboardSettingsPane(settings: settings)
@@ -79,6 +86,61 @@ private struct SettingsView: View {
         }
         .padding(18)
         .frame(minWidth: 600, minHeight: 430)
+    }
+}
+
+@MainActor
+private struct UpdateSettingsPane: View {
+    let updateService: UpdateService
+    @State private var updateChecksEnabled = false
+    @State private var automaticUpdatesEnabled = false
+    @State private var automaticUpdatesAvailable = false
+
+    var body: some View {
+        Form {
+            Section("Update Checks") {
+                Toggle("Check for Updates Automatically", isOn: Binding(
+                    get: { updateChecksEnabled },
+                    set: { enabled in
+                        updateService.setNetworkAccess(enabled)
+                        refresh()
+                    }
+                ))
+                Text("Impuls checks its signed update channel at most once every 24 hours when an internet connection is available.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                Button("Check for Updates…") {
+                    updateService.checkForUpdates()
+                }
+                .disabled(!updateChecksEnabled || !updateService.canCheckForUpdates)
+            }
+
+            Section("Installation") {
+                Toggle("Install Updates Automatically", isOn: Binding(
+                    get: { automaticUpdatesEnabled },
+                    set: { enabled in
+                        updateService.setAutomaticUpdates(enabled)
+                        refresh()
+                    }
+                ))
+                .disabled(!updateChecksEnabled || !automaticUpdatesAvailable)
+
+                Text(automaticUpdatesEnabled
+                    ? "Verified updates download in the background and install when you quit Impuls."
+                    : "When a new version is ready, Impuls shows an update notification with an installation option.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear(perform: refresh)
+    }
+
+    private func refresh() {
+        updateChecksEnabled = updateService.consent == .allowed
+        automaticUpdatesEnabled = updateService.automaticUpdatesEnabled
+        automaticUpdatesAvailable = updateService.canAutomaticallyUpdate
     }
 }
 

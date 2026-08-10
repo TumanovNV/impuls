@@ -115,6 +115,15 @@
 "Later" = "Later";
 "Update Checks Are Off" = "Update Checks Are Off";
 "Impuls is not allowed to access the internet. Enable update checks from the menu bar, then try again." = "Impuls is not allowed to access the internet. Enable update checks from the menu bar, then try again.";
+"If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. Updates require your action unless you later enable automatic installation in Settings." = "If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. Updates require your action unless you later enable automatic installation in Settings.";
+"Updates" = "Updates";
+"Update Checks" = "Update Checks";
+"Check for Updates Automatically" = "Check for Updates Automatically";
+"Impuls checks its signed update channel at most once every 24 hours when an internet connection is available." = "Impuls checks its signed update channel at most once every 24 hours when an internet connection is available.";
+"Installation" = "Installation";
+"Install Updates Automatically" = "Install Updates Automatically";
+"Verified updates download in the background and install when you quit Impuls." = "Verified updates download in the background and install when you quit Impuls.";
+"When a new version is ready, Impuls shows an update notification with an installation option." = "When a new version is ready, Impuls shows an update notification with an installation option.";
 
 /* Settings */
 "Settings…" = "Settings…";

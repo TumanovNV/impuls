@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private lazy var feedbackWindowController = FeedbackWindowController()
     private lazy var settingsWindowController = SettingsWindowController(
         settings: settings,
+        updateService: updateService,
         onExport: { [weak self] in self?.exportData() },
         onImport: { [weak self] in self?.importData() },
         onFeedback: { [weak self] in self?.feedbackWindowController.show() }

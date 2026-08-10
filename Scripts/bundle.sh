@@ -59,7 +59,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_KEY</string>
     <key>SUEnableAutomaticChecks</key><false/>
     <key>SUAutomaticallyUpdate</key><false/>
-    <key>SUAllowsAutomaticUpdates</key><false/>
+    <key>SUAllowsAutomaticUpdates</key><true/>
+    <key>SUScheduledCheckInterval</key><integer>86400</integer>
     <key>SUEnableSystemProfiling</key><false/>
     <key>SUVerifyUpdateBeforeExtraction</key><true/>
     <key>SURequireSignedFeed</key><true/>

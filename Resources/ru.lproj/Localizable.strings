@@ -97,7 +97,7 @@
 /* Обновления и разрешение на сеть */
 "Check for Updates…" = "Проверить обновления…";
 "Allow Impuls to check for updates?" = "Разрешить Impuls проверять обновления?";
-"If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action." = "Если разрешить, Impuls обращается только к подписанному каналу обновлений в GitHub. Заметки, буфер обмена, файлы, календарь, аналитика, идентификаторы устройства и системный профиль не отправляются. Обновление скачивается и устанавливается только после вашего действия.";
+"If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. Updates require your action unless you later enable automatic installation in Settings." = "Если разрешить, Impuls обращается только к подписанному каналу обновлений в GitHub. Заметки, буфер обмена, файлы, календарь, аналитика, идентификаторы устройства и системный профиль не отправляются. Обновления требуют вашего действия, пока вы не включите автоматическую установку в настройках.";
 "Allow Update Checks" = "Разрешить проверку обновлений";
 "Do Not Check" = "Не проверять";
 "Could Not Check for Updates" = "Не удалось проверить обновления";
@@ -114,6 +114,14 @@
 "Later" = "Позже";
 "Update Checks Are Off" = "Проверка обновлений отключена";
 "Impuls is not allowed to access the internet. Enable update checks from the menu bar, then try again." = "Impuls запрещён доступ в интернет. Разрешите проверку обновлений через меню приложения и повторите попытку.";
+"Updates" = "Обновления";
+"Update Checks" = "Проверка обновлений";
+"Check for Updates Automatically" = "Проверять обновления автоматически";
+"Impuls checks its signed update channel at most once every 24 hours when an internet connection is available." = "Impuls проверяет подписанный канал обновлений не чаще одного раза в 24 часа при наличии интернет-соединения.";
+"Installation" = "Установка";
+"Install Updates Automatically" = "Устанавливать обновления автоматически";
+"Verified updates download in the background and install when you quit Impuls." = "Проверенные обновления скачиваются в фоне и устанавливаются при выходе из Impuls.";
+"When a new version is ready, Impuls shows an update notification with an installation option." = "Когда новая версия будет готова, Impuls покажет уведомление с возможностью установки.";
 
 /* Настройки */
 "Settings…" = "Настройки…";

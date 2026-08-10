@@ -142,6 +142,12 @@ final class PowerMonitorTests: XCTestCase {
         XCTAssertEqual(health ?? 0, 101, accuracy: 0.0001)
     }
 
+    func testCapacityHealthHidesIncompatibleCapacityScales() {
+        XCTAssertNil(
+            PowerNormalizer.capacityHealthPercent(fullChargeCapacity: 100, designCapacity: 5_000)
+        )
+    }
+
     func testReliableConnectionEvidenceIsPreservedWithoutGuessingUnknown() {
         var reading = PowerSourceReading.portable(providing: .ac, state: .ac, charging: true)
         reading.connectionType = .magSafe

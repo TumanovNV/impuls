@@ -218,9 +218,12 @@ enum PowerNormalizer {
               fullCharge > 0,
               design > 0 else { return nil }
         let health = Double(fullCharge) / Double(design) * 100
-        // A fresh battery may legitimately exceed its nominal design capacity.
-        // The upper bound rejects corrupted registry data, not real >100% packs.
-        guard health.isFinite, health > 0, health <= 200 else { return nil }
+        // Some Macs expose a percentage-like full-charge value alongside a
+        // design capacity in mAh. Those values are not comparable: displaying
+        // their quotient would turn a healthy battery into a false 1–2% alarm.
+        // Preserve normal calibration variance, but hide a value whenever the
+        // reported capacities clearly cannot be measurements in the same unit.
+        guard health.isFinite, (50...150).contains(health) else { return nil }
         return health
     }
 
