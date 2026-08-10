@@ -31,13 +31,9 @@ struct PowerPane: View {
                 alignment: .leading,
                 spacing: 13
             ) {
-                metric(powerValue, title: powerTitle)
-                metric(connectionValue, title: localized("Connection"))
-                metric(adapterValue, title: localized("Power Adapter"))
-                metric(temperatureValue, title: localized("Temperature"))
-                metric(capacityHealthValue, title: localized("Maximum Capacity"))
-                metric(cycleCountValue, title: localized("Cycle Count"))
-                metric(conditionValue, title: localized("Battery Condition"))
+                ForEach(batteryMetrics) { item in
+                    metric(item.value, title: item.title)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -119,6 +115,29 @@ struct PowerPane: View {
 
     private var snapshot: PowerSnapshot { power.snapshot }
 
+    private var batteryMetrics: [MetricItem] {
+        var items = [
+            MetricItem(value: powerValue, title: powerTitle),
+            MetricItem(value: connectionValue, title: localized("Connection")),
+        ]
+        if snapshot.adapterRatedPowerWatts != nil {
+            items.append(MetricItem(value: adapterValue, title: localized("Power Adapter")))
+        }
+        if snapshot.temperatureCelsius != nil {
+            items.append(MetricItem(value: temperatureValue, title: localized("Temperature")))
+        }
+        if snapshot.capacityHealthPercent != nil {
+            items.append(MetricItem(value: capacityHealthValue, title: localized("Maximum Capacity")))
+        }
+        if snapshot.cycleCount != nil {
+            items.append(MetricItem(value: cycleCountValue, title: localized("Cycle Count")))
+        }
+        if snapshot.systemBatteryCondition != nil {
+            items.append(MetricItem(value: conditionValue, title: localized("Battery Condition")))
+        }
+        return items
+    }
+
     private var batterySymbol: String {
         switch snapshot.batteryState {
         case .charging, .finishingCharge: return "battery.100percent.bolt"
@@ -151,9 +170,9 @@ struct PowerPane: View {
         case .discharging:
             return PowerTimeFormatter.string(for: snapshot.timeToEmpty)
         case .charged:
-            return localized("Charged")
+            return connectionValue
         case .pluggedNotCharging:
-            return localized("Not Charging")
+            return connectionValue
         case .unknown:
             return "—"
         }
@@ -163,7 +182,8 @@ struct PowerPane: View {
         switch snapshot.batteryState {
         case .charging, .finishingCharge: return localized("Until Full")
         case .discharging: return localized("Time Remaining")
-        case .charged, .pluggedNotCharging, .unknown: return localized("Battery State")
+        case .charged, .pluggedNotCharging: return localized("Connection")
+        case .unknown: return localized("Battery State")
         }
     }
 
@@ -184,6 +204,7 @@ struct PowerPane: View {
         case .magSafe: return localized("MagSafe")
         case .usbC: return localized("USB-C")
         case .externalPower: return localized("External Power")
+        case .unplugged: return localized("Not Connected")
         case .unknown: return localized("Unknown")
         }
     }
@@ -243,4 +264,11 @@ struct PowerPane: View {
         }
         return String(format: localized("%.1f W"), watts)
     }
+}
+
+private struct MetricItem: Identifiable {
+    let value: String
+    let title: String
+
+    var id: String { title }
 }

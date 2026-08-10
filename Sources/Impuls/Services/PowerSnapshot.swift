@@ -28,6 +28,7 @@ enum ChargeConnectionType: Equatable {
     case magSafe
     case usbC
     case externalPower
+    case unplugged
     case unknown
 }
 
@@ -235,7 +236,7 @@ enum PowerNormalizer {
         voltageMillivolts: Int?,
         state: BatteryState
     ) -> Double? {
-        guard state == .charging || state == .discharging,
+        guard state != .unknown,
               let current = validatedCurrent(currentMilliamps),
               let voltage = validatedVoltage(voltageMillivolts) else { return nil }
         let watts = Double(abs(current)) * Double(voltage) / 1_000_000
@@ -277,11 +278,18 @@ enum PowerNormalizer {
     }
 
     private static func validatedTemperature(_ value: Double?) -> Double? {
-        guard let value, value.isFinite,
-              (minimumReasonableTemperatureCelsius...maximumReasonableTemperatureCelsius).contains(value) else {
+        guard let value, value.isFinite else { return nil }
+        if (minimumReasonableTemperatureCelsius...maximumReasonableTemperatureCelsius).contains(value) {
+            return value
+        }
+        // Some IOPowerSources implementations forward the Smart Battery value
+        // in tenths of Kelvin. It is the same physical sensor, so normalize it
+        // only when the converted reading is plainly a plausible battery range.
+        let celsius = value / 10 - 273.15
+        guard (minimumReasonableTemperatureCelsius...maximumReasonableTemperatureCelsius).contains(celsius) else {
             return nil
         }
-        return value
+        return celsius
     }
 
     private static func validatedCycleCount(_ value: Int?) -> Int? {

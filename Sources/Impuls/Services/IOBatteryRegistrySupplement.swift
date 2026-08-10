@@ -2,25 +2,79 @@ import Foundation
 import IOKit
 
 /// The documented IOPowerSources dictionary covers the live battery state.
-/// Cycle count is not one of its documented keys, so it is read separately
-/// through the public IORegistry API and kept isolated here. `CycleCount` is
-/// an undocumented property name; a missing or malformed value is normal.
+/// A few portable Macs omit capacity, amperage and temperature values from
+/// that dictionary even though the battery service exposes them. The registry
+/// API is public, but its individual property names are not a compatibility
+/// promise, so this remains a conservative best-effort supplement.
+struct IOBatteryRegistryReading: Equatable {
+    let currentCapacity: Int?
+    let maxCapacity: Int?
+    let designCapacity: Int?
+    let voltageMillivolts: Int?
+    let currentMilliamps: Int?
+    let temperatureCelsius: Double?
+    let cycleCount: Int?
+
+    static let unavailable = IOBatteryRegistryReading(
+        currentCapacity: nil,
+        maxCapacity: nil,
+        designCapacity: nil,
+        voltageMillivolts: nil,
+        currentMilliamps: nil,
+        temperatureCelsius: nil,
+        cycleCount: nil
+    )
+}
+
 enum IOBatteryRegistrySupplement {
     private static let smartBatteryService = "AppleSmartBattery"
+    private static let currentCapacityKey = "CurrentCapacity"
+    private static let maxCapacityKey = "MaxCapacity"
+    private static let designCapacityKey = "DesignCapacity"
+    private static let voltageKey = "Voltage"
+    private static let amperageKey = "Amperage"
+    private static let temperatureKey = "Temperature"
     private static let cycleCountKey = "CycleCount"
 
-    static func cycleCount() -> Int? {
-        guard let matching = IOServiceMatching(smartBatteryService) else { return nil }
+    static func reading() -> IOBatteryRegistryReading {
+        guard let matching = IOServiceMatching(smartBatteryService) else { return .unavailable }
         let service = IOServiceGetMatchingService(kIOMainPortDefault, matching)
-        guard service != 0 else { return nil }
+        guard service != 0 else { return .unavailable }
         defer { IOObjectRelease(service) }
 
+        let rawTemperature = number(for: temperatureKey, service: service)
+        return IOBatteryRegistryReading(
+            currentCapacity: integer(for: currentCapacityKey, service: service),
+            maxCapacity: integer(for: maxCapacityKey, service: service),
+            designCapacity: integer(for: designCapacityKey, service: service),
+            voltageMillivolts: integer(for: voltageKey, service: service),
+            currentMilliamps: integer(for: amperageKey, service: service),
+            temperatureCelsius: celsius(fromSmartBatteryTemperature: rawTemperature),
+            cycleCount: integer(for: cycleCountKey, service: service)
+        )
+    }
+
+    private static func integer(for key: String, service: io_registry_entry_t) -> Int? {
+        number(for: key, service: service).map { Int($0) }
+    }
+
+    private static func number(for key: String, service: io_registry_entry_t) -> Double? {
         guard let value = IORegistryEntryCreateCFProperty(
             service,
-            cycleCountKey as CFString,
+            key as CFString,
             kCFAllocatorDefault,
             0
         )?.takeRetainedValue() as? NSNumber else { return nil }
-        return value.intValue
+        return value.doubleValue
+    }
+
+    private static func celsius(fromSmartBatteryTemperature value: Double?) -> Double? {
+        guard let value, value.isFinite else { return nil }
+        // Smart Battery data follows the SMBus convention of tenths of Kelvin.
+        // Do the conversion here rather than teaching the generic normalizer an
+        // undocumented unit system used by only this optional fallback.
+        let celsius = value / 10 - 273.15
+        guard (-20...100).contains(celsius) else { return nil }
+        return celsius
     }
 }

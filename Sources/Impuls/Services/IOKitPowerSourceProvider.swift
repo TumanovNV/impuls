@@ -54,12 +54,16 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
             from: IOPSGetProvidingPowerSourceType(info)
                 .map { $0.takeUnretainedValue() as String }
         )
-        let adapterPower = externalAdapterWatts()
+        let adapterDetails = externalAdapterDetails()
+        let adapterPower = number(adapterDetails?[kIOPSPowerAdapterWattsKey])
+        let registry = IOBatteryRegistrySupplement.reading()
 
         for source in sources {
             guard let description = IOPSGetPowerSourceDescription(info, source)?
                 .takeUnretainedValue() as? [String: Any],
                 isPresentInternalBattery(description) else { continue }
+
+            let usesRegistryCapacityPair = registry.maxCapacity != nil && registry.designCapacity != nil
 
             return PowerSourceReading(
                 providingPowerSource: providing,
@@ -67,21 +71,30 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
                 batteryPowerSourceState: batteryPowerSourceState(
                     from: description[kIOPSPowerSourceStateKey] as? String
                 ),
-                currentCapacity: integer(description[kIOPSCurrentCapacityKey]),
-                maxCapacity: integer(description[kIOPSMaxCapacityKey]),
-                designCapacity: integer(description[kIOPSDesignCapacityKey]),
+                currentCapacity: usesRegistryCapacityPair
+                    ? registry.currentCapacity ?? integer(description[kIOPSCurrentCapacityKey])
+                    : integer(description[kIOPSCurrentCapacityKey]) ?? registry.currentCapacity,
+                maxCapacity: usesRegistryCapacityPair
+                    ? registry.maxCapacity
+                    : integer(description[kIOPSMaxCapacityKey]) ?? registry.maxCapacity,
+                designCapacity: usesRegistryCapacityPair
+                    ? registry.designCapacity
+                    : integer(description[kIOPSDesignCapacityKey]) ?? registry.designCapacity,
                 isCharging: boolean(description[kIOPSIsChargingKey]),
                 isCharged: boolean(description[kIOPSIsChargedKey]),
                 isFinishingCharge: boolean(description[kIOPSIsFinishingChargeKey]),
                 timeToEmptyMinutes: integer(description[kIOPSTimeToEmptyKey]),
                 timeToFullChargeMinutes: integer(description[kIOPSTimeToFullChargeKey]),
-                voltageMillivolts: integer(description[kIOPSVoltageKey]),
-                currentMilliamps: integer(description[kIOPSCurrentKey]),
-                temperatureCelsius: number(description[kIOPSTemperatureKey]),
+                voltageMillivolts: integer(description[kIOPSVoltageKey]) ?? registry.voltageMillivolts,
+                currentMilliamps: integer(description[kIOPSCurrentKey]) ?? registry.currentMilliamps,
+                temperatureCelsius: number(description[kIOPSTemperatureKey]) ?? registry.temperatureCelsius,
                 systemBatteryCondition: batteryCondition(description),
-                cycleCount: IOBatteryRegistrySupplement.cycleCount(),
+                cycleCount: registry.cycleCount,
                 adapterRatedPowerWatts: adapterPower,
-                connectionType: ChargeConnectionDetector.currentConnection()
+                connectionType: ChargeConnectionDetector.currentConnection(
+                    providingPowerSource: providing,
+                    adapterDetails: adapterDetails
+                )
             )
         }
 
@@ -103,7 +116,10 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
             systemBatteryCondition: nil,
             cycleCount: nil,
             adapterRatedPowerWatts: adapterPower,
-            connectionType: .unknown
+            connectionType: ChargeConnectionDetector.currentConnection(
+                providingPowerSource: providing,
+                adapterDetails: adapterDetails
+            )
         )
     }
 
@@ -120,11 +136,8 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
         return boolean(description[kIOPSIsPresentKey]) != false
     }
 
-    private func externalAdapterWatts() -> Double? {
-        guard let details = IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? [String: Any] else {
-            return nil
-        }
-        return number(details[kIOPSPowerAdapterWattsKey])
+    private func externalAdapterDetails() -> [String: Any]? {
+        IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? [String: Any]
     }
 
     private func batteryCondition(_ description: [String: Any]) -> BatteryCondition? {
@@ -174,10 +187,17 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
     }
 }
 
-/// `IOPSCopyExternalPowerAdapterDetails` describes an adapter, not the port
-/// used by the Mac. Current public IOKit headers expose no stable property that
-/// proves an active MagSafe or USB-C charging path, so the production provider
-/// intentionally reports `unknown` instead of guessing from model or wattage.
+/// `IOPSCopyExternalPowerAdapterDetails` proves that an AC adapter is attached,
+/// but current public IOKit headers do not expose a stable property for the
+/// physical path. A 35 W adapter can be connected through MagSafe or USB-C, so
+/// reporting either one from wattage or a model name would be a false claim.
 enum ChargeConnectionDetector {
-    static func currentConnection() -> ChargeConnectionType { .unknown }
+    static func currentConnection(
+        providingPowerSource: SystemPowerSource,
+        adapterDetails: [String: Any]?
+    ) -> ChargeConnectionType {
+        if providingPowerSource == .ac || adapterDetails != nil { return .externalPower }
+        if providingPowerSource == .battery { return .unplugged }
+        return .unknown
+    }
 }
