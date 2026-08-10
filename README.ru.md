@@ -2,6 +2,14 @@
 
 *Русский · [English](README.md)*
 
+[![Релиз](https://img.shields.io/github/v/release/TumanovNV/impuls?label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7&color=5b8cff)](https://github.com/TumanovNV/impuls/releases/latest)
+[![Загрузки](https://img.shields.io/github/downloads/TumanovNV/impuls/total?label=%D0%B7%D0%B0%D0%B3%D1%80%D1%83%D0%B7%D0%BA%D0%B8&color=5b8cff)](https://github.com/TumanovNV/impuls/releases)
+[![macOS](https://img.shields.io/badge/macOS-15%2B-000000?logo=apple&logoColor=white)](https://tumanovnv.github.io/impuls/)
+[![Swift](https://img.shields.io/badge/Swift-6-f05138?logo=swift&logoColor=white)](Package.swift)
+[![Лицензия](https://img.shields.io/badge/%D0%BB%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D1%8F-GPL--3.0--or--later-blue)](LICENSE)
+
+**[Сайт](https://tumanovnv.github.io/impuls/) · [Скачать](https://github.com/TumanovNV/impuls/releases/latest) · [Приватность](PRIVACY.md) · [Безопасность](SECURITY.md)**
+
 Impuls — нативная утилита для macOS. Она превращает область вокруг «чёлки»
 MacBook — либо компактный язычок у верхней кромки других Mac — в локальный
 центр действий, плеер, полку файлов, историю буфера обмена, заготовки,

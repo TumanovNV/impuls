@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
-  <title id="title">Impuls для macOS — восемь инструментов, один хоткей</title>
-  <desc id="desc">Буфер обмена, файлы, OCR, календарь, переводчик и заметки</desc>
+  <title id="title">ИМПУЛЬС для macOS — панель у верхней кромки экрана</title>
+  <desc id="desc">Один хоткей открывает панель у выреза камеры. Бесплатно, локально, с открытым исходным кодом.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#07080d"/>
@@ -11,27 +11,79 @@
       <stop offset="0" stop-color="#5b8cff" stop-opacity="0.38"/>
       <stop offset="1" stop-color="#5b8cff" stop-opacity="0"/>
     </radialGradient>
+    <radialGradient id="g2" cx="0.86" cy="0.42" r="0.5">
+      <stop offset="0" stop-color="#8f7bff" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#8f7bff" stop-opacity="0"/>
+    </radialGradient>
     <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#7fa6ff"/>
       <stop offset="0.52" stop-color="#b39dff"/>
       <stop offset="1" stop-color="#7fd8b4"/>
     </linearGradient>
   </defs>
+
   <rect width="1200" height="630" fill="url(#bg)"/>
   <rect width="1200" height="630" fill="url(#g1)"/>
-  <g transform="translate(76 70) scale(.2)">
+  <rect width="1200" height="630" fill="url(#g2)"/>
+
+  <!-- app mark -->
+  <g transform="translate(67 38) scale(.19)">
     <rect x="46" y="46" width="420" height="420" rx="96" fill="#0d1738"/>
     <rect x="159" y="150" width="36" height="212" rx="18" fill="#f7fbff"/>
     <rect x="317" y="150" width="36" height="212" rx="18" fill="#f7fbff"/>
     <path d="M191 250h33l21 58 23-110 22 52h31" fill="none" stroke="#3ae8ff" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text x="190" y="132" fill="#f5f7fb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" font-size="42" font-weight="700">Impuls</text>
-  <text x="76" y="270" fill="#f5f7fb" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" font-size="64" font-weight="700">8 инструментов для Mac.</text>
-  <text x="76" y="346" fill="url(#accent)" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" font-size="64" font-weight="700">Один хоткей.</text>
-  <text x="78" y="430" fill="#aeb4c3" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" font-size="29">Буфер · файлы · OCR · календарь · переводчик · заметки</text>
-  <g transform="translate(78 500)">
-    <rect width="430" height="62" rx="31" fill="#fff" fill-opacity="0.08" stroke="#fff" stroke-opacity="0.14"/>
-    <circle cx="34" cy="31" r="7" fill="#3ecf8e"/>
-    <text x="57" y="40" fill="#e9ecf4" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Arial,sans-serif" font-size="25" font-weight="600">Бесплатно · локально · macOS 15+</text>
+
+  <!-- wordmark and claim: no counts, no module list, so a new module never dates this image -->
+  <text x="76" y="306" fill="url(#accent)" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Lato,Arial,sans-serif" font-size="90" font-weight="700">ИМПУЛЬС</text>
+  <!-- lines stay short and the strip below has no box around it, so a wider
+       fallback font cannot overflow anything when this is rasterised -->
+  <text x="78" y="372" fill="#eef1f8" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Lato,Arial,sans-serif" font-size="30" font-weight="600">Всё нужное — у верхней кромки.</text>
+  <text x="78" y="414" fill="#a9b0c1" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Lato,Arial,sans-serif" font-size="30" font-weight="600">Один хоткей, без переключений.</text>
+
+  <g transform="translate(78 502)">
+    <circle cx="7" cy="-8" r="7" fill="#3ecf8e"/>
+    <text x="28" y="0" fill="#c3c9d6" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Lato,Arial,sans-serif" font-size="24" font-weight="600">Бесплатно · локально · открытый код · macOS 15+</text>
+  </g>
+
+  <!-- the panel under the notch: the product itself, with no module named -->
+  <g transform="translate(700 170)">
+    <rect x="0" y="0" width="424" height="290" rx="22" fill="#0a0c13" stroke="#fff" stroke-opacity="0.10"/>
+    <path d="M152 1h120v20a12 12 0 0 1-12 12H164a12 12 0 0 1-12-12z" fill="#000"/>
+    <circle cx="212" cy="17" r="3" fill="#141821"/>
+
+    <g transform="translate(32 46)">
+      <rect width="360" height="176" rx="17" fill="#13161f" stroke="#fff" stroke-opacity="0.09"/>
+      <rect x="17" y="15" width="62" height="7" rx="3.5" fill="#fff" fill-opacity="0.26"/>
+
+      <g fill="#fff" fill-opacity="0.10">
+        <rect x="15" y="34" width="26" height="21" rx="6"/>
+        <rect x="15" y="60" width="26" height="21" rx="6"/>
+        <rect x="15" y="86" width="26" height="21" rx="6"/>
+        <rect x="15" y="112" width="26" height="21" rx="6"/>
+      </g>
+      <rect x="15" y="34" width="26" height="21" rx="6" fill="#fff" fill-opacity="0.20"/>
+
+      <g fill="#fff" fill-opacity="0.10">
+        <rect x="319" y="47" width="26" height="21" rx="6"/>
+        <rect x="319" y="73" width="26" height="21" rx="6"/>
+        <rect x="319" y="99" width="26" height="21" rx="6"/>
+      </g>
+
+      <rect x="53" y="34" width="252" height="26" rx="8" fill="#fff" fill-opacity="0.07"/>
+      <rect x="64" y="44" width="96" height="7" rx="3.5" fill="#fff" fill-opacity="0.34"/>
+
+      <rect x="53" y="68" width="252" height="24" rx="8" fill="#5b8cff" fill-opacity="0.20"/>
+      <rect x="64" y="77" width="150" height="7" rx="3.5" fill="#fff" fill-opacity="0.44"/>
+
+      <rect x="53" y="98" width="252" height="24" rx="8" fill="#fff" fill-opacity="0.05"/>
+      <rect x="64" y="107" width="122" height="7" rx="3.5" fill="#fff" fill-opacity="0.24"/>
+
+      <rect x="53" y="128" width="252" height="24" rx="8" fill="#fff" fill-opacity="0.05"/>
+      <rect x="64" y="137" width="171" height="7" rx="3.5" fill="#fff" fill-opacity="0.24"/>
+    </g>
+
+    <rect x="32" y="248" width="360" height="6" rx="3" fill="#fff" fill-opacity="0.05"/>
+    <rect x="32" y="266" width="228" height="6" rx="3" fill="#fff" fill-opacity="0.05"/>
   </g>
 </svg>
