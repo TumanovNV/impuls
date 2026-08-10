@@ -131,11 +131,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return image
         }
 
-        let fallback = NSImage(
-            systemSymbolName: "waveform.path.ecg",
-            accessibilityDescription: "Impuls"
-        )
-        fallback?.isTemplate = true
+        let fallback = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            let mark = CGMutablePath()
+            mark.move(to: CGPoint(x: 4.0, y: 2.8))
+            mark.addLine(to: CGPoint(x: 11.5, y: 2.8))
+            mark.addCurve(
+                to: CGPoint(x: 15.0, y: 6.3),
+                control1: CGPoint(x: 13.5, y: 2.8),
+                control2: CGPoint(x: 15.0, y: 4.3)
+            )
+            mark.addLine(to: CGPoint(x: 15.0, y: 15.2))
+            mark.move(to: CGPoint(x: 12.3, y: 15.2))
+            mark.addLine(to: CGPoint(x: 12.3, y: 10.9))
+            mark.addLine(to: CGPoint(x: 8.3, y: 10.9))
+            mark.addCurve(
+                to: CGPoint(x: 5.7, y: 8.3),
+                control1: CGPoint(x: 6.9, y: 10.9),
+                control2: CGPoint(x: 5.7, y: 9.8)
+            )
+            mark.addLine(to: CGPoint(x: 5.7, y: 2.8))
+            context.addPath(mark)
+            context.setStrokeColor(CGColor(gray: 0, alpha: 1))
+            context.setLineWidth(2.35)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+            context.strokePath()
+            return true
+        }
+        fallback.isTemplate = true
         return fallback
     }
 

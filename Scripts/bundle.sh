@@ -31,6 +31,7 @@ ditto "$SPARKLE_FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
 
 echo "==> application and menu-bar icons"
 swift "$ROOT/Scripts/make-icon.swift" \
+    "$ROOT/Resources/ImpulsAppIcon.png" \
     "$APP/Contents/Resources/AppIcon.icns" \
     "$APP/Contents/Resources/ImpulsStatusTemplate.png"
 

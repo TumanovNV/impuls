@@ -10,9 +10,9 @@
   "theme_color": "#0a0a0c",
   "icons": [
     {
-      "src": "assets/impuls-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "assets/impuls-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     }
   ]

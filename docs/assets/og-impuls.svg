@@ -26,13 +26,8 @@
   <rect width="1200" height="630" fill="url(#g1)"/>
   <rect width="1200" height="630" fill="url(#g2)"/>
 
-  <!-- app mark -->
-  <g transform="translate(67 38) scale(.19)">
-    <rect x="46" y="46" width="420" height="420" rx="96" fill="#0d1738"/>
-    <rect x="159" y="150" width="36" height="212" rx="18" fill="#f7fbff"/>
-    <rect x="317" y="150" width="36" height="212" rx="18" fill="#f7fbff"/>
-    <path d="M191 250h33l21 58 23-110 22 52h31" fill="none" stroke="#3ae8ff" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
+  <!-- app mark: use the same approved master as the application and favicon -->
+  <image href="impuls-icon.png" x="74" y="44" width="84" height="84" preserveAspectRatio="xMidYMid meet"/>
 
   <!-- wordmark and claim: no counts, no module list, so a new module never dates this image -->
   <text x="76" y="306" fill="url(#accent)" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Lato,Arial,sans-serif" font-size="90" font-weight="700">ИМПУЛЬС</text>

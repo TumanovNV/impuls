@@ -1,21 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
   <title id="title">Impuls</title>
-  <desc id="desc">Фирменный знак Интегра Импульс</desc>
+  <desc id="desc">Графитовый фирменный знак Интегра Импульс с серебристой монограммой</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2e47a8"/>
-      <stop offset="0.58" stop-color="#0d1738"/>
-      <stop offset="1" stop-color="#070b1a"/>
+    <linearGradient id="body" x1="0.08" y1="0" x2="0.92" y2="1">
+      <stop offset="0" stop-color="#8992a4"/>
+      <stop offset="0.43" stop-color="#29303d"/>
+      <stop offset="1" stop-color="#11151e"/>
     </linearGradient>
-    <radialGradient id="glow" cx="0.22" cy="0.18" r="0.82">
-      <stop offset="0" stop-color="#33e1ff" stop-opacity="0.32"/>
-      <stop offset="1" stop-color="#33e1ff" stop-opacity="0"/>
+    <radialGradient id="blue" cx="0.88" cy="0.84" r="0.66">
+      <stop offset="0" stop-color="#1b7bff" stop-opacity="0.88"/>
+      <stop offset="0.48" stop-color="#1b7bff" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#1b7bff" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fbfcff"/>
+      <stop offset="0.28" stop-color="#b8bdc8"/>
+      <stop offset="0.54" stop-color="#f5f7fc"/>
+      <stop offset="1" stop-color="#9198a8"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#000" flood-opacity="0.72"/>
+    </filter>
   </defs>
-  <rect x="46" y="46" width="420" height="420" rx="96" fill="url(#bg)"/>
-  <rect x="46" y="46" width="420" height="420" rx="96" fill="url(#glow)"/>
-  <rect x="159" y="150" width="36" height="212" rx="18" fill="#f7fbff"/>
-  <rect x="317" y="150" width="36" height="212" rx="18" fill="#f7fbff"/>
-  <path d="M191 250h33l21 58 23-110 22 52h31" fill="none" stroke="#3ae8ff" stroke-width="21" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="47.5" y="47.5" width="417" height="417" rx="94.5" fill="none" stroke="#fff" stroke-opacity="0.16" stroke-width="3"/>
+  <rect x="10" y="10" width="492" height="492" rx="105" fill="url(#body)"/>
+  <rect x="10" y="10" width="492" height="492" rx="105" fill="url(#blue)"/>
+  <g fill="none" stroke="url(#metal)" stroke-width="29" stroke-linecap="round" stroke-linejoin="round" filter="url(#shadow)">
+    <path d="M181 110v272c0 33 27 60 60 60h28c33 0 60-27 60-60V193c0-19 15-34 34-34h37c19 0 34 15 34 34v209"/>
+    <path d="M343 111v166c0 19-15 34-34 34h-17c-19 0-34-15-34-34V111"/>
+  </g>
+  <rect x="11.5" y="11.5" width="489" height="489" rx="103.5" fill="none" stroke="#eef4ff" stroke-opacity="0.28" stroke-width="3"/>
 </svg>
