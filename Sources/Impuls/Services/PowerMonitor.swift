@@ -49,6 +49,7 @@ final class PowerMonitor: ObservableObject {
     /// voltage and power. Source changes still arrive by IOKit notification
     /// while the module is enabled but the panel is folded.
     func setActive(_ active: Bool) {
+        guard isActive != active else { return }
         isActive = active
         guard isStarted, active else {
             stopTimer()
