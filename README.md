@@ -2,6 +2,14 @@
 
 *English · [Русский](README.ru.md)*
 
+[![Release](https://img.shields.io/github/v/release/TumanovNV/impuls?label=release&color=5b8cff)](https://github.com/TumanovNV/impuls/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/TumanovNV/impuls/total?label=downloads&color=5b8cff)](https://github.com/TumanovNV/impuls/releases)
+[![macOS](https://img.shields.io/badge/macOS-15%2B-000000?logo=apple&logoColor=white)](https://tumanovnv.github.io/impuls/)
+[![Swift](https://img.shields.io/badge/Swift-6-f05138?logo=swift&logoColor=white)](Package.swift)
+[![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
+
+**[Website](https://tumanovnv.github.io/impuls/) · [Download](https://github.com/TumanovNV/impuls/releases/latest) · [Privacy](PRIVACY.md) · [Security](SECURITY.md)**
+
 Impuls is a native macOS utility that turns the area around the MacBook notch —
 or a compact top-edge tab on other Macs — into a local action search, player,
 file shelf, clipboard history, snippets, calendar, translator, and scratchpad.

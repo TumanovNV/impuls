@@ -60,7 +60,8 @@
         "История буфера обмена",
         "Полка файлов и локальные файловые инструменты",
         "OCR и удаление фона через Apple Vision",
-        "Календарь, переводчик и быстрые заметки"
+        "Календарь, переводчик и быстрые заметки",
+        "Заряд аккумулятора и состояние питания из системного API"
       ]
     },
     {
@@ -81,6 +82,11 @@
           "@type": "Question",
           "name": "Сколько стоит Impuls?",
           "acceptedAnswer": {"@type": "Answer", "text": "Impuls распространяется бесплатно с открытым исходным кодом по лицензии GPL-3.0-or-later."}
+        },
+        {
+          "@type": "Question",
+          "name": "Почему модуль «Аккумулятор» показывает не все данные?",
+          "acceptedAnswer": {"@type": "Answer", "text": "Impuls показывает только то, что macOS публикует про конкретный Mac через IOPowerSources. Температура, циклы, полная ёмкость и тип разъёма доступны не на каждой машине, и вместо выдуманного значения остаётся «Не определено». На Mac mini, Mac Studio, iMac и Mac Pro модуль называется «Питание»."}
         }
       ]
     }
@@ -344,6 +350,25 @@ h1 .grad{background:linear-gradient(100deg,#7fa6ff,#b39dff 55%,#7fd8b4);
   padding:10px 11px;font-size:12.5px;color:#fff;min-height:74px}
 .tr .lb{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--dim);margin-bottom:5px}
 .tr .sw{color:var(--dim)}
+/* battery pane: the mock panel stays dark in both appearances, like every other
+   pane here, so these rules need no light-mode counterpart */
+.batt{display:flex;flex-direction:column;gap:9px}
+.batt .top{display:flex;align-items:center;gap:11px}
+.batt .lvl{position:relative;width:42px;height:19px;flex:none;
+  border:1.6px solid rgba(255,255,255,.28);border-radius:6px}
+.batt .lvl::after{content:"";position:absolute;right:-4px;top:5.5px;width:3px;height:8px;
+  border-radius:0 2px 2px 0;background:rgba(255,255,255,.28)}
+.batt .fill{position:absolute;left:2px;top:2px;bottom:2px;width:62%;border-radius:3px;
+  background:linear-gradient(90deg,#3ecf8e,#2fb87c)}
+.batt .pc{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.02em}
+.batt .st{font-size:11.5px;color:var(--dim)}
+.batt .rows{display:grid;grid-template-columns:1fr 1fr;gap:5px 10px}
+.batt .row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;
+  font-size:11.5px;padding:5px 9px;border-radius:8px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08)}
+.batt .row .k{color:var(--dim)}
+.batt .row .v{color:#fff;font-weight:600}
+.batt .row .na{color:var(--dim);font-weight:500}
 .note{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:11px 12px}
 .note .h{font-size:12.5px;font-weight:600;color:#fff;margin-bottom:6px}
 .note .l{height:6px;border-radius:3px;background:rgba(255,255,255,.10);margin-bottom:6px}
@@ -571,8 +596,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   <div class="hero-shell">
     <div class="hero-copy">
     <div class="pill"><span class="dot"></span><b data-i="hero.pill.v">Impuls 1.2.8</b> <span data-i="hero.pill.t">— бесплатно, нативно, локально</span></div>
-    <h1 data-i="hero.h1">8 инструментов для Mac. <span class="grad">Один хоткей.</span></h1>
-    <p class="sub" data-i="hero.sub">Буфер обмена, файлы, OCR, календарь, переводчик и заметки — у верхнего края экрана. Быстрее, чем переключаться между приложениями.</p>
+    <h1 data-i="hero.h1">9 инструментов для Mac. <span class="grad">Один хоткей.</span></h1>
+    <p class="sub" data-i="hero.sub">Буфер обмена, файлы, OCR, календарь, переводчик, заметки и аккумулятор — у верхнего края экрана. Быстрее, чем переключаться между приложениями.</p>
     <div class="cta">
       <a class="btn btn-primary" data-conversion="download" data-placement="hero" href="https://github.com/TumanovNV/impuls/releases/download/v1.2.8/Impuls-1.2.8.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
@@ -636,6 +661,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
             <span data-h="cal" data-i="head.cal" hidden>Календарь</span>
             <span data-h="tr" data-i="head.tr" hidden>Перевод</span>
             <span data-h="note" data-i="head.note" hidden>Заметки</span>
+            <span data-h="batt" data-i="head.batt" hidden>Аккумулятор</span>
           </div>
 
           <div class="p-main">
@@ -748,10 +774,28 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
               </div>
               <div class="actionbar"><span class="chip sm" data-i="n2">Быстрая мысль — без запуска отдельного приложения</span></div>
             </div>
+            <!-- battery -->
+            <div class="pane" data-p="batt">
+              <div class="batt">
+                <div class="top">
+                  <span class="lvl"><span class="fill"></span></span>
+                  <span class="pc">62&#8201;%</span>
+                  <span class="st" data-i="bt.state">Зарядка · до полной 1 ч 05 мин</span>
+                </div>
+                <div class="rows">
+                  <div class="row"><span class="k" data-i="bt.k1">Адаптер</span><span class="v">70 Вт</span></div>
+                  <div class="row"><span class="k" data-i="bt.k2">Идёт в батарею</span><span class="v">38,4 Вт</span></div>
+                  <div class="row"><span class="k" data-i="bt.k3">Циклы</span><span class="v">142</span></div>
+                  <div class="row"><span class="k" data-i="bt.k4">Разъём</span><span class="na" data-i="bt.na">Не определено</span></div>
+                </div>
+              </div>
+              <div class="actionbar"><span class="chip sm" data-i="bt.note">Показывается только то, что macOS действительно сообщает</span></div>
+            </div>
             </div>
             <div class="rail" id="rail-right" role="toolbar" aria-orientation="vertical" aria-label="Модули Impuls справа">
               <button type="button" data-p="tr" aria-label="Перевод"><span class="tx">A<small>文</small></span><span class="vh" data-i="tab.tr">Перевод</span></button>
               <button type="button" data-p="note" aria-label="Заметки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h9l5 5v11H5z"/><path d="M8 12.5h8M8 16.5h5"/></svg><span class="vh" data-i="tab.note">Заметки</span></button>
+              <button type="button" data-p="batt" aria-label="Аккумулятор"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="8" width="16" height="9" rx="2.4"/><path d="M21 11.2v2.6"/><path d="M5.5 11h6.5v3H5.5z" fill="currentColor" stroke="none"/></svg><span class="vh" data-i="tab.batt">Аккумулятор</span></button>
             </div>
           </div>
         </div>
@@ -836,10 +880,10 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   <div class="wrap">
     <div class="center reveal">
       <div class="eyebrow" data-i="m.eyebrow">Модули</div>
-      <h2 data-i="m.h2">Восемь инструментов. Включите только те, которыми пользуетесь.</h2>
+      <h2 data-i="m.h2">Девять инструментов. Включите только те, которыми пользуетесь.</h2>
       <p class="lead" data-i="m.lead">Настройте состав и порядок модулей под свою работу. Панель открывается наведением или хоткеем, переключается стрелками и закрывается по Esc.</p>
     </div>
-    <div class="grid g4">
+    <div class="grid g3">
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div><h3 data-i="mod1">Actions</h3><p data-i="mod1d">Один поиск по истории буфера, заготовкам и заметкам с действиями прямо из результата.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l12-2v12"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div><h3 data-i="mod2">Плеер</h3><p data-i="mod2d">Apple Music нативно; Яндекс Музыка, VK и YouTube Music — через официальные сайты в WebKit.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><h3 data-i="mod3">Полка файлов</h3><p data-i="mod3d">Перенос файлов между окнами, OCR, удаление фона, конвертация изображений, PDF, AirDrop и безопасное переименование.</p></div>
@@ -848,6 +892,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><h3 data-i="mod6">Календарь</h3><p data-i="mod6d">Ближайшие встречи в поле зрения. Доступ запрашивается системным диалогом macOS.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h10M8 3v3M5 14c3.5-1.5 6-4.5 6-8M4 9c1.5 3.5 4 5.5 7 6.5M13 21l4.5-11L22 21M15 17h5"/></svg></div><h3 data-i="mod7">Переводчик</h3><p data-i="mod7d">Быстрый перевод из панели или прямо из результата Actions. Пара языков выбирается в заголовке колонки, направление читается по алфавиту.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11l5 5v11H4z"/><path d="M8 12h8M8 16h5"/></svg></div><h3 data-i="mod8">Заметки</h3><p data-i="mod8d">Мысль записывается там же, где вы работаете, без запуска отдельного приложения.</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M6 10.5h6.5v3H6z" fill="currentColor" stroke="none"/></svg></div><h3 data-i="mod9">Аккумулятор</h3><p data-i="mod9d">Заряд, состояние питания и время до полной зарядки или разрядки. На десктопных Mac модуль называется «Питание». Показывается только то, что система действительно сообщает.</p></div>
     </div>
 
     <div class="grid g3" style="margin-top:14px">
@@ -946,6 +991,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
         <p data-i="q3a">Публичная сборка пока подписана ad-hoc и не нотаризована Apple, поэтому первая установка требует ручного подтверждения Gatekeeper. Impuls не обходит эту защиту. Начиная с 1.2.9, дальнейшие обновления устанавливаются внутри приложения после проверки подписанного feed и архива; Developer ID уберёт именно первый ручной барьер.</p></details>
       <details><summary><span data-i="q4">Какие музыкальные источники поддерживает Impuls?</span><span class="pm"></span></summary>
         <p data-i="q4a">Источник выбирается прямо во вкладке. Apple Music работает через нативный адаптер. Яндекс Музыка, VK Музыка и YouTube Music открываются официальными сайтами в отдельном окне WebKit; панель получает ограниченные Media Session-метаданные и управляет страницей. Неофициальные API, токены и private-фреймворки не используются.</p></details>
+      <details><summary><span data-i="q7">Почему модуль «Аккумулятор» показывает не все данные?</span><span class="pm"></span></summary>
+        <p data-i="q7a">Impuls показывает только то, что macOS публикует про конкретный Mac через IOPowerSources. Температура, циклы, полная ёмкость и тип разъёма доступны не на каждой машине, и вместо выдуманного значения остаётся «Не определено» — это свойство системного API, а не неисправность батареи. Пока macOS считает оценку времени, показывается «Расчёт…», а не ноль. Мощность, которая в этот момент идёт в батарею, отделена от номинала адаптера: адаптер 70 Вт может отдавать заметно меньше. На Mac mini, Mac Studio, iMac и Mac Pro модуль называется «Питание».</p></details>
       <details><summary><span data-i="q5">Что происходит с моими данными при переустановке?</span><span class="pm"></span></summary>
         <p data-i="q5a">Настройки, заметки и заготовки экспортируются в локальный JSON-файл и восстанавливаются из него. Резервные копии формата 1.1 читаются версией 1.2 — порядок модулей мигрирует автоматически, новый модуль Actions добавляется в существующую конфигурацию.</p></details>
       <details><summary><span data-i="q6">Сколько это стоит и можно ли собрать самому?</span><span class="pm"></span></summary>
@@ -1007,16 +1054,16 @@ const I = {
   "nav.actions":"Actions","nav.modules":"Modules","nav.trust":"Trust","nav.privacy":"Privacy","nav.install":"Install","nav.faq":"FAQ",
   "a11y.skip":"Skip to content","cta.download":"Download","cta.dl.mac":"Download free for macOS","cta.demo":"See how it works",
   "hero.pill.v":"Impuls 1.2.8","hero.pill.t":"— free, native, local",
-  "hero.h1":"8 tools for your Mac. <span class='grad'>One shortcut.</span>",
-  "hero.sub":"Clipboard history, files, OCR, calendar, translator, and notes — at the top edge of your screen. Faster than switching between apps.",
+  "hero.h1":"9 tools for your Mac. <span class='grad'>One shortcut.</span>",
+  "hero.sub":"Clipboard history, files, OCR, calendar, translator, notes, and battery — at the top edge of your screen. Faster than switching between apps.",
   "hero.m1":"macOS 15 or newer","hero.m2":"2.4 MB","hero.m3":"Apple Silicon and Intel","hero.m5":"Free",
   "hero.f1":"Work data stays on your Mac","hero.f2":"No account required","hero.f3":"Open source",
   "hero.install":"The build is not yet notarized by Apple, so the first launch needs manual approval. <a href='#install'>See the instructions</a>",
   "mb.finder":"Finder","mb.file":"File","mb.edit":"Edit","mb.view":"View",
   "demo.label":"Impuls in action","demo.action":"Hover the notch or choose a module",
   "demo.hint":"Move the pointer to the notch","demo.caption":"This interactive demo mirrors the current app layout. Select a module icon to preview its interface.",
-  "tab.act":"Actions","tab.play":"Player","tab.shelf":"Shelf","tab.clip":"Clipboard","tab.snip":"Snippets","tab.cal":"Calendar","tab.tr":"Translate","tab.note":"Notes",
-  "head.act":"Actions","head.play":"Player","head.shelf":"Shelf","head.clip":"Clipboard","head.snip":"Snippets","head.cal":"Calendar","head.tr":"Translate","head.note":"Notes",
+  "tab.act":"Actions","tab.play":"Player","tab.shelf":"Shelf","tab.clip":"Clipboard","tab.snip":"Snippets","tab.cal":"Calendar","tab.tr":"Translate","tab.note":"Notes","tab.batt":"Battery",
+  "head.act":"Actions","head.play":"Player","head.shelf":"Shelf","head.clip":"Clipboard","head.snip":"Snippets","head.cal":"Calendar","head.tr":"Translate","head.note":"Notes","head.batt":"Battery",
   "s.ph":"Search clipboard, snippets, and notes",
   "b.clip":"Clipboard",
   "r1":"https://github.com/TumanovNV/impuls/releases",
@@ -1030,6 +1077,9 @@ const I = {
   "e1":"Sprint planning","e1p":"Zoom · 45 min","e2":"Call with designer","e2p":"Meeting room · 30 min","e3":"Review the latest Impuls release","e3p":"All day",
   "t1":"Translate selected text right from Actions",
   "n1":"Impuls: 1.3 release plan","n2":"A quick thought without launching another app",
+  "bt.state":"Charging · 1 h 05 min to full",
+  "bt.k1":"Adapter","bt.k2":"Into the battery","bt.k3":"Cycles","bt.k4":"Connector","bt.na":"Not determined",
+  "bt.note":"Only what macOS actually reports is shown",
   "b.eyebrow":"Everyday workflows","b.h2":"Fewer micro-actions. More time for the work that matters.",
   "b.lead":"Impuls does not replace your apps. It removes needless trips between them when you need to find, copy, move, or quickly process a file.",
   "b1":"Bring back what you copied earlier","b1d":"One search finds a link, account detail, or command across clipboard history, snippets, and notes — even when you cannot remember where it was.",
@@ -1042,7 +1092,7 @@ const I = {
   "a.s2":"Pick with arrow keys","a.s2d":"Up and down through results, Enter to copy. Your hands never leave the keyboard.",
   "a.s3":"Act from the panel","a.s3d":"Save as a snippet, create a note, translate text, open a link or file, reveal a file in Finder.",
   "ar1":"github.com/TumanovNV/impuls/releases","ar2":"Impuls: 1.3 release plan","ar3":"Release announcement template","ar4":"Impuls-1.2.8.dmg",
-  "m.eyebrow":"Modules","m.h2":"Eight tools. Enable only the ones you use.",
+  "m.eyebrow":"Modules","m.h2":"Nine tools. Enable only the ones you use.",
   "m.lead":"Tune the module set and order to your workflow. The panel opens on hover or by shortcut, moves with arrow keys, and closes with Esc.",
   "mod1":"Actions","mod1d":"One search across clipboard history, snippets, and notes, with actions right from the result.",
   "mod2":"Player","mod2d":"Apple Music natively; Yandex Music, VK, and YouTube Music through their official sites in WebKit.",
@@ -1052,6 +1102,7 @@ const I = {
   "mod6":"Calendar","mod6d":"Your next meetings in view. Access is requested by the standard macOS dialog.",
   "mod7":"Translator","mod7d":"Quick translation from the panel or straight from an Actions result. Pick the language pair in the column heading; direction follows the alphabet you type in.",
   "mod8":"Notes","mod8d":"Capture a thought where you already are, without launching another app.",
+  "mod9":"Battery","mod9d":"Charge, power state, and time to full or empty. On desktop Macs the module is called Power. Only what the system actually reports is shown.",
   "x1":"Keyboard-first control","x1d":"A shortcut chosen from safe combinations, arrow keys between modules, Esc to close. A mouse is optional.",
   "x2":"Not just for notched Macs","x2d":"Notch geometry is detected from the display safe area. On Macs without one, Impuls shows a compact 96 × 10 pt tab at the top edge.",
   "x3":"Tuned to your setup","x3d":"Panel size, target display, hover behaviour and delay, module visibility and order. Backups go to a local JSON file.",
@@ -1089,6 +1140,8 @@ const I = {
   "q3a":"The public build is currently ad-hoc signed and not notarized by Apple, so the first installation needs manual Gatekeeper approval. Impuls does not bypass that protection. Beginning with 1.2.9, later updates install in-app after the signed feed and archive are verified; Developer ID will remove the first manual barrier.",
   "q4":"Which music sources does Impuls support?",
   "q4a":"Choose the source in the Music pane. Apple Music uses a native adapter. Yandex Music, VK Music, and YouTube Music open their official sites in a separate WebKit window; the panel receives bounded Media Session metadata and controls that page. No unofficial API, token harvesting, or private framework is used.",
+  "q7":"Why does the Battery module leave some values out?",
+  "q7a":"Impuls shows only what macOS publishes about that particular Mac through IOPowerSources. Temperature, cycle count, full capacity, and connector type are not available on every machine, and rather than invent a value the panel says “Not determined” — a property of the system API, not a fault in the battery. While macOS is still computing a time estimate it shows “Calculating…”, not zero. The power actually flowing into the battery is kept separate from the adapter rating: a 70 W adapter may be delivering noticeably less. On Mac mini, Mac Studio, iMac, and Mac Pro the module is called Power.",
   "q5":"What happens to my data when I reinstall?",
   "q5a":"Settings, notes, and snippets export to a local JSON file and restore from it. Backups in the 1.1 format are readable by 1.2 — module order migrates automatically and the new Actions module is added to your existing configuration.",
   "q6":"What does it cost, and can I build it myself?",
@@ -1314,7 +1367,7 @@ function restartTyping(){
 }
 
 /* autoplay tour */
-const tour=['act','act','shelf','clip','play','snip','cal','tr','note'];
+const tour=['act','act','shelf','clip','play','snip','cal','tr','note','batt'];
 let ti=0;
 function startAuto(delay){
   stopAuto();
