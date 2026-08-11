@@ -20,11 +20,14 @@ struct TranslatePane: View {
 
     /// Largest first. Four rungs, far enough apart that a change is always a
     /// deliberate-looking drop rather than a wobble.
-    private let ladder: [CGFloat] = [27, 20, 15, 11]
+    /// Aligned with `Theme.Typo`: 28 is the hero size, 21 the display size,
+  ///  15 the title size and 12 the body size. The ladder fits text to the
+  /// column, but it should still land on sizes the rest of the panel uses.
+    private let ladder: [CGFloat] = [28, 21, 15, 12]
 
     var body: some View {
         let font = fontSize(in: paneSize)
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: Theme.Space.s) {
             source(font)
             result(font)
         }
@@ -41,7 +44,7 @@ struct TranslatePane: View {
                     .onChange(of: proxy.size) { _, new in paneSize = new }
             }
         )
-        .padding(.top, 2)
+        .padding(.top, Theme.Space.hair)
         // One task for both the text and the retry counter: a keystroke
         // cancels the pending sleep, so only a pause actually translates.
         .task(id: translator.request) { await schedule() }
@@ -62,10 +65,12 @@ struct TranslatePane: View {
             if !translator.input.isEmpty {
                 Button { translator.reset() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(Theme.Typo.captionSemibold)
                         .foregroundStyle(Theme.secondary)
                 }
                 .buttonStyle(.plain)
+                .help(localized("Clear"))
+                .accessibilityLabel(localized("Clear"))
             }
         } content: {
             // A `TextField(axis: .vertical)` grows to fit its text, and growing
@@ -75,6 +80,7 @@ struct TranslatePane: View {
             // rectangle it is given and re-wraps inside it, so a new line
             // costs nothing outside its own bounds.
             TextEditor(text: $translator.input)
+                .accessibilityLabel(localized("Text to translate"))
                 .textEditorStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
@@ -95,9 +101,9 @@ struct TranslatePane: View {
                     return .handled
                 }
         }
-        .padding(10)
+        .padding(Theme.Space.s)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
                 .fill(Theme.surface)
         )
     }
@@ -113,16 +119,18 @@ struct TranslatePane: View {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { copied = false }
                 } label: {
                     Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(Theme.Typo.captionSemibold)
                         .foregroundStyle(copied ? Color.green : Theme.secondary)
                 }
                 .buttonStyle(.plain)
+                .help(localized("Copy"))
+                .accessibilityLabel(localized("Copy"))
             }
         } content: {
             outcome(font)
         }
         .padding(10)
-        .animation(Theme.contentAnimation, value: copied)
+        .animation(Theme.motion(Theme.contentAnimation), value: copied)
     }
 
     @ViewBuilder
@@ -130,7 +138,7 @@ struct TranslatePane: View {
         if let failure = translator.failure {
             VStack(alignment: .leading, spacing: 6) {
                 Text(failure)
-                    .font(.system(size: 11))
+                    .font(Theme.Typo.label)
                     .foregroundStyle(Theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
@@ -141,7 +149,7 @@ struct TranslatePane: View {
                     Button("Swap Languages") { translator.swap() }
                 }
                 .buttonStyle(.plain)
-                .font(.system(size: 10, weight: .medium))
+                .font(Theme.Typo.captionStrong)
                 .foregroundStyle(Theme.primary)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -151,6 +159,8 @@ struct TranslatePane: View {
                     .font(.system(size: font))
                     .foregroundStyle(Theme.primary)
                     .textSelection(.enabled)
+                    .accessibilityLabel(localized("Translation"))
+                    .accessibilityValue(translator.output)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -239,17 +249,19 @@ struct TranslatePane: View {
         } label: {
             HStack(spacing: 3) {
                 Text(Translator.name(language).uppercased())
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(Theme.Typo.captionSemibold)
                     .tracking(0.8)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 6, weight: .bold))
+                    .font(Theme.Glyph.chevron)
             }
             .foregroundStyle(Theme.tertiary)
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
+        .accessibilityLabel(localized("Language"))
+        .accessibilityValue(Translator.name(language))
     }
 
     /// A tick for the language already shown, a download mark for a pair whose

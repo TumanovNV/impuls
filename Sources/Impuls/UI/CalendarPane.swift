@@ -23,80 +23,101 @@ struct CalendarPane: View {
     // MARK: - Agenda
 
     private func agenda(next: CalendarStore.Meeting) -> some View {
-        HStack(alignment: .top, spacing: 18) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 7) {
-                    Circle()
-                        .fill(Color(next.calendarColor))
-                        .frame(width: 7, height: 7)
-                    Text(next.title)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Theme.primary)
-                        .lineLimit(1)
-                }
-                Text(subtitle(for: next))
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(Theme.secondary)
-                    .lineLimit(1)
-                    .padding(.top, 4)
-                    .padding(.leading, 14)
-
-                Spacer(minLength: 10)
-
-                if next.link != nil {
-                    Button {
-                        calendar.join(next)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "video.fill").font(.system(size: 10))
-                            Text(next.provider.map { localized("Join · %@", $0) } ?? localized("Join"))
-                                .font(.system(size: 11, weight: .medium))
-                        }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(
-                            Capsule().fill(next.isRunning ? Theme.primary.opacity(0.92) : Theme.surfaceHover)
-                        )
-                        .foregroundStyle(next.isRunning ? Theme.onPrimary : Theme.primary)
+        GeometryReader { geo in
+            HStack(alignment: .top, spacing: Theme.Space.l) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: Theme.Space.s - 1) {
+                        Circle()
+                            .fill(Color(next.calendarColor))
+                            .frame(width: 7, height: 7)
+                        Text(next.title)
+                            .font(Theme.Typo.title)
+                            .foregroundStyle(Theme.primary)
+                            .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
-                    .padding(.leading, 14)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(subtitle(for: next))
+                        .font(Theme.Typo.label)
+                        .foregroundStyle(Theme.secondary)
+                        .lineLimit(1)
+                        .padding(.top, Theme.Space.xs)
+                        .padding(.leading, Theme.Space.m + 2)
 
-            rest
+                    Spacer(minLength: 10)
+
+                    if next.link != nil {
+                        Button {
+                            calendar.join(next)
+                        } label: {
+                            HStack(spacing: Theme.Space.xs + 2) {
+                                Image(systemName: "video.fill").font(Theme.Typo.caption)
+                                Text(next.provider.map { localized("Join · %@", $0) } ?? localized("Join"))
+                                    .font(Theme.Typo.labelStrong)
+                            }
+                            .padding(.horizontal, Theme.Space.m)
+                            .padding(.vertical, Theme.Space.s - 1)
+                            .background(
+                                Capsule().fill(next.isRunning ? Theme.primary.opacity(0.92) : Theme.surfaceHover)
+                            )
+                            .foregroundStyle(next.isRunning ? Theme.onPrimary : Theme.primary)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.leading, Theme.Space.m + 2)
+                        .accessibilityLabel(
+                            next.provider.map { localized("Join %@ meeting", $0) } ?? localized("Join")
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(localized("Next meeting"))
+
+                rest(width: restWidth(in: geo.size.width))
+            }
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
         }
-        .padding(.top, 4)
+        .padding(.top, Theme.Space.xs)
     }
 
     /// Everything after the next meeting, as a column on the right.
-    private var rest: some View {
-        VStack(alignment: .leading, spacing: 7) {
+    private func rest(width: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Space.s - 1) {
             ForEach(calendar.upcoming.prefix(4)) { meeting in
-                HStack(spacing: 7) {
+                HStack(spacing: Theme.Space.s - 1) {
                     Circle()
                         .fill(Color(meeting.calendarColor))
                         .frame(width: 5, height: 5)
                     Text(Self.clock.string(from: meeting.start))
-                        .font(.system(size: 10, weight: .medium).monospacedDigit())
+                        .font(Theme.Typo.captionDigits)
                         .foregroundStyle(Theme.secondary)
-                        .frame(width: 34, alignment: .leading)
+                        .frame(width: Self.clockColumnWidth, alignment: .leading)
                         .opacity(Foundation.Calendar.current.isDateInToday(meeting.start) ? 1 : 0.6)
                     Text(meeting.title)
-                        .font(.system(size: 10.5))
+                        .font(Theme.Typo.caption)
                         .foregroundStyle(Theme.tertiary)
                         .lineLimit(1)
                 }
             }
             if calendar.upcoming.isEmpty {
                 Text("No other meetings this week")
-                    .font(.system(size: 10))
+                    .font(Theme.Typo.caption)
                     .foregroundStyle(Theme.tertiary)
             }
             Spacer(minLength: 0)
         }
-        .frame(width: 230, alignment: .leading)
+        .frame(width: width, alignment: .leading)
+    }
+
+    /// A share of the pane rather than a fixed 230 pt: at the compact preset
+    /// that flat number was 41% of the width and at the large one 33%, so the
+    /// same layout read as two different designs depending on a setting that
+    /// was only ever meant to change the outer size.
+    ///
+    /// Taken from the geometry the pane is laid out in rather than measured
+    /// into `@State`. Storing a measurement costs a frame — the first pass has
+    /// nothing stored, draws at a fallback and then snaps — and the clamp
+    /// already covers a degenerate proposal, so no fallback constant is needed.
+    private func restWidth(in paneWidth: CGFloat) -> CGFloat {
+        min(260, max(180, paneWidth * 0.42))
     }
 
     private func subtitle(for meeting: CalendarStore.Meeting) -> String {
@@ -106,10 +127,36 @@ struct CalendarPane: View {
         return parts.joined(separator: " · ").sentenceCased
     }
 
+    /// Clock time in the user's own hour cycle.
+    ///
+    /// This was a literal `"HH:mm"`, which forced 24-hour on every Mac —
+    /// including every Mac whose region shows 2:30 PM. `j` is the hour field
+    /// that resolves against the locale instead of overriding it, so the same
+    /// call now yields "14:30" or "2:30 PM" depending on the setting the user
+    /// actually made. The pattern is deliberately not a translatable key: the
+    /// choice belongs to the region, not to the language of the interface.
     static let clock: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm"
+        formatter.locale = Locale.current
+        formatter.setLocalizedDateFormatFromTemplate("jmm")
         return formatter
+    }()
+
+    /// Width of the time column in the upcoming list.
+    ///
+    /// A 12-hour locale needs room for "10:35 PM" where a 24-hour one needs
+    /// only "22:35". Measured from a reference evening time rather than
+    /// guessed, so the column is right in both without being padded in either.
+    static let clockColumnWidth: CGFloat = {
+        // Its own formatter, not a borrowed reference to `clock`: DateFormatter
+        // is a class, and pinning the time zone on the shared one to take a
+        // measurement would leave every meeting time rendered in UTC.
+        let probe = DateFormatter()
+        probe.locale = Locale.current
+        probe.setLocalizedDateFormatFromTemplate("jmm")
+        probe.timeZone = TimeZone(secondsFromGMT: 0)
+        let sample = probe.string(from: Date(timeIntervalSince1970: 81_300)) // 22:35 UTC
+        return sample.count > 5 ? 58 : 36
     }()
 
     private static let weekday: DateFormatter = {
@@ -153,15 +200,15 @@ struct CalendarPane: View {
     // MARK: - States
 
     private var permissionPrompt: some View {
-        VStack(spacing: 9) {
+        VStack(spacing: Theme.Space.s + 1) {
             Image(systemName: "calendar")
-                .font(.system(size: 22, weight: .light))
+                .font(Theme.Glyph.hero)
                 .foregroundStyle(Theme.tertiary)
             Text("See your next meetings")
-                .font(.system(size: 12, weight: .medium))
+                .font(Theme.Typo.bodyStrong)
                 .foregroundStyle(Theme.secondary)
             Text("Impuls needs access to Calendar. It is used only for this tab,\nand calendar data stays on this Mac.")
-                .font(.system(size: 10))
+                .font(Theme.Typo.caption)
                 .foregroundStyle(Theme.tertiary)
                 .multilineTextAlignment(.center)
             // Padding and background belong inside the label: with .plain the
@@ -171,29 +218,29 @@ struct CalendarPane: View {
                 calendar.requestAccess()
             } label: {
                 Text("Allow")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(Theme.Typo.labelStrong)
                     .foregroundStyle(Theme.primary)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 6)
+                    .padding(.horizontal, Theme.Space.m + 2)
+                    .padding(.vertical, Theme.Space.xs + 2)
                     .background(Capsule().fill(Theme.surfaceHover))
                     .contentShape(Capsule())
             }
             .buttonStyle(.plain)
-            .padding(.top, 2)
+            .padding(.top, Theme.Space.hair)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var deniedState: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Space.s) {
             Image(systemName: "calendar.badge.exclamationmark")
-                .font(.system(size: 22, weight: .light))
+                .font(Theme.Glyph.hero)
                 .foregroundStyle(Theme.tertiary)
             Text("Calendar access is off")
-                .font(.system(size: 12, weight: .medium))
+                .font(Theme.Typo.bodyStrong)
                 .foregroundStyle(Theme.secondary)
             Text("Settings → Privacy → Calendars")
-                .font(.system(size: 10))
+                .font(Theme.Typo.caption)
                 .foregroundStyle(Theme.tertiary)
             permissionButton("Open Calendar Settings") {
                 calendar.openPrivacySettings()
@@ -203,15 +250,15 @@ struct CalendarPane: View {
     }
 
     private func failedState(_ message: String) -> some View {
-        VStack(spacing: 7) {
+        VStack(spacing: Theme.Space.s - 1) {
             Image(systemName: "calendar.badge.exclamationmark")
-                .font(.system(size: 22, weight: .light))
+                .font(Theme.Glyph.hero)
                 .foregroundStyle(Theme.tertiary)
             Text("Could not request Calendar access")
-                .font(.system(size: 12, weight: .medium))
+                .font(Theme.Typo.bodyStrong)
                 .foregroundStyle(Theme.secondary)
             Text(message)
-                .font(.system(size: 9.5))
+                .font(Theme.Typo.caption)
                 .foregroundStyle(Theme.tertiary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
@@ -225,10 +272,10 @@ struct CalendarPane: View {
     private func permissionButton(_ title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 10.5, weight: .medium))
+                .font(Theme.Typo.captionStrong)
                 .foregroundStyle(Theme.primary)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 5)
+                .padding(.horizontal, Theme.Space.m + 1)
+                .padding(.vertical, Theme.Space.xs + 1)
                 .background(Capsule().fill(Theme.surfaceHover))
                 .contentShape(Capsule())
         }
@@ -236,15 +283,15 @@ struct CalendarPane: View {
     }
 
     private var emptyState: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Space.s) {
             Image(systemName: "checkmark.circle")
-                .font(.system(size: 22, weight: .light))
+                .font(Theme.Glyph.hero)
                 .foregroundStyle(Theme.tertiary)
             Text("No more meetings")
-                .font(.system(size: 12, weight: .medium))
+                .font(Theme.Typo.bodyStrong)
                 .foregroundStyle(Theme.secondary)
             Text("Nothing on the calendar for the next day")
-                .font(.system(size: 10))
+                .font(Theme.Typo.caption)
                 .foregroundStyle(Theme.tertiary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

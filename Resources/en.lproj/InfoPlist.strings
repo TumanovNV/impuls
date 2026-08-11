@@ -1,0 +1,11 @@
+/* Impuls — system permission dialogs, English.
+
+   `Info.plist` carries these keys in Russian, which is what every user of any
+   language used to see in the macOS permission sheet. macOS prefers the value
+   from the matching `.lproj/InfoPlist.strings` when one exists, so this file is
+   what an English user now reads. */
+
+"NSAppleEventsUsageDescription" = "Impuls reads the current track name and controls playback in the Apple Music app.";
+"NSCalendarsFullAccessUsageDescription" = "Impuls shows your upcoming meetings and a button to join them.";
+"NSCalendarsUsageDescription" = "Impuls shows your upcoming meetings and a button to join them.";
+"CFBundleDisplayName" = "Impuls";

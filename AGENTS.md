@@ -92,8 +92,10 @@ workflow before arguing with this list.
   `Theme.swift` and the panes; the expanded panel is `620 × 208` pt by default
   (`NotchGeometry.expandedSize`), corner radii are 12 pt on top and 22 pt at the
   bottom when open.
-- **The rail has two sides.** The first six enabled modules render on the left rail,
-  everything after that on the right (`NotchViewModel.leftRailTabs` / `rightRailTabs`).
+- **The rail has two sides.** Enabled modules are split evenly between them, the
+  left rail taking the extra one when the count is odd, so nine modules go 5/4
+  (`NotchViewModel.leftRailTabs` / `rightRailTabs`). Icon height is fitted to the
+  panel by `NotchContentView.railButtonHeight`, not fixed.
 - **Stores never import SwiftUI**; panes never touch the filesystem directly.
 - **One responsibility per file.** A new module means a new `*Pane.swift`, a new
   store, a `Tab` case, and string-table entries in both languages.

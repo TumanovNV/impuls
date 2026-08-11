@@ -8,12 +8,30 @@ struct NotesPane: View {
 
     @FocusState private var focused: Bool
 
+    /// A share of the pane rather than a flat 170 pt, which was 30% of the
+    /// compact panel and 24% of the large one — the same layout reading as two
+    /// designs depending on a setting meant only to change the outer size.
+    ///
+    /// Read straight off the geometry the pane is being laid out in, not
+    /// measured into `@State` from a background reader. That measure-then-store
+    /// round trip costs a frame: the first pass has nothing stored yet, so it
+    /// draws at a fallback and snaps to the real width once the state lands —
+    /// visibly, on every arrival at this tab. The clamp is what handles a
+    /// degenerate proposal, so there is no fallback constant to get wrong.
+    private func listWidth(in paneWidth: CGFloat) -> CGFloat {
+        min(210, max(150, paneWidth * 0.32))
+    }
+
     var body: some View {
-        HStack(spacing: 10) {
-            list
-            editor
+        GeometryReader { geo in
+            HStack(spacing: Theme.Space.s) {
+                list
+                    .frame(width: listWidth(in: geo.size.width))
+                editor
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
-        .padding(.top, 2)
+        .padding(.top, Theme.Space.hair)
         // Arriving means arriving to type. With nothing to select, an empty
         // note is created on the spot: a welcome screen with a button would be
         // slower than the editor window this tab exists to replace.
@@ -30,30 +48,30 @@ struct NotesPane: View {
     // MARK: - List
 
     private var list: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: Theme.Space.xs - 1) {
             Button {
                 notes.add()
                 focused = true
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: Theme.Space.xs + 2) {
                     Image(systemName: "plus")
-                        .font(.system(size: 10, weight: .semibold))
+                        .font(Theme.Typo.captionSemibold)
                     Text("New Note")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(Theme.Typo.labelStrong)
                 }
                 .foregroundStyle(Theme.secondary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 24)
+                .frame(height: Theme.Size.input)
                 .background(
-                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                         .fill(Theme.surface)
                 )
-                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
             }
             .buttonStyle(.plain)
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 3) {
+                VStack(spacing: Theme.Space.xs - 1) {
                     ForEach(notes.notes) { note in
                         NoteRow(
                             note: note,
@@ -71,10 +89,9 @@ struct NotesPane: View {
                         )
                     }
                 }
-                .padding(.bottom, 2)
+                .padding(.bottom, Theme.Space.hair)
             }
         }
-        .frame(width: 170)
     }
 
     // MARK: - Editor
@@ -100,10 +117,11 @@ struct NotesPane: View {
                 .textEditorStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .scrollIndicators(.hidden)
-                .font(.system(size: 12.5))
+                .font(Theme.Typo.body)
                 .foregroundStyle(Theme.primary)
                 .tint(Theme.secondary)
                 .focused($focused)
+                .accessibilityLabel(localized("Note text"))
                 // The editor insets its text by a few points of its own; pull
                 // that back so the first character lines up with the padding.
                 .padding(.leading, -5)
@@ -145,9 +163,12 @@ struct NotesPane: View {
 
             if currentText.isEmpty {
                 Text("Jot something down…")
-                    .font(.system(size: 12.5))
+                    .font(Theme.Typo.body)
                     .foregroundStyle(Theme.tertiary)
                     .allowsHitTesting(false)
+                    // The editor above already carries the label; a placeholder
+                    // read out as a second element would double every note.
+                    .accessibilityHidden(true)
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -155,9 +176,9 @@ struct NotesPane: View {
                 CopyNoteButton(text: currentText)
             }
         }
-        .padding(10)
+        .padding(Theme.Space.s)
         .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
                 .fill(Theme.surface)
         )
     }
@@ -170,35 +191,55 @@ private struct NoteRow: View {
     let delete: () -> Void
 
     @State private var hovering = false
+    @FocusState private var isFocused: Bool
+
+    /// Focus reveals the delete button as well as hover: behind `if hovering`
+    /// alone it was unreachable without a mouse and invisible to VoiceOver.
+    private var showsControls: Bool { hovering || isFocused }
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Theme.Space.xs + 2) {
             Text(preview)
-                .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                .font(isSelected ? Theme.Typo.labelStrong : Theme.Typo.label)
                 .foregroundStyle(isSelected ? Theme.primary : Theme.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
-            Spacer(minLength: 4)
-            if hovering {
+            Spacer(minLength: Theme.Space.xs)
+            if showsControls {
                 Button(action: delete) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(Theme.Typo.captionSemibold)
                         .foregroundStyle(Theme.secondary)
+                        .frame(width: Theme.Size.touchTarget, height: Theme.Size.touchTarget)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(localized("Delete"))
+                .accessibilityHidden(true)
             }
         }
-        .padding(.horizontal, 8)
-        .frame(height: 26)
+        .padding(.horizontal, Theme.Space.s)
+        .frame(height: Theme.Size.row)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(isSelected ? Theme.surfaceHover : hovering ? Theme.surface : .clear)
+            RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                .fill(isSelected ? Theme.surfaceHover : showsControls ? Theme.surface : .clear)
         )
+        .notchFocusRing(isFocused)
         .contentShape(Rectangle())
+        .focusable()
+        .focused($isFocused)
         .onTapGesture(perform: select)
         .onHover { hovering = $0 }
-        .animation(Theme.contentAnimation, value: hovering)
+        .onKeyPress(.return) {
+            select()
+            return .handled
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(preview)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { select() }
+        .accessibilityAction(named: localized("Delete")) { delete() }
+        .animation(Theme.motion(Theme.contentAnimation), value: showsControls)
     }
 
     /// The first line stands in for a title — notes here are too short-lived
@@ -221,11 +262,12 @@ private struct CopyNoteButton: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { copied = false }
         } label: {
             Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 10, weight: .semibold))
+                .font(Theme.Typo.captionSemibold)
                 .foregroundStyle(copied ? Color.green : Theme.secondary)
         }
         .buttonStyle(.plain)
         .help(localized("Copy"))
-        .animation(Theme.contentAnimation, value: copied)
+        .accessibilityLabel(localized("Copy"))
+        .animation(Theme.motion(Theme.contentAnimation), value: copied)
     }
 }

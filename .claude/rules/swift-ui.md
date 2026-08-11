@@ -34,10 +34,20 @@ directories. The collapsed tab is the single exception: it is filled with
 
 ## The rail
 
-`NotchViewModel.leftRailTabs` takes the first six enabled modules, `rightRailTabs`
-everything after. Icons are SF Symbols from `Tab.symbol`, 12 pt inside a 30 × 24 pt
-button with a 7 pt radius. Hover switches tabs only after a 150 ms dwell, so a
-pointer crossing on its way elsewhere does not change the module.
+`NotchViewModel.leftRailTabs` takes the first half of the enabled modules and
+`rightRailTabs` the rest, the left rail keeping the extra one when the count is
+odd. Nine modules therefore split 5/4, not 6/3.
+
+Icons are SF Symbols from `Tab.symbol`, 12 pt inside a button 30 pt wide with a
+`Theme.Radius.small` corner. The height is **not** a constant:
+`NotchContentView.railButtonHeight` fits it to the panel, measuring both rails
+against the longer of the two so the two sides always agree, reserving
+`Theme.Space.xs` at each end and clamping to `Theme.Size.railButtonMin` /
+`railButtonMax`. Do not put a fixed height back — a fixed 24 pt is what pushed
+the sixth icon out of the standard preset.
+
+Hover switches tabs only after a 150 ms dwell, so a pointer crossing on its way
+elsewhere does not change the module.
 
 ## Panes
 

@@ -26,12 +26,12 @@ struct ActionsPane: View {
         // once instead of rebuilding it for the list, footer and selection.
         let currentResults = results
         let currentSelected = selected(in: currentResults)
-        VStack(spacing: 6) {
+        VStack(spacing: Theme.Space.xs + 2) {
             search
             resultList(currentResults, selected: currentSelected)
             footer(currentSelected)
         }
-        .padding(.top, 2)
+        .padding(.top, Theme.Space.hair)
         .onAppear {
             selectedID = currentResults.first?.id
             focused = wantsKeyboard
@@ -52,13 +52,14 @@ struct ActionsPane: View {
     }
 
     private var search: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Space.s) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 10, weight: .medium))
+                .font(Theme.Typo.captionStrong)
                 .foregroundStyle(Theme.tertiary)
             TextField(localized("Search clipboard, snippets, and notes"), text: $actions.query)
+                .accessibilityLabel(localized("Search clipboard, snippets, and notes"))
                 .textFieldStyle(.plain)
-                .font(.system(size: 11))
+                .font(Theme.Typo.label)
                 .foregroundStyle(Theme.primary)
                 .tint(Theme.secondary)
                 .focused($focused)
@@ -74,20 +75,23 @@ struct ActionsPane: View {
             if !actions.query.isEmpty {
                 Button { actions.query = "" } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(Theme.Typo.captionSemibold)
                         .foregroundStyle(Theme.secondary)
                 }
                 .buttonStyle(.plain)
                 .help(localized("Clear Search"))
             }
             Text("↑↓ · ↩")
-                .font(.system(size: 9, weight: .medium).monospaced())
+                .font(Theme.Typo.captionMono)
                 .foregroundStyle(Theme.tertiary)
+                // A drawn hint for the eye. Spelling the arrows out to
+                // VoiceOver would read as punctuation, not as help.
+                .accessibilityHidden(true)
         }
-        .padding(.horizontal, 9)
-        .frame(height: 26)
+        .padding(.horizontal, Theme.Space.s)
+        .frame(height: Theme.Size.input)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                 .fill(Theme.surface)
         )
         .contentShape(Rectangle())
@@ -102,9 +106,9 @@ struct ActionsPane: View {
         if results.isEmpty {
             VStack(spacing: 5) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18, weight: .light))
+                    .font(Theme.Glyph.large)
                 Text("No matching content")
-                    .font(.system(size: 10))
+                    .font(Theme.Typo.caption)
             }
             .foregroundStyle(Theme.tertiary)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -144,12 +148,12 @@ struct ActionsPane: View {
             HStack(spacing: 5) {
                 if let feedback {
                     Label(feedback, systemImage: "checkmark")
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(Theme.Typo.captionStrong)
                         .foregroundStyle(Color.green)
                         .lineLimit(1)
                 } else {
                     Label(selected.source.title, systemImage: selected.source.symbol)
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(Theme.Typo.captionStrong)
                         .foregroundStyle(Theme.tertiary)
                         .lineLimit(1)
                 }
@@ -161,7 +165,7 @@ struct ActionsPane: View {
                     commandButtons(for: selected, compact: true)
                 }
             }
-            .frame(height: 24)
+            .frame(height: Theme.Size.footer)
         }
     }
 
@@ -177,17 +181,18 @@ struct ActionsPane: View {
                             Label(command.title, systemImage: command.symbol)
                         }
                     }
-                    .font(.system(size: 9.5, weight: .medium))
+                    .font(Theme.Typo.captionStrong)
                     .foregroundStyle(Theme.secondary)
                     .padding(.horizontal, 6)
                     .frame(height: 22)
                     .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                             .fill(Theme.surface)
                     )
                 }
                 .buttonStyle(.plain)
                 .help(command.title)
+                .accessibilityLabel(command.title)
             }
         }
     }
@@ -227,22 +232,22 @@ private struct ActionResultRow: View {
     @State private var hovering = false
 
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: Theme.Space.s) {
             Image(systemName: result.contentKind.symbol)
-                .font(.system(size: 10, weight: .medium))
+                .font(Theme.Typo.captionStrong)
                 .foregroundStyle(Theme.tertiary)
                 .frame(width: 14)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(result.title.replacingOccurrences(of: "\n", with: " "))
-                    .font(.system(size: 11, weight: isSelected ? .medium : .regular))
+                    .font(isSelected ? Theme.Typo.labelStrong : Theme.Typo.label)
                     .foregroundStyle(Theme.primary)
                     .lineLimit(1)
                     .truncationMode(.middle)
 
                 if !result.detail.isEmpty {
                     Text(result.detail.replacingOccurrences(of: "\n", with: " "))
-                        .font(.system(size: 9.5))
+                        .font(Theme.Typo.caption)
                         .foregroundStyle(Theme.tertiary)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -253,23 +258,29 @@ private struct ActionResultRow: View {
 
             if result.isPinned {
                 Image(systemName: "pin.fill")
-                    .font(.system(size: 8, weight: .semibold))
+                    .font(Theme.Glyph.chevron)
                     .foregroundStyle(Color.orange)
             }
 
             if hovering || isSelected {
                 Image(systemName: "return")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(Theme.Typo.captionStrong)
                     .foregroundStyle(Theme.tertiary)
             }
         }
         .padding(.horizontal, 9)
         .frame(height: result.detail.isEmpty ? 26 : 32)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                 .fill(isSelected ? Theme.surfaceHover : hovering ? Theme.surface : .clear)
         )
         .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(result.title.replacingOccurrences(of: "\n", with: " "))
+        .accessibilityValue(result.detail.replacingOccurrences(of: "\n", with: " "))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(localized("Copies to the clipboard"))
+        .accessibilityAction { run() }
         // Hover is only a visual affordance. If it changed selection, moving
         // from a result near the top of the list to its command bar would
         // select every intervening row and replace the commands before the
@@ -284,7 +295,7 @@ private struct ActionResultRow: View {
             TapGesture(count: 2)
                 .onEnded { run() }
         )
-        .animation(Theme.contentAnimation, value: hovering)
-        .animation(Theme.contentAnimation, value: isSelected)
+        .animation(Theme.motion(Theme.contentAnimation), value: hovering)
+        .animation(Theme.motion(Theme.contentAnimation), value: isSelected)
     }
 }
