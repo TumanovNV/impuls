@@ -42,10 +42,10 @@ struct MediaPane: View {
                     Text(media.selectedSource.displayName)
                         .lineLimit(1)
                     Image(systemName: "chevron.up.chevron.down")
-                        .font(.system(size: 7, weight: .semibold))
+                        .font(Theme.Glyph.chevron)
                         .foregroundStyle(Theme.tertiary)
                 }
-                .font(.system(size: 10.5, weight: .semibold))
+                .font(Theme.Typo.labelSemibold)
                 .foregroundStyle(Theme.secondary)
             }
             .menuStyle(.borderlessButton)
@@ -61,7 +61,7 @@ struct MediaPane: View {
 
             Button(action: media.openSelectedSource) {
                 Image(systemName: media.selectedSource.isWeb ? "globe" : "arrow.up.forward.app")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(Theme.Typo.captionSemibold)
             }
             .buttonStyle(NotchButtonStyle(size: 24))
             .help(media.selectedSource.isWeb ? localized("Open Web Player") : localized("Open Apple Music"))
@@ -72,18 +72,20 @@ struct MediaPane: View {
     // MARK: - Player
 
     private func player(_ track: MediaController.Track) -> some View {
-        HStack(spacing: 16) {
+        HStack(spacing: Theme.Space.l) {
             artwork
             VStack(alignment: .leading, spacing: 0) {
                 Text(track.title)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(Theme.Typo.title)
                     .foregroundStyle(Theme.primary)
                     .lineLimit(1)
+                    .accessibilityLabel("\(track.title), \(subtitle(for: track))")
                 Text(subtitle(for: track))
-                    .font(.system(size: 11))
+                    .font(Theme.Typo.label)
                     .foregroundStyle(Theme.secondary)
                     .lineLimit(1)
-                    .padding(.top, 2)
+                    .padding(.top, Theme.Space.hair)
+                    .accessibilityHidden(true)
 
                 Spacer(minLength: 4)
                 controls
@@ -92,7 +94,7 @@ struct MediaPane: View {
                     scrubber
                 } else {
                     Text(media.sourceName)
-                        .font(.system(size: 9.5, weight: .medium))
+                        .font(Theme.Typo.captionStrong)
                         .foregroundStyle(Theme.tertiary)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
@@ -100,7 +102,7 @@ struct MediaPane: View {
             .frame(height: blockHeight)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(Theme.artworkAnimation, value: track.key)
+        .animation(Theme.motion(Theme.artworkAnimation), value: track.key)
     }
 
     private func subtitle(for track: MediaController.Track) -> String {
@@ -112,7 +114,7 @@ struct MediaPane: View {
 
     private var artwork: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
                 .fill(Theme.surface)
             if let image = media.artwork {
                 Image(nsImage: image)
@@ -121,18 +123,19 @@ struct MediaPane: View {
                     .transition(.opacity)
             } else {
                 Image(systemName: media.selectedSource.symbol)
-                    .font(.system(size: 28, weight: .light))
+                    .font(Theme.Glyph.artwork)
                     .foregroundStyle(Theme.tertiary)
             }
         }
         .frame(width: 96, height: 96)
-        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 13, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
                 .strokeBorder(Theme.hairline, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.35), radius: 9, y: 4)
-        .animation(Theme.artworkAnimation, value: media.artwork)
+        .accessibilityHidden(true)
+        .animation(Theme.motion(Theme.artworkAnimation), value: media.artwork)
     }
 
     // MARK: - Scrubber
@@ -182,29 +185,51 @@ struct MediaPane: View {
                             scrubbing = nil
                         }
                 )
-                .animation(Theme.contentAnimation, value: scrubHover)
+                .animation(Theme.motion(Theme.contentAnimation), value: scrubHover)
             }
             .frame(height: 14)
+            .accessibilityElement()
+            .accessibilityLabel(localized("Playback position"))
+            .accessibilityValue(
+                localized("%@ of %@", formatTime(progress * media.duration), formatTime(media.duration))
+            )
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAdjustableAction { direction in
+                // Five seconds a press: the same step the arrow keys give in
+                // every system player, and small enough to land on a word.
+                let step: TimeInterval = 5
+                switch direction {
+                case .increment: media.seek(to: min(media.duration, media.position + step))
+                case .decrement: media.seek(to: max(0, media.position - step))
+                @unknown default: break
+                }
+            }
 
             Text(formatTime(media.duration))
                 .frame(width: 30, alignment: .trailing)
         }
-        .font(.system(size: 9.5, weight: .medium).monospacedDigit())
+        .font(Theme.Typo.captionDigits)
         .foregroundStyle(Theme.tertiary)
     }
 
     // MARK: - Transport
 
     private var controls: some View {
-        HStack(spacing: 18) {
+        HStack(spacing: Theme.Space.l + 2) {
             Button { media.previous() } label: { Image(systemName: "backward.fill") }
-                .buttonStyle(NotchButtonStyle(size: 27))
+                .buttonStyle(NotchButtonStyle(size: 28))
+                .accessibilityLabel(localized("Previous Track"))
+                .help(localized("Previous Track"))
             Button { media.togglePlayPause() } label: {
                 Image(systemName: media.isPlaying ? "pause.fill" : "play.fill")
             }
             .buttonStyle(NotchButtonStyle(size: 36, prominent: true))
+            .accessibilityLabel(media.isPlaying ? localized("Pause") : localized("Play"))
+            .help(media.isPlaying ? localized("Pause") : localized("Play"))
             Button { media.next() } label: { Image(systemName: "forward.fill") }
-                .buttonStyle(NotchButtonStyle(size: 27))
+                .buttonStyle(NotchButtonStyle(size: 28))
+                .accessibilityLabel(localized("Next Track"))
+                .help(localized("Next Track"))
         }
         .frame(maxWidth: .infinity)
     }
@@ -217,13 +242,13 @@ struct MediaPane: View {
                 ProgressView().controlSize(.small)
             } else {
                 Image(systemName: media.accessIssue == nil ? media.selectedSource.symbol : "hand.raised")
-                    .font(.system(size: 20, weight: .light))
+                    .font(Theme.Glyph.hero)
                     .foregroundStyle(Theme.tertiary)
             }
 
             if let issue = media.accessIssue {
                 Text(localized("Allow Automation access to read %@.", issue.app.displayName))
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(Theme.Typo.labelStrong)
                     .foregroundStyle(Theme.secondary)
                 Button(
                     issue.authorization == .notDetermined ? localized("Allow") : localized("Open Settings"),
@@ -233,7 +258,7 @@ struct MediaPane: View {
                 .controlSize(.small)
             } else {
                 Text(emptyMessage)
-                    .font(.system(size: 11.5, weight: .medium))
+                    .font(Theme.Typo.labelStrong)
                     .foregroundStyle(Theme.secondary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)

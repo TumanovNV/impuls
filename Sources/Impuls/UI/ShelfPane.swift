@@ -26,7 +26,7 @@ struct ShelfPane: View {
                 dropHint
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
+                    HStack(spacing: Theme.Space.s) {
                         ForEach(shelf.items) { item in
                             ShelfCard(
                                 item: item,
@@ -66,7 +66,7 @@ struct ShelfPane: View {
                 footer
             }
         }
-        .padding(.top, 2)
+        .padding(.top, Theme.Space.hair)
     }
 
     /// The one decision both signals feed: which frame holds the last known
@@ -77,22 +77,24 @@ struct ShelfPane: View {
     }
 
     private var dropHint: some View {
-        RoundedRectangle(cornerRadius: 14, style: .continuous)
+        RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
             .strokeBorder(
                 isTargeted ? Theme.primary.opacity(0.6) : Theme.hairline,
                 style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])
             )
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: Theme.Radius.large, style: .continuous)
                     .fill(isTargeted ? Theme.surface : .clear)
             )
             .overlay(
                 Image(systemName: "tray.and.arrow.down.fill")
-                    .font(.system(size: 20, weight: .light))
+                    .font(Theme.Glyph.hero)
                     .foregroundStyle(isTargeted ? Theme.primary : Theme.tertiary)
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .animation(Theme.contentAnimation, value: isTargeted)
+            .accessibilityElement()
+            .accessibilityLabel(localized("Drop files here to put them on the shelf"))
+            .animation(Theme.motion(Theme.contentAnimation), value: isTargeted)
     }
 
     private var footer: some View {
@@ -101,21 +103,21 @@ struct ShelfPane: View {
                 ProgressView()
                     .controlSize(.mini)
                 Text(tools.statusMessage ?? localized("Working…"))
-                    .font(.system(size: 9))
+                    .font(Theme.Typo.caption)
                     .foregroundStyle(Theme.tertiary)
                     .lineLimit(1)
             } else if let message = tools.statusMessage {
                 Image(systemName: tools.statusIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                    .font(.system(size: 9))
+                    .font(Theme.Typo.caption)
                     .foregroundStyle(tools.statusIsError ? Color.orange : Color.green)
                 Text(message)
-                    .font(.system(size: 9))
+                    .font(Theme.Typo.caption)
                     .foregroundStyle(Theme.tertiary)
                     .lineLimit(1)
             }
             if !shelf.selection.isEmpty {
                 Text(localized("Selected: %d", shelf.selection.count))
-                    .font(.system(size: 9))
+                    .font(Theme.Typo.caption)
                     .foregroundStyle(Theme.tertiary)
             }
             Spacer()
@@ -129,24 +131,24 @@ struct ShelfPane: View {
                 )
                 Button("Deselect") { shelf.clearSelection() }
                     .buttonStyle(.plain)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(Theme.Typo.captionStrong)
                     .foregroundStyle(Theme.secondary)
             } else if shelf.items.count > 1 {
                 Button("Select All") { shelf.selectAll() }
                     .buttonStyle(.plain)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(Theme.Typo.captionStrong)
                     .foregroundStyle(Theme.secondary)
             }
             if tools.canUndo {
                 Button("Undo") { tools.undoLastOperation() }
                     .buttonStyle(.plain)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(Theme.Typo.captionStrong)
                     .foregroundStyle(Theme.secondary)
                     .disabled(tools.isWorking)
             }
             Button("Clear") { shelf.clear() }
                 .buttonStyle(.plain)
-                .font(.system(size: 10, weight: .medium))
+                .font(Theme.Typo.captionStrong)
                 .foregroundStyle(Theme.secondary)
         }
         .padding(.top, 2)
@@ -171,7 +173,7 @@ private struct ShelfCard: View {
     private var isSelected: Bool { shelf.isSelected(item) }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: Theme.Space.xs + 2) {
             // Fit, not fill: a screenshot is landscape and a file icon is
             // square, and forcing either into the other's box is what squashed
             // the wide ones. The box is wide enough for a 16:10 frame, so a
@@ -181,21 +183,21 @@ private struct ShelfCard: View {
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 68, height: 40)
             Text(item.name)
-                .font(.system(size: 9))
+                .font(Theme.Typo.caption)
                 .foregroundStyle(Theme.secondary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
                 .frame(height: 24, alignment: .top)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Theme.Space.xs + 2)
+        .padding(.vertical, Theme.Space.s)
         .frame(width: 86, height: 92)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
                 .fill(isSelected ? Theme.selection : (isHovered ? Theme.surfaceHover : Theme.surface))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
                 .strokeBorder(isSelected ? Theme.selectionStroke : Color.clear, lineWidth: 1.5)
                 .allowsHitTesting(false)
         )
@@ -212,7 +214,7 @@ private struct ShelfCard: View {
         .overlay(alignment: .topLeading) {
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 12))
+                    .font(Theme.Typo.body)
                     .foregroundStyle(Theme.primary)
                     .padding(4)
                     .allowsHitTesting(false)
@@ -222,14 +224,28 @@ private struct ShelfCard: View {
             if isHovered {
                 Button { shelf.remove(item) } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 13))
+                        .font(Theme.Typo.body)
                         .foregroundStyle(Theme.primary.opacity(0.75))
                 }
                 .buttonStyle(.plain)
-                .padding(4)
+                .padding(Theme.Space.xs)
+                .help(localized("Remove from Shelf"))
+                // The card carries this as an accessibility action already;
+                // exposing the glyph too would announce it twice.
+                .accessibilityHidden(true)
             }
         }
-        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(item.name)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint(localized("Opens the file"))
+        .accessibilityAction { shelf.open(item) }
+        .accessibilityAction(named: isSelected ? localized("Deselect") : localized("Select")) {
+            shelf.select(item, modifiers: [])
+        }
+        .accessibilityAction(named: localized("Show in Finder")) { shelf.reveal(item) }
+        .accessibilityAction(named: localized("Remove from Shelf")) { shelf.remove(item) }
         .contextMenu {
             let operationURLs = shelf.operationURLs(startingAt: item)
             Button("Copy") { shelf.copy(item) }
@@ -244,8 +260,8 @@ private struct ShelfCard: View {
             Divider()
             Button("Remove from Shelf") { shelf.remove(item) }
         }
-        .animation(Theme.contentAnimation, value: isHovered)
-        .animation(Theme.contentAnimation, value: isSelected)
+        .animation(Theme.motion(Theme.contentAnimation), value: isHovered)
+        .animation(Theme.motion(Theme.contentAnimation), value: isSelected)
     }
 }
 
@@ -294,7 +310,7 @@ private struct ShelfToolsMenu: View {
             }
         } label: {
             Label("Tools", systemImage: "wand.and.stars")
-                .font(.system(size: 10, weight: .medium))
+                .font(Theme.Typo.captionStrong)
                 .foregroundStyle(Theme.secondary)
         }
         .menuStyle(.borderlessButton)

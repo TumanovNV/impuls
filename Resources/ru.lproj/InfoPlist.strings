@@ -1,0 +1,10 @@
+/* Impuls — системные диалоги разрешений, русский.
+
+   Ключи продублированы здесь, а не только в `Info.plist`: как только появился
+   `en.lproj/InfoPlist.strings`, macOS начинает выбирать таблицу по языку, и
+   русский вариант должен быть такой же таблицей, а не значением по умолчанию. */
+
+"NSAppleEventsUsageDescription" = "Impuls читает название текущего трека и управляет воспроизведением в приложении Apple Music.";
+"NSCalendarsFullAccessUsageDescription" = "Impuls показывает ближайшие встречи и кнопку подключения к ним.";
+"NSCalendarsUsageDescription" = "Impuls показывает ближайшие встречи и кнопку подключения к ним.";
+"CFBundleDisplayName" = "Impuls";

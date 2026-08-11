@@ -17,7 +17,10 @@ final class NotchViewModel: ObservableObject {
             case .calendar: return "calendar"
             case .translate: return "translate"
             case .notes: return "note.text"
-            case .power: return "bolt.fill"
+            // Not `bolt.fill`: Actions used to carry that symbol too, and on a
+            // desktop Mac — where this module never becomes the battery — the
+            // rail showed the same glyph twice with nothing to tell them apart.
+            case .power: return "powerplug.fill"
             }
         }
 
@@ -194,12 +197,21 @@ final class NotchViewModel: ObservableObject {
         return power.snapshot.deviceKind == .portable ? "battery.100percent" : "bolt.fill"
     }
 
+    /// The rails are split evenly, with the odd module going left.
+    ///
+    /// It used to be the first six on the left and the remainder on the right,
+    /// which put nine modules into a 6/3 split. Six is what the taller rail has
+    /// to fit, and at six the fitted button height lands exactly on the space
+    /// available — the rail filled the panel edge to edge with nothing to
+    /// spare. Halving the count makes five the number to fit, the button
+    /// reaches its 28 pt ceiling at every preset instead of being squeezed
+    /// below it, and the margin below stops being theoretical.
     var leftRailTabs: [Tab] {
-        Array(visibleTabs.prefix(6))
+        Array(visibleTabs.prefix((visibleTabs.count + 1) / 2))
     }
 
     var rightRailTabs: [Tab] {
-        Array(visibleTabs.dropFirst(6))
+        Array(visibleTabs.dropFirst((visibleTabs.count + 1) / 2))
     }
 
     /// Hover and click both land here. A tab that types takes the keyboard

@@ -12,105 +12,171 @@ struct PowerPane: View {
         }
     }
 
+    /// What the three metric columns and their furniture need to the right of
+    /// the hero: the grid itself, the two gaps around the divider and the
+    /// divider. The hero gets whatever is left over.
+    private static let metricsReservation: CGFloat = 340
+
     private var battery: some View {
-        HStack(spacing: 22) {
-            hero
-                .frame(width: 136)
+        GeometryReader { geo in
+            HStack(spacing: Theme.Space.xl - 2) {
+                hero
+                    .frame(width: heroWidth(in: geo.size.width))
 
-            Rectangle()
-                .fill(Theme.hairline)
-                .frame(width: 1)
-                .padding(.vertical, 8)
+                Rectangle()
+                    .fill(Theme.hairline)
+                    .frame(width: 1)
+                    .padding(.vertical, 8)
 
-            LazyVGrid(
-                columns: [
-                    GridItem(.flexible(minimum: 92), spacing: 16),
-                    GridItem(.flexible(minimum: 92), spacing: 16),
-                    GridItem(.flexible(minimum: 92), spacing: 16),
-                ],
-                alignment: .leading,
-                spacing: 13
-            ) {
-                ForEach(batteryMetrics) { item in
-                    metric(item.value, title: item.title)
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(minimum: 84), spacing: Theme.Space.l),
+                        GridItem(.flexible(minimum: 84), spacing: Theme.Space.l),
+                        GridItem(.flexible(minimum: 84), spacing: Theme.Space.l),
+                    ],
+                    alignment: .leading,
+                    spacing: Theme.Space.m + 1
+                ) {
+                    ForEach(batteryMetrics) { item in
+                        metric(item.value, title: item.title)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .padding(.horizontal, 4)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// The hero column is squeezed before the metrics are.
+    ///
+    /// It was a flat 136 pt, which is 31% of the compact pane. The grid beside
+    /// it was asking three columns of at least 92 pt plus 32 pt of gaps, and
+    /// compact could not pay: 308 pt wanted against 263 available, so the third
+    /// column of metrics fell outside the panel and was clipped. Taking the
+    /// difference out of the hero, which has the slack, keeps three columns at
+    /// every preset.
+    ///
+    /// The floor is 112 pt and not lower because of the hero's own text, which
+    /// is wider than its number. The percentage is only 80 pt at "100 %", but
+    /// `stateTitle` reaches 120 pt on "Завершение зарядки" and `timeTitle`
+    /// reaches 127 pt on "Состояние аккумулятора" — both ordinary Russian
+    /// states, both measured at the sizes they actually render at. With the
+    /// 0.85 floor those two land at 102 and 108 pt, so 112 clears the worst of
+    /// them with a little room and still leaves the compact grid an 85 pt
+    /// column, above the 84 pt minimum below.
+    private func heroWidth(in paneWidth: CGFloat) -> CGFloat {
+        min(136, max(112, paneWidth - Self.metricsReservation))
     }
 
     private var hero: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: Theme.Space.xs - 1) {
             Image(systemName: batterySymbol)
-                .font(.system(size: 18, weight: .medium))
+                .font(Theme.Glyph.largeStrong)
                 .foregroundStyle(Theme.primary.opacity(0.86))
                 .padding(.bottom, 1)
             Text(batteryPercentage)
-                .font(.system(size: 30, weight: .semibold).monospacedDigit())
+                .font(Theme.Typo.hero)
                 .foregroundStyle(Theme.primary)
                 .lineLimit(1)
+            // The two text lines scale on the same 0.85 floor as the metric
+            // titles. They are the widest thing in this column — wider than the
+            // percentage — and the column is no longer a fixed 136 pt, so
+            // "Завершение зарядки" and "Состояние аккумулятора" need somewhere
+            // to give at the compact preset.
             Text(stateTitle)
-                .font(.system(size: 11.5, weight: .semibold))
+                .font(Theme.Typo.labelSemibold)
                 .foregroundStyle(Theme.secondary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.85)
             Text(timeValue)
-                .font(.system(size: 10.5, weight: .medium).monospacedDigit())
+                .font(Theme.Typo.captionDigits)
                 .foregroundStyle(Theme.tertiary)
                 .lineLimit(1)
             Text(timeTitle)
-                .font(.system(size: 8.5, weight: .medium))
+                .font(Theme.Typo.caption)
                 .foregroundStyle(Theme.tertiary.opacity(0.82))
                 .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
         .multilineTextAlignment(.center)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(localized("Battery"))
+        .accessibilityValue("\(batteryPercentage), \(stateTitle), \(timeTitle) \(timeValue)")
     }
 
+    /// What the three desktop metrics and their furniture need to the right of
+    /// the hero. The metrics here are content-sized rather than gridded, so the
+    /// number is measured from the widest they get: 268 pt for three columns
+    /// with two 36 pt gaps — "Подключено" is the long one — plus the divider
+    /// and the two 20 pt gaps around it, rounded up for margin.
+    private static let desktopMetricsReservation: CGFloat = 316
+
     private var desktop: some View {
-        HStack(spacing: 20) {
-            VStack(spacing: 5) {
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(Theme.primary.opacity(0.86))
-                Text(localized("Power"))
-                    .font(.system(size: 21, weight: .semibold))
-                    .foregroundStyle(Theme.primary)
-                Text(desktopStateTitle)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Theme.secondary)
-            }
-            .frame(width: 160)
+        GeometryReader { geo in
+            HStack(spacing: Theme.Space.l + 4) {
+                VStack(spacing: Theme.Space.xs + 1) {
+                    Image(systemName: "bolt.fill")
+                        .font(Theme.Glyph.heroStrong)
+                        .foregroundStyle(Theme.primary.opacity(0.86))
+                    Text(localized("Power"))
+                        .font(Theme.Typo.display)
+                        .foregroundStyle(Theme.primary)
+                    Text(desktopStateTitle)
+                        .font(Theme.Typo.labelStrong)
+                        .foregroundStyle(Theme.secondary)
+                }
+                .frame(width: desktopHeroWidth(in: geo.size.width))
 
-            Rectangle()
-                .fill(Theme.hairline)
-                .frame(width: 1)
-                .padding(.vertical, 12)
+                Rectangle()
+                    .fill(Theme.hairline)
+                    .frame(width: 1)
+                    .padding(.vertical, 12)
 
-            HStack(spacing: 36) {
-                metric(powerSourceValue, title: localized("Source"))
-                metric(desktopConnectionValue, title: localized("State"))
-                metric(adapterValue, title: localized("Power Adapter"))
+                HStack(spacing: Theme.Space.xl + 12) {
+                    metric(powerSourceValue, title: localized("Source"))
+                    metric(desktopConnectionValue, title: localized("State"))
+                    metric(adapterValue, title: localized("Power Adapter"))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .padding(.horizontal, 4)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Same trade as `heroWidth`, and the same reason: a flat 160 pt here left
+    /// the compact preset 243 pt for metrics that need 268, so the Power
+    /// Adapter column ran off the edge. This hero has more slack than the
+    /// battery one — its widest line is "Питание" at 86 pt — so the floor of
+    /// 104 pt is a guard rather than a working value; compact settles at 128.
+    private func desktopHeroWidth(in paneWidth: CGFloat) -> CGFloat {
+        min(160, max(104, paneWidth - Self.desktopMetricsReservation))
     }
 
     private func metric(_ value: String, title: String) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: Theme.Space.xs - 1) {
             Text(value)
-                .font(.system(size: 13, weight: .semibold).monospacedDigit())
+                .font(Theme.Typo.bodyDigits)
                 .foregroundStyle(Theme.primary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
+            // Scales like the value above it. The titles moved from 8.5 pt to
+            // the 10 pt of the type scale, and at the compact preset the grid
+            // column comes out near 75 pt — which is what "Макс. ёмкость" needs
+            // at 10 pt exactly. The floor is 0.85 rather than the value's 0.72
+            // so a squeezed title lands on 8.5 pt, the size these labels had
+            // before the scale existed, instead of somewhere below it.
             Text(title)
-                .font(.system(size: 8.5, weight: .medium))
+                .font(Theme.Typo.caption)
                 .foregroundStyle(Theme.tertiary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
         .frame(minWidth: 0, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityValue(value)
     }
 
     private var snapshot: PowerSnapshot { power.snapshot }

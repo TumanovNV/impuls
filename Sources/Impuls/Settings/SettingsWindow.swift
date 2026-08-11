@@ -318,7 +318,7 @@ private struct ModuleSettingsPane: View {
             }
             .listStyle(.inset)
 
-            Text("At least one module must remain enabled. The first six modules appear on the left rail; any remaining module appears on the right.")
+            Text("At least one module must remain enabled. Modules are split evenly between the two rails; with an odd number the extra one goes to the left.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

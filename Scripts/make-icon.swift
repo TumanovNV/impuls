@@ -33,7 +33,119 @@ func bitmap(size s: CGFloat) -> NSBitmapImageRep {
     )!
 }
 
-func drawIcon(size s: CGFloat, master: NSImage) -> NSBitmapImageRep {
+/// The Impuls mark, on an 18-unit grid scaled to `size`.
+///
+/// A transient: flat baseline, a vertical leading edge, a short plateau, then a
+/// decay back to the baseline. Stroked at a constant width rather than filled
+/// with a taper — a tapering silhouette loses its thin end first, and the thin
+/// end was the half that carried the movement. At 16 points every part of this
+/// path is the same 2 units thick, so nothing drops out.
+func pulsePath(size: CGFloat, weight: CGFloat = 2.0) -> CGPath {
+    let k = size / 18
+    let path = CGMutablePath()
+    path.move(to: CGPoint(x: 1.6 * k, y: 5.6 * k))
+    path.addLine(to: CGPoint(x: 5.9 * k, y: 5.6 * k))
+    path.addLine(to: CGPoint(x: 5.9 * k, y: 15.2 * k))
+    path.addLine(to: CGPoint(x: 8.6 * k, y: 15.2 * k))
+    path.addCurve(
+        to: CGPoint(x: 16.4 * k, y: 5.6 * k),
+        control1: CGPoint(x: 11.4 * k, y: 15.2 * k),
+        control2: CGPoint(x: 11.6 * k, y: 5.6 * k)
+    )
+    return path.copy(
+        strokingWithWidth: weight * k,
+        lineCap: .round,
+        lineJoin: .round,
+        miterLimit: 10
+    )
+}
+
+/// Reads one pixel out of the master so the small sizes keep the brand colour
+/// instead of a hard-coded guess that drifts the next time the icon is redrawn.
+func sample(_ image: NSImage, atX x: CGFloat, y: CGFloat) -> NSColor {
+    guard let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff) else {
+        return .black
+    }
+    let px = Int((CGFloat(rep.pixelsWide) * x).rounded())
+    let py = Int((CGFloat(rep.pixelsHigh) * y).rounded())
+    let clamped = rep.colorAt(
+        x: min(max(px, 0), rep.pixelsWide - 1),
+        y: min(max(py, 0), rep.pixelsHigh - 1)
+    )
+    return clamped?.usingColorSpace(.deviceRGB) ?? .black
+}
+
+/// The application icon at 16 and 32 points.
+///
+/// Downscaling the 1024-point master to 16 does not produce a small icon, it
+/// produces a dark smudge: the glyph is drawn for a size where its counters are
+/// tens of pixels across, and at 16 points they are a fraction of one. So the
+/// small sizes are drawn rather than resampled — the brand gradient, taken from
+/// the master itself, and the same pulse the menu bar carries, at a weight that
+/// survives.
+func drawCompactIcon(size s: CGFloat, master: NSImage) -> NSBitmapImageRep {
+    let rep = bitmap(size: s)
+    NSGraphicsContext.saveGraphicsState()
+    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+    let ctx = NSGraphicsContext.current!.cgContext
+    ctx.clear(CGRect(x: 0, y: 0, width: s, height: s))
+
+    // Sampled off the axis the glyph sits on. The glyph occupies the middle
+    // third of the master, so probing down the centre line returns the glyph's
+    // own silver rather than the body colour behind it.
+    let accent = sample(master, atX: 0.86, y: 0.86)   // the blue glow in the corner
+    let shoulder = sample(master, atX: 0.14, y: 0.26) // the lit shoulder opposite it
+
+    // Apple insets the icon inside its tile; matching that keeps the small
+    // sizes optically the same weight as the large ones in the Dock.
+    let inset = s * 0.055
+    let body = CGRect(x: inset, y: inset, width: s - 2 * inset, height: s - 2 * inset)
+    let tile = CGPath(
+        roundedRect: body,
+        cornerWidth: body.width * 0.225,
+        cornerHeight: body.height * 0.225,
+        transform: nil
+    )
+    ctx.saveGState()
+    ctx.addPath(tile)
+    ctx.clip()
+    let space = CGColorSpaceCreateDeviceRGB()
+    if let gradient = CGGradient(
+        colorsSpace: space,
+        colors: [accent.cgColor, shoulder.cgColor] as CFArray,
+        locations: [0, 1]
+    ) {
+        // Bottom-right to top-left, the master's own axis.
+        ctx.drawLinearGradient(
+            gradient,
+            start: CGPoint(x: body.maxX, y: body.minY),
+            end: CGPoint(x: body.minX, y: body.maxY),
+            options: []
+        )
+    }
+    ctx.restoreGState()
+
+    // The mark at 58% of the tile, centred, in white: at these sizes contrast
+    // is the only thing that reads.
+    let markSize = body.width * 0.58
+    ctx.saveGState()
+    ctx.translateBy(x: body.midX - markSize / 2, y: body.midY - markSize / 2)
+    ctx.addPath(pulsePath(size: markSize, weight: 2.4))
+    ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+    ctx.fillPath()
+    ctx.restoreGState()
+
+    NSGraphicsContext.restoreGraphicsState()
+    return rep
+}
+
+/// `points` is the logical size the slot stands for, `s` the pixels it is drawn
+/// at. The choice between the master and the drawn mark belongs to the logical
+/// size: deciding it on pixels put 32 pt @1x on the drawn mark and 32 pt @2x on
+/// the master, so the same icon changed depending on whether the display was
+/// Retina.
+func drawIcon(size s: CGFloat, points: CGFloat, master: NSImage) -> NSBitmapImageRep {
+    guard points > 32 else { return drawCompactIcon(size: s, master: master) }
     let rep = bitmap(size: s)
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
@@ -57,33 +169,11 @@ func drawStatus(size s: CGFloat) -> NSBitmapImageRep {
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
     let ctx = NSGraphicsContext.current!.cgContext
-    let k = s / 18
 
-    // The menu bar gets the essence of the brand rather than a miniature app
-    // icon: one rising, tapered pulse. A single unbroken silhouette preserves
-    // the upward movement at 18 points and avoids reading as a loop or spiral.
-    let pulse = CGMutablePath()
-    pulse.move(to: CGPoint(x: 2.15 * k, y: 2.25 * k))
-    pulse.addLine(to: CGPoint(x: 5.45 * k, y: 2.25 * k))
-    pulse.addCurve(
-        to: CGPoint(x: 15.75 * k, y: 15.75 * k),
-        control1: CGPoint(x: 9.15 * k, y: 2.25 * k),
-        control2: CGPoint(x: 13.65 * k, y: 8.35 * k)
-    )
-    pulse.addLine(to: CGPoint(x: 15.75 * k, y: 12.35 * k))
-    pulse.addCurve(
-        to: CGPoint(x: 8.95 * k, y: 5.45 * k),
-        control1: CGPoint(x: 13.85 * k, y: 10.05 * k),
-        control2: CGPoint(x: 11.05 * k, y: 6.45 * k)
-    )
-    pulse.addCurve(
-        to: CGPoint(x: 5.45 * k, y: 4.45 * k),
-        control1: CGPoint(x: 7.55 * k, y: 4.75 * k),
-        control2: CGPoint(x: 6.35 * k, y: 4.45 * k)
-    )
-    pulse.addLine(to: CGPoint(x: 2.15 * k, y: 4.45 * k))
-    pulse.closeSubpath()
-    ctx.addPath(pulse)
+    // A template image: pure black plus alpha. macOS recolours it for light and
+    // dark menu bars, for the highlighted state, and for the tinted appearance,
+    // so any colour written here would be thrown away.
+    ctx.addPath(pulsePath(size: s))
     ctx.setFillColor(CGColor(gray: 0, alpha: 1))
     ctx.fillPath()
 
@@ -91,13 +181,16 @@ func drawStatus(size s: CGFloat) -> NSBitmapImageRep {
     return rep
 }
 
-for (size, name) in [
-    (16, "icon_16x16"), (32, "icon_16x16@2x"), (32, "icon_32x32"), (64, "icon_32x32@2x"),
-    (128, "icon_128x128"), (256, "icon_128x128@2x"), (256, "icon_256x256"), (512, "icon_256x256@2x"),
-    (512, "icon_512x512"), (1024, "icon_512x512@2x")
+for (points, size, name) in [
+    (16, 16, "icon_16x16"), (16, 32, "icon_16x16@2x"),
+    (32, 32, "icon_32x32"), (32, 64, "icon_32x32@2x"),
+    (128, 128, "icon_128x128"), (128, 256, "icon_128x128@2x"),
+    (256, 256, "icon_256x256"), (256, 512, "icon_256x256@2x"),
+    (512, 512, "icon_512x512"), (512, 1024, "icon_512x512@2x")
 ] {
-    let data = drawIcon(size: CGFloat(size), master: masterIcon).representation(using: .png, properties: [:])!
-    try data.write(to: iconset.appendingPathComponent("\(name).png"))
+    let rep = drawIcon(size: CGFloat(size), points: CGFloat(points), master: masterIcon)
+    try rep.representation(using: .png, properties: [:])!
+        .write(to: iconset.appendingPathComponent("\(name).png"))
 }
 
 let task = Process()
@@ -108,7 +201,7 @@ task.waitUntilExit()
 guard task.terminationStatus == 0 else { fatalError("iconutil failed") }
 
 if let statusPath {
-    let data = drawStatus(size: 36).representation(using: .png, properties: [:])!
+    let data = drawStatus(size: 54).representation(using: .png, properties: [:])!
     try data.write(to: URL(fileURLWithPath: statusPath))
 }
 

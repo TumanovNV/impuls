@@ -151,7 +151,7 @@
 "Automatic" = "Автоматически";
 "Startup and Storage" = "Запуск и хранение";
 "Choose which modules are shown and arrange them in the order you use them." = "Выберите отображаемые модули и расположите их в удобном порядке.";
-"At least one module must remain enabled. The first six modules appear on the left rail; any remaining module appears on the right." = "Должен оставаться хотя бы один модуль. Первые шесть отображаются слева, остальные — справа.";
+"At least one module must remain enabled. Modules are split evenly between the two rails; with an odd number the extra one goes to the left." = "Должен оставаться хотя бы один модуль. Модули делятся между панелями поровну; при нечётном числе лишний достаётся левой.";
 "Move Up" = "Переместить вверх";
 "Move Down" = "Переместить вниз";
 "Impuls requests a system permission only when you use the related function." = "Impuls запрашивает системное разрешение только при использовании соответствующей функции.";
@@ -383,3 +383,41 @@
 "%.1f W" = "%.1f Вт";
 "%.0f °C" = "%.0f °C";
 "%.1f °C" = "%.1f °C";
+
+/* Доступность и онбординг 1.4.5. Существительные-счётчики со строчной
+   намеренно: их читают после числа («3 заготовки»), никогда отдельно. */
+"Modules, left rail" = "Модули, левая панель";
+"Modules, right rail" = "Модули, правая панель";
+"Playing in %@" = "Играет в %@";
+"files on the shelf" = "файлов на полке";
+"clipboard entries" = "записей в буфере обмена";
+"snippets" = "заготовок";
+"notes" = "заметок";
+"Copies to the clipboard" = "Копирует в буфер обмена";
+"Opens the file" = "Открывает файл";
+"Select" = "Выбрать";
+"Drop files here to put them on the shelf" = "Перетащите файлы сюда, чтобы положить их на полку";
+"Note text" = "Текст заметки";
+"Text to translate" = "Текст для перевода";
+"Translation" = "Перевод";
+"Language" = "Язык";
+"Previous Track" = "Предыдущий трек";
+"Next Track" = "Следующий трек";
+"Play" = "Воспроизвести";
+"Playback position" = "Позиция воспроизведения";
+"%@ of %@" = "%@ из %@";
+"Next meeting" = "Ближайшая встреча";
+"Join %@ meeting" = "Подключиться к встрече в %@";
+
+/* Первый запуск 1.4.5 */
+"Getting started" = "Начало работы";
+"Hover the notch to open" = "Наведите на вырез, чтобы открыть";
+"Move the pointer onto the strip at the top of the screen. Move it away and the panel folds back." = "Подведите указатель к полосе у верхнего края экрана. Уберите его — панель свернётся обратно.";
+"Modules live on the rails" = "Модули живут на боковых панелях";
+"The columns of icons on both sides switch modules. Rest on one for a moment — a pointer passing through changes nothing." = "Столбцы значков по краям переключают модули. Задержитесь на значке: указатель, просто пролетающий мимо, ничего не меняет.";
+"Drop files, press the shortcut" = "Перетаскивайте файлы, нажимайте сочетание";
+"Drag a file onto the panel to put it on the shelf. The global shortcut opens search over your clipboard, snippets and notes." = "Перетащите файл на панель — он попадёт на полку. Глобальное сочетание открывает поиск по буферу обмена, заготовкам и заметкам.";
+"Step %d of %d" = "Шаг %d из %d";
+"Skip" = "Пропустить";
+"Next" = "Далее";
+"Done" = "Готово";

@@ -7,25 +7,17 @@ struct NotchContentView: View {
     private var isOpen: Bool { vm.isOpen || vm.isDropTargeted }
     private var size: CGSize { vm.bodySize }
     private var topRadius: CGFloat { isOpen ? Theme.openTopRadius : Theme.collapsedTopRadius }
+    private var bottomRadius: CGFloat { isOpen ? Theme.openBottomRadius : Theme.collapsedBottomRadius }
+
+    private var shape: NotchShape {
+        NotchShape(topRadius: topRadius, bottomRadius: bottomRadius)
+    }
 
     var body: some View {
         // The shape is wider than the body by `topRadius` on each side: that
         // slack is where the concave shoulders live, so it must not be clipped.
         ZStack(alignment: .top) {
-            NotchShape(
-                topRadius: topRadius,
-                bottomRadius: isOpen ? Theme.openBottomRadius : Theme.collapsedBottomRadius
-            )
-            // The closed tab stays black so it melts into the physical notch.
-            // Once expanded, the panel follows the user's macOS appearance.
-            .fill(isOpen ? Theme.panelBackground : Color.black)
-            .frame(width: size.width + 2 * topRadius, height: size.height)
-            .shadow(
-                color: .black.opacity(isOpen ? (colorScheme == .dark ? 0.5 : 0.2) : 0),
-                radius: 18,
-                y: 8
-            )
-
+            canvas
             VStack(spacing: 0) {
                 header
                 if isOpen {
@@ -38,8 +30,39 @@ struct NotchContentView: View {
         }
         .frame(width: size.width + 2 * topRadius, height: size.height, alignment: .top)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(Theme.openAnimation, value: isOpen)
-        .animation(Theme.paneAnimation, value: vm.tab)
+        .animation(Theme.motion(Theme.openAnimation), value: isOpen)
+        .animation(Theme.motion(Theme.paneAnimation), value: vm.tab)
+    }
+
+    // MARK: - Canvas
+    //
+    // Two layers. The base shape is opaque and casts the shadow — SwiftUI's
+    // `.shadow` does not reliably render from an AppKit-backed view, so the
+    // material cannot be the thing that casts it. The material then sits on
+    // top, blending with whatever is behind the window.
+    //
+    // The closed tab stays flat black so it melts into the physical notch;
+    // there is nothing to blur into up there, and a material would make the
+    // cutout visible as a slightly different black.
+
+    private var canvas: some View {
+        ZStack(alignment: .top) {
+            shape
+                .fill(isOpen ? Theme.panelBackground : Color.black)
+                .frame(width: size.width + 2 * topRadius, height: size.height)
+                .shadow(
+                    color: .black.opacity(isOpen ? (colorScheme == .dark ? 0.5 : 0.2) : 0),
+                    radius: 18,
+                    y: 8
+                )
+
+            if isOpen {
+                Theme.panelCanvas()
+                    .frame(width: size.width + 2 * topRadius, height: size.height)
+                    .clipShape(shape)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     // MARK: - Header
@@ -54,19 +77,23 @@ struct NotchContentView: View {
         HStack(spacing: 0) {
             if isOpen {
                 Text(vm.title(for: vm.tab).uppercased())
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(Theme.Typo.overline)
                     .tracking(0.8)
                     .foregroundStyle(Theme.tertiary)
-                    .padding(.leading, 16)
+                    .padding(.leading, Theme.Space.l)
                     .id(vm.tab)
                     .transition(.opacity)
+                    // The pane heading is announced by the rail button that
+                    // selected it; repeating it here would make VoiceOver read
+                    // the module name twice on every switch.
+                    .accessibilityHidden(true)
             }
             Spacer(minLength: 0)
             Color.clear.frame(width: vm.geometry.notchSize.width, height: 1)
             Spacer(minLength: 0)
             if isOpen {
                 trailing
-                    .padding(.trailing, 16)
+                    .padding(.trailing, Theme.Space.l)
                     .transition(.opacity)
             }
         }
@@ -79,24 +106,30 @@ struct NotchContentView: View {
         case .actions:
             EmptyView()
         case .media:
-            HStack(spacing: 6) {
+            HStack(spacing: Theme.Space.xs + 2) {
                 if vm.media.track != nil {
                     EqualizerBars(isAnimating: vm.media.isPlaying)
                 }
                 Text(vm.media.sourceName)
-                    .font(.system(size: 10, weight: .medium))
+                    .font(Theme.Typo.captionStrong)
                     .foregroundStyle(Theme.tertiary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                vm.media.isPlaying
+                    ? localized("Playing in %@", vm.media.sourceName)
+                    : vm.media.sourceName
+            )
         case .shelf:
-            counter(vm.shelf.items.count)
+            counter(vm.shelf.items.count, noun: localized("files on the shelf"))
         case .clipboard:
-            counter(vm.clipboard.items.count)
+            counter(vm.clipboard.items.count, noun: localized("clipboard entries"))
         case .snippets:
-            counter(vm.snippets.items.count)
+            counter(vm.snippets.items.count, noun: localized("snippets"))
         case .calendar:
             if let next = vm.calendar.next {
                 Text(CalendarPane.countdown(to: next, from: vm.calendar.now))
-                    .font(.system(size: 10, weight: .medium))
+                    .font(Theme.Typo.captionStrong)
                     .foregroundStyle(next.isRunning ? Theme.primary.opacity(0.8) : Theme.tertiary)
             }
         case .translate:
@@ -111,25 +144,60 @@ struct NotchContentView: View {
     }
 
     @ViewBuilder
-    private func counter(_ value: Int) -> some View {
+    private func counter(_ value: Int, noun: String) -> some View {
         if value > 0 {
             Text("\(value)")
-                .font(.system(size: 10, weight: .medium).monospacedDigit())
+                .font(Theme.Typo.captionDigits)
                 .foregroundStyle(Theme.tertiary)
+                .accessibilityLabel("\(value) \(noun)")
         }
     }
 
     // MARK: - Body
 
     private var content: some View {
-        HStack(spacing: 14) {
-            Rail(vm: vm, tabs: vm.leftRailTabs)
-            panes
-            Rail(vm: vm, tabs: vm.rightRailTabs)
+        GeometryReader { geo in
+            let buttonHeight = railButtonHeight(available: geo.size.height)
+            // An empty rail is not rendered at all rather than rendered empty.
+            // A `Rail` with no tabs still claimed its 30 pt of width plus the
+            // stack's 12 pt of spacing, and still announced itself to
+            // VoiceOver as a container with nothing in it. With a single
+            // module enabled that was 42 pt of the panel spent on nothing.
+            HStack(spacing: Theme.Space.m) {
+                if !vm.leftRailTabs.isEmpty {
+                    Rail(vm: vm, tabs: vm.leftRailTabs, side: .leading, buttonHeight: buttonHeight)
+                }
+                panes
+                if !vm.rightRailTabs.isEmpty {
+                    Rail(vm: vm, tabs: vm.rightRailTabs, side: .trailing, buttonHeight: buttonHeight)
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
         }
-        .padding(.horizontal, 14)
-        .padding(.bottom, 14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, Theme.Space.m)
+        .padding(.bottom, Theme.Space.m)
+        .overlay(alignment: .center) { OnboardingOverlay() }
+    }
+
+    /// How tall one rail icon may be, given the height this panel actually has.
+    ///
+    /// Both rails are measured against the longer of the two and told the same
+    /// answer. Sizing each rail to its own contents would be worse than the
+    /// overflow it replaces: the shorter rail's icons would come out larger
+    /// than the longer rail's, and a rail is supposed to read as one row of
+    /// equals.
+    ///
+    /// A margin is taken off both ends before anything is divided. Fitting to
+    /// the raw height is what let the rail sit flush against the header above
+    /// and the panel edge below — it fit, but only in the sense that nothing
+    /// was clipped, and an icon touching the rim reads as an overflow that
+    /// happened to stop in time.
+    private func railButtonHeight(available: CGFloat) -> CGFloat {
+        let count = CGFloat(max(vm.leftRailTabs.count, vm.rightRailTabs.count, 1))
+        let usable = available - 2 * Theme.Space.xs
+        guard usable > 0 else { return Theme.Size.railButtonMax }
+        let fitted = (usable - Theme.Space.xs * (count - 1)) / count
+        return min(Theme.Size.railButtonMax, max(Theme.Size.railButtonMin, fitted.rounded(.down)))
     }
 
     private var panes: some View {
@@ -138,17 +206,25 @@ struct NotchContentView: View {
         ZStack {
             pane
                 .id(vm.tab)
-                .transition(.asymmetric(
-                    insertion: .opacity
-                        .combined(with: .scale(scale: 0.97))
-                        .animation(Theme.paneIn),
-                    removal: .opacity
-                        .combined(with: .scale(scale: 1.02))
-                        .animation(Theme.paneOut)
-                ))
+                .transition(paneTransition)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
+    }
+
+    /// Under Reduce Motion the panes still replace each other, but they do it
+    /// by crossing over rather than by scaling: a scale is travel, an opacity
+    /// change is not.
+    private var paneTransition: AnyTransition {
+        guard Theme.allowsRepeatingMotion else { return .opacity }
+        return .asymmetric(
+            insertion: .opacity
+                .combined(with: .scale(scale: 0.97))
+                .animation(Theme.paneIn),
+            removal: .opacity
+                .combined(with: .scale(scale: 1.02))
+                .animation(Theme.paneOut)
+        )
     }
 
     @ViewBuilder
@@ -193,8 +269,9 @@ private struct NotesCounter: View {
     var body: some View {
         if !notes.notes.isEmpty {
             Text("\(notes.notes.count)")
-                .font(.system(size: 10, weight: .medium).monospacedDigit())
+                .font(Theme.Typo.captionDigits)
                 .foregroundStyle(Theme.tertiary)
+                .accessibilityLabel("\(notes.notes.count) \(localized("notes"))")
         }
     }
 }
@@ -207,9 +284,14 @@ private struct NotesCounter: View {
 /// threshold is what separates "the mouse was flung across the top of the
 /// screen" from "the mouse came to the notch" in `PointerWatcher`.
 private struct Rail: View {
+    enum Side { case leading, trailing }
+
     @ObservedObject var vm: NotchViewModel
     /// Which icons this rail carries — there are two rails now, one per side.
     let tabs: [NotchViewModel.Tab]
+    let side: Side
+    /// Fitted by the parent so both rails agree. See `railButtonHeight`.
+    let buttonHeight: CGFloat
 
     @State private var hovered: NotchViewModel.Tab?
 
@@ -218,40 +300,33 @@ private struct Rail: View {
     private let dwell = Duration.milliseconds(150)
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Theme.Space.xs) {
             ForEach(tabs) { tab in
-                Button {
-                    vm.select(tab)
-                } label: {
-                    Image(systemName: vm.symbol(for: tab))
-                        .font(.system(size: 12, weight: .medium))
-                        .frame(width: 30, height: 24)
-                        .background(
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(fill(for: tab))
-                        )
-                        .foregroundStyle(vm.tab == tab ? Theme.primary : Theme.tertiary)
-                        .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-                        // A render-time transform. Growing the frame instead
-                        // would re-lay out the rail on every hover, and layout
-                        // that runs on pointer movement is exactly the kind
-                        // that shows up as a stutter.
-                        .scaleEffect(hovered == tab ? 1.15 : 1)
-                }
-                .buttonStyle(.plain)
-                .help(vm.title(for: tab))
-                .onHover { inside in
-                    if inside {
-                        hovered = tab
-                    } else if hovered == tab {
-                        hovered = nil
+                RailButton(
+                    tab: tab,
+                    title: vm.title(for: tab),
+                    symbol: vm.symbol(for: tab),
+                    isSelected: vm.tab == tab,
+                    isHovered: hovered == tab,
+                    height: buttonHeight,
+                    select: { vm.select(tab) },
+                    hover: { inside in
+                        if inside {
+                            hovered = tab
+                        } else if hovered == tab {
+                            hovered = nil
+                        }
                     }
-                }
+                )
             }
         }
-        .frame(width: 30)
+        .frame(width: Theme.Size.railWidth)
         .frame(maxHeight: .infinity, alignment: .center)
-        .animation(Theme.contentAnimation, value: hovered)
+        .animation(Theme.motion(Theme.contentAnimation), value: hovered)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(
+            side == .leading ? localized("Modules, left rail") : localized("Modules, right rail")
+        )
         // Moving to another icon cancels the pending switch along with the
         // task, so only the icon actually rested on ever wins.
         .task(id: hovered) {
@@ -261,9 +336,56 @@ private struct Rail: View {
             vm.select(hovered, requestKeyboard: false)
         }
     }
+}
 
-    private func fill(for tab: NotchViewModel.Tab) -> Color {
-        if vm.tab == tab { return Theme.surfaceHover }
-        return hovered == tab ? Theme.surface : .clear
+/// One rail icon.
+///
+/// Split out of `Rail` so it can own its focus state: a keyboard user has to be
+/// able to see which module the panel would switch to, and `@FocusState` has to
+/// live beside the control it describes.
+private struct RailButton: View {
+    let tab: NotchViewModel.Tab
+    let title: String
+    let symbol: String
+    let isSelected: Bool
+    let isHovered: Bool
+    let height: CGFloat
+    let select: () -> Void
+    let hover: (Bool) -> Void
+
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        Button(action: select) {
+            Image(systemName: symbol)
+                .font(Theme.Glyph.medium)
+                .frame(width: Theme.Size.railWidth, height: height)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                        .fill(fill)
+                )
+                .foregroundStyle(isSelected ? Theme.primary : Theme.tertiary)
+                .contentShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+                // A render-time transform. Growing the frame instead would
+                // re-lay out the rail on every hover, and layout that runs on
+                // pointer movement is exactly the kind that shows up as a
+                // stutter. Suppressed under Reduce Motion, where a fill change
+                // already carries the same information.
+                .scaleEffect(isHovered && Theme.allowsRepeatingMotion ? 1.15 : 1)
+                .notchFocusRing(isFocused, cornerRadius: Theme.Radius.small)
+        }
+        .buttonStyle(.plain)
+        .focused($isFocused)
+        .help(title)
+        .onHover(perform: hover)
+        // The icon is the whole label, so without this VoiceOver reads nine
+        // anonymous buttons. `.isSelected` is what tells it which one is open.
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    private var fill: Color {
+        if isSelected { return Theme.surfaceHover }
+        return isHovered ? Theme.surface : .clear
     }
 }

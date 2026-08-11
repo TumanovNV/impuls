@@ -16,11 +16,11 @@ struct SnippetsPane: View {
 
     var body: some View {
         let filtered = snippets.filtered
-        VStack(spacing: 6) {
+        VStack(spacing: Theme.Space.xs + 2) {
             if isAdding { editor } else { search }
             list(filtered)
         }
-        .padding(.top, 2)
+        .padding(.top, Theme.Space.hair)
         .onChange(of: wantsKeyboard) { _, wants in
             guard !wants else {
                 focused = isAdding ? .text : .search
@@ -34,13 +34,13 @@ struct SnippetsPane: View {
     // MARK: - Search
 
     private var search: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Space.s) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 10, weight: .medium))
+                .font(Theme.Typo.captionStrong)
                 .foregroundStyle(Theme.tertiary)
             TextField("", text: $snippets.query)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11))
+                .font(Theme.Typo.label)
                 .foregroundStyle(Theme.primary)
                 .tint(Theme.secondary)
                 .focused($focused, equals: .search)
@@ -51,23 +51,23 @@ struct SnippetsPane: View {
             if !snippets.query.isEmpty {
                 Button { snippets.query = "" } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(Theme.Typo.captionSemibold)
                         .foregroundStyle(Theme.secondary)
                 }
                 .buttonStyle(.plain)
             }
             Button { beginAdding() } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(Theme.Typo.labelSemibold)
                     .foregroundStyle(Theme.secondary)
             }
             .buttonStyle(.plain)
             .help(localized("Add a snippet"))
         }
-        .padding(.horizontal, 9)
-        .frame(height: 24)
+        .padding(.horizontal, Theme.Space.s)
+        .frame(height: Theme.Size.input)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                 .fill(Theme.surface)
         )
         .contentShape(Rectangle())
@@ -84,19 +84,19 @@ struct SnippetsPane: View {
     /// is two rows tall in a panel that never resizes, and one of the two is
     /// the list.
     private var editor: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Theme.Space.xs + 2) {
             // Each field on its own surface. A hairline between them read as a
             // caret sitting in the wrong place — exactly where one is expected,
             // which is the worst place for something that only looks like one.
             TextField(localized("Name"), text: $draftLabel)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
+                .font(Theme.Typo.labelStrong)
                 .foregroundStyle(Theme.primary)
                 .tint(Theme.secondary)
-                .padding(.horizontal, 7)
+                .padding(.horizontal, Theme.Space.s - 1)
                 .frame(width: 104, height: 20)
                 .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                         .fill(Theme.surface)
                 )
                 .focused($focused, equals: .label)
@@ -104,13 +104,13 @@ struct SnippetsPane: View {
 
             TextField(localized("Text"), text: $draftText)
                 .textFieldStyle(.plain)
-                .font(.system(size: 11))
+                .font(Theme.Typo.label)
                 .foregroundStyle(Theme.primary)
                 .tint(Theme.secondary)
-                .padding(.horizontal, 7)
+                .padding(.horizontal, Theme.Space.s - 1)
                 .frame(height: 20)
                 .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                    RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                         .fill(Theme.surface)
                 )
                 .focused($focused, equals: .text)
@@ -118,7 +118,7 @@ struct SnippetsPane: View {
 
             Button { commit() } label: {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(Theme.Typo.captionSemibold)
                     .foregroundStyle(draftText.isEmpty ? Theme.tertiary : Color.green)
             }
             .buttonStyle(.plain)
@@ -126,15 +126,18 @@ struct SnippetsPane: View {
 
             Button { cancelAdding() } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(Theme.Typo.captionSemibold)
                     .foregroundStyle(Theme.secondary)
             }
             .buttonStyle(.plain)
         }
-        .padding(.horizontal, 6)
-        .frame(height: 28)
+        // The same height as `search`, because it stands exactly where `search`
+        // stood: the two swap places on `isAdding`, and a different number here
+        // would shift the whole list down the moment + is pressed.
+        .padding(.horizontal, Theme.Space.xs + 2)
+        .frame(height: Theme.Size.input)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                 .fill(Theme.surfaceHover)
         )
         // Asked for here rather than where the editor is switched on: at that
@@ -186,25 +189,25 @@ struct SnippetsPane: View {
     @ViewBuilder
     private func list(_ filtered: [Snippet]) -> some View {
         if filtered.isEmpty {
-            VStack(spacing: 6) {
+            VStack(spacing: Theme.Space.xs + 2) {
                 Image(systemName: snippets.items.isEmpty ? "pin" : "magnifyingglass")
-                    .font(.system(size: 18, weight: .light))
+                    .font(Theme.Glyph.large)
                     .foregroundStyle(Theme.tertiary)
                 if snippets.items.isEmpty, !isAdding {
                     Text("Nothing here yet — add with +")
-                        .font(.system(size: 10))
+                        .font(Theme.Typo.caption)
                         .foregroundStyle(Theme.tertiary)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 3) {
+                VStack(spacing: Theme.Space.xs - 1) {
                     ForEach(filtered) { item in
                         SnippetRow(item: item, snippets: snippets)
                     }
                 }
-                .padding(.bottom, 2)
+                .padding(.bottom, Theme.Space.hair)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -216,55 +219,79 @@ private struct SnippetRow: View {
     @ObservedObject var snippets: SnippetStore
     @State private var hovering = false
     @State private var justCopied = false
+    @FocusState private var isFocused: Bool
+
+    /// Revealed by focus as well as by hover. Behind `if hovering` alone the
+    /// delete button was a mouse-only control and invisible to VoiceOver,
+    /// because a view inside a false branch is not in the hierarchy at all.
+    private var showsControls: Bool { hovering || isFocused }
 
     var body: some View {
-        HStack(spacing: 9) {
+        HStack(spacing: Theme.Space.s) {
             Image(systemName: justCopied ? "checkmark" : item.symbol)
-                .font(.system(size: 10, weight: .medium))
+                .font(Theme.Typo.captionStrong)
                 .foregroundStyle(justCopied ? Color.green : Theme.tertiary)
                 .frame(width: 14)
             if !item.displayLabel.isEmpty {
                 Text(item.displayLabel)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(Theme.Typo.labelStrong)
                     .foregroundStyle(Theme.primary)
                     .lineLimit(1)
                     .layoutPriority(1)
             }
             Text(item.preview)
-                .font(.system(size: 11))
+                .font(Theme.Typo.label)
                 .foregroundStyle(item.displayLabel.isEmpty ? Theme.primary : Theme.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Spacer(minLength: 6)
-            // Only under the pointer: a row of crosses would compete with the
-            // snippets themselves for a glance.
-            if hovering {
+            Spacer(minLength: Theme.Space.xs)
+            // Only under the pointer or under focus: a permanent row of crosses
+            // would compete with the snippets themselves for a glance.
+            if showsControls {
                 Button { snippets.remove(item) } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(Theme.Typo.captionSemibold)
                         .foregroundStyle(Theme.secondary)
+                        .frame(width: Theme.Size.touchTarget, height: Theme.Size.touchTarget)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help(localized("Delete"))
+                .accessibilityHidden(true)
             }
         }
-        .padding(.horizontal, 9)
-        .frame(height: 26)
+        .padding(.horizontal, Theme.Space.s)
+        .frame(height: Theme.Size.row)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(hovering ? Theme.surfaceHover : Theme.surface)
+            RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                .fill(showsControls ? Theme.surfaceHover : Theme.surface)
         )
+        .notchFocusRing(isFocused)
         .contentShape(Rectangle())
+        .focusable()
+        .focused($isFocused)
         .onHover { hovering = $0 }
-        .onTapGesture {
-            snippets.copy(item)
-            justCopied = true
-            // Emptying the search lets go of the panel: nothing is being typed
-            // any more, so nothing needs to hold it open.
-            snippets.query = ""
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { justCopied = false }
+        .onTapGesture { copy() }
+        .onKeyPress(.return) {
+            copy()
+            return .handled
         }
-        .animation(Theme.contentAnimation, value: hovering)
-        .animation(Theme.contentAnimation, value: justCopied)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(item.displayLabel.isEmpty ? item.preview : "\(item.displayLabel), \(item.preview)")
+        .accessibilityHint(localized("Copies to the clipboard"))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { copy() }
+        .accessibilityAction(named: localized("Delete")) { snippets.remove(item) }
+        .animation(Theme.motion(Theme.contentAnimation), value: showsControls)
+        .animation(Theme.motion(Theme.contentAnimation), value: justCopied)
+    }
+
+    private func copy() {
+        snippets.copy(item)
+        justCopied = true
+        // Emptying the search lets go of the panel: nothing is being typed
+        // any more, so nothing needs to hold it open.
+        snippets.query = ""
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { justCopied = false }
     }
 }
