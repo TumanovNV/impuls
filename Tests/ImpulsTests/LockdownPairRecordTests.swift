@@ -183,6 +183,11 @@ wrvTALwBiInQ8ai9PYAaMOCXpB9mDC+flyfD+LLrV+TEO8uHWxRXugpOQp67f0NE
         XCTAssertNotNil(key)
     }
 
+    /// `SecIdentityCreate` documents that it returns nil for a mismatched pair.
+    /// On one machine it did; on a CI runner it did not. The check therefore
+    /// belongs to us, and this test proves it is ours: it compares the
+    /// certificate's public key with the one derived from the private key, and
+    /// does not depend on what the framework decides to do.
     func testAKeyThatDoesNotMatchTheCertificateIsRejected() throws {
         let parsed = try XCTUnwrap(LockdownPairRecord(
             plist: record(privateKey: Self.unrelatedPrivateKey)

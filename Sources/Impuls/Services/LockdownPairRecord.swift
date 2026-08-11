@@ -41,11 +41,18 @@ struct LockdownPairRecord {
     /// Builds the client identity **entirely in memory**.
     ///
     /// `SecIdentityCreate` takes a certificate and a key and returns an
-    /// identity — public API since macOS 10.12, and the reason none of this
-    /// needs a keychain. The user's login keychain is not touched, no temporary
-    /// keychain file is created, and the private key never reaches the disk in
-    /// any form. `SecIdentityCreate` also returns nil when the key does not
-    /// match the certificate, which is a free correctness check.
+    /// identity, which is the reason none of this needs a keychain. The user's
+    /// login keychain is not touched, no temporary keychain file is created,
+    /// and the private key never reaches the disk in any form.
+    ///
+    /// Two things about it were learned the hard way and are worth keeping
+    /// written down. It is declared publicly only in the macOS 26 SDK, so the
+    /// project builds with Xcode 26 — the symbol itself has been in the
+    /// framework since 10.12. And although its documentation says it returns
+    /// nil when the key does not match the certificate, that was observed not
+    /// to hold on another machine, so the match is checked here rather than
+    /// assumed. A mismatched pair would otherwise fail later, inside a TLS
+    /// handshake, as something unrecognisable.
     func makeIdentity() throws -> SecIdentity {
         guard let certificate = SecCertificateCreateWithData(nil, hostCertificate as CFData) else {
             throw MobileDeviceError.malformedResponse("host certificate is not a certificate")
@@ -61,10 +68,30 @@ struct LockdownPairRecord {
             // is released without being read.
             throw MobileDeviceError.malformedResponse("host private key is not a key")
         }
+        guard Self.keyMatchesCertificate(certificate: certificate, privateKey: key) else {
+            throw MobileDeviceError.malformedResponse("certificate and key do not match")
+        }
         guard let identity = SecIdentityCreate(kCFAllocatorDefault, certificate, key) else {
             throw MobileDeviceError.malformedResponse("certificate and key do not match")
         }
         return identity
+    }
+
+    /// Whether the private key really belongs to the certificate.
+    ///
+    /// The public key the certificate carries, compared byte for byte with the
+    /// one derived from the private key. Anything that cannot be compared —
+    /// a key type with no external representation, a certificate with no key —
+    /// counts as "no", because an identity that cannot be verified is not one
+    /// to hand to a TLS handshake.
+    static func keyMatchesCertificate(certificate: SecCertificate, privateKey: SecKey) -> Bool {
+        guard let certificateKey = SecCertificateCopyKey(certificate),
+              let derivedKey = SecKeyCopyPublicKey(privateKey),
+              let fromCertificate = SecKeyCopyExternalRepresentation(certificateKey, nil) as Data?,
+              let fromPrivateKey = SecKeyCopyExternalRepresentation(derivedKey, nil) as Data? else {
+            return false
+        }
+        return fromCertificate == fromPrivateKey
     }
 
     /// The certificates that prove the peer is the device this Mac is paired
