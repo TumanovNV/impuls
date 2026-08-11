@@ -85,13 +85,38 @@ struct LockdownPairRecord {
     /// counts as "no", because an identity that cannot be verified is not one
     /// to hand to a TLS handshake.
     static func keyMatchesCertificate(certificate: SecCertificate, privateKey: SecKey) -> Bool {
-        guard let certificateKey = SecCertificateCopyKey(certificate),
-              let derivedKey = SecKeyCopyPublicKey(privateKey),
-              let fromCertificate = SecKeyCopyExternalRepresentation(certificateKey, nil) as Data?,
-              let fromPrivateKey = SecKeyCopyExternalRepresentation(derivedKey, nil) as Data? else {
-            return false
-        }
-        return fromCertificate == fromPrivateKey
+        publicKeyBytesMatch(
+            externalRepresentation(of: SecCertificateCopyKey(certificate)),
+            externalRepresentation(of: SecKeyCopyPublicKey(privateKey))
+        )
+    }
+
+    /// An RSA-2048 public key is a few hundred bytes. The ceiling is not about
+    /// memory — it is a statement that anything far larger is not the thing
+    /// being compared, and comparing it would mean something has gone wrong
+    /// upstream.
+    static let maximumPublicKeyBytes = 8 * 1024
+
+    /// The comparison itself, over bytes, so both failure paths are testable
+    /// without contriving an unusual key: a public key that could not be
+    /// extracted and a representation that could not be produced both arrive
+    /// here as `nil`, and both mean no.
+    static func publicKeyBytesMatch(_ lhs: Data?, _ rhs: Data?) -> Bool {
+        guard let lhs, let rhs,
+              !lhs.isEmpty,
+              lhs.count <= maximumPublicKeyBytes,
+              rhs.count <= maximumPublicKeyBytes else { return false }
+        return lhs == rhs
+    }
+
+    /// The key's external form, or nothing.
+    ///
+    /// The `CFError` this can produce is deliberately not requested: it can
+    /// carry key material in its description, and there is nothing to be done
+    /// with it here beyond refusing.
+    static func externalRepresentation(of key: SecKey?) -> Data? {
+        guard let key else { return nil }
+        return SecKeyCopyExternalRepresentation(key, nil) as Data?
     }
 
     /// The certificates that prove the peer is the device this Mac is paired

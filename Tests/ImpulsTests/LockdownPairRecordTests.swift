@@ -252,4 +252,59 @@ wrvTALwBiInQ8ai9PYAaMOCXpB9mDC+flyfD+LLrV+TEO8uHWxRXugpOQp67f0NE
         XCTAssertFalse("\(identity)".contains("00008120-AAAA"))
         XCTAssertFalse(parsed.hostID.isEmpty)
     }
+
+    func testTheMatchingPairIsAccepted() throws {
+        let parsed = try XCTUnwrap(LockdownPairRecord(plist: record()))
+        let certificate = try XCTUnwrap(SecCertificateCreateWithData(nil, parsed.hostCertificate as CFData))
+        let key = try XCTUnwrap(SecKeyCreateWithData(
+            parsed.hostPrivateKey as CFData,
+            [
+                kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+                kSecAttrKeyClass as String: kSecAttrKeyClassPrivate,
+            ] as CFDictionary,
+            nil
+        ))
+
+        XCTAssertTrue(LockdownPairRecord.keyMatchesCertificate(certificate: certificate, privateKey: key))
+    }
+
+    func testAnUnrelatedValidKeyIsRejectedByTheComparisonItself() throws {
+        let parsed = try XCTUnwrap(LockdownPairRecord(plist: record()))
+        let certificate = try XCTUnwrap(SecCertificateCreateWithData(nil, parsed.hostCertificate as CFData))
+        let unrelatedDER = try XCTUnwrap(PEM.rsaPrivateKeyDER(from: Data(Self.unrelatedPrivateKey.utf8)))
+        let unrelated = try XCTUnwrap(SecKeyCreateWithData(
+            unrelatedDER as CFData,
+            [
+                kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+                kSecAttrKeyClass as String: kSecAttrKeyClassPrivate,
+            ] as CFDictionary,
+            nil
+        ))
+
+        XCTAssertFalse(LockdownPairRecord.keyMatchesCertificate(certificate: certificate, privateKey: unrelated))
+    }
+
+    /// A public key that could not be extracted, and a representation that
+    /// could not be produced, both reach the comparison as nothing — and
+    /// nothing is never a match. Tested at the byte layer because that is where
+    /// both failures land, and it does not depend on finding a key the
+    /// framework refuses to export.
+    func testAFailureToExtractOrRepresentAKeyIsNotAMatch() {
+        let bytes = Data([1, 2, 3, 4])
+
+        XCTAssertFalse(LockdownPairRecord.publicKeyBytesMatch(nil, bytes))
+        XCTAssertFalse(LockdownPairRecord.publicKeyBytesMatch(bytes, nil))
+        XCTAssertFalse(LockdownPairRecord.publicKeyBytesMatch(nil, nil))
+        XCTAssertFalse(LockdownPairRecord.publicKeyBytesMatch(Data(), Data()))
+        XCTAssertFalse(LockdownPairRecord.publicKeyBytesMatch(bytes, Data([9, 9, 9, 9])))
+        XCTAssertTrue(LockdownPairRecord.publicKeyBytesMatch(bytes, bytes))
+
+        XCTAssertNil(LockdownPairRecord.externalRepresentation(of: nil))
+    }
+
+    func testAnImplausiblyLargeKeyRepresentationIsNotCompared() {
+        let huge = Data(repeating: 7, count: LockdownPairRecord.maximumPublicKeyBytes + 1)
+
+        XCTAssertFalse(LockdownPairRecord.publicKeyBytesMatch(huge, huge))
+    }
 }

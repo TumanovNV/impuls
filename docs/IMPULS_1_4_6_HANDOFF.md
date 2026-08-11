@@ -16,7 +16,7 @@ produced this work. Read this, then `APPLE_DEVICE_BATTERY_SUPPORT.md`, then
 | `main` | `5672689` — Impuls 1.4.4 |
 | `release/1.4.5` | `efb3742` — 1.4.5, still unmerged into `main` |
 | `Scripts/version` | `VERSION=1.4.5` — **not yet bumped**; 1.4.6 is not a release |
-| Tests | 242, 0 failures (`swift test -c release`) |
+| Tests | 246, 0 failures (`swift test -c release`) |
 
 1.4.6 is unreleased and unmergeable as it stands: phase 05 (UI, Settings,
 localization, accessibility) has not been done, so the new device layer exists
@@ -183,7 +183,7 @@ the launch smoke test still shows zero network sockets.
 
 ## Test state
 
-242 tests, 0 failures. Groups:
+246 tests, 0 failures. Groups:
 
 | Group | What it covers |
 | --- | --- |
