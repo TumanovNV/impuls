@@ -209,6 +209,55 @@ Nothing here is verified: there was no USB-connected iPhone or iPad during this
 research. The provider ships disabled, marked Beta, only if phase 04 proves it
 on hardware; otherwise 1.4.6 ships without it and this document records why.
 
+### The protocol sequence, as implemented
+
+Phase 04 implemented the client. This is the exact sequence, and what is known
+about each step today:
+
+| # | Step | Status | Evidence |
+| --- | --- | --- | --- |
+| 1 | Connect to the UNIX socket `/var/run/usbmuxd` | **Proven** | The socket is `srw-rw-rw-`, owned by root but writable by everyone; no root, no entitlement, no network. Connected successfully on the development Mac. |
+| 2 | `ListDevices` over the usbmux plist framing (16-byte little-endian header, then an XML plist) | **Proven** | The daemon accepted the frame and answered with a `DeviceList`. On the development Mac the list was empty — nothing was plugged in — which is itself the correct answer. |
+| 3 | Device selection, USB entries only | **Unproven** | No USB device was attached. Wi-Fi entries are filtered out by `ConnectionType`; that filter is covered by fixtures, not by hardware. |
+| 4 | `ReadPairRecord` → is this Mac trusted? | **Unproven** | Implemented as a read; Impuls never creates or modifies a pair record. |
+| 5 | `Connect(deviceID, port 62078)` → lockdownd | **Unproven** | — |
+| 6 | `QueryType` → confirm lockdownd | **Unproven** | — |
+| 7 | `GetValue(Domain: com.apple.mobile.battery, Key: BatteryCurrentCapacity)` | **Unproven, and the step most likely to be refused** | See below. |
+
+### The identified stopping point
+
+Step 7 is where current iOS is expected to refuse. Historically many lockdown
+values were readable immediately after connecting; modern iOS answers most
+`GetValue` requests only inside an authenticated session — `StartSession` using
+the material in the pair record, followed by a TLS upgrade of the same socket
+with the host certificate and private key from that record. The refusal is
+visible in the reply as `SessionInactive` or `InvalidHostID`, and the client
+classifies both as "session required" rather than as a failure.
+
+**Phase 04 deliberately stops there rather than implementing the session.**
+The reasons, so the next person does not have to rediscover them:
+
+- the TLS upgrade needs a client identity built from PEM key material inside the
+  pair record. Producing a `SecIdentity` from that without importing the key
+  into the user's keychain is awkward, and importing it would be a side effect
+  on the user's Mac that a battery reading does not justify;
+- the API that wraps an existing file descriptor in TLS with a client
+  certificate — SecureTransport — has been deprecated since macOS 10.15;
+- both of those would be built against an undocumented protocol, unverifiable
+  in CI, and maintained across iOS releases indefinitely;
+- it is a large amount of machinery for one number, and none of it can be
+  justified before a single hardware test shows whether step 7 answers at all.
+
+The one measurement that decides this is row 5.2 of the QA matrix: connect a
+trusted iPhone and observe whether the battery value comes back or an error
+string does. If it answers, the provider is a Beta candidate as written. If it
+returns `SessionInactive`, the session work above is the price of the feature,
+and that is a decision to take deliberately rather than by momentum.
+
+Until then the provider exists, is wired in, is fully tested against a scripted
+peer, and is **off**: it is gated behind a flag that is not exposed in Settings,
+so no user can turn it on by accident and no socket is opened without it.
+
 ---
 
 ## Apple Watch, Vision Pro, Apple Pencil, AirTag, Siri Remote

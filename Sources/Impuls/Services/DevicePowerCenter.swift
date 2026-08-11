@@ -66,7 +66,12 @@ final class DevicePowerCenter: ObservableObject {
     convenience init(monitor: PowerMonitor, clock: DeviceClock = SystemDeviceClock()) {
         self.init(
             localProvider: LocalMacDeviceProvider(monitor: monitor, clock: clock),
-            externalProviders: [IORegistryAccessoryProvider(source: IORegistryAccessorySource(clock: clock))],
+            externalProviders: [
+                IORegistryAccessoryProvider(source: IORegistryAccessorySource(clock: clock)),
+                // Experimental and flag-gated: constructed here so the wiring
+                // is real and testable, inert until the flag is set.
+                MobileDeviceBatteryProvider(source: MobileDeviceBatterySource(clock: clock)),
+            ],
             clock: clock
         )
     }

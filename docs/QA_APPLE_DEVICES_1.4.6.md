@@ -88,6 +88,8 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 | 5.11 | Nothing is written to the device: no pairing record, no profile, no setting, no file | `[ ]` | |
 | 5.12 | Provider disabled: no socket, no connection attempt at all | `[ ]` | |
 | 5.13 | Current iOS version noted for each device tested | `[ ]` | the answer ages with iOS |
+| 5.14 | **The deciding measurement:** with a trusted iPhone connected, does `GetValue` in the battery domain return a value or `SessionInactive`? | `[ ]` | enable with `IMPULS_MOBILE_DEVICE_BATTERY=1`; record the exact reply. If it is an error string, the session/TLS work described in `APPLE_DEVICE_BATTERY_SUPPORT.md` is required and is a separate decision |
+| 5.15 | With the flag off (the shipping default), no socket is ever opened to `/var/run/usbmuxd` | `[x]` | 11 Aug 2026, macOS 15, ad-hoc release bundle: `lsof -U` showed no usbmuxd connection over a 10 s run. Verified without hardware because it is about what Impuls does *not* do |
 
 ## 6. Wi-Fi — future, not a 1.4.6 blocker
 
