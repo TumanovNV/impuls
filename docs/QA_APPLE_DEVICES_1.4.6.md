@@ -7,10 +7,10 @@ CI can build the code and run the fixtures; it cannot connect an iPhone or put
 AirPods in a case. A box is ticked only by someone who saw the result on the
 device named in the row, and the date and macOS version go in the notes column.
 
-**Status: six rows verified on 11 August 2026** — the AirPods registry question,
-the iPhone USB sequence, and the flag-off behaviour. Two of them came back
-negative and are the most important rows in the document. Everything else is
-still untested.
+**Status: eleven rows verified on 11 August 2026.** The AirPods registry
+question came back negative and the `system_profiler` fallback that replaced it
+came back positive; the iPhone USB path was refused without a session and then
+worked through one. Everything else is still untested.
 
 Legend: `[ ]` not tested · `[x]` verified on hardware · `[—]` not applicable to
 this configuration · `[!]` tested and failed, see notes.
@@ -70,6 +70,11 @@ The existing module must not get worse. These are the rows that block a release.
 | 4.7 | AirPods switched to an iPhone mid-session: card leaves cleanly | `[ ]` | |
 | 4.8 | Values match the system Bluetooth menu | `[ ]` | |
 | 4.9 | Whether `BatteryPercentLeft` / `Right` / `Case` exist at all on current macOS | `[x]` | 11 Aug 2026: they do not. `ioreg -r -k BatteryPercent -l` returned no nodes with AirPods Pro connected; "AirPods" appears nowhere in the registry; the historical `DeviceCache` in `com.apple.Bluetooth.plist` is gone |
+| 4.10 | `system_profiler` fallback: AirPods appear with a battery | `[x]` | 11 Aug 2026, AirPods Pro: `airPodsPro` "AirPods Pro (…)", model `Headphones`, right bud 87 % |
+| 4.11 | The value matches what macOS reports at the same moment | `[x]` | 11 Aug 2026: macOS `Right Battery Level: 87 %`, Impuls `right=87`. Watched across three runs as it fell 89 → 88 → 87, matching each time |
+| 4.12 | Only the components the system actually publishes are shown | `[x]` | 11 Aug 2026: one bud was in the case; only the other bud's value existed and only it was shown. No invented left or case value |
+| 4.13 | `system_profiler` cost is acceptable | `[x]` | 11 Aug 2026: 0.08–0.12 s wall clock, ~2 KB JSON. Run at most once per 30 s, and on panel open |
+| 4.14 | Disconnected accessories are not listed with a stale charge | `[x]` | 11 Aug 2026: four paired but disconnected devices in the same output were correctly absent |
 
 ## 5. iPhone and iPad over USB — Beta
 
@@ -79,8 +84,8 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 | # | Case | Result | Notes |
 | --- | --- | --- | --- |
 | 5.1 | Trusted iPhone connected by cable: discovered | `[x]` | 11 Aug 2026, iOS 26.5.2: `ListDevices` returned 1 USB device, `ReadPairRecord` found the pairing, lockdownd answered `QueryType` |
-| 5.2 | Battery percentage read and matching the iPhone's own display | `[ ]` | |
-| 5.3 | Charging state correct while charging and while not | `[ ]` | |
+| 5.2 | Battery percentage read and matching the iPhone's own display | `[ ]` | the value **is** read — 65 %, then 69 % while charging, over five consecutive reads. Comparing it against what the phone's own screen shows still needs a person holding the phone |
+| 5.3 | Charging state correct while charging and while not | `[ ]` | charging = true and externalConnected = true were read while the phone was on the cable; the discharging case is untested |
 | 5.4 | User-visible device name shown, no identifier anywhere in the UI | `[ ]` | |
 | 5.5 | Untrusted iPhone: the "unlock and trust this computer" explanation, not an error code | `[ ]` | |
 | 5.6 | Locked iPhone: a clear state, no hang, no repeated retries | `[ ]` | |
@@ -90,7 +95,10 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 | 5.10 | iPhone and iPad connected simultaneously: two cards, correct values | `[ ]` | |
 | 5.11 | Nothing is written to the device: no pairing record, no profile, no setting, no file | `[ ]` | |
 | 5.12 | Provider disabled: no socket, no connection attempt at all | `[ ]` | |
-| 5.13 | Current iOS version noted for each device tested | `[ ]` | the answer ages with iOS |
+| 5.13 | Current iOS version noted for each device tested | `[x]` | iOS 26.5.2, `iPhone17,2`, 11 Aug 2026 |
+| 5.16 | TLS session: in-memory identity, handshake, peer validation, battery | `[x]` | 11 Aug 2026: PKCS#8 unwrapped, `SecIdentityCreate` succeeded with no keychain, handshake completed, peer validated against the pair record, battery returned |
+| 5.17 | Repeated reads are stable and leak nothing | `[x]` | 11 Aug 2026: five consecutive reads all returned 65 %, 0.02 s each; open file descriptors 3 before and 3 after |
+| 5.18 | Locked iPhone, cable pulled mid-read, reconnect | `[ ]` | needs a person at the device |
 | 5.14 | **The deciding measurement:** with a trusted iPhone connected, does `GetValue` in the battery domain return a value or an error? | `[x]` | 11 Aug 2026, iOS 26.5.2: **`Error = GetProhibited`**. `StartSession` then succeeded and returned `EnableSessionSSL = true`. `DeviceName` and `ProductType` are readable without a session; the battery domain is not |
 | 5.15 | With the flag off (the shipping default), no socket is ever opened to `/var/run/usbmuxd` | `[x]` | 11 Aug 2026, macOS 15, ad-hoc release bundle: `lsof -U` showed no usbmuxd connection over a 10 s run. Verified without hardware because it is about what Impuls does *not* do |
 

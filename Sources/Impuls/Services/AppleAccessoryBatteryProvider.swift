@@ -2,23 +2,26 @@ import AppKit
 import Foundation
 import IOKit
 
-/// Batteries of Apple accessories, read from the IORegistry.
+/// Batteries of Apple accessories, from whichever source actually has them.
 ///
-/// Named for what it does. It is not a Bluetooth provider: it opens no
-/// CoreBluetooth session, starts no scan and asks for no Bluetooth permission,
-/// because the values it needs are already published by the system and reading
-/// them requires none of that. A real `CoreBluetoothAccessoryProvider` can be
-/// added beside it the day some accessory genuinely needs GATT — and it would
-/// have a permission prompt attached, which is exactly why the two should never
-/// have shared a name.
+/// Two sources, because one measurement forced it. The IORegistry path is
+/// cheap, event-adjacent and needs no process — and on the Mac this was
+/// developed against, with AirPods Pro connected and macOS displaying their
+/// charge, it publishes nothing at all. The `system_profiler` path costs a
+/// process spawn and answers.
 ///
-/// Best-effort by construction. The service class is reachable through public
-/// IOKit; the property names on it are not documented, so every one of them is
-/// optional, no lifecycle depends on any of them, and an empty result is an
-/// ordinary outcome rather than a failure.
+/// So the registry is asked first and `system_profiler` fills what it left
+/// empty. Neither is authoritative; both are best-effort; a device that neither
+/// can describe is simply not in the list.
+///
+/// Not a Bluetooth provider under either name: no CoreBluetooth session, no
+/// scan, no Bluetooth permission prompt. A real `CoreBluetoothAccessoryProvider`
+/// can be added the day some accessory genuinely needs GATT — and it would
+/// bring a permission prompt with it, which is why it should never share a name
+/// with something that does not.
 @MainActor
-final class IORegistryAccessoryProvider: DeviceBatteryProviding {
-    let identifier = DeviceProviderIdentifier.ioRegistryAccessory
+final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
+    let identifier = DeviceProviderIdentifier.appleAccessory
 
     /// Event-driven where the registry allows it, polled where it does not.
     ///
@@ -31,7 +34,8 @@ final class IORegistryAccessoryProvider: DeviceBatteryProviding {
 
     private(set) var status: DeviceProviderStatus = .disabled
 
-    private let source: DeviceBatterySource
+    private let registrySource: DeviceBatterySource
+    private let profilerSource: SystemProfilerAccessorySource?
     private var onUpdate: ((DeviceProviderUpdate) -> Void)?
     private var notificationPort: IONotificationPortRef?
     private var matchedIterator: io_iterator_t = 0
@@ -40,8 +44,12 @@ final class IORegistryAccessoryProvider: DeviceBatteryProviding {
     private var wakeObserver: NSObjectProtocol?
     private var lastDevices: [AppleDeviceSnapshot] = []
 
-    init(source: DeviceBatterySource = IORegistryAccessorySource()) {
-        self.source = source
+    init(
+        registrySource: DeviceBatterySource = IORegistryAccessorySource(),
+        profilerSource: SystemProfilerAccessorySource? = SystemProfilerAccessorySource()
+    ) {
+        self.registrySource = registrySource
+        self.profilerSource = profilerSource
     }
 
     deinit {
@@ -57,7 +65,7 @@ final class IORegistryAccessoryProvider: DeviceBatteryProviding {
         status = .starting
         installNotifications()
         observeWake()
-        DevicePowerLog.note("provider ioRegistryAccessory started")
+        DevicePowerLog.note("provider appleAccessory started")
         refresh()
     }
 
@@ -72,7 +80,13 @@ final class IORegistryAccessoryProvider: DeviceBatteryProviding {
         onUpdate = nil
         lastDevices = []
         status = .disabled
-        DevicePowerLog.note("provider ioRegistryAccessory stopped")
+        DevicePowerLog.note("provider appleAccessory stopped")
+    }
+
+    /// Opening the panel is the moment a cached process result stops being
+    /// good enough, so the cache is dropped and the next read really runs.
+    func prepareForForeground() {
+        profilerSource?.invalidate()
     }
 
     func refresh() {
@@ -87,8 +101,10 @@ final class IORegistryAccessoryProvider: DeviceBatteryProviding {
         // the source being a separate, non-isolated protocol.
         readTask = Task { [weak self] in
             guard let self else { return }
+            let registry = self.registrySource
+            let profiler = self.profilerSource
             do {
-                let devices = try await self.source.read()
+                let devices = try await Self.combined(registry: registry, profiler: profiler)
                 guard !Task.isCancelled else { return }
                 self.publish(devices)
             } catch {
@@ -96,6 +112,43 @@ final class IORegistryAccessoryProvider: DeviceBatteryProviding {
                 self.publishFailure()
             }
         }
+    }
+
+    /// The registry first, then whatever it could not describe.
+    ///
+    /// A failure in either source is survivable on its own: if the registry
+    /// throws, the process path may still answer, and the reverse holds too.
+    /// Only losing both is a failure worth reporting, and even then the
+    /// coordinator keeps the last good list.
+    private static func combined(
+        registry: DeviceBatterySource,
+        profiler: DeviceBatterySource?
+    ) async throws -> [AppleDeviceSnapshot] {
+        var devices: [AppleDeviceSnapshot] = []
+        var registryFailure: Error?
+        do {
+            devices = try await registry.read()
+        } catch {
+            registryFailure = error
+        }
+
+        guard let profiler else {
+            if let registryFailure { throw registryFailure }
+            return devices
+        }
+
+        do {
+            let seen = Set(devices.map(\.identity))
+            // Identity, not name: both sources derive it from the same hardware
+            // address, so the same accessory described twice collapses here
+            // rather than appearing twice in the panel.
+            let extra = try await profiler.read().filter { !seen.contains($0.identity) }
+            devices.append(contentsOf: extra)
+        } catch {
+            if devices.isEmpty, let registryFailure { throw registryFailure }
+            if devices.isEmpty { throw error }
+        }
+        return devices
     }
 
     // MARK: - Publishing
@@ -180,7 +233,7 @@ final class IORegistryAccessoryProvider: DeviceBatteryProviding {
         // The iterator must be drained or the notification never fires again.
         drain(iterator)
         guard let context else { return }
-        let provider = Unmanaged<IORegistryAccessoryProvider>.fromOpaque(context).takeUnretainedValue()
+        let provider = Unmanaged<AppleAccessoryBatteryProvider>.fromOpaque(context).takeUnretainedValue()
         Task { @MainActor in provider.refresh() }
     }
 

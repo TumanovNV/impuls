@@ -176,11 +176,38 @@ service node, zero devices publishing a battery. That is the correct behaviour
 AirPods on this macOS**.
 
 The value the user sees comes from `bluetoothd`. The only non-private route to
-it that was found is `system_profiler SPBluetoothDataType`, which is excluded by
-an explicit decision: the Power module has no subprocess, and `SECURITY.md` says
-so. That decision now has a measured cost — AirPods are not readable at all —
-and is worth revisiting deliberately rather than by drift. It has not been
-changed here.
+it is `system_profiler SPBluetoothDataType`, which was originally excluded
+because the Power module has no subprocess. Given the measurement above, that
+exclusion was revisited deliberately and narrowed rather than dropped:
+`system_profiler` is now allowed **only** as the accessory fallback, only where
+the registry produced nothing.
+
+### The `system_profiler` fallback — hardware validated
+
+| Data point | Verdict | Notes |
+| --- | --- | --- |
+| Discovery | `Best effort`, hardware validated | connected devices only; a disconnected accessory has no value here and is not listed |
+| Product name | `Best effort`, hardware validated | the device's own Bluetooth name |
+| Battery percentage | `Best effort`, hardware validated | measured against macOS: both reported 87 % for the same AirPods Pro at the same moment |
+| Left / Right / Case | `Best effort`, availability dependent | the keys exist (`device_batteryLevelLeft` / `Right` / `Case`); on the tested hardware only the bud that was out of the case reported one, and only that one was shown |
+| Charging state | `Unavailable` | nothing in this output says an accessory is charging |
+
+How the process is run, since this is the first subprocess in Impuls: a fixed
+absolute path (`/usr/sbin/system_profiler`), a fixed argument list, no shell at
+any point, an empty environment, bounded stdout and stderr, a five-second
+deadline with termination, and no output of any kind in production logs.
+Malformed or oversized output is an ordinary provider failure.
+
+Cost, measured on this Mac: **0.08–0.12 s** wall clock and about **2 KB** of
+JSON. Cheap, but a process spawn all the same, so it is asked for sparingly —
+at most once every 30 s, at the provider's slow cadence (60 s with the panel
+open, 10 min without), and immediately when the panel opens, which is the only
+moment the answer has to be current.
+
+The JSON form is used rather than the text form because its keys are stable
+identifiers; the text output is localised and would tie the parser to the
+language the Mac is set to. **The schema remains compatibility-sensitive**: it
+is not a documented interface, and every field is optional in the parser.
 
 Magic Mouse, Magic Keyboard and Magic Trackpad remain untested: none was paired
 to this Mac. The finding above does not disprove that path for them — HID
@@ -281,9 +308,53 @@ refused outside a session, and the device demands a TLS upgrade to have one.**
 Not a dead end — `StartSession` succeeded with the pair record this Mac already
 has — but a cost.
 
-### The identified stopping point
+### The stopping point, and how it was passed
 
-Step 7 is where current iOS refuses, and now it is measured rather than expected. Historically many lockdown
+Step 7 is where current iOS refuses, and it was measured rather than assumed.
+The session it demands was then implemented, and it works:
+
+```text
+PEM decode (PKCS#8)      OK — a pair record carries PRIVATE KEY, not
+                              RSA PRIVATE KEY; the envelope is unwrapped
+SecCertificate           OK
+SecKey                   OK
+SecIdentityCreate        OK — in memory, no keychain of any kind
+StartSession             OK — EnableSessionSSL = true
+TLS configuration        OK — Secure Transport over the existing stream
+TLS handshake            OK
+Peer validation          OK — anchored on the pair record, else pinned to the
+                              device certificate byte for byte
+Battery request          OK — 65 %, charging, on iOS 26.5.2
+```
+
+Three things about that implementation are worth stating plainly, because each
+was a decision rather than a default:
+
+- **the identity is built entirely in memory.** `SecIdentityCreate` is public
+  API and takes a certificate and a key directly, so the user's login keychain
+  is not touched, no temporary keychain file is created, and the pairing private
+  key never reaches disk. The earlier assumption that a keychain import was
+  unavoidable was wrong;
+- **Secure Transport is legacy, not private.** Network.framework configures TLS
+  when a connection is established and cannot upgrade a stream already carrying
+  a protocol, which is exactly what lockdownd requires. Secure Transport is
+  public Security-framework API, so it costs nothing in signing or notarization
+  — it costs maintenance, and it is confined to one file
+  (`LockdownTLSChannel.swift`) that nothing else in Impuls imports;
+- **the peer is verified, not waved through.** Trust is evaluated with the pair
+  record's own certificates as the only anchors; if that fails — these
+  certificates are self-signed and carry no hostname — the peer's leaf must be
+  byte-for-byte the device certificate this Mac was given when it paired. There
+  is no third branch that accepts an unverified peer.
+
+### What this still is not
+
+Production support. One phone, one iOS version, one session. The provider stays
+behind a flag that is not exposed in Settings, and the capability above is
+`Experimental Beta, hardware validated` — which is a different sentence from
+"it works".
+
+### The earlier reasoning, kept Historically many lockdown
 values were readable immediately after connecting; modern iOS answers most
 `GetValue` requests only inside an authenticated session — `StartSession` using
 the material in the pair record, followed by a TLS upgrade of the same socket
@@ -291,29 +362,26 @@ with the host certificate and private key from that record. The refusal is
 visible in the reply as `SessionInactive` or `InvalidHostID`, and the client
 classifies both as "session required" rather than as a failure.
 
-**Phase 04 deliberately stops there rather than implementing the session.**
-The reasons, so the next person does not have to rediscover them:
+Phase 04 deliberately stopped before the session; phase 04.1 implemented it
+after a measurement showed the path was open. The original reservations, and
+what happened to each:
 
-- the TLS upgrade needs a client identity built from PEM key material inside the
-  pair record. Producing a `SecIdentity` from that without importing the key
-  into the user's keychain is awkward, and importing it would be a side effect
-  on the user's Mac that a battery reading does not justify;
-- the API that wraps an existing file descriptor in TLS with a client
-  certificate — SecureTransport — has been deprecated since macOS 10.15;
+- ~~the TLS upgrade needs a client identity built from PEM key material inside
+  the pair record, and producing a `SecIdentity` without importing the key into
+  a keychain is awkward~~ — **wrong**. `SecIdentityCreate` does exactly this,
+  in memory, and has been public API since macOS 10.12;
+- the API that wraps an existing stream in TLS with a client certificate —
+  Secure Transport — has been deprecated since macOS 10.15. **Still true**, and
+  now an accepted, quarantined cost;
 - both of those would be built against an undocumented protocol, unverifiable
   in CI, and maintained across iOS releases indefinitely;
-- it is a large amount of machinery for one number, and none of it can be
-  justified before a single hardware test shows whether step 7 answers at all.
+- it is a large amount of machinery for one number. **Still true**, and the
+  hardware test is what justified paying for it.
 
-The one measurement that decides this is row 5.2 of the QA matrix: connect a
-trusted iPhone and observe whether the battery value comes back or an error
-string does. If it answers, the provider is a Beta candidate as written. If it
-returns `SessionInactive`, the session work above is the price of the feature,
-and that is a decision to take deliberately rather than by momentum.
-
-Until then the provider exists, is wired in, is fully tested against a scripted
-peer, and is **off**: it is gated behind a flag that is not exposed in Settings,
-so no user can turn it on by accident and no socket is opened without it.
+The provider is wired in, tested against a scripted peer, validated once on
+hardware, and still **off** by default: gated behind a flag that is not exposed
+in Settings, so no user can turn it on by accident and no socket is opened
+without it.
 
 ---
 

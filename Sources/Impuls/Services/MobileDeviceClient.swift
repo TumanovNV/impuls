@@ -80,6 +80,11 @@ struct MobileDeviceClient: Sendable {
     /// tried to create or replace a pair record behind that dialog would be
     /// doing something the owner did not ask for.
     func isTrusted(_ device: MobileDeviceDescriptor) throws -> Bool {
+        (try? pairRecord(for: device)) != nil
+    }
+
+    /// The existing pairing, read and not modified.
+    func pairRecord(for device: MobileDeviceDescriptor) throws -> LockdownPairRecord {
         let channel = try factory.connect()
         defer { channel.close() }
         let conversation = MobileDeviceConversation(channel: channel, timeout: timeout)
@@ -88,9 +93,13 @@ struct MobileDeviceClient: Sendable {
         request["PairRecordID"] = device.rawIdentifier
         try conversation.sendUsbmux(request, tag: 2)
         let reply = try conversation.receiveUsbmux()
-        // The record's contents are of no interest — its existence is the whole
-        // answer — so nothing here parses or retains the certificates inside.
-        return reply["PairRecordData"] is Data
+        guard let data = reply["PairRecordData"] as? Data,
+              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
+              let dictionary = plist as? [String: Any],
+              let record = LockdownPairRecord(plist: dictionary) else {
+            throw MobileDeviceError.notTrusted
+        }
+        return record
     }
 
     // MARK: - Battery
@@ -122,17 +131,23 @@ struct MobileDeviceClient: Sendable {
             throw MobileDeviceError.malformedResponse("unexpected lockdown service type")
         }
 
+        // Measured on iOS 26.5.2: the battery domain answers `GetProhibited`
+        // outside a session, so the session is opened first. Name and model are
+        // readable either way and are fetched after, over whichever channel the
+        // conversation ended up on.
+        let session = try openSession(for: device, on: conversation, channel: channel)
+
         let percentage = try value(
             domain: "com.apple.mobile.battery",
             key: "BatteryCurrentCapacity",
-            on: conversation
+            on: session
         )
-        let charging = try? value(domain: "com.apple.mobile.battery", key: "BatteryIsCharging", on: conversation)
-        let externalPower = try? value(domain: "com.apple.mobile.battery", key: "ExternalConnected", on: conversation)
+        let charging = try? value(domain: "com.apple.mobile.battery", key: "BatteryIsCharging", on: session)
+        let externalPower = try? value(domain: "com.apple.mobile.battery", key: "ExternalConnected", on: session)
         // Names and model identifiers are not worth a failure: without them the
         // device is shown as an iPhone with a charge, which is the point.
-        let name = try? value(domain: nil, key: "DeviceName", on: conversation)
-        let productType = try? value(domain: nil, key: "ProductType", on: conversation)
+        let name = try? value(domain: nil, key: "DeviceName", on: session)
+        let productType = try? value(domain: nil, key: "ProductType", on: session)
 
         return MobileDeviceBatteryReading(
             percentage: AppleDeviceNormalizer.percentage(fromPercent: Self.integer(percentage)),
@@ -141,6 +156,42 @@ struct MobileDeviceClient: Sendable {
             deviceName: name as? String,
             productType: productType as? String
         )
+    }
+
+    /// `StartSession`, and the TLS upgrade it asks for.
+    ///
+    /// The session uses the pairing this Mac already has. Impuls does not pair,
+    /// does not write a pair record and does not ask the phone to trust it
+    /// again: if there is no record, the answer is `notTrusted`, which the
+    /// interface turns into "unlock your iPhone and tap Trust".
+    private func openSession(
+        for device: MobileDeviceDescriptor,
+        on conversation: MobileDeviceConversation,
+        channel: MobileDeviceByteChannel
+    ) throws -> MobileDeviceConversation {
+        let record = try pairRecord(for: device)
+
+        var request = Self.lockdownRequest("StartSession")
+        request["HostID"] = record.hostID
+        request["SystemBUID"] = record.systemBUID
+        try conversation.sendLockdown(request)
+        let reply = try conversation.receiveLockdown()
+
+        if let error = reply["Error"] as? String { throw Self.error(for: error) }
+        guard (reply["EnableSessionSSL"] as? NSNumber)?.boolValue == true else {
+            // A device that does not ask for TLS is answered in plain text,
+            // which is what older systems did. Nothing is forced.
+            return conversation
+        }
+
+        let identity = try record.makeIdentity()
+        let tls = try LockdownTLSChannel(
+            upgrading: channel,
+            identity: identity,
+            pinnedCertificates: record.pinnedCertificates(),
+            timeout: timeout
+        )
+        return MobileDeviceConversation(channel: tls, timeout: timeout)
     }
 
     /// One `GetValue`, with the reply's error strings turned into states.

@@ -124,14 +124,7 @@ enum IORegistryAccessoryMapper {
     /// a real Apple accessory with a real battery, so it is shown as itself
     /// rather than dropped or guessed into a category.
     static func kind(from properties: [String: Any]) -> AppleDeviceKind {
-        guard let product = string(properties[Key.product])?.lowercased() else { return .unknown }
-        if product.contains("airpods max") { return .airPodsMax }
-        if product.contains("airpods pro") { return .airPodsPro }
-        if product.contains("airpods") { return .airPods }
-        if product.contains("magic mouse") { return .magicMouse }
-        if product.contains("magic keyboard") { return .magicKeyboard }
-        if product.contains("magic trackpad") { return .magicTrackpad }
-        return .unknown
+        AppleAccessoryNaming.kind(fromProductName: string(properties[Key.product]))
     }
 
     static func isAppleAccessory(_ properties: [String: Any]) -> Bool {

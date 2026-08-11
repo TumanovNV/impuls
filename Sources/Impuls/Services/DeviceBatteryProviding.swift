@@ -20,7 +20,7 @@ protocol DeviceBatterySource: Sendable {
 
 enum DeviceProviderIdentifier: String, Equatable, Hashable, Sendable, CaseIterable {
     case localMac
-    case ioRegistryAccessory
+    case appleAccessory
     case mobileUSB
     case mobileWiFi
 }
@@ -89,4 +89,14 @@ protocol DeviceBatteryProviding: AnyObject {
 
     /// Read now. Called by the scheduler, and by the user pressing refresh.
     func refresh()
+}
+
+extension DeviceBatteryProviding {
+    /// The panel just opened.
+    ///
+    /// Most providers have nothing to do here — `refresh()` follows
+    /// immediately. It exists for the ones that cache deliberately: the moment
+    /// a person looks is the moment a cached answer should be thrown away, and
+    /// that is different from the periodic refresh the scheduler performs.
+    func prepareForForeground() {}
 }

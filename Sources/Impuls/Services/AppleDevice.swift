@@ -145,13 +145,20 @@ enum DeviceAvailability: String, Equatable, Hashable, Sendable {
 enum DeviceDataSource: String, Equatable, Hashable, Sendable {
     case localIOKit
     case ioRegistryAccessory
+    case systemProfilerAccessory
     case mobileUSB
     case mobileWiFi
 
     var priority: Int {
         switch self {
         case .localIOKit: return 40
+        // The registry, when it has anything, is the livelier of the two
+        // accessory sources: it is read directly and costs nothing. The
+        // system_profiler path ranks just below it because it is a process
+        // spawn and its values come from a daemon's own cache — but on hardware
+        // where the registry is silent, it is the only one that answers.
         case .ioRegistryAccessory: return 30
+        case .systemProfilerAccessory: return 25
         case .mobileUSB: return 20
         case .mobileWiFi: return 10
         }

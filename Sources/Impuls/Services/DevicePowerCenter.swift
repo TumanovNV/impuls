@@ -67,7 +67,10 @@ final class DevicePowerCenter: ObservableObject {
         self.init(
             localProvider: LocalMacDeviceProvider(monitor: monitor, clock: clock),
             externalProviders: [
-                IORegistryAccessoryProvider(source: IORegistryAccessorySource(clock: clock)),
+                AppleAccessoryBatteryProvider(
+                    registrySource: IORegistryAccessorySource(clock: clock),
+                    profilerSource: SystemProfilerAccessorySource(clock: clock)
+                ),
                 // Experimental and flag-gated: constructed here so the wiring
                 // is real and testable, inert until the flag is set.
                 MobileDeviceBatteryProvider(source: MobileDeviceBatterySource(clock: clock)),
@@ -100,6 +103,7 @@ final class DevicePowerCenter: ObservableObject {
         // Opening is the one moment a person is definitely looking, so it is
         // worth one immediate read rather than waiting out the interval.
         for provider in startedProviders.values where provider.identifier != .localMac {
+            provider.prepareForForeground()
             provider.refresh()
         }
     }

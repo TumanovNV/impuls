@@ -241,7 +241,7 @@ final class DevicePowerCenterTests: XCTestCase {
     // MARK: - Lifecycle
 
     func testNothingExternalStartsUntilTheUserAsksForIt() {
-        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let external = FakeDeviceProvider(identifier: .appleAccessory)
         let center = makeCenter(external: [external])
 
         center.setEnabled(true)
@@ -255,7 +255,7 @@ final class DevicePowerCenterTests: XCTestCase {
     }
 
     func testDisablingTheModuleStopsEveryProviderAndClearsTheList() {
-        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let external = FakeDeviceProvider(identifier: .appleAccessory)
         let center = makeCenter(external: [external])
 
         center.setEnabled(true)
@@ -275,7 +275,7 @@ final class DevicePowerCenterTests: XCTestCase {
     }
 
     func testAStoppedProviderCannotReviveItselfWithALateUpdate() {
-        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let external = FakeDeviceProvider(identifier: .appleAccessory)
         let center = makeCenter(external: [external])
 
         center.setEnabled(true)
@@ -292,7 +292,7 @@ final class DevicePowerCenterTests: XCTestCase {
     }
 
     func testOpeningThePanelAsksExternalProvidersOnceAndLeavesTheMacAlone() {
-        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let external = FakeDeviceProvider(identifier: .appleAccessory)
         let center = makeCenter(external: [external])
 
         center.setEnabled(true)
@@ -307,7 +307,7 @@ final class DevicePowerCenterTests: XCTestCase {
     }
 
     func testExplicitRefreshDoesNothingWhileExternalDevicesAreOff() {
-        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let external = FakeDeviceProvider(identifier: .appleAccessory)
         let center = makeCenter(external: [external])
 
         center.setEnabled(true)
@@ -319,7 +319,7 @@ final class DevicePowerCenterTests: XCTestCase {
     // MARK: - Failure isolation
 
     func testATransientProviderFailureKeepsTheLastGoodReadingAndTheMac() {
-        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let external = FakeDeviceProvider(identifier: .appleAccessory)
         let center = makeCenter(external: [external])
 
         center.setEnabled(true)
@@ -339,7 +339,7 @@ final class DevicePowerCenterTests: XCTestCase {
     }
 
     func testAProviderThatLosesPermissionDropsItsDevicesButNotTheOthers() {
-        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let external = FakeDeviceProvider(identifier: .appleAccessory)
         let center = makeCenter(external: [external])
 
         center.setEnabled(true)
@@ -355,7 +355,7 @@ final class DevicePowerCenterTests: XCTestCase {
         XCTAssertEqual(center.devices.count, 1)
         XCTAssertTrue(center.devices.first?.identity.isLocalMac ?? false)
         XCTAssertEqual(
-            center.diagnostics.first(where: { $0.provider == .ioRegistryAccessory })?.status,
+            center.diagnostics.first(where: { $0.provider == .appleAccessory })?.status,
             .permissionRequired
         )
     }

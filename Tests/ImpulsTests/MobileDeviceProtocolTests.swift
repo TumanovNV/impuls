@@ -130,8 +130,13 @@ final class MobileDeviceProtocolTests: XCTestCase {
         let device = MobileDeviceDescriptor(deviceID: 3, rawIdentifier: "00008120-AAAA")
 
         let trusted = ScriptedPeer()
-        trusted.enqueueUsbmux(["PairRecordData": Data("<plist/>".utf8)])
+        trusted.enqueueSessionWithoutTLS()
         XCTAssertTrue(try MobileDeviceClient(factory: trusted).isTrusted(device))
+
+        // Bytes that are not a usable record are not a pairing either.
+        let garbage = ScriptedPeer()
+        garbage.enqueueUsbmux(["PairRecordData": Data("<plist/>".utf8)])
+        XCTAssertFalse(try MobileDeviceClient(factory: garbage).isTrusted(device))
 
         let untrusted = ScriptedPeer()
         untrusted.enqueueUsbmux(["MessageType": "Result", "Number": 2])
@@ -144,6 +149,7 @@ final class MobileDeviceProtocolTests: XCTestCase {
         let peer = ScriptedPeer()
         peer.enqueueUsbmux(["MessageType": "Result", "Number": 0])
         peer.enqueueLockdown(["Type": "com.apple.mobile.lockdown"])
+        peer.enqueueSessionWithoutTLS()
         peer.enqueueLockdown(["Value": 73])
         peer.enqueueLockdown(["Value": true])
         peer.enqueueLockdown(["Value": true])
@@ -164,6 +170,7 @@ final class MobileDeviceProtocolTests: XCTestCase {
             let peer = ScriptedPeer()
             peer.enqueueUsbmux(["MessageType": "Result", "Number": 0])
             peer.enqueueLockdown(["Type": "com.apple.mobile.lockdown"])
+            peer.enqueueSessionWithoutTLS()
             peer.enqueueLockdown(["Value": impossible])
             peer.enqueueLockdown(["Value": false])
             peer.enqueueLockdown(["Value": false])
@@ -181,6 +188,7 @@ final class MobileDeviceProtocolTests: XCTestCase {
         let peer = ScriptedPeer()
         peer.enqueueUsbmux(["MessageType": "Result", "Number": 0])
         peer.enqueueLockdown(["Type": "com.apple.mobile.lockdown"])
+        peer.enqueueSessionWithoutTLS()
         peer.enqueueLockdown(["Request": "GetValue"])  // no Value, no Error
 
         let reading = try MobileDeviceClient(factory: peer)
@@ -205,6 +213,7 @@ final class MobileDeviceProtocolTests: XCTestCase {
         let peer = ScriptedPeer()
         peer.enqueueUsbmux(["MessageType": "Result", "Number": 0])
         peer.enqueueLockdown(["Type": "com.apple.mobile.lockdown"])
+        peer.enqueueSessionWithoutTLS()
         peer.enqueueLockdown(["Error": "PasswordProtected"])
 
         XCTAssertThrowsError(
@@ -235,6 +244,106 @@ final class MobileDeviceProtocolTests: XCTestCase {
         XCTAssertThrowsError(
             try MobileDeviceClient(factory: peer)
                 .batteryReading(for: MobileDeviceDescriptor(deviceID: 3, rawIdentifier: "x"))
+        )
+    }
+
+    // MARK: - Session and TLS state
+
+    func testADeviceThatDoesNotAskForTLSIsAnsweredInPlainText() throws {
+        let peer = ScriptedPeer()
+        peer.enqueueUsbmux(["MessageType": "Result", "Number": 0])
+        peer.enqueueLockdown(["Type": "com.apple.mobile.lockdown"])
+        peer.enqueueSessionWithoutTLS()
+        peer.enqueueLockdown(["Value": 42])
+        peer.enqueueLockdown(["Value": false])
+        peer.enqueueLockdown(["Value": false])
+        peer.enqueueLockdown(["Value": "iPhone"])
+        peer.enqueueLockdown(["Value": "iPhone17,2"])
+
+        let reading = try MobileDeviceClient(factory: peer)
+            .batteryReading(for: MobileDeviceDescriptor(deviceID: 3, rawIdentifier: "x"))
+
+        XCTAssertEqual(reading.percentage, 42)
+    }
+
+    func testAStartSessionErrorBecomesAStateAndNotACode() {
+        for (reply, expected) in [
+            ("InvalidHostID", MobileDeviceError.notTrusted),
+            ("PasswordProtected", MobileDeviceError.deviceLocked),
+            ("SessionInactive", MobileDeviceError.sessionRequired),
+        ] {
+            let peer = ScriptedPeer()
+            peer.enqueueUsbmux(["MessageType": "Result", "Number": 0])
+            peer.enqueueLockdown(["Type": "com.apple.mobile.lockdown"])
+            peer.enqueuePairRecord()
+            peer.enqueueLockdown(["Error": reply])
+
+            XCTAssertThrowsError(
+                try MobileDeviceClient(factory: peer)
+                    .batteryReading(for: MobileDeviceDescriptor(deviceID: 3, rawIdentifier: "x"))
+            ) { error in
+                XCTAssertEqual(error as? MobileDeviceError, expected)
+            }
+        }
+    }
+
+    func testAMissingPairRecordStopsTheSessionBeforeAnyHandshake() {
+        let peer = ScriptedPeer()
+        peer.enqueueUsbmux(["MessageType": "Result", "Number": 0])
+        peer.enqueueLockdown(["Type": "com.apple.mobile.lockdown"])
+        peer.enqueueUsbmux(["MessageType": "Result", "Number": 2])  // no pair record
+
+        XCTAssertThrowsError(
+            try MobileDeviceClient(factory: peer)
+                .batteryReading(for: MobileDeviceDescriptor(deviceID: 3, rawIdentifier: "x"))
+        ) { error in
+            XCTAssertEqual(error as? MobileDeviceError, .notTrusted)
+        }
+    }
+
+    /// A device that asks for TLS and then cannot complete one.
+    ///
+    /// The handshake has a deadline and an iteration ceiling, so this ends in an
+    /// error rather than a spin, and the socket underneath it is closed.
+    func testATLSUpgradeThatCannotCompleteFailsAndClosesTheSocket() {
+        let peer = ScriptedPeer()
+        peer.enqueueUsbmux(["MessageType": "Result", "Number": 0])
+        peer.enqueueLockdown(["Type": "com.apple.mobile.lockdown"])
+        peer.enqueuePairRecord()
+        peer.enqueueLockdown(["Request": "StartSession", "SessionID": "S", "EnableSessionSSL": true])
+
+        let started = Date()
+        XCTAssertThrowsError(
+            try MobileDeviceClient(factory: peer, timeout: 0.2)
+                .batteryReading(for: MobileDeviceDescriptor(deviceID: 3, rawIdentifier: "x"))
+        )
+        XCTAssertLessThan(
+            Date().timeIntervalSince(started),
+            LockdownTLSChannel.handshakeTimeout + 2,
+            "the handshake must be bounded"
+        )
+        XCTAssertEqual(peer.openChannels, 0, "a failed handshake must not leave a socket open")
+    }
+
+    func testATLSChannelRefusesAPeerItCannotPin() throws {
+        let record = try XCTUnwrap(LockdownPairRecord(plist: [
+            "HostID": "H",
+            "SystemBUID": "S",
+            "HostCertificate": Data(LockdownPairRecordTests.certificate.utf8),
+            "HostPrivateKey": Data(LockdownPairRecordTests.privateKey.utf8),
+        ]))
+        XCTAssertTrue(record.pinnedCertificates().isEmpty)
+
+        let peer = ScriptedPeer()
+        peer.silent = true
+        let channel = try peer.connect()
+        XCTAssertThrowsError(
+            try LockdownTLSChannel(
+                upgrading: channel,
+                identity: record.makeIdentity(),
+                pinnedCertificates: record.pinnedCertificates(),
+                timeout: 0.05
+            )
         )
     }
 
@@ -329,6 +438,81 @@ final class MobileDeviceProtocolTests: XCTestCase {
         } catch {
             print("PROBE Battery GetValue     FAILED: \(error)")
         }
+    }
+
+    /// Repeated reads, and what they leave behind.
+    ///
+    /// Skips without hardware. With a phone attached it reads five times in a
+    /// row and counts this process's open file descriptors before and after:
+    /// a socket or an `SSLContext` that outlives its request would show up here
+    /// as a number that keeps climbing.
+    func testHardwareProbeOfRepeatedReadsAndDescriptorLeaks() throws {
+        guard FileManager.default.fileExists(atPath: UnixSocketChannelFactory.usbmuxdPath) else {
+            throw XCTSkip("this Mac has no usbmuxd socket")
+        }
+        let client = MobileDeviceClient()
+        guard let device = try client.listUSBDevices().first, try client.isTrusted(device) else {
+            throw XCTSkip("no trusted iPhone or iPad attached over USB")
+        }
+
+        let before = Self.openDescriptorCount()
+        var readings: [Int?] = []
+        var durations: [TimeInterval] = []
+        for _ in 0..<5 {
+            let started = Date()
+            let reading = try client.batteryReading(for: device)
+            durations.append(Date().timeIntervalSince(started))
+            readings.append(reading.percentage)
+        }
+        let after = Self.openDescriptorCount()
+
+        print("PROBE repeated readings: \(readings.map { $0.map(String.init) ?? "nil" }.joined(separator: ", "))")
+        print(String(format: "PROBE per-read duration: min %.2f s, max %.2f s", durations.min() ?? 0, durations.max() ?? 0))
+        print("PROBE descriptors before \(before), after \(after)")
+
+        XCTAssertEqual(readings.compactMap { $0 }.count, 5, "every read should have produced a value")
+        // A few descriptors of slack for whatever else the test process does;
+        // a leak would be five, one per read, and growing.
+        XCTAssertLessThanOrEqual(after, before + 2, "sockets or TLS contexts are outliving their request")
+    }
+
+    /// The whole provider path, end to end, on hardware.
+    ///
+    /// Not the protocol this time but the thing the panel would actually show:
+    /// a device snapshot with a kind, a name, a charge and a charging state.
+    func testHardwareProbeOfTheDeviceSnapshot() async throws {
+        guard FileManager.default.fileExists(atPath: UnixSocketChannelFactory.usbmuxdPath) else {
+            throw XCTSkip("this Mac has no usbmuxd socket")
+        }
+        let source = MobileDeviceBatterySource(resolver: DeviceIdentityResolver(
+            service: "io.tumanov.impuls.tests.device-identity",
+            account: "unit-test"
+        ))
+        let devices: [AppleDeviceSnapshot]
+        do {
+            devices = try await source.read()
+        } catch {
+            print("PROBE snapshot read ended as: \(error)")
+            throw XCTSkip("no readable device attached")
+        }
+        guard let device = devices.first else { throw XCTSkip("no device attached over USB") }
+
+        print("PROBE \(device.kind.rawValue) \"\(device.displayName)\" \(device.headlinePercentage.map { "\($0)%" } ?? "no charge")")
+        print("PROBE   charging=\(device.components.first?.chargingState.map(\.rawValue) ?? "nil") externalPower=\(device.externalPower.rawValue)")
+        print("PROBE   connection=\(device.connection.rawValue) source=\(device.source.rawValue)")
+
+        XCTAssertTrue(device.hasBatteryReading)
+        XCTAssertEqual(device.connection, .usb)
+        XCTAssertEqual(device.source, .mobileUSB)
+    }
+
+    private static func openDescriptorCount() -> Int {
+        let limit = Int(getdtablesize())
+        var count = 0
+        for descriptor in 0..<limit where fcntl(Int32(descriptor), F_GETFD) != -1 {
+            count += 1
+        }
+        return count
     }
 
     // MARK: - Snapshot mapping
@@ -433,6 +617,27 @@ final class MobileDeviceProtocolTests: XCTestCase {
 /// It also counts channels, because a leaked file descriptor is the kind of bug
 /// that only shows up after a few hundred refreshes on someone else's Mac.
 private final class ScriptedPeer: MobileDeviceChannelFactory, @unchecked Sendable {
+    /// The pair record and `StartSession` reply that now sit between
+    /// `QueryType` and the battery question. `EnableSessionSSL` is false here:
+    /// a scripted peer cannot perform a TLS handshake, and the client is
+    /// expected to continue in plain text when the device does not ask for one.
+    func enqueueSessionWithoutTLS() {
+        enqueuePairRecord()
+        enqueueLockdown(["Request": "StartSession", "SessionID": "SESSION"])
+    }
+
+    func enqueuePairRecord() {
+        let record: [String: Any] = [
+            "HostID": "HOST-ID",
+            "SystemBUID": "SYSTEM-BUID",
+            "HostCertificate": Data(LockdownPairRecordTests.certificate.utf8),
+            "HostPrivateKey": Data(LockdownPairRecordTests.privateKey.utf8),
+            "DeviceCertificate": Data(LockdownPairRecordTests.certificate.utf8),
+        ]
+        let encoded = try! PropertyListSerialization.data(fromPropertyList: record, format: .xml, options: 0)
+        enqueueUsbmux(["PairRecordData": encoded])
+    }
+
     private let lock = NSLock()
     private var queued: [Data] = []
     private var silentFlag = false
