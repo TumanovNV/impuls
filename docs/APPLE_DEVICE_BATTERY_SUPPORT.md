@@ -330,11 +330,14 @@ Battery request          OK — 65 %, charging, on iOS 26.5.2
 Three things about that implementation are worth stating plainly, because each
 was a decision rather than a default:
 
-- **the identity is built entirely in memory.** `SecIdentityCreate` is public
-  API and takes a certificate and a key directly, so the user's login keychain
-  is not touched, no temporary keychain file is created, and the pairing private
-  key never reaches disk. The earlier assumption that a keychain import was
-  unavoidable was wrong;
+- **the identity is built entirely in memory.** `SecIdentityCreate` takes a
+  certificate and a key directly, so the user's login keychain is not touched,
+  no temporary keychain file is created, and the pairing private key never
+  reaches disk. The earlier assumption that a keychain import was unavoidable
+  was wrong. One caveat found by CI rather than by reading: the function is
+  declared publicly only in the **macOS 26 SDK**. It has existed in the
+  framework since 10.12 and runs on every macOS Impuls supports, but building
+  against a 16.x SDK fails to find it, so the project now builds with Xcode 26;
 - **Secure Transport is legacy, not private.** Network.framework configures TLS
   when a connection is established and cannot upgrade a stream already carrying
   a protocol, which is exactly what lockdownd requires. Secure Transport is

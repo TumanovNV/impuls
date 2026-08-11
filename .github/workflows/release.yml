@@ -20,6 +20,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # Xcode 26 rather than the image default of 16.4.
+      #
+      # The device layer builds an in-memory TLS client identity with
+      # `SecIdentityCreate`, which the macOS 26 SDK declares publicly and the
+      # 16.x SDKs do not — the symbol has been in the framework since 10.12,
+      # but an older SDK cannot see it and the build fails outright. Pinned
+      # rather than "latest available" for the same reason everything else here
+      # is pinned: a toolchain that changes underneath a release is not a
+      # toolchain. `platforms: [.macOS(.v15)]` is unchanged, so what users need
+      # to run Impuls is unaffected.
+      - name: Select the Xcode the device layer needs
+        run: sudo xcode-select -switch /Applications/Xcode_26.3.app
+
       - name: Validate version and release notes
         shell: bash
         run: |

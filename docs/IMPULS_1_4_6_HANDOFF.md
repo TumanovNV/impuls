@@ -205,6 +205,19 @@ the launch smoke test still shows zero network sockets.
 probes in the suite skip themselves when nothing is attached, which is what CI
 does.
 
+## Toolchain
+
+The device layer needs the **macOS 26 SDK** to compile: the in-memory TLS
+identity uses `SecIdentityCreate`, which that SDK declares publicly and the
+16.x SDKs do not. The symbol has been in the Security framework since macOS
+10.12 — an older SDK simply cannot see it, and the build fails rather than
+misbehaving. This was found by CI, not by reasoning, which is why CI now selects
+Xcode 26.3 explicitly in both `build.yml` and `release.yml`; the GitHub
+`macos-15` image ships it alongside the 16.x default.
+
+`platforms: [.macOS(.v15)]` is unchanged, so what a user needs to *run* Impuls
+is exactly what it was. What changed is what a machine needs to *build* it.
+
 ## Validation commands
 
 ```bash
