@@ -153,7 +153,42 @@ Rejected alternatives, and why:
   wire format, needs Bluetooth permission, and is what other projects use to get
   these numbers. Not production-safe for Impuls.
 
-Unverified on this Mac: no AirPods were connected during inspection.
+### Measured on hardware, 11 August 2026 — this path does not work for AirPods
+
+AirPods Pro connected and in use, macOS showing "Right Battery Level: 93 %" in
+its own Bluetooth section. What the registry contained at that moment:
+
+- `ioreg -r -k BatteryPercent -l` — **no nodes at all**;
+- a search of the entire registry for any key containing `Percent` — nothing
+  battery-related;
+- `AppleDeviceManagementHIDEventService` — **one** node, the Mac's own internal
+  trackpad, carrying no battery property of any kind;
+- the string "AirPods" — **absent from the registry entirely**;
+- `IOBluetoothDevice` — present, with address and connection-handle properties
+  and no battery;
+- the historical `DeviceCache` in `com.apple.Bluetooth.plist`, where these
+  values used to live — **gone**; both the system and per-user files exist and
+  contain no device cache.
+
+Impuls's own provider, run against the live registry, reported: one matching
+service node, zero devices publishing a battery. That is the correct behaviour
+— it invents nothing — but it means **the implemented path returns nothing for
+AirPods on this macOS**.
+
+The value the user sees comes from `bluetoothd`. The only non-private route to
+it that was found is `system_profiler SPBluetoothDataType`, which is excluded by
+an explicit decision: the Power module has no subprocess, and `SECURITY.md` says
+so. That decision now has a measured cost — AirPods are not readable at all —
+and is worth revisiting deliberately rather than by drift. It has not been
+changed here.
+
+Magic Mouse, Magic Keyboard and Magic Trackpad remain untested: none was paired
+to this Mac. The finding above does not disprove that path for them — HID
+accessories are a different service family from audio devices — but it does
+remove the assumption that it works, and QA rows 3.1–3.3 are now the only
+evidence that would settle it.
+
+Unverified on this Mac: no AirPods were connected during the original phase 01 inspection.
 `system_profiler SPBluetoothDataType` listed one paired but not connected device
 with a `Case Version` field, which is consistent with AirPods being paired; no
 battery value was observable in that state.
@@ -224,9 +259,31 @@ about each step today:
 | 6 | `QueryType` → confirm lockdownd | **Unproven** | — |
 | 7 | `GetValue(Domain: com.apple.mobile.battery, Key: BatteryCurrentCapacity)` | **Unproven, and the step most likely to be refused** | See below. |
 
+### Measured on hardware, 11 August 2026 — iPhone on iOS 26.5.2, USB, trusted
+
+The sequence was walked with the shipping client. Redacted trace:
+
+```text
+ListDevices                   OK — 1 USB device
+ReadPairRecord                OK — record present (HostID, SystemBUID,
+                                   HostCertificate, HostPrivateKey,
+                                   RootCertificate, DeviceCertificate, …)
+Connect lockdownd (62078)     OK
+QueryType                     OK — com.apple.mobile.lockdown
+GetValue DeviceName           OK — value returned without a session
+GetValue ProductType          OK — value returned without a session
+GetValue battery              REFUSED — Error = GetProhibited
+StartSession                  OK — SessionID returned, EnableSessionSSL = true
+```
+
+So the answer to the question phase 04 stopped on: **the battery domain is
+refused outside a session, and the device demands a TLS upgrade to have one.**
+Not a dead end — `StartSession` succeeded with the pair record this Mac already
+has — but a cost.
+
 ### The identified stopping point
 
-Step 7 is where current iOS is expected to refuse. Historically many lockdown
+Step 7 is where current iOS refuses, and now it is measured rather than expected. Historically many lockdown
 values were readable immediately after connecting; modern iOS answers most
 `GetValue` requests only inside an authenticated session — `StartSession` using
 the material in the pair record, followed by a TLS upgrade of the same socket

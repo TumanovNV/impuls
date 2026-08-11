@@ -3,11 +3,14 @@
 Manual test matrix for the multi-device Battery Center. Created in phase 01,
 before any 1.4.6 code exists.
 
-**Nothing in this document is checked.** Every box is empty on purpose: no row
-here has been validated on live hardware. CI can build the code and run the
-fixtures; it cannot connect an iPhone or put AirPods in a case. A box is ticked
-only by a person who saw the result on the device named in the row, and the date
-and macOS version go in the notes column when it happens.
+CI can build the code and run the fixtures; it cannot connect an iPhone or put
+AirPods in a case. A box is ticked only by someone who saw the result on the
+device named in the row, and the date and macOS version go in the notes column.
+
+**Status: six rows verified on 11 August 2026** — the AirPods registry question,
+the iPhone USB sequence, and the flag-off behaviour. Two of them came back
+negative and are the most important rows in the document. Everything else is
+still untested.
 
 Legend: `[ ]` not tested · `[x]` verified on hardware · `[—]` not applicable to
 this configuration · `[!]` tested and failed, see notes.
@@ -58,7 +61,7 @@ The existing module must not get worse. These are the rows that block a release.
 
 | # | Case | Result | Notes |
 | --- | --- | --- | --- |
-| 4.1 | AirPods connected: what the system actually publishes — overall only, or left/right/case | `[ ]` | record the finding, it decides the UI |
+| 4.1 | AirPods connected: what the system actually publishes — overall only, or left/right/case | `[x]` | 11 Aug 2026, AirPods Pro connected: the IORegistry publishes **nothing** — no overall value, no components. macOS shows the level from `bluetoothd` |
 | 4.2 | AirPods Pro connected: same question | `[ ]` | |
 | 4.3 | AirPods Max connected: single battery presented as a single battery | `[ ]` | |
 | 4.4 | One bud in the case: the missing bud is absent, not 0% | `[ ]` | |
@@ -66,7 +69,7 @@ The existing module must not get worse. These are the rows that block a release.
 | 4.6 | AirPods disconnected: no stale value presented as realtime | `[ ]` | |
 | 4.7 | AirPods switched to an iPhone mid-session: card leaves cleanly | `[ ]` | |
 | 4.8 | Values match the system Bluetooth menu | `[ ]` | |
-| 4.9 | Whether `BatteryPercentLeft` / `Right` / `Case` exist at all on current macOS | `[ ]` | run `ioreg -r -k BatteryPercent -l` with AirPods connected and record the exact key names found |
+| 4.9 | Whether `BatteryPercentLeft` / `Right` / `Case` exist at all on current macOS | `[x]` | 11 Aug 2026: they do not. `ioreg -r -k BatteryPercent -l` returned no nodes with AirPods Pro connected; "AirPods" appears nowhere in the registry; the historical `DeviceCache` in `com.apple.Bluetooth.plist` is gone |
 
 ## 5. iPhone and iPad over USB — Beta
 
@@ -75,7 +78,7 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 
 | # | Case | Result | Notes |
 | --- | --- | --- | --- |
-| 5.1 | Trusted iPhone connected by cable: discovered | `[ ]` | |
+| 5.1 | Trusted iPhone connected by cable: discovered | `[x]` | 11 Aug 2026, iOS 26.5.2: `ListDevices` returned 1 USB device, `ReadPairRecord` found the pairing, lockdownd answered `QueryType` |
 | 5.2 | Battery percentage read and matching the iPhone's own display | `[ ]` | |
 | 5.3 | Charging state correct while charging and while not | `[ ]` | |
 | 5.4 | User-visible device name shown, no identifier anywhere in the UI | `[ ]` | |
@@ -88,7 +91,7 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 | 5.11 | Nothing is written to the device: no pairing record, no profile, no setting, no file | `[ ]` | |
 | 5.12 | Provider disabled: no socket, no connection attempt at all | `[ ]` | |
 | 5.13 | Current iOS version noted for each device tested | `[ ]` | the answer ages with iOS |
-| 5.14 | **The deciding measurement:** with a trusted iPhone connected, does `GetValue` in the battery domain return a value or `SessionInactive`? | `[ ]` | enable with `IMPULS_MOBILE_DEVICE_BATTERY=1`; record the exact reply. If it is an error string, the session/TLS work described in `APPLE_DEVICE_BATTERY_SUPPORT.md` is required and is a separate decision |
+| 5.14 | **The deciding measurement:** with a trusted iPhone connected, does `GetValue` in the battery domain return a value or an error? | `[x]` | 11 Aug 2026, iOS 26.5.2: **`Error = GetProhibited`**. `StartSession` then succeeded and returned `EnableSessionSSL = true`. `DeviceName` and `ProductType` are readable without a session; the battery domain is not |
 | 5.15 | With the flag off (the shipping default), no socket is ever opened to `/var/run/usbmuxd` | `[x]` | 11 Aug 2026, macOS 15, ad-hoc release bundle: `lsof -U` showed no usbmuxd connection over a 10 s run. Verified without hardware because it is about what Impuls does *not* do |
 
 ## 6. Wi-Fi — future, not a 1.4.6 blocker

@@ -293,6 +293,44 @@ final class MobileDeviceProtocolTests: XCTestCase {
         }
     }
 
+    /// The hardware probe.
+    ///
+    /// Skips itself when nothing is plugged in, so CI and an ordinary developer
+    /// Mac are unaffected. With a device attached it walks the shipping code
+    /// path and prints a trace of which step answered — never a UDID, never a
+    /// name, never anything from a pair record. This is the test that decides
+    /// whether the provider is viable, and it is deliberately part of the suite
+    /// rather than a script that gets lost.
+    func testHardwareProbeOfTheFullUSBSequence() throws {
+        guard FileManager.default.fileExists(atPath: UnixSocketChannelFactory.usbmuxdPath) else {
+            throw XCTSkip("this Mac has no usbmuxd socket")
+        }
+        let client = MobileDeviceClient()
+        let devices = try client.listUSBDevices()
+        guard let device = devices.first else {
+            throw XCTSkip("no iPhone or iPad attached over USB")
+        }
+
+        print("PROBE ListDevices          OK — \(devices.count) USB device(s)")
+
+        let trusted = try client.isTrusted(device)
+        print("PROBE ReadPairRecord       \(trusted ? "OK — this Mac is trusted" : "NO PAIR RECORD — not trusted")")
+        guard trusted else { return }
+
+        do {
+            let reading = try client.batteryReading(for: device)
+            print("PROBE Connect lockdownd    OK")
+            print("PROBE QueryType            OK")
+            print("PROBE Battery GetValue     \(reading.percentage.map { "OK — \($0)%" } ?? "no value in reply")")
+            print("PROBE   charging           \(reading.isCharging.map(String.init) ?? "nil")")
+            print("PROBE   externalConnected  \(reading.externallyConnected.map(String.init) ?? "nil")")
+            print("PROBE   name present       \(reading.deviceName != nil)")
+            print("PROBE   productType        \(reading.productType ?? "nil")")
+        } catch {
+            print("PROBE Battery GetValue     FAILED: \(error)")
+        }
+    }
+
     // MARK: - Snapshot mapping
 
     func testAReadingBecomesADeviceOnlyWhenItHasACharge() {

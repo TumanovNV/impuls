@@ -403,6 +403,27 @@ final class IORegistryAccessoryProviderTests: XCTestCase {
         }
     }
 
+    /// The accessory hardware probe.
+    ///
+    /// Prints what this Mac's registry actually offers, so a QA run records
+    /// evidence rather than an impression. It asserts nothing about how many
+    /// accessories exist — that depends on what is paired — only that whatever
+    /// is returned is well formed. Names are printed because they are names;
+    /// no identifier is.
+    func testHardwareProbeOfTheAccessoryRegistry() async throws {
+        let matching = IORegistryAccessorySource.matchingServiceCount()
+        let devices = try await IORegistryAccessorySource().read()
+
+        print("PROBE \(IORegistryAccessoryMapper.serviceClass) nodes: \(matching)")
+        print("PROBE nodes publishing a battery: \(devices.count)")
+        for device in devices {
+            let components = device.components
+                .map { "\($0.kind.rawValue)=\($0.percentage.map(String.init) ?? "nil")" }
+                .joined(separator: " ")
+            print("PROBE   \(device.kind.rawValue) \"\(device.displayName)\" — \(components)")
+        }
+    }
+
     func testTheProviderIsPolledSlowlyAndSaysSo() {
         let provider = IORegistryAccessoryProvider(source: FakeAccessorySource(devices: []))
 

@@ -60,6 +60,25 @@ struct IORegistryAccessorySource: DeviceBatterySource {
         return devices
     }
 
+    /// How many services of the class exist at all, regardless of what they
+    /// publish. Separates "the class is gone" from "the class is there and says
+    /// nothing about batteries" — two very different findings for a QA run, and
+    /// the reason phase 03's assumption could be checked rather than argued.
+    static func matchingServiceCount() -> Int {
+        guard let matching = IOServiceMatching(IORegistryAccessoryMapper.serviceClass) else { return 0 }
+        var iterator: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else {
+            return 0
+        }
+        defer { IOObjectRelease(iterator) }
+        var count = 0
+        while case let service = IOIteratorNext(iterator), service != 0 {
+            IOObjectRelease(service)
+            count += 1
+        }
+        return count
+    }
+
     private static func properties(of service: io_registry_entry_t) -> [String: Any]? {
         var unmanaged: Unmanaged<CFMutableDictionary>?
         guard IORegistryEntryCreateCFProperties(service, &unmanaged, kCFAllocatorDefault, 0) == KERN_SUCCESS,
