@@ -58,8 +58,17 @@ final class DevicePowerCenter: ObservableObject {
         self.staleInterval = staleInterval
     }
 
+    /// The arrangement the application uses.
+    ///
+    /// External providers are constructed here but not started: construction is
+    /// inert — no registry walk, no notification, no permission — and
+    /// `setExternalDevicesEnabled` is the only thing that wakes them.
     convenience init(monitor: PowerMonitor, clock: DeviceClock = SystemDeviceClock()) {
-        self.init(localProvider: LocalMacDeviceProvider(monitor: monitor, clock: clock), clock: clock)
+        self.init(
+            localProvider: LocalMacDeviceProvider(monitor: monitor, clock: clock),
+            externalProviders: [IORegistryAccessoryProvider(source: IORegistryAccessorySource(clock: clock))],
+            clock: clock
+        )
     }
 
     /// The module setting, mirroring `PowerMonitor.setEnabled`.

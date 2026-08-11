@@ -96,6 +96,33 @@ Verified on this Mac: the service class `AppleDeviceManagementHIDEventService`
 exists (4 instances). **Not verified:** no instance carried `BatteryPercent`,
 because no Bluetooth accessory was connected during the inspection.
 
+Implemented in 1.4.6 by `IORegistryAccessoryProvider` (phase 03). What the
+implementation commits to, and what it refuses to do:
+
+- an accessory is listed only when it is **Apple by vendor identifier**
+  (`VendorID == 0x05AC`), falling back to a `Manufacturer` string only where no
+  numeric identifier exists. The word "Apple" in a product name proves nothing
+  and is never used as evidence;
+- an accessory is listed only when it has a **stable hardware identifier**
+  (`DeviceAddress` or `SerialNumber`) to derive its identity from. The registry
+  entry ID is not used: it is reassigned on every reconnect, so it cannot
+  recognise a returning device or carry a preference, and it is not a user
+  identifier;
+- an accessory is listed only when it has a **usable reading**. A node with no
+  battery value produces no device;
+- **charging state is not reported at all** for accessories. No property was
+  found that reliably distinguishes charging from idle, and a cabled Magic
+  Keyboard is not evidence;
+- every property is optional and defensively typed. A value of the wrong type,
+  an out-of-range percentage, a boolean where a number was expected, or a
+  numeric width the driver changed all read as *absent*;
+- built-in keyboards and trackpads are excluded by transport, in addition to
+  being excluded already by having no battery property;
+- the provider is **event-driven for arrival and departure** (IOKit matching and
+  termination notifications, plus a single read after the Mac wakes) and polled
+  slowly for the level itself — 60 s while the panel is open, 10 min while it is
+  closed — because the registry does not notify on a level change.
+
 ---
 
 ## AirPods, AirPods Pro, AirPods Max
@@ -130,6 +157,18 @@ Unverified on this Mac: no AirPods were connected during inspection.
 `system_profiler SPBluetoothDataType` listed one paired but not connected device
 with a `Case Version` field, which is consistent with AirPods being paired; no
 battery value was observable in that state.
+
+What phase 03 implemented, given that: the provider reads
+`BatteryPercentLeft`, `BatteryPercentRight` and `BatteryPercentCase` **if the
+system publishes them**, and falls back to the single `BatteryPercent` value
+when it does not. The two are never mixed — where per-component values exist the
+overall one is a summary of them, and adding it as a fourth battery would show
+the same charge twice.
+
+Whether those three keys are published on current macOS **has not been
+confirmed on hardware**. The code handles both outcomes without a change, and
+row 4.1 of the QA matrix is the check that decides which one is real. Nothing in
+the interface promises components that did not arrive.
 
 ---
 

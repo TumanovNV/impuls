@@ -50,6 +50,9 @@ The existing module must not get worse. These are the rows that block a release.
 | 3.6 | Accessory connected by cable: no invented charging state | `[ ]` | |
 | 3.7 | Built-in keyboard and trackpad of a MacBook are not listed as accessories | `[ ]` | |
 | 3.8 | Two accessories of the same model connected at once: two distinct cards | `[ ]` | |
+| 3.9 | A non-Apple Bluetooth mouse or keyboard is not listed | `[ ]` | vendor identifier, not the product name |
+| 3.10 | Accessory reconnects after being switched off: same card, not a second one | `[ ]` | |
+| 3.11 | Accessory battery updates within a minute while the panel is open | `[ ]` | polled at 60 s |
 
 ## 4. AirPods
 
@@ -63,6 +66,7 @@ The existing module must not get worse. These are the rows that block a release.
 | 4.6 | AirPods disconnected: no stale value presented as realtime | `[ ]` | |
 | 4.7 | AirPods switched to an iPhone mid-session: card leaves cleanly | `[ ]` | |
 | 4.8 | Values match the system Bluetooth menu | `[ ]` | |
+| 4.9 | Whether `BatteryPercentLeft` / `Right` / `Case` exist at all on current macOS | `[ ]` | run `ioreg -r -k BatteryPercent -l` with AirPods connected and record the exact key names found |
 
 ## 5. iPhone and iPad over USB — Beta
 
