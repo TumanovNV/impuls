@@ -19,6 +19,12 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
     var persistClipboardHistory: Bool
     var clipboardRetention: SettingsStore.ClipboardRetention
     var excludedClipboardBundleIdentifiers: [String]
+    /// Whether Impuls may look for the user's other Apple devices.
+    ///
+    /// A preference and nothing more: no identifier, no device list, no last
+    /// known charge. That keeps it safe to carry in an exported backup, which
+    /// is why it lives here rather than in a device cache.
+    var showsExternalAppleDevices: Bool
 
     init(
         hotKey: SettingsStore.HotKeyPreset,
@@ -30,7 +36,8 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
         saveClipboardImages: Bool,
         persistClipboardHistory: Bool = false,
         clipboardRetention: SettingsStore.ClipboardRetention = .sevenDays,
-        excludedClipboardBundleIdentifiers: [String] = []
+        excludedClipboardBundleIdentifiers: [String] = [],
+        showsExternalAppleDevices: Bool = false
     ) {
         self.hotKey = hotKey
         self.activationMode = activationMode
@@ -42,12 +49,13 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
         self.persistClipboardHistory = persistClipboardHistory
         self.clipboardRetention = clipboardRetention
         self.excludedClipboardBundleIdentifiers = excludedClipboardBundleIdentifiers
+        self.showsExternalAppleDevices = showsExternalAppleDevices
     }
 
     private enum CodingKeys: String, CodingKey {
         case hotKey, activationMode, openDelay, panelSize, selectedDisplayID, modules
         case saveClipboardImages, persistClipboardHistory, clipboardRetention
-        case excludedClipboardBundleIdentifiers
+        case excludedClipboardBundleIdentifiers, showsExternalAppleDevices
     }
 
     init(from decoder: Decoder) throws {
@@ -68,6 +76,13 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
             [String].self,
             forKey: .excludedClipboardBundleIdentifiers
         ) ?? []
+        // Absent in every settings blob and backup written before 1.4.6, and
+        // `false` is the only defensible default: a new release must not start
+        // looking at the user's devices because they installed an update.
+        showsExternalAppleDevices = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .showsExternalAppleDevices
+        ) ?? false
     }
 }
 
@@ -193,6 +208,7 @@ final class SettingsStore: ObservableObject {
     @Published var persistClipboardHistory: Bool { didSet { persist() } }
     @Published var clipboardRetention: ClipboardRetention { didSet { persist() } }
     @Published private(set) var excludedClipboardBundleIdentifiers: [String] { didSet { persist() } }
+    @Published var showsExternalAppleDevices: Bool { didSet { persist() } }
     @Published private(set) var displays: [DisplayOption] = []
     @Published private(set) var hotKeyError: String?
     /// Runtime-only presentation state. It intentionally is not persisted: the
@@ -220,6 +236,7 @@ final class SettingsStore: ObservableObject {
         excludedClipboardBundleIdentifiers = Self.normalizedBundleIdentifiers(
             snapshot.excludedClipboardBundleIdentifiers
         )
+        showsExternalAppleDevices = snapshot.showsExternalAppleDevices
         hotKeyError = nil
         powerDeviceKind = nil
         refreshDisplays()
@@ -236,7 +253,8 @@ final class SettingsStore: ObservableObject {
             saveClipboardImages: saveClipboardImages,
             persistClipboardHistory: persistClipboardHistory,
             clipboardRetention: clipboardRetention,
-            excludedClipboardBundleIdentifiers: excludedClipboardBundleIdentifiers
+            excludedClipboardBundleIdentifiers: excludedClipboardBundleIdentifiers,
+            showsExternalAppleDevices: showsExternalAppleDevices
         )
     }
 
@@ -300,6 +318,7 @@ final class SettingsStore: ObservableObject {
         excludedClipboardBundleIdentifiers = Self.normalizedBundleIdentifiers(
             snapshot.excludedClipboardBundleIdentifiers
         )
+        showsExternalAppleDevices = snapshot.showsExternalAppleDevices
         refreshDisplays()
         isApplying = false
         persist()
@@ -385,7 +404,8 @@ final class SettingsStore: ObservableObject {
             saveClipboardImages: savesImages,
             persistClipboardHistory: false,
             clipboardRetention: .sevenDays,
-            excludedClipboardBundleIdentifiers: []
+            excludedClipboardBundleIdentifiers: [],
+            showsExternalAppleDevices: false
         )
     }
 
