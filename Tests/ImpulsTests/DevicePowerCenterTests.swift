@@ -1,0 +1,510 @@
+import XCTest
+@testable import ImpulsCore
+
+@MainActor
+final class DevicePowerCenterTests: XCTestCase {
+
+    // MARK: - Deduplication
+
+    func testOneiPhoneSeenOverUSBAndWiFiIsOneRow() {
+        let identity = Fixtures.identity("iphone")
+        let usb = Fixtures.device(
+            identity: identity,
+            kind: .iPhone,
+            name: "iPhone",
+            connection: .usb,
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 73, lastUpdated: Fixtures.noon)],
+            source: .mobileUSB
+        )
+        let wifi = Fixtures.device(
+            identity: identity,
+            kind: .iPhone,
+            name: "iPhone",
+            connection: .wifi,
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 69, lastUpdated: Fixtures.noon)],
+            source: .mobileWiFi
+        )
+
+        let merged = DeviceSnapshotMerger.merge([[usb], [wifi]], now: Fixtures.noon)
+
+        XCTAssertEqual(merged.count, 1)
+        // Both are fresh, so the more reliable transport decides.
+        XCTAssertEqual(merged.first?.headlinePercentage, 73)
+        XCTAssertEqual(merged.first?.connection, .usb)
+    }
+
+    func testAFreshLowerPriorityReadingBeatsAStaleHigherPriorityOne() {
+        let identity = Fixtures.identity("iphone")
+        let staleUSB = Fixtures.device(
+            identity: identity,
+            kind: .iPhone,
+            name: "iPhone",
+            connection: .usb,
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 73, lastUpdated: Fixtures.noon)],
+            lastUpdated: Fixtures.noon,
+            source: .mobileUSB
+        )
+        let now = Fixtures.noon.addingTimeInterval(20 * 60)
+        let freshWiFi = Fixtures.device(
+            identity: identity,
+            kind: .iPhone,
+            name: "iPhone",
+            connection: .wifi,
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 51, lastUpdated: now)],
+            lastUpdated: now,
+            source: .mobileWiFi
+        )
+
+        let merged = DeviceSnapshotMerger.merge([[staleUSB], [freshWiFi]], now: now)
+
+        XCTAssertEqual(merged.count, 1)
+        XCTAssertEqual(merged.first?.headlinePercentage, 51, "an hour-old cable reading is not the current charge")
+        XCTAssertEqual(merged.first?.connection, .wifi)
+    }
+
+    func testTwoDevicesWithTheSameNameAreNotMergedIntoOne() {
+        let mine = Fixtures.device(
+            identity: Fixtures.identity("mine"),
+            kind: .iPhone,
+            name: "iPhone",
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 40, lastUpdated: Fixtures.noon)]
+        )
+        let theirs = Fixtures.device(
+            identity: Fixtures.identity("theirs"),
+            kind: .iPhone,
+            name: "iPhone",
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 90, lastUpdated: Fixtures.noon)]
+        )
+
+        let merged = DeviceSnapshotMerger.merge([[mine], [theirs]], now: Fixtures.noon)
+
+        XCTAssertEqual(merged.count, 2, "a shared name is not evidence that two devices are one")
+    }
+
+    func testMergingKeepsComponentsOnlyOneSourceKnowsAbout() {
+        let identity = Fixtures.identity("airpods")
+        let buds = Fixtures.device(
+            identity: identity,
+            kind: .airPodsPro,
+            name: "AirPods Pro",
+            components: [
+                DeviceBatteryComponent(kind: .left, percentage: 81, lastUpdated: Fixtures.noon),
+                DeviceBatteryComponent(kind: .right, percentage: 76, lastUpdated: Fixtures.noon),
+            ]
+        )
+        let withCase = Fixtures.device(
+            identity: identity,
+            kind: .airPodsPro,
+            name: "AirPods Pro",
+            components: [DeviceBatteryComponent(kind: .chargingCase, percentage: 54, lastUpdated: Fixtures.noon)],
+            source: .mobileWiFi
+        )
+
+        let merged = DeviceSnapshotMerger.merge([[buds], [withCase]], now: Fixtures.noon)
+
+        XCTAssertEqual(merged.first?.components.map(\.kind), [.left, .right, .chargingCase])
+    }
+
+    func testAvailabilityPrefersTheProviderThatCanStillSeeTheDevice() {
+        let identity = Fixtures.identity("mouse")
+        let present = Fixtures.device(
+            identity: identity,
+            kind: .magicMouse,
+            name: "Magic Mouse",
+            availability: .connected,
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 61, lastUpdated: Fixtures.noon)]
+        )
+        let lost = Fixtures.device(
+            identity: identity,
+            kind: .magicMouse,
+            name: "Magic Mouse",
+            availability: .recentlyDisconnected,
+            components: [],
+            source: .mobileWiFi
+        )
+
+        let merged = DeviceSnapshotMerger.merge([[lost], [present]], now: Fixtures.noon)
+
+        XCTAssertEqual(merged.first?.availability, .connected)
+    }
+
+    // MARK: - Freshness
+
+    func testFreshnessFollowsTheClockAndNotTheProvider() {
+        let device = Fixtures.device(
+            kind: .iPhone,
+            name: "iPhone",
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 63, lastUpdated: Fixtures.noon)]
+        )
+
+        XCTAssertEqual(
+            DeviceSnapshotMerger.freshness(for: device, now: Fixtures.noon.addingTimeInterval(30)),
+            .fresh
+        )
+        XCTAssertEqual(
+            DeviceSnapshotMerger.freshness(for: device, now: Fixtures.noon.addingTimeInterval(12 * 60)),
+            .stale
+        )
+
+        let neverRead = Fixtures.device(kind: .iPhone, name: "iPhone", components: [], lastUpdated: nil)
+        XCTAssertEqual(DeviceSnapshotMerger.freshness(for: neverRead, now: Fixtures.noon), .unavailable)
+    }
+
+    // MARK: - Order
+
+    func testThisMacComesFirstAndTheOrderIsTheNameRatherThanTheCharge() {
+        let mac = Fixtures.device(
+            identity: .localMac,
+            kind: .mac,
+            name: "MacBook Pro",
+            connection: .builtIn,
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 12, lastUpdated: Fixtures.noon)],
+            source: .localIOKit
+        )
+        let keyboard = Fixtures.device(
+            kind: .magicKeyboard,
+            name: "Magic Keyboard",
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 98, lastUpdated: Fixtures.noon)]
+        )
+        let offline = Fixtures.device(
+            kind: .airPodsPro,
+            name: "AirPods Pro",
+            availability: .recentlyDisconnected,
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 99, lastUpdated: Fixtures.noon)]
+        )
+
+        let ordered = DeviceSnapshotMerger.merge([[offline, keyboard, mac]], now: Fixtures.noon)
+
+        XCTAssertEqual(ordered.map(\.displayName), ["MacBook Pro", "Magic Keyboard", "AirPods Pro"])
+    }
+
+    // MARK: - Local Mac adapter
+
+    func testAPortableMacBecomesADeviceWithOneBattery() {
+        let snapshot = PowerNormalizer.snapshot(from: PowerSourceReading(
+            providingPowerSource: .ac,
+            hasInternalBattery: true,
+            batteryPowerSourceState: .ac,
+            currentCapacity: 73,
+            maxCapacity: 100,
+            designCapacity: nil,
+            isCharging: true,
+            isCharged: false,
+            isFinishingCharge: false,
+            timeToEmptyMinutes: nil,
+            timeToFullChargeMinutes: 49,
+            voltageMillivolts: nil,
+            currentMilliamps: nil,
+            temperatureCelsius: nil,
+            systemBatteryCondition: nil,
+            cycleCount: nil,
+            adapterRatedPowerWatts: nil,
+            connectionType: .externalPower
+        ))
+
+        let device = LocalMacDeviceProvider.device(from: snapshot, name: "MacBook Pro", now: Fixtures.noon)
+
+        XCTAssertTrue(device.identity.isLocalMac)
+        XCTAssertEqual(device.kind, .mac)
+        XCTAssertEqual(device.connection, .builtIn)
+        XCTAssertEqual(device.headlinePercentage, 73)
+        XCTAssertEqual(device.components.first?.chargingState, .charging)
+        XCTAssertEqual(device.externalPower, .connected)
+    }
+
+    func testADesktopMacIsStillADeviceEvenWithNoBatteryAtAll() {
+        var reading = PowerSourceReading.unavailableDesktop
+        reading.providingPowerSource = .ac
+        let snapshot = PowerNormalizer.snapshot(from: reading)
+
+        let device = LocalMacDeviceProvider.device(from: snapshot, name: "Mac mini", now: Fixtures.noon)
+
+        XCTAssertEqual(device.kind, .mac)
+        XCTAssertTrue(device.components.isEmpty)
+        XCTAssertFalse(device.hasBatteryReading)
+        XCTAssertEqual(device.externalPower, .connected, "a desktop Mac on the wall is not an unknown state")
+        XCTAssertEqual(device.availability, .connected)
+    }
+
+    func testTheDesktopMacSurvivesTheCoordinatorsVisibilityFilter() {
+        let monitor = PowerMonitor(provider: FixturePowerProvider(snapshot: PowerNormalizer.snapshot(from: .unavailableDesktop)))
+        let center = DevicePowerCenter(monitor: monitor)
+
+        monitor.setEnabled(true)
+        center.setEnabled(true)
+
+        XCTAssertEqual(center.devices.count, 1)
+        XCTAssertEqual(center.visibleDevices.count, 1, "the Power module on a desktop Mac must not vanish")
+        XCTAssertTrue(center.visibleDevices.first?.identity.isLocalMac ?? false)
+    }
+
+    // MARK: - Lifecycle
+
+    func testNothingExternalStartsUntilTheUserAsksForIt() {
+        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let center = makeCenter(external: [external])
+
+        center.setEnabled(true)
+        XCTAssertEqual(external.startCount, 0, "enabling the module is not consent to look at other devices")
+
+        center.setExternalDevicesEnabled(true)
+        XCTAssertEqual(external.startCount, 1)
+
+        center.setExternalDevicesEnabled(false)
+        XCTAssertEqual(external.stopCount, 1)
+    }
+
+    func testDisablingTheModuleStopsEveryProviderAndClearsTheList() {
+        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let center = makeCenter(external: [external])
+
+        center.setEnabled(true)
+        center.setExternalDevicesEnabled(true)
+        external.emit([Fixtures.device(
+            kind: .magicMouse,
+            name: "Magic Mouse",
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 61, lastUpdated: Fixtures.noon)]
+        )])
+        XCTAssertEqual(center.devices.count, 2, "this Mac plus the mouse")
+
+        center.setEnabled(false)
+
+        XCTAssertEqual(external.stopCount, 1)
+        XCTAssertTrue(center.devices.isEmpty)
+        XCTAssertTrue(center.diagnostics.isEmpty)
+    }
+
+    func testAStoppedProviderCannotReviveItselfWithALateUpdate() {
+        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let center = makeCenter(external: [external])
+
+        center.setEnabled(true)
+        center.setExternalDevicesEnabled(true)
+        center.setEnabled(false)
+
+        external.emit([Fixtures.device(
+            kind: .magicMouse,
+            name: "Magic Mouse",
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 61, lastUpdated: Fixtures.noon)]
+        )])
+
+        XCTAssertTrue(center.devices.isEmpty, "an in-flight read landing after stop must not restart the module")
+    }
+
+    func testOpeningThePanelAsksExternalProvidersOnceAndLeavesTheMacAlone() {
+        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let center = makeCenter(external: [external])
+
+        center.setEnabled(true)
+        center.setExternalDevicesEnabled(true)
+        XCTAssertEqual(external.refreshCount, 0)
+
+        center.setActive(true)
+        XCTAssertEqual(external.refreshCount, 1)
+
+        center.setActive(false)
+        XCTAssertEqual(external.refreshCount, 1, "closing the panel is not a reason to read anything")
+    }
+
+    func testExplicitRefreshDoesNothingWhileExternalDevicesAreOff() {
+        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let center = makeCenter(external: [external])
+
+        center.setEnabled(true)
+        center.refreshExternalDevices()
+
+        XCTAssertEqual(external.refreshCount, 0)
+    }
+
+    // MARK: - Failure isolation
+
+    func testATransientProviderFailureKeepsTheLastGoodReadingAndTheMac() {
+        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let center = makeCenter(external: [external])
+
+        center.setEnabled(true)
+        center.setExternalDevicesEnabled(true)
+        external.emit([Fixtures.device(
+            kind: .magicMouse,
+            name: "Magic Mouse",
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 61, lastUpdated: Fixtures.noon)]
+        )])
+        XCTAssertEqual(center.devices.count, 2)
+
+        external.emit([], status: .temporarilyFailed)
+
+        XCTAssertEqual(center.devices.count, 2, "one failed read does not delete what we already knew")
+        XCTAssertEqual(center.devices.first(where: { !$0.identity.isLocalMac })?.headlinePercentage, 61)
+        XCTAssertTrue(center.devices.contains { $0.identity.isLocalMac })
+    }
+
+    func testAProviderThatLosesPermissionDropsItsDevicesButNotTheOthers() {
+        let external = FakeDeviceProvider(identifier: .ioRegistryAccessory)
+        let center = makeCenter(external: [external])
+
+        center.setEnabled(true)
+        center.setExternalDevicesEnabled(true)
+        external.emit([Fixtures.device(
+            kind: .magicMouse,
+            name: "Magic Mouse",
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 61, lastUpdated: Fixtures.noon)]
+        )])
+
+        external.emit([], status: .permissionRequired)
+
+        XCTAssertEqual(center.devices.count, 1)
+        XCTAssertTrue(center.devices.first?.identity.isLocalMac ?? false)
+        XCTAssertEqual(
+            center.diagnostics.first(where: { $0.provider == .ioRegistryAccessory })?.status,
+            .permissionRequired
+        )
+    }
+
+    // MARK: - Scheduling
+
+    func testAnEventDrivenProviderIsNeverPolled() {
+        let scheduler = DeviceRefreshScheduler()
+        let eventDriven = FakeDeviceProvider(identifier: .localMac, behavior: .eventDriven)
+        scheduler.setProviders([eventDriven])
+
+        XCTAssertNil(scheduler.interval(for: .localMac), "PowerMonitor already knows when to look")
+    }
+
+    func testCadenceFollowsThePanelAndBacksOffWhenADeviceStopsAnswering() {
+        let scheduler = DeviceRefreshScheduler()
+        let polled = FakeDeviceProvider(
+            identifier: .mobileUSB,
+            behavior: .polled(activeInterval: 30, idleInterval: 300)
+        )
+        scheduler.setProviders([polled])
+
+        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 300)
+        scheduler.setActive(true)
+        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 30)
+
+        scheduler.noteOutcome(for: .mobileUSB, succeeded: false)
+        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 60)
+        scheduler.noteOutcome(for: .mobileUSB, succeeded: false)
+        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 120)
+
+        for _ in 0..<10 { scheduler.noteOutcome(for: .mobileUSB, succeeded: false) }
+        XCTAssertEqual(scheduler.interval(for: .mobileUSB), DeviceRefreshScheduler.maximumBackoffInterval)
+
+        scheduler.noteOutcome(for: .mobileUSB, succeeded: true)
+        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 30, "one good read ends the back-off")
+    }
+
+    // MARK: - Actor boundary
+
+    /// The architectural guard for phase 04.
+    ///
+    /// `DeviceBatterySource` is the reading half of a provider and must stay
+    /// off the main actor: a USB exchange with a sleeping phone takes seconds,
+    /// and seconds on the main actor is a frozen panel. This calls `read()`
+    /// from a detached task, so marking the protocol `@MainActor` — or an
+    /// implementation quietly requiring it — stops compiling here rather than
+    /// stuttering in front of a user.
+    func testDeviceReadsHappenOffTheMainActor() async throws {
+        let source = FixtureBatterySource()
+        let devices = try await Task.detached { try await source.read() }.value
+
+        XCTAssertEqual(devices.count, 1)
+        XCTAssertEqual(devices.first?.headlinePercentage, 73)
+    }
+
+    // MARK: - Helpers
+
+    private func makeCenter(external: [DeviceBatteryProviding]) -> DevicePowerCenter {
+        let monitor = PowerMonitor(provider: FixturePowerProvider(
+            snapshot: PowerNormalizer.snapshot(from: PowerSourceReading(
+                providingPowerSource: .battery,
+                hasInternalBattery: true,
+                batteryPowerSourceState: .battery,
+                currentCapacity: 64,
+                maxCapacity: 100,
+                designCapacity: nil,
+                isCharging: false,
+                isCharged: false,
+                isFinishingCharge: false,
+                timeToEmptyMinutes: nil,
+                timeToFullChargeMinutes: nil,
+                voltageMillivolts: nil,
+                currentMilliamps: nil,
+                temperatureCelsius: nil,
+                systemBatteryCondition: nil,
+                cycleCount: nil,
+                adapterRatedPowerWatts: nil,
+                connectionType: .unplugged
+            ))
+        ))
+        monitor.setEnabled(true)
+        return DevicePowerCenter(
+            localProvider: LocalMacDeviceProvider(monitor: monitor, deviceName: "MacBook Pro"),
+            externalProviders: external
+        )
+    }
+}
+
+// MARK: - Fixtures
+
+@MainActor
+private final class FakeDeviceProvider: DeviceBatteryProviding {
+    let identifier: DeviceProviderIdentifier
+    let refreshBehavior: DeviceRefreshBehavior
+    private(set) var status: DeviceProviderStatus = .disabled
+    private(set) var startCount = 0
+    private(set) var stopCount = 0
+    private(set) var refreshCount = 0
+    private var onUpdate: ((DeviceProviderUpdate) -> Void)?
+
+    init(
+        identifier: DeviceProviderIdentifier,
+        behavior: DeviceRefreshBehavior = .polled(activeInterval: 30, idleInterval: 300)
+    ) {
+        self.identifier = identifier
+        self.refreshBehavior = behavior
+    }
+
+    func start(onUpdate: @escaping (DeviceProviderUpdate) -> Void) {
+        startCount += 1
+        status = .ready
+        self.onUpdate = onUpdate
+    }
+
+    func stop() {
+        stopCount += 1
+        status = .disabled
+        onUpdate = nil
+    }
+
+    func refresh() {
+        refreshCount += 1
+    }
+
+    /// Emits even after `stop()`, on purpose: that is how a late in-flight read
+    /// behaves, and the coordinator has to survive it.
+    func emit(_ devices: [AppleDeviceSnapshot], status: DeviceProviderStatus = .ready) {
+        onUpdate?(DeviceProviderUpdate(identifier: identifier, status: status, devices: devices))
+    }
+}
+
+@MainActor
+private final class FixturePowerProvider: PowerSourceProviding {
+    private let stored: PowerSnapshot
+
+    init(snapshot: PowerSnapshot) {
+        stored = snapshot
+    }
+
+    func snapshot() -> PowerSnapshot { stored }
+}
+
+private struct FixtureBatterySource: DeviceBatterySource {
+    func read() async throws -> [AppleDeviceSnapshot] {
+        [Fixtures.device(
+            kind: .iPhone,
+            name: "iPhone",
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 73, lastUpdated: Fixtures.noon)]
+        )]
+    }
+}

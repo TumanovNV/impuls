@@ -103,6 +103,58 @@ final class SettingsStoreTests: XCTestCase {
         }
     }
 
+    /// Everything written before 1.4.6 — stored settings and exported
+    /// backups alike — has no Apple-devices key. Updating must not be read as
+    /// permission to go looking at the user's other hardware.
+    func testSettingsFromBeforeAppleDevicesLeaveTheFeatureOff() async throws {
+        try await MainActor.run {
+            let json = """
+            {
+              "hotKey": "optionSpace",
+              "activationMode": "hoverAndShortcut",
+              "openDelay": "short",
+              "panelSize": "standard",
+              "modules": [{"tab": "power", "isEnabled": true}],
+              "saveClipboardImages": true,
+              "persistClipboardHistory": true,
+              "clipboardRetention": "thirtyDays"
+            }
+            """
+
+            let decoded = try JSONDecoder().decode(ImpulsSettingsSnapshot.self, from: Data(json.utf8))
+
+            XCTAssertFalse(decoded.showsExternalAppleDevices)
+            // The rest of a 1.4.5 blob still arrives intact.
+            XCTAssertTrue(decoded.persistClipboardHistory)
+            XCTAssertEqual(decoded.clipboardRetention, .thirtyDays)
+        }
+    }
+
+    func testAppleDevicePreferencePersistsAndCarriesNoDeviceData() async {
+        await MainActor.run {
+            let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            defer { defaults.removePersistentDomain(forName: suite) }
+
+            let first = SettingsStore(defaults: defaults)
+            XCTAssertFalse(first.showsExternalAppleDevices, "off until the user says otherwise")
+            first.showsExternalAppleDevices = true
+
+            let second = SettingsStore(defaults: defaults)
+            XCTAssertTrue(second.showsExternalAppleDevices)
+
+            // The snapshot that travels in a backup is a preference and
+            // nothing else: no identifiers, no last-known charge, no device
+            // list. Encoding it must stay that small.
+            let encoded = try? JSONEncoder().encode(second.snapshot)
+            let text = encoded.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            XCTAssertTrue(text.contains("showsExternalAppleDevices"))
+            XCTAssertFalse(text.lowercased().contains("udid"))
+            XCTAssertFalse(text.lowercased().contains("serial"))
+            XCTAssertFalse(text.lowercased().contains("battery"))
+        }
+    }
+
     func testClipboardExclusionsRejectMalformedOrExcessiveIdentifiers() async {
         await MainActor.run {
             let supplied = [
