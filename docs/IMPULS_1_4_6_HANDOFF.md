@@ -11,11 +11,12 @@ produced this work. Read this, then `APPLE_DEVICE_BATTERY_SUPPORT.md`, then
 | Checkpoint | 11 August 2026 |
 | Branch | `agent/apple-device-center-1.4.6` |
 | Base branch | `release/1.4.5` (**not** `main`) |
-| HEAD at checkpoint | `8159b5b` |
+| Implementation HEAD before handoff docs | `8159b5b` |
+| Branch HEAD | later — the handoff and follow-up commits sit on top |
 | `main` | `5672689` — Impuls 1.4.4 |
 | `release/1.4.5` | `efb3742` — 1.4.5, still unmerged into `main` |
 | `Scripts/version` | `VERSION=1.4.5` — **not yet bumped**; 1.4.6 is not a release |
-| Tests | 236, 0 failures (`swift test -c release`) |
+| Tests | 242, 0 failures (`swift test -c release`) |
 
 1.4.6 is unreleased and unmergeable as it stands: phase 05 (UI, Settings,
 localization, accessibility) has not been done, so the new device layer exists
@@ -182,7 +183,7 @@ the launch smoke test still shows zero network sockets.
 
 ## Test state
 
-236 tests, 0 failures. Groups:
+242 tests, 0 failures. Groups:
 
 | Group | What it covers |
 | --- | --- |
@@ -198,6 +199,7 @@ the launch smoke test still shows zero network sockets.
 | PEM / PKCS#8 | valid material, malformed, mislabelled, truncated DER, oversized, mismatched key and certificate |
 | TLS | no session, `EnableSessionSSL` false and true, bounded handshake, nothing to pin against |
 | Privacy | no pairing material or identifier in any error or diagnostic string |
+| Process boundary | real child processes: one that never exits, one that floods its pipe, one that fails, one that is missing |
 
 **What unit tests do not prove:** that any of it works on hardware. The hardware
 probes in the suite skip themselves when nothing is attached, which is what CI

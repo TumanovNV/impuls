@@ -54,7 +54,7 @@ final class SystemProfilerAccessorySource: DeviceBatterySource, @unchecked Senda
     ) {
         self.clock = clock
         self.resolver = resolver
-        self.runner = runner ?? { try SystemProfilerAccessorySource.runSystemProfiler() }
+        self.runner = runner ?? { try BoundedProcess.systemProfiler().run() }
     }
 
     func read() async throws -> [AppleDeviceSnapshot] {
@@ -84,8 +84,47 @@ final class SystemProfilerAccessorySource: DeviceBatterySource, @unchecked Senda
     }
 
     // MARK: - The process
+}
 
-    static func runSystemProfiler() throws -> Data {
+/// One short-lived child process, with a deadline on its whole life.
+///
+/// Written as its own type so the boundary can be tested with something other
+/// than `system_profiler`: a tool that never exits, a tool that floods stdout,
+/// a tool that fails. An injected closure that throws on cue proves nothing
+/// about process handling, and process handling is where this class of bug
+/// lives.
+///
+/// Three rules, each of which was a real failure mode in the first version:
+///
+/// - the deadline covers the **process**, not the arrival of end-of-file on
+///   stdout. Waiting for EOF and then calling `waitUntilExit()` means an
+///   unbounded wait on a child that has stopped talking but not stopped;
+/// - the pipes keep being drained even after the output limit is passed. A
+///   reader that walks away leaves the child blocked on a full pipe forever,
+///   which is the same hang wearing a different hat;
+/// - passing the limit terminates the child immediately rather than at the end,
+///   because there is nothing more to learn from it.
+struct BoundedProcess {
+    let executablePath: String
+    let arguments: [String]
+    let timeout: TimeInterval
+    let maximumOutputBytes: Int
+    let maximumErrorBytes: Int
+
+    static func systemProfiler() -> BoundedProcess {
+        BoundedProcess(
+            executablePath: SystemProfilerAccessorySource.executablePath,
+            arguments: SystemProfilerAccessorySource.arguments,
+            timeout: SystemProfilerAccessorySource.timeout,
+            maximumOutputBytes: SystemProfilerAccessorySource.maximumOutputBytes,
+            maximumErrorBytes: SystemProfilerAccessorySource.maximumErrorBytes
+        )
+    }
+
+    /// How long a terminated child is given to die before it is killed.
+    static let terminationGrace: TimeInterval = 1
+
+    func run() throws -> Data {
         guard FileManager.default.isExecutableFile(atPath: executablePath) else {
             throw MobileDeviceError.transportUnavailable
         }
@@ -103,6 +142,9 @@ final class SystemProfilerAccessorySource: DeviceBatterySource, @unchecked Senda
         process.standardError = errors
         process.standardInput = FileHandle.nullDevice
 
+        let exited = DispatchSemaphore(value: 0)
+        process.terminationHandler = { _ in exited.signal() }
+
         do {
             try process.run()
         } catch {
@@ -110,34 +152,52 @@ final class SystemProfilerAccessorySource: DeviceBatterySource, @unchecked Senda
         }
 
         let collector = OutputCollector()
-        let finished = DispatchSemaphore(value: 0)
+        let drained = DispatchSemaphore(value: 0)
         DispatchQueue.global(qos: .utility).async {
-            collector.drain(output.fileHandleForReading, limit: maximumOutputBytes, keeping: true)
-            finished.signal()
+            collector.drain(
+                output.fileHandleForReading,
+                limit: maximumOutputBytes,
+                keeping: true,
+                onOverflow: { Self.terminate(process) }
+            )
+            drained.signal()
         }
-        // Drained but discarded: an undrained stderr pipe can fill and block the
-        // child forever, and its contents are of no use to anyone here.
         DispatchQueue.global(qos: .utility).async {
-            collector.drain(errors.fileHandleForReading, limit: maximumErrorBytes, keeping: false)
+            collector.drain(
+                errors.fileHandleForReading,
+                limit: maximumErrorBytes,
+                keeping: false,
+                onOverflow: { Self.terminate(process) }
+            )
         }
 
-        if finished.wait(timeout: .now() + timeout) == .timedOut {
-            process.terminate()
-            // A tool that ignored SIGTERM gets one grace period, then the
-            // descriptors are released regardless.
-            _ = finished.wait(timeout: .now() + 1)
-            try? output.fileHandleForReading.close()
-            try? errors.fileHandleForReading.close()
-            throw MobileDeviceError.timedOut
+        var timedOut = false
+        if exited.wait(timeout: .now() + timeout) == .timedOut {
+            timedOut = true
+            Self.terminate(process)
+            if exited.wait(timeout: .now() + Self.terminationGrace) == .timedOut {
+                // A child that ignored SIGTERM gets SIGKILL, which it cannot.
+                kill(process.processIdentifier, SIGKILL)
+                _ = exited.wait(timeout: .now() + Self.terminationGrace)
+            }
         }
 
-        process.waitUntilExit()
+        // The reader ends when the pipe reaches end-of-file, which the dead
+        // child guarantees. Bounded anyway: this method never waits on anything
+        // without a limit.
+        _ = drained.wait(timeout: .now() + Self.terminationGrace)
         try? output.fileHandleForReading.close()
         try? errors.fileHandleForReading.close()
 
-        guard process.terminationStatus == 0 else { throw MobileDeviceError.transportUnavailable }
+        if timedOut { throw MobileDeviceError.timedOut }
         if collector.wasTruncated { throw MobileDeviceError.payloadTooLarge(maximumOutputBytes) }
+        guard process.terminationStatus == 0 else { throw MobileDeviceError.transportUnavailable }
         return collector.data
+    }
+
+    private static func terminate(_ process: Process) {
+        guard process.isRunning else { return }
+        process.terminate()
     }
 
     private final class OutputCollector: @unchecked Sendable {
@@ -148,13 +208,21 @@ final class SystemProfilerAccessorySource: DeviceBatterySource, @unchecked Senda
         var data: Data { lock.withLock { storage } }
         var wasTruncated: Bool { lock.withLock { truncated } }
 
-        func drain(_ handle: FileHandle, limit: Int, keeping: Bool) {
+        /// Reads to end-of-file, always. Past the limit it stops keeping bytes
+        /// and asks for the child to be terminated, but it keeps reading —
+        /// abandoning a pipe is how a child ends up blocked on a full one.
+        func drain(_ handle: FileHandle, limit: Int, keeping: Bool, onOverflow: () -> Void) {
             var total = 0
+            var overflowed = false
             while let chunk = try? handle.read(upToCount: 64 * 1024), !chunk.isEmpty {
                 total += chunk.count
                 if total > limit {
-                    lock.withLock { truncated = true }
-                    break
+                    if !overflowed {
+                        overflowed = true
+                        lock.withLock { truncated = true }
+                        onOverflow()
+                    }
+                    continue
                 }
                 guard keeping else { continue }
                 lock.withLock { storage.append(chunk) }

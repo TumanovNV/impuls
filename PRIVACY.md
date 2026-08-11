@@ -18,7 +18,8 @@ After the user accepts an available update, Sparkle downloads the versioned ZIP
 from the same repository's GitHub Release. GitHub may redirect that download to
 its release-asset CDN. GitHub receives the IP address required for an internet
 connection, ordinary TLS/HTTP metadata, and a User-Agent containing application
-information. System profiling is explicitly disabled. Impuls sends no clipboard
+information. Sparkle's system profiling — the profile it can attach to an
+update check — is explicitly disabled. Impuls sends no clipboard
 data, notes, snippets, files, calendar content, playback data, analytics
 identifiers, hardware serial numbers, or device identifiers.
 
@@ -77,9 +78,29 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
 - Impuls Actions searches the live clipboard, snippet, and note stores locally;
   it creates no separate search database and sends no query or result anywhere.
 - the Battery / Power module reads live power state locally from macOS public
-  IOPowerSources and, when available, a cycle-count value from the local
-  IORegistry. It stores no power telemetry, adapter identifiers, or hardware
-  serial numbers and sends none of this information anywhere;
+  IOPowerSources and, when available, further values from the local IORegistry.
+  It stores no power telemetry, adapter identifiers, or hardware serial numbers
+  and sends none of this information anywhere;
+- when the user turns on Apple devices — off by default — Impuls also reads the
+  batteries of connected Apple accessories. Values come from the local
+  IORegistry and, where the registry publishes nothing, from a local
+  `/usr/sbin/system_profiler` call for Bluetooth accessory information. That
+  call is made directly, with a fixed argument list and no shell, and its output
+  is read, parsed and discarded on this Mac;
+- an experimental, separately gated provider can read the battery of an iPhone
+  or iPad connected by cable and already trusted by this Mac. It talks to the
+  local `usbmuxd` socket — no network is involved — and asks the device for a
+  battery percentage, a charging flag, a name and a model identifier, and for
+  nothing else. It does not pair, does not alter the existing pairing, installs
+  nothing, and never requests contacts, photos, messages, installed apps,
+  backups, the phone number, the IMEI or the Apple ID. The pairing certificates
+  it uses to open the required secure session are read, used in memory, and
+  never stored by Impuls, written to a keychain, or written to disk;
+- device identifiers — UDID, serial numbers, Bluetooth addresses — are used only
+  where the protocol requires them and are never shown in the interface, written
+  to logs, added to a feedback report or included in an exported backup. What
+  Impuls keeps for recognising a device again is a value derived with a random
+  key held on this Mac, which is meaningless anywhere else;
 - OCR, background removal, image conversion, resizing, and PDF creation run on
   the Mac with Apple system frameworks. Impuls does not upload source files or
   generated files. Sharing occurs only when the user explicitly chooses AirDrop

@@ -734,4 +734,102 @@ final class SystemProfilerAccessoryTests: XCTestCase {
             XCTAssertEqual(error as? MobileDeviceError, .timedOut)
         }
     }
+
+    // MARK: - The process boundary
+
+    /// These run real child processes, because that is the boundary being
+    /// tested. A closure that throws `.timedOut` on cue proves nothing about
+    /// whether a child that never exits, or one that floods its pipe, can hang
+    /// the caller — and both of those were live defects in the first version.
+
+    func testAWellBehavedToolReturnsItsOutput() throws {
+        let runner = BoundedProcess(
+            executablePath: "/bin/echo",
+            arguments: ["impuls"],
+            timeout: 5,
+            maximumOutputBytes: 1024,
+            maximumErrorBytes: 1024
+        )
+
+        let output = try runner.run()
+
+        XCTAssertEqual(String(data: output, encoding: .utf8), "impuls\n")
+    }
+
+    func testAToolThatFailsIsAFailureAndNotAnEmptyAnswer() {
+        let runner = BoundedProcess(
+            executablePath: "/usr/bin/false",
+            arguments: [],
+            timeout: 5,
+            maximumOutputBytes: 1024,
+            maximumErrorBytes: 1024
+        )
+
+        XCTAssertThrowsError(try runner.run()) { error in
+            XCTAssertEqual(error as? MobileDeviceError, .transportUnavailable)
+        }
+    }
+
+    func testAToolThatDoesNotFinishIsKilledWithinItsDeadline() {
+        let runner = BoundedProcess(
+            executablePath: "/bin/sleep",
+            arguments: ["30"],
+            timeout: 0.3,
+            maximumOutputBytes: 1024,
+            maximumErrorBytes: 1024
+        )
+
+        let started = Date()
+        XCTAssertThrowsError(try runner.run()) { error in
+            XCTAssertEqual(error as? MobileDeviceError, .timedOut)
+        }
+        // The deadline is on the child's life, not on end-of-file arriving:
+        // `sleep` holds its stdout open and says nothing, which is exactly the
+        // shape that used to wait forever.
+        XCTAssertLessThan(Date().timeIntervalSince(started), 5, "the deadline did not apply to the process")
+    }
+
+    func testAToolThatFloodsItsPipeIsStoppedInsteadOfBlockingForever() {
+        let runner = BoundedProcess(
+            executablePath: "/usr/bin/yes",
+            arguments: ["impuls"],
+            timeout: 10,
+            maximumOutputBytes: 64 * 1024,
+            maximumErrorBytes: 1024
+        )
+
+        let started = Date()
+        XCTAssertThrowsError(try runner.run()) { error in
+            guard case .payloadTooLarge = error as? MobileDeviceError else {
+                return XCTFail("endless output must be refused as oversized")
+            }
+        }
+        // Well inside the 10 s deadline: passing the limit terminates the child
+        // immediately, and the reader keeps draining so the child can never
+        // block on a full pipe on its way out.
+        XCTAssertLessThan(Date().timeIntervalSince(started), 8, "oversized output was not stopped promptly")
+    }
+
+    func testAMissingToolIsUnavailableRatherThanACrash() {
+        let runner = BoundedProcess(
+            executablePath: "/usr/sbin/definitely-not-a-tool-on-this-mac",
+            arguments: [],
+            timeout: 1,
+            maximumOutputBytes: 1024,
+            maximumErrorBytes: 1024
+        )
+
+        XCTAssertThrowsError(try runner.run()) { error in
+            XCTAssertEqual(error as? MobileDeviceError, .transportUnavailable)
+        }
+    }
+
+    func testTheShippingConfigurationIsTheOneThatWasMeasured() {
+        let runner = BoundedProcess.systemProfiler()
+
+        XCTAssertEqual(runner.executablePath, "/usr/sbin/system_profiler")
+        XCTAssertEqual(runner.arguments, ["-json", "SPBluetoothDataType"])
+        XCTAssertFalse(runner.executablePath.contains("sh"), "no shell is involved at any point")
+        XCTAssertGreaterThan(runner.timeout, 0)
+    }
 }

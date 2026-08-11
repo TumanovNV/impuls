@@ -5,7 +5,12 @@ on:
     branches: [main]
     paths-ignore: ['**.md', 'docs/**']
   pull_request:
-    branches: [main]
+    # Release branches too, not only `main`. A release that is still on its own
+    # branch — as 1.4.5 is — collects the work for the next version as pull
+    # requests against itself, and those were running no checks at all.
+    branches:
+      - main
+      - 'release/**'
   workflow_dispatch:
 
 permissions:
