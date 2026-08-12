@@ -13,16 +13,20 @@ produced this work. Read this, then `APPLE_DEVICE_BATTERY_SUPPORT.md`, then
 | Base branch | `release/1.4.5` (**not** `main`) |
 | Phase 04.1 implementation HEAD | `8159b5b` |
 | Phase 05 implementation checkpoint | `c4fac61` |
+| Phase 06 baseline | `a4cc56a` — production USB/Wi-Fi implementation begins here |
 | `main` | `5672689` — Impuls 1.4.4 |
 | `release/1.4.5` | `efb3742` — 1.4.5, still unmerged into `main` |
 | `Scripts/version` | `VERSION=1.4.5` — **not yet bumped**; 1.4.6 is not a release |
-| Tests | 262, 0 failures (`swift test -c release`) |
+| Tests | 271, 0 failures (`swift test -c release`) |
 
-1.4.6 is unreleased. Phase 05 (UI, Settings, localization, accessibility) is
-implemented in the working tree and has passed automated review, but the visual,
-VoiceOver and remaining hardware QA below are still open. Do not merge PR #33
-until those checks are complete. The external-device path remains opt-in; with it
-off, the Mac battery and desktop Power layouts stay on the unchanged 1.4.5 path.
+1.4.6 is unreleased. Phase 05 (UI, Settings, localization, accessibility) and
+Phase 06 (iPhone battery over the system usbmuxd USB and Network routes) are
+implemented. Production Wi-Fi discovery, locked reads, USB preference, Wi-Fi
+fallback, identity, deduplication and lifecycle are hardware validated on one
+iPhone. Visual, VoiceOver and the remaining hardware QA below are still open.
+Do not merge PR #33 until those checks are complete. The external-device path
+remains opt-in; with it off, the Mac battery and desktop Power layouts stay on
+the unchanged 1.4.5 path.
 
 ### The 1.4.5 backup branch
 
@@ -141,10 +145,71 @@ Identity after reconnect      unchanged local opaque identity set
 Repeated Refresh Devices      no hang, duplicate or connection problem
 ```
 
-Provider status: **Experimental Beta — hardware validated**. This statement is
-for iPhone USB on one device and one iOS version. iPad remains untested, and
-this is not production support. The provider is still behind a flag that is off
-by default.
+Provider status: **Experimental Beta — hardware validated**. Live provider/UI
+QA covers iPhone USB and macOS Wi-Fi sync on one device and one iOS version.
+iPad remains untested, and this is not production support. The provider is still
+behind a flag that is off by default.
+
+### iPhone, iOS 26.5.2, over macOS Wi-Fi sync — Phase 06
+
+Experiment A, with Finder Wi-Fi sync enabled, showed that the system
+usbmuxd daemon publishes the same physical phone as separate USB and Network
+route entries. The numeric DeviceIDs differed, while the raw identifier matched.
+After the cable was removed, the Network route remained.
+
+Experiment B used that fresh Network descriptor with the existing production
+protocol components and the cable physically disconnected:
+
+```text
+ReadPairRecord              available
+Connect lockdownd (62078)   OK
+QueryType                   OK
+StartSession + pinned TLS   OK
+Battery read                100 %
+iPhone screen               100 %
+Charging / external power   false / false
+Total latency               0.257 s
+Open descriptors            3 → 3
+Open usbmuxd connections    0 after probe
+```
+
+Phase 06 production therefore accepts USB and Network descriptors from
+`ListDevices`, groups routes by the existing raw identifier, prefers USB, and
+falls back to Network when USB disappears. The snapshot keeps one opaque
+identity while its connection changes between USB and Wi-Fi. A persistent local
+usbmuxd `Listen` subscription drives add/remove/transport topology; battery
+polling stays at 60 s active / 15 min idle. The listener closes synchronously
+when the provider stops and reconnects with bounded back-off after daemon loss
+or sleep.
+
+Production hardware QA then proved all of the following without manual refresh:
+
+- physical USB absent → the iPhone appeared automatically over Wi-Fi with a
+  real battery reading;
+- the locked iPhone remained readable over Wi-Fi;
+- simultaneous USB and Network descriptors produced one card with the same
+  opaque identity, USB selected, and a real 97 % battery snapshot;
+- removing USB returned that same card to Wi-Fi automatically;
+- topology transitions left no duplicate, hanging task/socket, FD leak, retry
+  storm, raw transport error or UI flicker;
+- after rebooting the MacBook with USB physically absent, the iPhone and its
+  battery returned automatically over Wi-Fi.
+
+Finder's **Show this iPhone when on Wi-Fi** setting is a prerequisite. The user
+must enable and apply it; Impuls cannot read as available a route macOS does not
+publish, and it never enables or changes this system setting.
+
+One measured Wi-Fi OFF → ON sequence exposed system behavior below Impuls:
+Finder did not see the iPhone and usbmuxd did not republish a Network descriptor
+for the measured windows, even after unlock, external power and a USB attach.
+After **Show this iPhone when on Wi-Fi** was enabled and the iPhone rebooted, the
+system transport returned. This is not classified as a production-provider
+defect: there was no Network descriptor for Impuls to consume.
+
+Impuls performs no Bonjour discovery, LAN scan or direct TCP connection. It
+talks only to `/var/run/usbmuxd`; macOS may carry paired-device data over the
+local Wi-Fi network through its system synchronisation mechanism. No internet
+or cloud service is involved.
 
 No UDID, HostID, SystemBUID, certificate, private key or serial number appears
 in this document, in any log, in any error, or in any exported file — that is
@@ -156,7 +221,7 @@ Unit tests and fixtures prove parsing and lifecycle. They prove nothing about
 hardware. These remain open, and `docs/QA_APPLE_DEVICES_1.4.6.md` is the list of
 record:
 
-- iPad over USB;
+- iPad over USB or Wi-Fi sync;
 - Magic Mouse, Magic Keyboard, Magic Trackpad — the IORegistry path has **never**
   been exercised against real hardware;
 - other AirPods models;
@@ -164,7 +229,9 @@ record:
 - several external devices at once;
 - an untrusted iPhone and explicit trust denial;
 - one manual visual confirmation that abbreviated age never renders with a
-  negative sign after the clock-skew fix.
+  negative sign after the clock-skew fix;
+- Mac sleep/wake with the Wi-Fi iPhone visible. A full Mac reboot passed, but it
+  is not the same lifecycle event.
 
 ## Decisions already made
 
@@ -187,8 +254,11 @@ macOS then", not "the physical component was measured then".
 **Magic accessories.** The IORegistry path stays. Untested on hardware.
 
 **iPhone/iPad.** Impuls's own Swift implementation of
-`usbmuxd → lockdownd → StartSession → TLS → GetValue`. Not
-`MobileDevice.framework`, not libimobiledevice, no shell, no helper process.
+`usbmuxd → lockdownd → StartSession → TLS → GetValue`. The application talks
+only to the system daemon's local UNIX socket. usbmuxd supplies USB and Network
+routes; USB is preferred, Network is fallback, and both resolve to the same
+opaque identity. Not `MobileDevice.framework`, not libimobiledevice, no Bonjour,
+no direct TCP, no shell, no helper process.
 
 **TLS.** Secure Transport is used only inside `LockdownTLSChannel.swift`,
 because the protocol needs a TLS upgrade of a stream that already carries
@@ -217,7 +287,7 @@ the launch smoke test still shows zero network sockets.
 
 ## Test state
 
-262 tests, 0 failures. Groups:
+271 tests, 0 failures. Groups:
 
 | Group | What it covers |
 | --- | --- |
@@ -229,6 +299,7 @@ the launch smoke test still shows zero network sockets.
 | IORegistry fixtures | numeric widths, wrong types, `Int.max`, missing keys, future keys, non-Apple vendor, built-in transport |
 | `system_profiler` fixtures | current output shape, all three components, missing battery, malformed object, unknown fields, several devices, duplicates, out-of-range, explicit refresh without an internal cache |
 | usbmux framing | length below header, four-gigabyte length, zero length, truncated plist, non-dictionary payload |
+| mobile routing and topology | USB/Network descriptors, unknown transports, malformed IDs, USB preference, Network fallback, stable identity, Listen events, stopped listener and feature-gated lifecycle |
 | lockdown | error vocabulary, refused port, wrong service, session states |
 | PEM / PKCS#8 | valid material, malformed, mislabelled, truncated DER, oversized, mismatched key and certificate |
 | TLS | no session, `EnableSessionSSL` false and true, bounded handshake, nothing to pin against |
@@ -273,16 +344,17 @@ swift test -c release
 | Production-supported | This Mac's battery and power, unchanged from 1.4.5 |
 | Best effort, hardware validated | AirPods via `system_profiler` |
 | Best effort, not hardware tested | Magic Mouse, Keyboard, Trackpad via IORegistry |
-| Experimental Beta, hardware validated | iPhone over USB, behind a flag that is off |
-| Experimental Beta, not hardware tested | iPad over USB, behind a flag that is off |
+| Experimental Beta, hardware validated | iPhone over USB and macOS Wi-Fi sync, including locked reads and automatic transport handoff; behind a flag that is off |
+| Experimental Beta, not hardware tested | iPad over USB or Wi-Fi sync, behind a flag that is off |
 | Unavailable | Apple Watch, Vision Pro, Apple Pencil, AirTag, Siri Remote — no Mac-side path found |
 | Not applicable | HomePod, Apple TV, desktop Macs — no battery |
 
 # Remaining before merge
 
-Phase 05 implementation and automated tests are complete. Do not reopen phases
-01–04.1 without evidence, and do not merge PR #33 until the following manual
-review is recorded in `docs/QA_APPLE_DEVICES_1.4.6.md` where applicable:
+Phase 05 and Phase 06 implementation, automated tests and the recorded iPhone
+USB/Wi-Fi hardware QA are complete. Do not reopen phases 01–04.1 without
+evidence, and do not merge PR #33 until the following manual review is recorded
+in `docs/QA_APPLE_DEVICES_1.4.6.md` where applicable:
 
 - compare the unchanged local Mac and desktop Power layouts against 1.4.5;
 - inspect the multi-device layout with long names, missing components and stale

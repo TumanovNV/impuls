@@ -89,7 +89,7 @@ final class MobileDeviceProtocolTests: XCTestCase {
 
     // MARK: - Device listing
 
-    func testOnlyUSBDevicesAreListedAndWiFiOnesAreLeftForLater() throws {
+    func testUSBAndNetworkDescriptorsAreListed() throws {
         let peer = ScriptedPeer()
         peer.enqueueUsbmux([
             "DeviceList": [
@@ -98,30 +98,66 @@ final class MobileDeviceProtocolTests: XCTestCase {
             ],
         ])
 
-        let devices = try MobileDeviceClient(factory: peer).listUSBDevices()
+        let devices = try MobileDeviceClient(factory: peer).listDevices()
 
-        XCTAssertEqual(devices.count, 1)
-        XCTAssertEqual(devices.first?.deviceID, 3)
+        XCTAssertEqual(devices.count, 2)
+        XCTAssertEqual(devices[0], MobileDeviceDescriptor(deviceID: 3, rawIdentifier: "00008120-AAAA", connection: .usb))
+        XCTAssertEqual(devices[1], MobileDeviceDescriptor(deviceID: 4, rawIdentifier: "00008120-BBBB", connection: .network))
     }
 
     func testAMacWithNothingPluggedInIsAnEmptyListAndNotAFailure() throws {
         let peer = ScriptedPeer()
         peer.enqueueUsbmux(["DeviceList": []])
 
-        XCTAssertEqual(try MobileDeviceClient(factory: peer).listUSBDevices().count, 0)
+        XCTAssertEqual(try MobileDeviceClient(factory: peer).listDevices().count, 0)
     }
 
     func testAReplyWithoutADeviceListIsTreatedAsAProtocolViolation() {
         let peer = ScriptedPeer()
         peer.enqueueUsbmux(["MessageType": "Result", "Number": 1])
 
-        XCTAssertThrowsError(try MobileDeviceClient(factory: peer).listUSBDevices())
+        XCTAssertThrowsError(try MobileDeviceClient(factory: peer).listDevices())
     }
 
     func testEntriesWithoutAnIdentifierAreSkippedRatherThanGuessedAt() {
         XCTAssertNil(MobileDeviceClient.descriptor(from: ["DeviceID": 3, "Properties": ["ConnectionType": "USB"]]))
         XCTAssertNil(MobileDeviceClient.descriptor(from: ["Properties": ["ConnectionType": "USB", "SerialNumber": "x"]]))
         XCTAssertNil(MobileDeviceClient.descriptor(from: [:]))
+    }
+
+    func testUnknownConnectionAndMalformedDeviceIDsAreIgnored() {
+        XCTAssertNil(MobileDeviceClient.descriptor(from: [
+            "DeviceID": 3,
+            "Properties": ["ConnectionType": "Bluetooth", "SerialNumber": "x"],
+        ]))
+        for deviceID: Any in [0, -1, "3", Double.nan, Int64.max] {
+            XCTAssertNil(MobileDeviceClient.descriptor(from: [
+                "DeviceID": deviceID,
+                "Properties": ["ConnectionType": "Network", "SerialNumber": "x"],
+            ]))
+        }
+    }
+
+    func testOnlyAttachedAndDetachedMessagesAreTopologyChanges() {
+        XCTAssertTrue(MobileDeviceTopologyMonitor.isTopologyChange(["MessageType": "Attached"]))
+        XCTAssertTrue(MobileDeviceTopologyMonitor.isTopologyChange(["MessageType": "Detached"]))
+        XCTAssertFalse(MobileDeviceTopologyMonitor.isTopologyChange(["MessageType": "Result"]))
+        XCTAssertFalse(MobileDeviceTopologyMonitor.isTopologyChange(["MessageType": "Paired"]))
+        XCTAssertFalse(MobileDeviceTopologyMonitor.isTopologyChange([:]))
+    }
+
+    func testTopologyMonitorSubscribesAndClosesAfterAnAttachedEvent() async {
+        let peer = ScriptedPeer()
+        peer.enqueueUsbmux(["MessageType": "Result", "Number": 0])
+        peer.enqueueUsbmux(["MessageType": "Attached", "DeviceID": 7])
+        let monitor = MobileDeviceTopologyMonitor(factory: peer, timeout: 0.05)
+        let changed = expectation(description: "topology changed")
+
+        monitor.start { changed.fulfill() }
+        await fulfillment(of: [changed], timeout: 2)
+        monitor.stop()
+
+        XCTAssertEqual(peer.openChannels, 0)
     }
 
     // MARK: - Trust
@@ -353,7 +389,7 @@ final class MobileDeviceProtocolTests: XCTestCase {
         let peer = ScriptedPeer()
         peer.enqueueRawThenClose(Data([1, 2, 3]))
 
-        XCTAssertThrowsError(try MobileDeviceClient(factory: peer).listUSBDevices()) { error in
+        XCTAssertThrowsError(try MobileDeviceClient(factory: peer).listDevices()) { error in
             XCTAssertEqual(error as? MobileDeviceError, .deviceDisconnected)
         }
     }
@@ -362,7 +398,7 @@ final class MobileDeviceProtocolTests: XCTestCase {
         let peer = ScriptedPeer()
         peer.silent = true
 
-        XCTAssertThrowsError(try MobileDeviceClient(factory: peer, timeout: 0.05).listUSBDevices()) { error in
+        XCTAssertThrowsError(try MobileDeviceClient(factory: peer, timeout: 0.05).listDevices()) { error in
             XCTAssertEqual(error as? MobileDeviceError, .timedOut)
         }
     }
@@ -371,7 +407,7 @@ final class MobileDeviceProtocolTests: XCTestCase {
         let peer = ScriptedPeer()
         peer.silent = true
 
-        _ = try? MobileDeviceClient(factory: peer, timeout: 0.05).listUSBDevices()
+        _ = try? MobileDeviceClient(factory: peer, timeout: 0.05).listDevices()
 
         XCTAssertEqual(peer.openChannels, 0, "a failed read must not leak a file descriptor")
         XCTAssertEqual(peer.createdChannels, 1)
@@ -394,7 +430,7 @@ final class MobileDeviceProtocolTests: XCTestCase {
             throw XCTSkip("this Mac has no usbmuxd socket")
         }
 
-        let devices = try MobileDeviceClient().listUSBDevices()
+        let devices = try MobileDeviceClient().listDevices()
 
         for device in devices {
             XCTAssertGreaterThan(device.deviceID, 0)
@@ -410,17 +446,17 @@ final class MobileDeviceProtocolTests: XCTestCase {
     /// name, never anything from a pair record. This is the test that decides
     /// whether the provider is viable, and it is deliberately part of the suite
     /// rather than a script that gets lost.
-    func testHardwareProbeOfTheFullUSBSequence() throws {
+    func testHardwareProbeOfTheFullMobileDeviceSequence() throws {
         guard FileManager.default.fileExists(atPath: UnixSocketChannelFactory.usbmuxdPath) else {
             throw XCTSkip("this Mac has no usbmuxd socket")
         }
         let client = MobileDeviceClient()
-        let devices = try client.listUSBDevices()
-        guard let device = devices.first else {
-            throw XCTSkip("no iPhone or iPad attached over USB")
+        let devices = try client.listDevices()
+        guard let device = MobileDeviceBatterySource.routesByDevice(devices).first?.first else {
+            throw XCTSkip("no iPhone or iPad reachable through usbmuxd")
         }
 
-        print("PROBE ListDevices          OK — \(devices.count) USB device(s)")
+        print("PROBE ListDevices          OK — \(devices.count) route(s)")
 
         let trusted = try client.isTrusted(device)
         print("PROBE ReadPairRecord       \(trusted ? "OK — this Mac is trusted" : "NO PAIR RECORD — not trusted")")
@@ -451,8 +487,9 @@ final class MobileDeviceProtocolTests: XCTestCase {
             throw XCTSkip("this Mac has no usbmuxd socket")
         }
         let client = MobileDeviceClient()
-        guard let device = try client.listUSBDevices().first, try client.isTrusted(device) else {
-            throw XCTSkip("no trusted iPhone or iPad attached over USB")
+        guard let device = MobileDeviceBatterySource.routesByDevice(try client.listDevices()).first?.first,
+              try client.isTrusted(device) else {
+            throw XCTSkip("no trusted iPhone or iPad reachable through usbmuxd")
         }
 
         let before = Self.openDescriptorCount()
@@ -495,15 +532,15 @@ final class MobileDeviceProtocolTests: XCTestCase {
             print("PROBE snapshot read ended as: \(error)")
             throw XCTSkip("no readable device attached")
         }
-        guard let device = devices.first else { throw XCTSkip("no device attached over USB") }
+        guard let device = devices.first else { throw XCTSkip("no device reachable through usbmuxd") }
 
-        print("PROBE \(device.kind.rawValue) \"\(device.displayName)\" \(device.headlinePercentage.map { "\($0)%" } ?? "no charge")")
+        print("PROBE kind=\(device.kind.rawValue) name present=\(!device.displayName.isEmpty) \(device.headlinePercentage.map { "\($0)%" } ?? "no charge")")
         print("PROBE   charging=\(device.components.first?.chargingState.map(\.rawValue) ?? "nil") externalPower=\(device.externalPower.rawValue)")
         print("PROBE   connection=\(device.connection.rawValue) source=\(device.source.rawValue)")
 
         XCTAssertTrue(device.hasBatteryReading)
-        XCTAssertEqual(device.connection, .usb)
-        XCTAssertEqual(device.source, .mobileUSB)
+        XCTAssertTrue(device.connection == .usb || device.connection == .wifi)
+        XCTAssertEqual(device.source, device.connection == .usb ? .mobileUSB : .mobileWiFi)
     }
 
     private static func openDescriptorCount() -> Int {
@@ -516,6 +553,59 @@ final class MobileDeviceProtocolTests: XCTestCase {
     }
 
     // MARK: - Snapshot mapping
+
+    func testRoutesForOnePhysicalDevicePreferUSBAndKeepNetworkAsFallback() {
+        let routes = MobileDeviceBatterySource.routesByDevice([
+            MobileDeviceDescriptor(deviceID: 9, rawIdentifier: "same", connection: .network),
+            MobileDeviceDescriptor(deviceID: 10, rawIdentifier: "same", connection: .usb),
+            MobileDeviceDescriptor(deviceID: 12, rawIdentifier: "other", connection: .network),
+        ])
+
+        XCTAssertEqual(routes.count, 2)
+        XCTAssertEqual(routes[0].map(\.connection), [.usb, .network])
+        XCTAssertEqual(routes[0].map(\.deviceID), [10, 9])
+        XCTAssertEqual(routes[1].map(\.deviceID), [12])
+    }
+
+    func testDuplicateTransportEntryDoesNotCreateADuplicateRoute() {
+        let network = MobileDeviceDescriptor(deviceID: 9, rawIdentifier: "same", connection: .network)
+        XCTAssertEqual(MobileDeviceBatterySource.routesByDevice([network, network]), [[network]])
+    }
+
+    func testUSBConnectFailureFallsBackToNetworkWithoutCreatingADuplicate() async throws {
+        let peer = ScriptedPeer()
+        peer.enqueueUsbmux([
+            "DeviceList": [
+                ["DeviceID": 10, "Properties": ["ConnectionType": "USB", "SerialNumber": "same"]],
+                ["DeviceID": 9, "Properties": ["ConnectionType": "Network", "SerialNumber": "same"]],
+            ],
+        ])
+        peer.enqueuePairRecord() // trust check shared by both routes
+        peer.enqueueUsbmux(["MessageType": "Result", "Number": 3]) // USB disappeared before Connect
+        peer.enqueueUsbmux(["MessageType": "Result", "Number": 0]) // Network route connects
+        peer.enqueueLockdown(["Type": "com.apple.mobile.lockdown"])
+        peer.enqueueSessionWithoutTLS()
+        peer.enqueueLockdown(["Value": 73])
+        peer.enqueueLockdown(["Value": false])
+        peer.enqueueLockdown(["Value": false])
+        peer.enqueueLockdown(["Value": "iPhone"])
+        peer.enqueueLockdown(["Value": "iPhone16,1"])
+        let source = MobileDeviceBatterySource(
+            client: MobileDeviceClient(factory: peer),
+            resolver: DeviceIdentityResolver(
+                service: "io.tumanov.impuls.tests.device-identity",
+                account: "unit-test-fallback"
+            )
+        )
+
+        let snapshots = try await source.read()
+
+        XCTAssertEqual(snapshots.count, 1)
+        XCTAssertEqual(snapshots.first?.headlinePercentage, 73)
+        XCTAssertEqual(snapshots.first?.connection, .wifi)
+        XCTAssertEqual(snapshots.first?.source, .mobileWiFi)
+        XCTAssertEqual(peer.openChannels, 0)
+    }
 
     func testAReadingBecomesADeviceOnlyWhenItHasACharge() {
         let resolver = DeviceIdentityResolver(
@@ -555,6 +645,51 @@ final class MobileDeviceProtocolTests: XCTestCase {
             resolver: resolver
         )
         XCTAssertNil(withoutCharge, "a phone we know nothing about is not a card")
+    }
+
+    func testNetworkReadingBecomesOneWiFiSnapshotWithMobileWiFiSource() {
+        let resolver = DeviceIdentityResolver(
+            service: "io.tumanov.impuls.tests.device-identity",
+            account: "unit-test-network"
+        )
+        let snapshot = MobileDeviceBatterySource.snapshot(
+            from: MobileDeviceBatteryReading(
+                percentage: 100,
+                isCharging: false,
+                externallyConnected: false,
+                deviceName: "iPhone",
+                productType: "iPhone16,1"
+            ),
+            device: MobileDeviceDescriptor(
+                deviceID: 9,
+                rawIdentifier: "same",
+                connection: .network
+            ),
+            now: Fixtures.noon,
+            resolver: resolver
+        )
+
+        XCTAssertEqual(snapshot?.connection, .wifi)
+        XCTAssertEqual(snapshot?.source, .mobileWiFi)
+        XCTAssertEqual(snapshot?.components.first?.chargingState, .notCharging)
+
+        let usbSnapshot = MobileDeviceBatterySource.snapshot(
+            from: MobileDeviceBatteryReading(
+                percentage: 100,
+                isCharging: false,
+                externallyConnected: true,
+                deviceName: "iPhone",
+                productType: "iPhone16,1"
+            ),
+            device: MobileDeviceDescriptor(
+                deviceID: 10,
+                rawIdentifier: "same",
+                connection: .usb
+            ),
+            now: Fixtures.noon,
+            resolver: resolver
+        )
+        XCTAssertEqual(snapshot?.identity, usbSnapshot?.identity)
     }
 
     func testTheDeviceIdentifierIsNowhereInTheResultingSnapshot() {
@@ -605,6 +740,19 @@ final class MobileDeviceProtocolTests: XCTestCase {
         XCTAssertEqual(state(charging: true, external: true), .charging)
         XCTAssertEqual(state(charging: false, external: true), .notCharging)
         XCTAssertEqual(state(charging: false, external: false), .discharging)
+        XCTAssertEqual(
+            MobileDeviceBatterySource.chargingState(
+                from: MobileDeviceBatteryReading(
+                    percentage: 50,
+                    isCharging: false,
+                    externallyConnected: false,
+                    deviceName: nil,
+                    productType: nil
+                ),
+                connection: .network
+            ),
+            .notCharging
+        )
         XCTAssertNil(state(charging: nil, external: true))
         XCTAssertNil(state(charging: false, external: nil))
     }

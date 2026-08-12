@@ -88,14 +88,19 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
   call is made directly, with a fixed argument list and no shell, and its output
   is read, parsed and discarded on this Mac;
 - an experimental, separately gated provider can read the battery of an iPhone
-  or iPad connected by cable and already trusted by this Mac. It talks to the
-  local `usbmuxd` socket — no network is involved — and asks the device for a
-  battery percentage, a charging flag, a name and a model identifier, and for
-  nothing else. It does not pair, does not alter the existing pairing, installs
-  nothing, and never requests contacts, photos, messages, installed apps,
-  backups, the phone number, the IMEI or the Apple ID. The pairing certificates
-  it uses to open the required secure session are read, used in memory, and
-  never stored by Impuls, written to a keychain, or written to disk;
+  or iPad already trusted by this Mac, over USB or the device-sync route macOS
+  exposes when the user enables **Show this iPhone when on Wi-Fi** in Finder.
+  Impuls does not enable or change that macOS setting. It talks only to the local
+  `/var/run/usbmuxd` UNIX socket: it performs no LAN scan, resolves no Bonjour
+  service and opens no direct TCP connection. For a paired iPhone, macOS may
+  transmit device data over the local Wi-Fi network through its system device
+  synchronisation mechanism. No internet or cloud service is involved. Impuls
+  asks the device only for a battery percentage, charging and external-power
+  flags, a name and a model identifier. It does not pair, alter the existing
+  pairing, install anything, or request contacts, photos, messages, installed
+  apps, backups, the phone number, the IMEI or the Apple ID. The pairing
+  certificates used for the required secure session are read, used in memory,
+  and never stored by Impuls, written to a keychain, or written to disk;
 - device identifiers — UDID, serial numbers, Bluetooth addresses — are used only
   where the protocol requires them and are never shown in the interface, written
   to logs, added to a feedback report or included in an exported backup. What

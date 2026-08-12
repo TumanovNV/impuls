@@ -69,15 +69,21 @@ SystemProfilerAccessoryParser.swift  The JSON, and AppleAccessoryNaming shared w
                                      registry mapper.
 ```
 
-## iPhone and iPad over USB — experimental
+## iPhone and iPad over USB and macOS Wi-Fi sync — experimental
 
 ```text
 MobileDeviceTransport.swift       UNIX socket to /var/run/usbmuxd, both framings, bounded
                                   lengths, per-call timeouts, error vocabulary.
-MobileDeviceClient.swift          The sequence: ListDevices → pair record → Connect →
-                                  QueryType → StartSession (+TLS) → GetValue.
+MobileDeviceClient.swift          USB/Network descriptors and the sequence: ListDevices →
+                                  pair record → Connect → QueryType → StartSession (+TLS)
+                                  → GetValue. Unknown transports are ignored.
 MobileDeviceBatteryProvider.swift The provider, the flag that keeps it off, and
-                                  MobileDeviceBatterySource that maps readings to devices.
+                                  MobileDeviceBatterySource. Groups USB and Network routes
+                                  by raw identifier, prefers USB, falls back to Network, and
+                                  maps the chosen route to one opaque-identity snapshot.
+MobileDeviceTopologyMonitor.swift A local usbmuxd Listen subscription for Attached/Detached
+                                  events, bounded reconnect back-off and synchronous close
+                                  on stop. Topology is fast; battery polling stays sparse.
 LockdownPairRecord.swift          Pair record parsing, PEM, PKCS#8 unwrapping, a bounded
                                   DER reader, and the in-memory SecIdentity.
 LockdownTLSChannel.swift          The only file that knows Secure Transport exists.
@@ -113,7 +119,10 @@ Tests/ImpulsTests/IORegistryAccessoryTests.swift    Registry fixtures, provider 
 Tests/ImpulsTests/LockdownPairRecordTests.swift     PEM, PKCS#8, DER, identity, privacy.
                                                     Certificate and keys are throwaway.
 Tests/ImpulsTests/MobileDeviceProtocolTests.swift   Framing, hostile peers, session and TLS
-                                                    states, and three hardware probes.
+                                                    states, USB/Network parsing, routing,
+                                                    topology events and hardware probes.
+Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift  Feature-gate and topology-driven
+                                                          provider lifecycle.
 Tests/ImpulsTests/PowerMonitorTests.swift           The 1.4.5 suite, untouched.
 Tests/ImpulsTests/SettingsStoreTests.swift           External opt-in and local-only device
                                                      presentation preference privacy.

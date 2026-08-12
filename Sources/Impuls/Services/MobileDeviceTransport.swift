@@ -11,8 +11,10 @@ import Foundation
 /// to the `usbmuxd` daemon macOS already runs.
 ///
 /// That daemon's socket is a local UNIX socket — `/var/run/usbmuxd`, world
-/// readable and writable, no root, no entitlement, no network. Nothing here
-/// opens a TCP connection, and the module's network boundary is untouched.
+/// readable and writable, no root and no entitlement. Impuls itself opens no
+/// TCP connection and performs no LAN discovery. For a paired device with
+/// Finder Wi-Fi sync enabled, macOS may route this same local protocol exchange
+/// over the local Wi-Fi network; discovery and routing remain system-owned.
 ///
 /// Everything in this file is deliberately outside the main actor.
 

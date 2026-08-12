@@ -21,8 +21,7 @@ protocol DeviceBatterySource: Sendable {
 enum DeviceProviderIdentifier: String, Equatable, Hashable, Sendable, CaseIterable {
     case localMac
     case appleAccessory
-    case mobileUSB
-    case mobileWiFi
+    case mobileDevice
 }
 
 /// What a provider is doing, in terms the interface can explain to a person.

@@ -7,12 +7,14 @@ CI can build the code and run the fixtures; it cannot connect an iPhone or put
 AirPods in a case. A box is ticked only by someone who saw the result on the
 device named in the row, and the date and macOS version go in the notes column.
 
-**Status: twenty-four rows verified and two limitations or UI issues reproduced on
+**Status: thirty-three rows verified and three limitations or UI issues reproduced on
 11–12 August 2026.** The AirPods registry question came back negative and the
 `system_profiler` fallback that replaced it came back positive, but the public
 macOS report can retain a bud that is already back in its case; the iPhone USB
-path was refused without a session and then worked through one. Everything else
-is still untested.
+path was refused without a session and then worked through one. The same trusted
+iPhone was then discovered and read over macOS Wi-Fi sync with the USB cable
+physically disconnected. Its production Wi-Fi discovery, locked read, USB/Wi-Fi
+handoff, deduplication, identity and lifecycle paths are hardware validated.
 
 Legend: `[ ]` not tested · `[x]` verified on hardware · `[—]` not applicable to
 this configuration · `[!]` tested and failed, see notes.
@@ -105,13 +107,22 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 | 5.14 | **The deciding measurement:** with a trusted iPhone connected, does `GetValue` in the battery domain return a value or an error? | `[x]` | 11 Aug 2026, iOS 26.5.2: **`Error = GetProhibited`**. `StartSession` then succeeded and returned `EnableSessionSSL = true`. `DeviceName` and `ProductType` are readable without a session; the battery domain is not |
 | 5.15 | With the flag off (the shipping default), no socket is ever opened to `/var/run/usbmuxd` | `[x]` | 11 Aug 2026, macOS 15, ad-hoc release bundle: `lsof -U` showed no usbmuxd connection over a 10 s run. Verified without hardware because it is about what Impuls does *not* do |
 
-## 6. Wi-Fi — future, not a 1.4.6 blocker
+## 6. iPhone over macOS Wi-Fi sync — Beta
 
 | # | Case | Result | Notes |
 | --- | --- | --- | --- |
-| 6.1 | iPhone reachable over Wi-Fi sync after USB pairing | `[ ]` | |
-| 6.2 | Device disappears from Wi-Fi: last value marked with its age | `[ ]` | |
-| 6.3 | Network changed or Wi-Fi off: no alert storm | `[ ]` | |
+| 6.1 | System usbmuxd publishes the same paired iPhone as Network after USB is removed | `[x]` | 12 Aug 2026, Experiment A: with USB connected, `ListDevices` contained distinct transient USB and Network route handles for the same raw identifier. After the cable was removed, only the Network route remained. No identifier or network property was printed |
+| 6.2 | Existing authenticated lockdown/TLS stack reads battery through the Network descriptor | `[x]` | 12 Aug 2026, Experiment B, cable physically disconnected: pair record available; Connect 62078, QueryType, StartSession, pinned TLS and battery GetValue all succeeded through `/var/run/usbmuxd`. Total probe latency 0.257 s; FD 3 → 3; zero usbmuxd connections remained after the request |
+| 6.3 | Wi-Fi battery matches the iPhone screen | `[x]` | 12 Aug 2026, Experiment B: diagnostic probe returned 100 % and the physical iPhone screen showed 100 % |
+| 6.4 | Production provider discovers the unlocked iPhone automatically with USB absent | `[x]` | 12 Aug 2026: the iPhone appeared automatically with a real battery reading, one Wi-Fi card and no manual refresh. **Prerequisite:** the user had enabled **Show this iPhone when on Wi-Fi** in Finder; Impuls cannot enable or change this macOS setting |
+| 6.5 | Locked iPhone remains readable over Wi-Fi | `[x]` | 12 Aug 2026: with USB physically absent, locking the iPhone did not interrupt the correct battery reading |
+| 6.6 | Wi-Fi disabled on the iPhone: card leaves or becomes unavailable, no hang, leak or retry storm | `[x]` | 12 Aug 2026: system usbmuxd removed the Network route; the iPhone stopped being current, UI and process stayed responsive, one topology socket remained, FD returned to baseline and no transport error or retry storm reached the UI |
+| 6.7 | Wi-Fi enabled again: same iPhone returns automatically without restarting Impuls | `[!]` | 12 Aug 2026: in one Wi-Fi OFF → ON sequence, macOS usbmuxd did not republish a Network descriptor and Finder also did not see the phone. Unlock, external power and a USB attach did not reseed it during the measured windows. After the user enabled **Show this iPhone when on Wi-Fi** in Finder and rebooted the iPhone, the system transport returned. This is recorded as system behavior below Impuls, not as a production-provider defect |
+| 6.8 | USB connected while the Wi-Fi iPhone is visible: one card remains and transport becomes USB | `[x]` | 12 Aug 2026: usbmuxd published USB and Network entries for the same physical identifier; Impuls kept one card, the same opaque identity and selected USB automatically. `Attached/USB` → USB descriptor was about 21 ms; battery remained real at 97 %, with no flicker or error |
+| 6.9 | USB removed again: the same card returns to Wi-Fi with the same opaque identity | `[x]` | 12 Aug 2026: automatic USB → Wi-Fi fallback passed without manual refresh; one card remained, identity was stable, and no duplicate or raw transport error appeared |
+| 6.10 | Mac reboot with USB physically absent: the Wi-Fi iPhone and battery return automatically | `[x]` | 12 Aug 2026: after rebooting the MacBook, the iPhone was rediscovered over Wi-Fi and its battery was read without attaching USB or manually refreshing Impuls |
+| 6.11 | Mac sleep/wake: topology listener and battery reads recover without restart | `[ ]` | Not covered by the reboot result; sleep/wake remains a separate test |
+| 6.12 | Repeated topology changes leave no duplicate device, task, socket or FD leak | `[x]` | 12 Aug 2026: Wi-Fi loss, USB/Wi-Fi handoffs and repeated observations left one card and one persistent topology socket. Transient usbmuxd sessions closed after reads; FD returned to baseline and no retry storm occurred |
 
 ## 7. Devices with no Mac-side path
 
@@ -161,7 +172,7 @@ them.
 | 10.2 | No identifier in ordinary logs | `[ ]` | |
 | 10.3 | Feedback report contains no device identifier and no device battery data | `[ ]` | |
 | 10.4 | Exported backup contains no identifier, no last-seen time and no battery history | `[ ]` | |
-| 10.5 | No network connection is created by any of this | `[ ]` | |
+| 10.5 | Impuls performs no LAN scan or direct TCP connection; Wi-Fi routing is owned by macOS usbmuxd | `[ ]` | The protocol path is the local UNIX socket `/var/run/usbmuxd`. For a paired iPhone, macOS may carry device data over the local Wi-Fi network through its system device-sync mechanism; no internet or cloud service is involved |
 
 ## 11. Interface and accessibility
 

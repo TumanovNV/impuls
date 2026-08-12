@@ -61,7 +61,7 @@ struct AppleDeviceSettingsPane: View {
 
             if MobileDeviceBatteryProvider.isEnabled {
                 Section(localized("Beta")) {
-                    Text(localized("iPhone and iPad battery support is experimental. It uses an existing USB trust relationship and never pairs or changes the device."))
+                    Text(localized("iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device."))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -92,8 +92,8 @@ struct AppleDeviceSettingsPane: View {
     private var relevantDiagnostics: [DeviceProviderDiagnostic] {
         settings.appleDeviceDiagnostics.filter { diagnostic in
             switch diagnostic.provider {
-            case .localMac, .mobileWiFi: return false
-            case .mobileUSB: return MobileDeviceBatteryProvider.isEnabled
+            case .localMac: return false
+            case .mobileDevice: return MobileDeviceBatteryProvider.isEnabled
             case .appleAccessory: return true
             }
         }

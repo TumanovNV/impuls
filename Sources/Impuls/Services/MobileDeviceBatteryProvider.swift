@@ -1,6 +1,8 @@
+import AppKit
 import Foundation
 
-/// iPhone and iPad batteries over USB — experimental, and off by default.
+/// iPhone and iPad batteries over USB or macOS Wi-Fi sync — experimental, and
+/// off by default.
 ///
 /// Everything about this provider is deliberately quarantined. The protocol it
 /// speaks is Apple's own and undocumented; writing the client ourselves keeps
@@ -10,67 +12,93 @@ import Foundation
 /// battery, not the accessories, not any other module.
 ///
 /// It does not run unless someone asks for it twice: the user has to turn on
-/// Apple devices, and the flag below has to be set. Until hardware validation
-/// exists, that flag stays off, and the capability document says so.
+/// Apple devices, and the flag below has to be set. Hardware validation on one
+/// phone is not a broad support promise, so the flag stays off by default.
 @MainActor
 final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
     /// Off unless explicitly enabled, and not exposed in Settings yet.
     ///
-    /// Shipping a switch for something that has never been proven against a
-    /// real phone would be promising a feature; this is how it gets tested on
-    /// hardware without promising anything.
+    /// Shipping a public switch after proving one phone would overstate the
+    /// support surface; this is how the Beta path is tested without promising
+    /// every iPhone, iPad and iOS release.
     static var isEnabled: Bool {
         ProcessInfo.processInfo.environment["IMPULS_MOBILE_DEVICE_BATTERY"] == "1"
             || UserDefaults.standard.bool(forKey: "experimentalMobileDeviceBattery")
     }
 
-    let identifier = DeviceProviderIdentifier.mobileUSB
+    let identifier = DeviceProviderIdentifier.mobileDevice
 
-    /// A phone's charge moves slowly and a USB conversation is not free, so it
-    /// is asked rarely. Connection and disconnection are not observed here:
-    /// usbmuxd can report them, and that is a natural improvement once the read
-    /// itself is proven to work on hardware.
+    /// Battery cadence stays sparse. Topology is a separate usbmuxd Listen
+    /// subscription, so appearing, disappearing and USB/Wi-Fi transitions do
+    /// not wait for this timer and do not make us ask for charge every second.
     let refreshBehavior = DeviceRefreshBehavior.polled(activeInterval: 60, idleInterval: 900)
 
     private(set) var status: DeviceProviderStatus = .disabled
 
     private let source: DeviceBatterySource
+    private let topologyMonitor: MobileDeviceTopologyMonitoring
+    private let featureEnabled: () -> Bool
     private var onUpdate: ((DeviceProviderUpdate) -> Void)?
     private var readTask: Task<Void, Never>?
+    private var refreshPending = false
+    private var wakeObserver: NSObjectProtocol?
     private var lastDevices: [AppleDeviceSnapshot] = []
 
-    init(source: DeviceBatterySource = MobileDeviceBatterySource()) {
+    init(
+        source: DeviceBatterySource = MobileDeviceBatterySource(),
+        topologyMonitor: MobileDeviceTopologyMonitoring = MobileDeviceTopologyMonitor(),
+        featureEnabled: (() -> Bool)? = nil
+    ) {
         self.source = source
+        self.topologyMonitor = topologyMonitor
+        self.featureEnabled = featureEnabled ?? { MobileDeviceBatteryProvider.isEnabled }
     }
 
     func start(onUpdate: @escaping (DeviceProviderUpdate) -> Void) {
         guard status == .disabled else { return }
         self.onUpdate = onUpdate
-        guard Self.isEnabled else {
+        guard featureEnabled() else {
             // Started but inert: the coordinator gets one honest status and no
             // socket is ever opened.
             status = .unavailable
-            DevicePowerLog.note("provider mobileUSB is behind a disabled flag")
+            DevicePowerLog.note("provider mobileDevice is behind a disabled flag")
             onUpdate(DeviceProviderUpdate(identifier: identifier, status: .unavailable, devices: []))
             return
         }
         status = .starting
-        DevicePowerLog.note("provider mobileUSB started")
+        topologyMonitor.start { [weak self] in
+            Task { @MainActor in self?.refresh() }
+        }
+        observeWake()
+        DevicePowerLog.note("provider mobileDevice started")
         refresh()
     }
 
     func stop() {
+        topologyMonitor.stop()
         readTask?.cancel()
         readTask = nil
+        refreshPending = false
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
+        }
         onUpdate = nil
         lastDevices = []
         status = .disabled
-        DevicePowerLog.note("provider mobileUSB stopped")
+        DevicePowerLog.note("provider mobileDevice stopped")
     }
 
     func refresh() {
-        guard status != .disabled, status != .unavailable || Self.isEnabled else { return }
-        guard Self.isEnabled, readTask == nil else { return }
+        guard status != .disabled, status != .unavailable || featureEnabled() else { return }
+        guard featureEnabled() else { return }
+        guard readTask == nil else {
+            // A topology event, wake and manual refresh may coincide. One
+            // follow-up read preserves the newest topology without starting
+            // duplicate lockdown sessions.
+            refreshPending = true
+            return
+        }
 
         readTask = Task { [weak self] in
             guard let self else { return }
@@ -92,6 +120,7 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
         status = .ready
         DevicePowerLog.note("mobile read returned \(devices.count) device(s)")
         onUpdate?(DeviceProviderUpdate(identifier: identifier, status: .ready, devices: devices))
+        performPendingRefreshIfNeeded()
     }
 
     /// Trust is not a failure, it is an instruction.
@@ -124,6 +153,24 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
                 devices: status == .temporarilyFailed ? lastDevices : []
             )
         )
+        performPendingRefreshIfNeeded()
+    }
+
+    private func performPendingRefreshIfNeeded() {
+        guard refreshPending else { return }
+        refreshPending = false
+        refresh()
+    }
+
+    private func observeWake() {
+        guard wakeObserver == nil else { return }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
+        }
     }
 }
 
@@ -149,41 +196,80 @@ struct MobileDeviceBatterySource: DeviceBatterySource {
     }
 
     func read() async throws -> [AppleDeviceSnapshot] {
-        let devices = try client.listUSBDevices()
+        let devices = try client.listDevices()
         guard !devices.isEmpty else { return [] }
+        let routes = Self.routesByDevice(devices)
 
         let now = clock.now
         var snapshots: [AppleDeviceSnapshot] = []
         var pendingTrust: Error?
 
-        for device in devices {
+        for deviceRoutes in routes {
             try Task.checkCancellation()
             // A device that has never been trusted cannot be read at all, and
             // asking anyway produces the pairing dialog on the phone — which is
             // a prompt the user did not ask this Mac to raise.
-            guard try client.isTrusted(device) else {
+            guard let firstRoute = deviceRoutes.first,
+                  try client.isTrusted(firstRoute) else {
                 pendingTrust = MobileDeviceError.notTrusted
                 continue
             }
-            do {
-                let reading = try client.batteryReading(for: device)
-                guard let snapshot = Self.snapshot(
-                    from: reading,
-                    device: device,
-                    now: now,
-                    resolver: resolver
-                ) else { continue }
-                snapshots.append(snapshot)
-            } catch let error as MobileDeviceError {
-                // One unhappy phone does not spoil the list. If it is the only
-                // one, its state is what the provider reports.
-                if devices.count == 1 { throw error }
-                pendingTrust = pendingTrust ?? error
+
+            var routeFailure: MobileDeviceError?
+            for device in deviceRoutes {
+                do {
+                    let reading = try client.batteryReading(for: device)
+                    guard let snapshot = Self.snapshot(
+                        from: reading,
+                        device: device,
+                        now: now,
+                        resolver: resolver
+                    ) else { continue }
+                    snapshots.append(snapshot)
+                    routeFailure = nil
+                    break
+                } catch let error as MobileDeviceError {
+                    // The cable can disappear between ListDevices and Connect.
+                    // If macOS advertised the same phone over Network too, try
+                    // that route before turning a harmless transition into an
+                    // unavailable card.
+                    routeFailure = error
+                }
+            }
+
+            if let routeFailure {
+                // One unhappy physical phone does not spoil the list. Multiple
+                // transport entries for it still count as one device.
+                if routes.count == 1 { throw routeFailure }
+                pendingTrust = pendingTrust ?? routeFailure
             }
         }
 
         if snapshots.isEmpty, let pendingTrust { throw pendingTrust }
         return snapshots
+    }
+
+    /// One physical device, one ordered route list. The stable raw identifier
+    /// is used only inside this transport boundary; the transient numeric IDs
+    /// are routes, and USB wins while both routes are present.
+    static func routesByDevice(_ devices: [MobileDeviceDescriptor]) -> [[MobileDeviceDescriptor]] {
+        var order: [String] = []
+        var grouped: [String: [MobileDeviceDescriptor]] = [:]
+        for device in devices {
+            if grouped[device.rawIdentifier] == nil {
+                order.append(device.rawIdentifier)
+                grouped[device.rawIdentifier] = []
+            }
+            if !(grouped[device.rawIdentifier]?.contains(device) ?? false) {
+                grouped[device.rawIdentifier, default: []].append(device)
+            }
+        }
+        return order.compactMap { identifier in
+            grouped[identifier]?.sorted { lhs, rhs in
+                if lhs.connection != rhs.connection { return lhs.connection == .usb }
+                return lhs.deviceID < rhs.deviceID
+            }
+        }
     }
 
     /// No percentage, no device. A phone that answered without a battery value
@@ -204,7 +290,7 @@ struct MobileDeviceBatterySource: DeviceBatterySource {
         let component = AppleDeviceNormalizer.component(
             kind: .primary,
             percentage: reading.percentage,
-            chargingState: chargingState(from: reading),
+            chargingState: chargingState(from: reading, connection: device.connection),
             lastUpdated: now
         )
         guard let component else { return nil }
@@ -216,13 +302,13 @@ struct MobileDeviceBatterySource: DeviceBatterySource {
                 reading.deviceName,
                 fallback: kind == .iPad ? "iPad" : "iPhone"
             ),
-            connection: .usb,
+            connection: device.connection.snapshotConnection,
             availability: .connected,
             externalPower: reading.externallyConnected.map { $0 ? .connected : .disconnected } ?? .unknown,
             components: [component],
             lastSeen: now,
             lastUpdated: now,
-            source: .mobileUSB,
+            source: device.connection.snapshotSource,
             capabilities: AppleDeviceNormalizer.capabilities(for: [component])
         )
     }
@@ -236,12 +322,19 @@ struct MobileDeviceBatterySource: DeviceBatterySource {
         return .unknown
     }
 
-    static func chargingState(from reading: MobileDeviceBatteryReading) -> DeviceChargingState? {
+    static func chargingState(
+        from reading: MobileDeviceBatteryReading,
+        connection: MobileDeviceConnection = .usb
+    ) -> DeviceChargingState? {
         guard let isCharging = reading.isCharging else { return nil }
         if isCharging { return .charging }
         // Not charging while plugged in is a real state and a different one
         // from running on the battery.
         guard let external = reading.externallyConnected else { return nil }
-        return external ? .notCharging : .discharging
+        if external { return .notCharging }
+        // Over Wi-Fi the useful human-facing state is simply that the phone is
+        // not charging. "On Battery" describes the Mac power source well, but
+        // reads oddly beside a remote iPhone card.
+        return connection == .network ? .notCharging : .discharging
     }
 }

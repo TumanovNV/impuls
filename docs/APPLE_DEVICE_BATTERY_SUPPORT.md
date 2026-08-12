@@ -259,9 +259,9 @@ the interface promises components that did not arrive.
 | Public Apple Mac-side API | none found | no supported public API exposes a paired iPhone or iPad battery to a Mac application |
 | Discovery | `Experimental` | Impuls's own client for the system `usbmuxd` socket at `/var/run/usbmuxd` |
 | Device name and model | `Experimental` | `lockdownd` device values, read-only, minimum fields |
-| Battery percentage | `Experimental` | `com.apple.mobile.diagnostics_relay`, IORegistry query of the device's `AppleSmartBattery` entry |
-| Charging state | `Experimental` | same response (`ExternalConnected` / `IsCharging` / `FullyCharged` keys) |
-| Transport | USB first | Wi-Fi sync is a later, separate step and is not a blocker for 1.4.6 |
+| Battery percentage | `Experimental` | authenticated `lockdownd` `GetValue`, domain `com.apple.mobile.battery`, key `BatteryCurrentCapacity` |
+| Charging state | `Experimental` | same domain: `BatteryIsCharging` and `ExternalConnected` |
+| Transport | USB preferred, Network fallback | both are descriptors and routes supplied by the system usbmuxd daemon; Impuls talks only to its local UNIX socket |
 | Trust | existing pairing only | Impuls does not pair, does not write pairing records, and explains the "Trust This Computer" step instead of showing an error |
 
 Decisions behind this row:
@@ -275,19 +275,18 @@ Decisions behind this row:
   iPhone row and nothing else — not the Mac battery, not the accessories, not
   the panel.
 - iOS 17 moved *developer* services (debugserver, instruments, XCUITest) behind
-  a RemoteXPC/QUIC tunnel. Lockdown services over usbmux were not removed, and
-  `diagnostics_relay` is a lockdown service. Whether it answers a battery query
-  on current iOS without a tunnel is the single question phase 04 must answer on
-  real hardware before anything ships enabled.
+  a RemoteXPC/QUIC tunnel. The battery value used here is instead a lockdown
+  `GetValue` domain reached over usbmuxd. Hardware proved that path on current
+  iOS after an authenticated TLS session; no developer tunnel is involved.
 - Read-only and least privilege at the protocol level: only what the Battery
   Center needs. No installs, no profiles, no settings changes, no backups, no
   user data, no serial number, no IMEI, no Apple ID, no installed-app list.
   Any identifier needed to hold a connection or deduplicate a device stays out
   of the UI, the logs, feedback and backups.
 
-Nothing here is verified: there was no USB-connected iPhone or iPad during this
-research. The provider ships disabled, marked Beta, only if phase 04 proves it
-on hardware; otherwise 1.4.6 ships without it and this document records why.
+The research began without attached hardware. It is now verified on one iPhone
+and one iOS version over both USB and macOS Wi-Fi sync. The provider remains
+disabled by default and marked Beta; iPad remains untested.
 
 ### The protocol sequence, as implemented
 
@@ -296,13 +295,13 @@ about each step today:
 
 | # | Step | Status | Evidence |
 | --- | --- | --- | --- |
-| 1 | Connect to the UNIX socket `/var/run/usbmuxd` | **Proven** | The socket is `srw-rw-rw-`, owned by root but writable by everyone; no root, no entitlement, no network. Connected successfully on the development Mac. |
-| 2 | `ListDevices` over the usbmux plist framing (16-byte little-endian header, then an XML plist) | **Proven** | The daemon accepted the frame and answered with a `DeviceList`. On the development Mac the list was empty — nothing was plugged in — which is itself the correct answer. |
-| 3 | Device selection, USB entries only | **Unproven** | No USB device was attached. Wi-Fi entries are filtered out by `ConnectionType`; that filter is covered by fixtures, not by hardware. |
-| 4 | `ReadPairRecord` → is this Mac trusted? | **Unproven** | Implemented as a read; Impuls never creates or modifies a pair record. |
-| 5 | `Connect(deviceID, port 62078)` → lockdownd | **Unproven** | — |
-| 6 | `QueryType` → confirm lockdownd | **Unproven** | — |
-| 7 | `GetValue(Domain: com.apple.mobile.battery, Key: BatteryCurrentCapacity)` | **Unproven, and the step most likely to be refused** | See below. |
+| 1 | Connect to the UNIX socket `/var/run/usbmuxd` | **Proven** | No root or entitlement. Impuls opens no direct LAN socket; when Finder Wi-Fi sync is enabled, macOS owns discovery and may route this local exchange over the local Wi-Fi network. |
+| 2 | `ListDevices` over the usbmux plist framing (16-byte little-endian header, then an XML plist) | **Proven over USB and Network** | With one cable-connected phone the daemon published USB and Network descriptors for the same raw identifier; after cable removal, the Network descriptor remained. |
+| 3 | Device selection, accepting only `USB` and `Network` | **Proven** | Unknown connection types and malformed IDs are ignored. Entries sharing the raw identifier are one physical device; USB is tried first and Network is the fallback. |
+| 4 | `ReadPairRecord` → is this Mac trusted? | **Proven over USB and Network** | Read-only; Impuls never creates or modifies a pair record. |
+| 5 | `Connect(deviceID, port 62078)` → lockdownd | **Proven over USB and Network** | Network used the current transient Network DeviceID from a fresh list, never a hardcoded value. |
+| 6 | `QueryType` → confirm lockdownd | **Proven over USB and Network** | Both returned `com.apple.mobile.lockdown`. |
+| 7 | Authenticated session, pinned TLS and battery `GetValue` | **Proven over USB and Network** | The same stack returned a battery matching the physical iPhone screen on both routes. |
 
 ### Measured on hardware, 11 August 2026 — iPhone on iOS 26.5.2, USB, trusted
 
@@ -310,9 +309,7 @@ The sequence was walked with the shipping client. Redacted trace:
 
 ```text
 ListDevices                   OK — 1 USB device
-ReadPairRecord                OK — record present (HostID, SystemBUID,
-                                   HostCertificate, HostPrivateKey,
-                                   RootCertificate, DeviceCertificate, …)
+ReadPairRecord                OK — record present; contents redacted
 Connect lockdownd (62078)     OK
 QueryType                     OK — com.apple.mobile.lockdown
 GetValue DeviceName           OK — value returned without a session
@@ -367,6 +364,61 @@ was a decision rather than a default:
   certificates are self-signed and carry no hostname — the peer's leaf must be
   byte-for-byte the device certificate this Mac was given when it paired. There
   is no third branch that accepts an unverified peer.
+
+### Measured on hardware, 12 August 2026 — iPhone over Wi-Fi, USB disconnected
+
+Finder's **Show this iPhone when on Wi-Fi** setting was enabled for the trusted
+phone. This is a prerequisite owned by macOS and the user: Impuls cannot enable
+or change it. Experiment A established what the system daemon provides:
+with the cable attached, `ListDevices` contained separate USB and Network route
+entries carrying one raw identifier; after cable removal, the Network entry
+remained. Its numeric DeviceID differed from the USB DeviceID, proving again
+that DeviceID is a transient route handle and not device identity.
+
+Experiment B then used a freshly listed Network descriptor through the same
+`/var/run/usbmuxd` socket:
+
+```text
+Physical USB cable       disconnected
+ReadPairRecord           available
+Connect 62078            OK
+QueryType                OK
+StartSession + pinned TLS OK
+Battery                  100 %, matching the iPhone screen
+Charging                 false
+ExternalConnected        false
+DeviceName / ProductType available
+Total                    0.257 s
+Open descriptors         3 → 3
+Open usbmuxd sessions    0 after the request
+```
+
+No Bonjour or direct TCP implementation is needed. Production uses usbmuxd
+`Listen` messages for fast topology changes and retains the existing 60-second
+active / 15-minute idle cadence for battery reads. A phone exposed over both
+routes is grouped by its existing raw identifier, read over USB first, and
+falls back to Network if the cable disappears before Connect. The resulting
+opaque identity is unchanged; only the presented connection changes between
+USB and Wi-Fi.
+
+Impuls itself still talks only to the local system daemon. For a paired iPhone,
+macOS may transmit device data over the local Wi-Fi network through its system
+device-sync mechanism. There is no LAN scan by Impuls, no direct network socket,
+and no internet or cloud service involved.
+
+The production provider was then hardware validated for automatic Wi-Fi
+discovery with USB physically absent, a locked-device battery read, USB
+preference while USB and Network descriptors coexist, automatic USB → Wi-Fi
+fallback, one stable opaque identity, deduplication, and clean FD/socket/task
+lifecycle. A MacBook reboot with USB absent also rediscovered the phone and read
+its battery automatically.
+
+One Wi-Fi OFF → ON sequence did not restore the Network descriptor: Finder did
+not see the phone either, and usbmuxd published no route Impuls could consume.
+After the Finder setting was enabled and the iPhone rebooted, macOS restored the
+system Wi-Fi transport. This is an observed macOS/Finder limitation, not a
+production-provider failure and not a reason to add Bonjour polling or direct
+TCP fallback.
 
 ### What this still is not
 

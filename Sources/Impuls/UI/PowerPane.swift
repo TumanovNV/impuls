@@ -147,8 +147,8 @@ struct PowerPane: View {
     private var externalStatusMessage: String? {
         let diagnostics = devices.diagnostics.filter { diagnostic in
             switch diagnostic.provider {
-            case .localMac, .mobileWiFi: return false
-            case .mobileUSB: return MobileDeviceBatteryProvider.isEnabled
+            case .localMac: return false
+            case .mobileDevice: return MobileDeviceBatteryProvider.isEnabled
             case .appleAccessory: return true
             }
         }

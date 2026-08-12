@@ -41,12 +41,17 @@ include user data, credentials, or exploit payloads in public discussions.
   Both sources are best effort: a missing value is a missing value;
 - the iPhone and iPad provider is experimental, disabled by default and gated
   behind a Beta feature flag that is not exposed in Settings. When enabled it
-  speaks Apple's device protocol over the **local** `/var/run/usbmuxd` socket —
-  a UNIX socket, not a network connection — to `lockdownd` on a device the user
-  has already trusted. It reads the existing pair record and never creates or
-  modifies one, installs nothing, changes no setting on the device, and requests
-  only a battery percentage, a charging flag, a device name and a model
-  identifier;
+  speaks Apple's device protocol over the **local** `/var/run/usbmuxd` UNIX
+  socket to `lockdownd` on a device the user has already trusted. Impuls does no
+  Bonjour discovery, LAN scan or direct TCP connection. The user must enable
+  **Show this iPhone when on Wi-Fi** in Finder before macOS can publish the
+  Network route; Impuls cannot enable or change that system setting. macOS may
+  then route the paired-device exchange over the local Wi-Fi network through
+  its system synchronisation mechanism; no internet or cloud service is
+  involved. USB is preferred when both system routes exist. Impuls reads the
+  existing pair record and never creates or modifies one, installs nothing,
+  changes no setting on the device, and requests only a battery percentage,
+  charging and external-power flags, a device name and a model identifier;
 - the TLS session that protocol requires is built entirely in memory:
   `SecIdentityCreate` from the pair record's certificate and key, with no
   keychain of any kind involved and no key material written to disk. The peer is

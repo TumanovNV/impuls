@@ -3,7 +3,7 @@ import Foundation
 /// The exact sequence Impuls performs against a connected iPhone or iPad:
 ///
 /// ```text
-/// usbmuxd socket → ListDevices → USB devices only
+/// usbmuxd socket → ListDevices → USB and Wi-Fi-sync devices
 ///                → ReadPairRecord → is this Mac trusted?
 ///                → Connect(deviceID, port 62078) → lockdownd
 ///                → QueryType → is this really lockdownd?
@@ -39,13 +39,12 @@ struct MobileDeviceClient: Sendable {
 
     // MARK: - Devices
 
-    /// USB only in 1.4.6.
+    /// Everything the system daemon can currently route to lockdownd.
     ///
-    /// `ListDevices` also reports devices reachable over Wi-Fi sync, and they
-    /// are filtered out here rather than further down: a Wi-Fi device answers
-    /// differently and on its own schedule, and proving USB first is the whole
-    /// shape of this phase.
-    func listUSBDevices() throws -> [MobileDeviceDescriptor] {
+    /// Both transports still use this local UNIX socket. Impuls does not scan
+    /// the LAN, resolve Bonjour services or open a TCP connection itself;
+    /// macOS owns discovery and routing for devices enabled for Wi-Fi sync.
+    func listDevices() throws -> [MobileDeviceDescriptor] {
         let channel = try factory.connect()
         defer { channel.close() }
         let conversation = MobileDeviceConversation(channel: channel, timeout: timeout)
@@ -67,8 +66,14 @@ struct MobileDeviceClient: Sendable {
               let identifier = (properties["SerialNumber"] as? String)?
                   .trimmingCharacters(in: .whitespacesAndNewlines),
               !identifier.isEmpty else { return nil }
-        guard (properties["ConnectionType"] as? String) == "USB" else { return nil }
-        return MobileDeviceDescriptor(deviceID: deviceID, rawIdentifier: identifier)
+        guard deviceID > 0,
+              let connection = MobileDeviceConnection(usbmuxValue: properties["ConnectionType"] as? String)
+        else { return nil }
+        return MobileDeviceDescriptor(
+            deviceID: deviceID,
+            rawIdentifier: identifier,
+            connection: connection
+        )
     }
 
     // MARK: - Trust
@@ -261,6 +266,49 @@ struct MobileDeviceClient: Sendable {
 struct MobileDeviceDescriptor: Equatable, Sendable {
     let deviceID: Int
     let rawIdentifier: String
+    let connection: MobileDeviceConnection
+
+    init(
+        deviceID: Int,
+        rawIdentifier: String,
+        connection: MobileDeviceConnection = .usb
+    ) {
+        self.deviceID = deviceID
+        self.rawIdentifier = rawIdentifier
+        self.connection = connection
+    }
+}
+
+/// The route macOS usbmuxd selected for one transient device entry.
+///
+/// The raw plist vocabulary ends here. Unknown future values are ignored rather
+/// than guessed, and the numeric `DeviceID` is never treated as identity: the
+/// same phone has already been measured with different USB and Network IDs.
+enum MobileDeviceConnection: Equatable, Hashable, Sendable {
+    case usb
+    case network
+
+    init?(usbmuxValue: String?) {
+        switch usbmuxValue {
+        case "USB": self = .usb
+        case "Network": self = .network
+        default: return nil
+        }
+    }
+
+    var snapshotConnection: DeviceConnectionKind {
+        switch self {
+        case .usb: return .usb
+        case .network: return .wifi
+        }
+    }
+
+    var snapshotSource: DeviceDataSource {
+        switch self {
+        case .usb: return .mobileUSB
+        case .network: return .mobileWiFi
+        }
+    }
 }
 
 struct MobileDeviceBatteryReading: Equatable, Sendable {

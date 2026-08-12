@@ -373,25 +373,25 @@ final class DevicePowerCenterTests: XCTestCase {
     func testCadenceFollowsThePanelAndBacksOffWhenADeviceStopsAnswering() {
         let scheduler = DeviceRefreshScheduler()
         let polled = FakeDeviceProvider(
-            identifier: .mobileUSB,
+            identifier: .mobileDevice,
             behavior: .polled(activeInterval: 30, idleInterval: 300)
         )
         scheduler.setProviders([polled])
 
-        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 300)
+        XCTAssertEqual(scheduler.interval(for: .mobileDevice), 300)
         scheduler.setActive(true)
-        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 30)
+        XCTAssertEqual(scheduler.interval(for: .mobileDevice), 30)
 
-        scheduler.noteOutcome(for: .mobileUSB, succeeded: false)
-        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 60)
-        scheduler.noteOutcome(for: .mobileUSB, succeeded: false)
-        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 120)
+        scheduler.noteOutcome(for: .mobileDevice, succeeded: false)
+        XCTAssertEqual(scheduler.interval(for: .mobileDevice), 60)
+        scheduler.noteOutcome(for: .mobileDevice, succeeded: false)
+        XCTAssertEqual(scheduler.interval(for: .mobileDevice), 120)
 
-        for _ in 0..<10 { scheduler.noteOutcome(for: .mobileUSB, succeeded: false) }
-        XCTAssertEqual(scheduler.interval(for: .mobileUSB), DeviceRefreshScheduler.maximumBackoffInterval)
+        for _ in 0..<10 { scheduler.noteOutcome(for: .mobileDevice, succeeded: false) }
+        XCTAssertEqual(scheduler.interval(for: .mobileDevice), DeviceRefreshScheduler.maximumBackoffInterval)
 
-        scheduler.noteOutcome(for: .mobileUSB, succeeded: true)
-        XCTAssertEqual(scheduler.interval(for: .mobileUSB), 30, "one good read ends the back-off")
+        scheduler.noteOutcome(for: .mobileDevice, succeeded: true)
+        XCTAssertEqual(scheduler.interval(for: .mobileDevice), 30, "one good read ends the back-off")
     }
 
     // MARK: - Actor boundary
