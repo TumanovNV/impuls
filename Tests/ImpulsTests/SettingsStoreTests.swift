@@ -155,6 +155,114 @@ final class SettingsStoreTests: XCTestCase {
         }
     }
 
+    func testPerDeviceVisibilityAndOrderStayLocalAndSurviveARelaunch() async {
+        await MainActor.run {
+            let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            defer { defaults.removePersistentDomain(forName: suite) }
+
+            let mouse = Fixtures.device(
+                kind: .magicMouse,
+                name: "Magic Mouse",
+                components: [DeviceBatteryComponent(kind: .primary, percentage: 71)]
+            )
+            let airPods = Fixtures.airPods(left: nil, right: 87, chargingCase: nil)
+
+            let first = SettingsStore(defaults: defaults)
+            first.updateAppleDeviceState(devices: [mouse, airPods], diagnostics: [])
+            first.setAppleDevice(airPods, visible: false)
+            first.moveAppleDevice(airPods, offset: -1)
+
+            XCTAssertEqual(first.knownExternalAppleDevices.map(\.displayName), ["AirPods Pro", "Magic Mouse"])
+            XCTAssertFalse(first.isAppleDeviceVisible(airPods))
+
+            let backup = try? JSONEncoder().encode(first.snapshot)
+            let backupText = backup.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            XCTAssertFalse(backupText.contains(airPods.identity.localPreferenceKey))
+            XCTAssertFalse(backupText.contains(mouse.identity.localPreferenceKey))
+
+            let second = SettingsStore(defaults: defaults)
+            second.updateAppleDeviceState(devices: [mouse, airPods], diagnostics: [])
+
+            XCTAssertEqual(second.knownExternalAppleDevices.map(\.displayName), ["AirPods Pro", "Magic Mouse"])
+            XCTAssertFalse(second.isAppleDeviceVisible(airPods))
+            XCTAssertEqual(second.visibleExternalAppleDevices(from: [mouse, airPods]), [mouse])
+        }
+    }
+
+    func testAHiddenOrStaleDeviceCanBeForgottenWithoutPersistingItsSnapshot() async {
+        await MainActor.run {
+            let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            defer { defaults.removePersistentDomain(forName: suite) }
+
+            let keyboard = Fixtures.device(
+                kind: .magicKeyboard,
+                name: "Keyboard Николая",
+                components: [DeviceBatteryComponent(kind: .primary, percentage: 44)]
+            )
+            let settings = SettingsStore(defaults: defaults)
+            settings.updateAppleDeviceState(devices: [keyboard], diagnostics: [])
+
+            XCTAssertFalse(settings.canForgetAppleDevice(keyboard), "a current visible device is not forgotten accidentally")
+            settings.setAppleDevice(keyboard, visible: false)
+            XCTAssertTrue(settings.canForgetAppleDevice(keyboard))
+
+            settings.forgetAppleDevice(keyboard)
+
+            XCTAssertTrue(settings.knownExternalAppleDevices.isEmpty)
+            XCTAssertFalse(settings.appleDevicePreferenceOrder.contains(keyboard.identity.localPreferenceKey))
+            let stored = defaults.data(forKey: SettingsStore.appleDevicePreferencesKey)
+            let storedText = stored.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            XCTAssertFalse(storedText.contains("Keyboard Николая"), "names and readings are runtime-only")
+            let object = stored.flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
+            XCTAssertEqual(Set(object?.keys.map { $0 } ?? []), ["order", "hidden"])
+        }
+    }
+
+    func testAppleDevicePreferenceKeysAreStrictlyBoundedAndValidated() async {
+        await MainActor.run {
+            let valid = String(repeating: "a", count: 32)
+            let other = String(repeating: "0", count: 32)
+            let supplied = [
+                valid,
+                valid,
+                other,
+                String(repeating: "f", count: 31),
+                String(repeating: "f", count: 33),
+                String(repeating: "G", count: 32),
+                "../device",
+                String(repeating: " ", count: 100_000),
+            ]
+
+            XCTAssertEqual(SettingsStore.normalizedAppleDevicePreferenceKeys(supplied), [valid, other])
+            XCTAssertEqual(
+                SettingsStore.normalizedAppleDevicePreferenceKeys(
+                    (0..<150).map { String(format: "%032x", $0) }
+                ).count,
+                SettingsStore.maximumRememberedAppleDevices
+            )
+        }
+    }
+
+    func testFindDevicesRequiresAnExplicitOptInBeforeRefresh() async {
+        await MainActor.run {
+            let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            defer { defaults.removePersistentDomain(forName: suite) }
+            let settings = SettingsStore(defaults: defaults)
+            var refreshes = 0
+            settings.configureExternalAppleDeviceRefresh { refreshes += 1 }
+
+            settings.findExternalAppleDevices()
+            XCTAssertTrue(settings.showsExternalAppleDevices)
+            XCTAssertEqual(refreshes, 0, "turning the switch on lets the coordinator own the first read")
+
+            settings.findExternalAppleDevices()
+            XCTAssertEqual(refreshes, 1)
+        }
+    }
+
     func testClipboardExclusionsRejectMalformedOrExcessiveIdentifiers() async {
         await MainActor.run {
             let supplied = [
