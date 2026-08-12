@@ -8,20 +8,21 @@ produced this work. Read this, then `APPLE_DEVICE_BATTERY_SUPPORT.md`, then
 
 | | |
 | --- | --- |
-| Checkpoint | 11 August 2026 |
+| Checkpoint | 12 August 2026 |
 | Branch | `agent/apple-device-center-1.4.6` |
 | Base branch | `release/1.4.5` (**not** `main`) |
-| Implementation HEAD before handoff docs | `8159b5b` |
-| Branch HEAD | later — the handoff and follow-up commits sit on top |
+| Phase 04.1 implementation HEAD | `8159b5b` |
+| Phase 05 working tree base | `f4cffc9` |
 | `main` | `5672689` — Impuls 1.4.4 |
 | `release/1.4.5` | `efb3742` — 1.4.5, still unmerged into `main` |
 | `Scripts/version` | `VERSION=1.4.5` — **not yet bumped**; 1.4.6 is not a release |
-| Tests | 246, 0 failures (`swift test -c release`) |
+| Tests | 254, 0 failures (`swift test -c release`) |
 
-1.4.6 is unreleased and unmergeable as it stands: phase 05 (UI, Settings,
-localization, accessibility) has not been done, so the new device layer exists
-but nothing in the panel shows it. The application behaves exactly as 1.4.5 does
-for a user.
+1.4.6 is unreleased. Phase 05 (UI, Settings, localization, accessibility) is
+implemented in the working tree and has passed automated review, but the visual,
+VoiceOver and remaining hardware QA below are still open. Do not merge PR #33
+until those checks are complete. The external-device path remains opt-in; with it
+off, the Mac battery and desktop Power layouts stay on the unchanged 1.4.5 path.
 
 ### The 1.4.5 backup branch
 
@@ -69,6 +70,22 @@ level. `5fe3bb6` added the hardware probes that measured what follows.
 Two hardware findings turned into implementations: `system_profiler` as the
 accessory fallback where the registry is silent, and the authenticated TLS
 session the battery domain requires.
+
+### Phase 05 — UI, Settings, localization and accessibility
+
+The Power pane now keeps the original This Mac layout when external devices are
+off and adds an opt-in device switcher and detail card when they are on. The card
+renders only components that actually arrived, gives every component its own
+timestamp and freshness state, and marks iPhone/iPad as Beta only when the hidden
+mobile-device flag is enabled.
+
+Settings now owns the external-device opt-in, discovery and manual refresh,
+per-device visibility and ordering, and forgetting devices that are disconnected
+or hidden. Those presentation preferences use only keyed opaque identities, are
+local to this Mac and are excluded from settings backup snapshots. Permission and
+trust states are user-facing sentences, not transport errors. English and Russian
+tables are complete, controls keep keyboard focus, and accessibility values contain
+device names, real readings and states but never device identifiers.
 
 ## Hardware validation already performed
 
@@ -176,14 +193,15 @@ in no backup and no feedback report.
 | Default | **off**, and not exposed in Settings |
 | Why | validated on one phone and one iOS version; a switch in Settings would be a promise |
 | `SettingsStore.showsExternalAppleDevices` | persisted, defaults to `false`, `decodeIfPresent` so 1.4.5 settings and backups migrate |
-| Not yet in the UI | the external-devices switch, per-device visibility, discovery and refresh actions — all of phase 05 |
+| External-device UI | opt-in, discovery, manual refresh, per-device visibility/order and forget are exposed in the Apple Devices settings tab |
+| Local-only presentation state | keyed identity order and hidden state; never included in `ImpulsSettingsSnapshot` or backups |
 
 With the flag off, the release bundle opens no socket to `usbmuxd` at all, and
 the launch smoke test still shows zero network sockets.
 
 ## Test state
 
-246 tests, 0 failures. Groups:
+254 tests, 0 failures. Groups:
 
 | Group | What it covers |
 | --- | --- |
@@ -200,6 +218,8 @@ the launch smoke test still shows zero network sockets.
 | TLS | no session, `EnableSessionSSL` false and true, bounded handshake, nothing to pin against |
 | Privacy | no pairing material or identifier in any error or diagnostic string |
 | Process boundary | real child processes: one that never exits, one that floods its pipe, one that fails, one that is missing |
+| Presentation | component omission, per-reading age and freshness, Beta labels, identifier-free accessibility values |
+| Settings privacy | local visibility/order persistence, backup exclusion, bounded key validation, explicit opt-in before refresh |
 
 **What unit tests do not prove:** that any of it works on hardware. The hardware
 probes in the suite skip themselves when nothing is attached, which is what CI
@@ -241,27 +261,17 @@ swift test -c release
 | Unavailable | Apple Watch, Vision Pro, Apple Pencil, AirTag, Siri Remote — no Mac-side path found |
 | Not applicable | HomePod, Apple TV, desktop Macs — no battery |
 
-# Next task: Phase 05
+# Remaining before merge
 
-UI, Settings, localization, accessibility. The device layer is finished and
-tested; nothing in phases 01–04.1 needs re-researching.
+Phase 05 implementation and automated tests are complete. Do not reopen phases
+01–04.1 without evidence, and do not merge PR #33 until the following manual
+review is recorded in `docs/QA_APPLE_DEVICES_1.4.6.md` where applicable:
 
-- rework `PowerPane` for several devices while keeping the current Mac layout
-  exactly as it is, including the desktop Mac's Power layout;
-- show AirPods with the components that actually arrived, and nothing else;
-- iPhone and iPad marked as Beta, and only when the flag is on;
-- Settings: the external-devices switch, discovery and manual refresh,
-  per-device visibility, and forgetting a device;
-- fresh versus stale, with the age shown rather than implied;
-- trust and permission states as sentences — "unlock your iPhone and tap Trust",
-  never an error code (`permissionRequired` is what the provider reports for a
-  device this Mac is not trusted with, and for a locked one);
-- Russian and English, complete in both;
-- accessibility labels per device card, VoiceOver reading name, charge and state
-  and never an identifier;
-- existing keyboard navigation unbroken;
-- no unexpected permission prompt or connection after an ordinary update.
-
-Read `Sources/Impuls/UI/Theme.swift` before touching the panel, and
-`.claude/rules/swift-ui.md` for the panel's geometry rules. `docs/IMPULS_1_4_6_CODEMAP.md`
-lists what each file does.
+- compare the unchanged local Mac and desktop Power layouts against 1.4.5;
+- inspect the multi-device layout with long names, missing components and stale
+  readings in light and dark appearances;
+- verify keyboard focus and VoiceOver for the switcher, cards, refresh, visibility,
+  reorder and forget controls, including that no identifier is announced;
+- check Increase Contrast, Reduce Motion and Reduce Transparency;
+- exercise external opt-in, refresh, permission/trust and disconnect paths with
+  available hardware, without marking unobserved hardware scenarios as passed.

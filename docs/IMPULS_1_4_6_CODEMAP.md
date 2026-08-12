@@ -24,6 +24,8 @@ AppleDeviceIdentity.swift        Identity with no raw identifier in it, and the 
                                  itself when printed.
 AppleDeviceNormalizer.swift      The only place a number becomes a percentage; component
                                  construction; display names; derived capabilities.
+Model/AppleDevicePresentation.swift  Localized symbols, labels, per-reading freshness and
+                                     identifier-free accessibility vocabulary for the UI.
 DeviceClock.swift                Injectable clock, so staleness is testable without sleep.
 ```
 
@@ -85,16 +87,23 @@ LockdownTLSChannel.swift          The only file that knows Secure Transport exis
 
 ```text
 Model/NotchViewModel.swift        Creates DevicePowerCenter beside PowerMonitor; both
-                                  follow the .power module switch.
+                                  follow the .power module switch. Mirrors sanitized
+                                  device state into Settings and wires explicit refresh.
 Notch/NotchController.swift       setActive on open and close, next to the existing stores.
-Settings/SettingsStore.swift      showsExternalAppleDevices, default false, migrating.
-UI/PowerPane.swift                Still the 1.4.5 single-Mac pane. Phase 05 changes this.
+Settings/SettingsStore.swift      showsExternalAppleDevices, default false, migrating;
+                                  local keyed visibility/order state excluded from backup.
+Settings/AppleDeviceSettingsPane.swift  Opt-in, discovery, refresh, visibility, ordering,
+                                       forget confirmation and plain-language status.
+UI/PowerPane.swift                Original local Mac/desktop layout when external devices
+                                  are off; device switcher and accessible detail card when on.
 ```
 
 ## Tests
 
 ```text
 Tests/ImpulsTests/AppleDevicePowerModelTests.swift  Model, normalization, identity, Fixtures.
+Tests/ImpulsTests/AppleDevicePresentationTests.swift Presentation, age/freshness, component
+                                                     omission and accessibility privacy.
 Tests/ImpulsTests/DevicePowerCenterTests.swift      Dedup, freshness, order, lifecycle,
                                                     scheduler, the actor-boundary guard.
 Tests/ImpulsTests/IORegistryAccessoryTests.swift    Registry fixtures, provider lifecycle,
@@ -105,6 +114,8 @@ Tests/ImpulsTests/LockdownPairRecordTests.swift     PEM, PKCS#8, DER, identity, 
 Tests/ImpulsTests/MobileDeviceProtocolTests.swift   Framing, hostile peers, session and TLS
                                                     states, and three hardware probes.
 Tests/ImpulsTests/PowerMonitorTests.swift           The 1.4.5 suite, untouched.
+Tests/ImpulsTests/SettingsStoreTests.swift           External opt-in and local-only device
+                                                     presentation preference privacy.
 ```
 
 Hardware probes are named `testHardwareProbe…`. They call `XCTSkip` when nothing
