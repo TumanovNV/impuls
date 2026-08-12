@@ -155,6 +155,32 @@ final class SettingsStoreTests: XCTestCase {
         }
     }
 
+    func testLowBatteryAlertsPersistOnlyLocallyAndPromptOnlyFromTheUserAction() async {
+        await MainActor.run {
+            let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suite)!
+            defer { defaults.removePersistentDomain(forName: suite) }
+
+            let first = SettingsStore(defaults: defaults)
+            var requests: [(Bool, Bool)] = []
+            first.configureLowBatteryAlerts { requests.append(($0, $1)) }
+
+            first.setLowBatteryAlertsEnabledByUser(true)
+
+            XCTAssertEqual(requests.count, 1)
+            XCTAssertEqual(requests.first?.0, true)
+            XCTAssertEqual(requests.first?.1, true)
+            XCTAssertTrue(SettingsStore(defaults: defaults).lowBatteryAlertsEnabled)
+
+            let backup = try? JSONEncoder().encode(first.snapshot)
+            let backupText = backup.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            XCTAssertFalse(backupText.contains("lowBatteryAlerts"), "notification consent belongs to this Mac")
+
+            // A persistence reload is not another explicit authorization act.
+            XCTAssertEqual(requests.count, 1)
+        }
+    }
+
     func testPerDeviceVisibilityAndOrderStayLocalAndSurviveARelaunch() async {
         await MainActor.run {
             let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"

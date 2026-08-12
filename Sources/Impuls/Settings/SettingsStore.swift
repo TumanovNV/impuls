@@ -209,6 +209,7 @@ final class SettingsStore: ObservableObject {
     static let storageKey = "settings.v1"
     static let saveClipboardImagesKey = "saveClipboardImages"
     static let appleDevicePreferencesKey = "appleDevices.presentation.v1"
+    static let lowBatteryAlertsEnabledKey = "appleDevices.lowBatteryAlerts.enabled"
     static let maximumRememberedAppleDevices = 100
 
     @Published var hotKey: HotKeyPreset { didSet { persist() } }
@@ -222,6 +223,11 @@ final class SettingsStore: ObservableObject {
     @Published var clipboardRetention: ClipboardRetention { didSet { persist() } }
     @Published private(set) var excludedClipboardBundleIdentifiers: [String] { didSet { persist() } }
     @Published var showsExternalAppleDevices: Bool { didSet { persist() } }
+    /// Notification consent belongs to this Mac, like the macOS authorization
+    /// it controls. It persists locally but never travels in a backup.
+    @Published var lowBatteryAlertsEnabled: Bool {
+        didSet { defaults.set(lowBatteryAlertsEnabled, forKey: Self.lowBatteryAlertsEnabledKey) }
+    }
     /// Runtime device data for Settings. It is never encoded or copied to a
     /// backup; only the local presentation keys below survive a relaunch.
     @Published private(set) var knownExternalAppleDevices: [AppleDeviceSnapshot]
@@ -235,12 +241,19 @@ final class SettingsStore: ObservableObject {
     @Published private(set) var powerDeviceKind: PowerDeviceKind?
 
     private let defaults: UserDefaults
+    private let lowBatteryAlertsOverride: LowBatteryAlertService?
+    /// Lazy so command-line unit tests that exercise unrelated Settings logic
+    /// never instantiate macOS Notification Center outside an application.
+    lazy var lowBatteryAlerts: LowBatteryAlertService =
+        lowBatteryAlertsOverride ?? LowBatteryAlertService(defaults: defaults)
     private var isApplying = false
     private var currentAppleDevicePreferenceKeys = Set<String>()
     private var refreshExternalAppleDevicesAction: (() -> Void)?
+    private var configureLowBatteryAlertsAction: ((Bool, Bool) -> Void)?
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, lowBatteryAlerts: LowBatteryAlertService? = nil) {
         self.defaults = defaults
+        lowBatteryAlertsOverride = lowBatteryAlerts
         let fallback = Self.defaultSnapshot(defaults: defaults)
         let stored = defaults.data(forKey: Self.storageKey)
             .flatMap { try? JSONDecoder().decode(ImpulsSettingsSnapshot.self, from: $0) }
@@ -258,6 +271,7 @@ final class SettingsStore: ObservableObject {
             snapshot.excludedClipboardBundleIdentifiers
         )
         showsExternalAppleDevices = snapshot.showsExternalAppleDevices
+        lowBatteryAlertsEnabled = defaults.bool(forKey: Self.lowBatteryAlertsEnabledKey)
         let localPreferences = Self.loadAppleDevicePreferences(defaults: defaults)
         appleDevicePreferenceOrder = localPreferences.order
         hiddenAppleDevicePreferenceKeys = Set(localPreferences.hidden)
@@ -340,6 +354,17 @@ final class SettingsStore: ObservableObject {
     /// provider tree alive.
     func configureExternalAppleDeviceRefresh(_ action: @escaping () -> Void) {
         refreshExternalAppleDevicesAction = action
+    }
+
+    func configureLowBatteryAlerts(_ action: @escaping (Bool, Bool) -> Void) {
+        configureLowBatteryAlertsAction = action
+    }
+
+    /// Only this user-initiated path may ask macOS for notification access.
+    /// Loading or restoring the preference enables policy but never prompts.
+    func setLowBatteryAlertsEnabledByUser(_ enabled: Bool) {
+        lowBatteryAlertsEnabled = enabled
+        configureLowBatteryAlertsAction?(enabled, enabled)
     }
 
     /// Receives only already-sanitised domain snapshots. The list is runtime

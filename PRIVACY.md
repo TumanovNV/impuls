@@ -106,6 +106,14 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
   to logs, added to a feedback report or included in an exported backup. What
   Impuls keeps for recognising a device again is a value derived with a random
   key held on this Mac, which is meaningless anywhere else;
+- if the user explicitly enables low-battery alerts, Impuls evaluates fresh
+  external-device readings locally at fixed 20 % and 10 % thresholds. A
+  component confirmed to be charging is suppressed, and several low components
+  of one device are grouped into one notification. The notification may contain
+  the device's display name and real percentage. Alert state contains only the
+  Mac-local opaque device key, component kind, fired/re-arm flags and a cleanup
+  timestamp; it is bounded, never exported and contains no percentage or device
+  name. No alert data is uploaded and there is no analytics or telemetry;
 - OCR, background removal, image conversion, resizing, and PDF creation run on
   the Mac with Apple system frameworks. Impuls does not upload source files or
   generated files. Sharing occurs only when the user explicitly chooses AirDrop
@@ -118,8 +126,10 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
   or control the installed Apple Music application;
 - web music uses the selected provider's official site and does not require
   Apple Events Automation or Accessibility access;
-- notification permission is not requested in Impuls 1.2.6 and remains reserved
-  for optional reminder functions in a later update.
+- notification permission is requested only after the user explicitly enables
+  low-battery alerts in Apple Devices Settings. If macOS denies access, device
+  monitoring continues without alerts and Impuls does not repeatedly request
+  authorization.
 
 Notes and snippets are not encrypted by Impuls. FileVault is recommended for
 protection at rest. Secrets, passwords, recovery codes, and private keys should

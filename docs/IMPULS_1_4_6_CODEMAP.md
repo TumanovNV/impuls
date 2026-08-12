@@ -42,6 +42,11 @@ DeviceBatteryProviding.swift     Provider protocol (@MainActor, state) and
                                  enforced by a test.
 DevicePowerLog.swift             Bounded debug logging, off unless IMPULS_DEVICE_LOG=1,
                                  plus the per-provider diagnostic snapshot.
+LowBatteryAlertEngine.swift      Pure 20/10 policy over normalized external components:
+                                 aggregation, charging suppression, freshness, hysteresis,
+                                 bounded opaque persistence and transport-independent dedup.
+LowBatteryAlertService.swift     Injectable Notification Center adapter, explicit permission,
+                                 localized delivery, click-to-Power and env-gated QA trigger.
 ```
 
 ## This Mac, as a device
@@ -96,11 +101,11 @@ LockdownTLSChannel.swift          The only file that knows Secure Transport exis
 Model/NotchViewModel.swift        Creates DevicePowerCenter beside PowerMonitor; both
                                   follow the .power module switch. Mirrors sanitized
                                   device state into Settings and wires explicit refresh.
-Notch/NotchController.swift       setActive on open and close, next to the existing stores.
+Notch/NotchController.swift       setActive on open and close; notification clicks open Power.
 Settings/SettingsStore.swift      showsExternalAppleDevices, default false, migrating;
-                                  local keyed visibility/order state excluded from backup.
+                                  local keyed visibility/order and alert consent excluded from backup.
 Settings/AppleDeviceSettingsPane.swift  Opt-in, discovery, refresh, visibility, ordering,
-                                       forget confirmation and plain-language status.
+                                       forget confirmation, notification toggle/denial state.
 UI/PowerPane.swift                Original local Mac/desktop layout when external devices
                                   are off; device switcher and accessible detail card when on.
 ```
@@ -126,6 +131,9 @@ Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift  Feature-gate and topol
 Tests/ImpulsTests/PowerMonitorTests.swift           The 1.4.5 suite, untouched.
 Tests/ImpulsTests/SettingsStoreTests.swift           External opt-in and local-only device
                                                      presentation preference privacy.
+Tests/ImpulsTests/LowBatteryAlertEngineTests.swift   Thresholds, freshness, charging,
+                                                     hysteresis, persistence, aggregation,
+                                                     transport identity, cadence and denial.
 ```
 
 Hardware probes are named `testHardwareProbe…`. They call `XCTSkip` when nothing

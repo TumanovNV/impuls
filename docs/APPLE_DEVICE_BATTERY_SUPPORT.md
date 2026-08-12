@@ -458,6 +458,38 @@ without it.
 
 ---
 
+## Universal low-battery alerts
+
+Phase 07 adds one policy above `DevicePowerCenter`, not one implementation per
+provider or product. Every external device with a fresh numeric component can
+participate, including primary, left, right, case, external and accessory
+batteries. The host Mac is deliberately excluded.
+
+The fixed 1.4.6 thresholds are warning at 20 % and critical at 10 %. Warning
+re-arms only above 25 %, critical only above 15 %. A component explicitly
+reported as charging is suppressed; missing or unknown charging state remains
+eligible. First observations at 17 % produce one warning, first observations at
+8 % produce only critical, and a critical component suppresses simultaneous
+warning notifications for the same physical device. Multiple low components
+are aggregated into one notification per device and evaluation.
+
+Eligibility requires a connected snapshot from a provider currently reporting
+ready plus a component timestamp inside the existing freshness window. Retained
+last-good UI values, stale values, categorical-only status and missing
+percentages never trigger. Dedup and persistence use the existing keyed opaque
+identity with component kind and threshold state, so USB/Wi-Fi changes do not
+repeat an alert. Storage is local, bounded to 600 component states and expires
+entries after 180 days; no raw identifier, display name or percentage is stored.
+
+Permission is contextual: macOS authorization is requested only from the
+explicit Apple Devices Settings toggle. Denial does not stop monitoring. The
+existing scheduler remains the sole timer owner and, only while alerts are on,
+uses roughly 5-minute background checks above 25 % and 1-minute checks at or
+below 25 % when not confirmed charging. Provider active-pane cadence and all
+topology events remain unchanged.
+
+---
+
 ## Apple Watch, Vision Pro, Apple Pencil, AirTag, Siri Remote
 
 Each of these is `Unavailable for Impuls on macOS`: **no supported public

@@ -447,6 +447,17 @@
 "Forget Device?" = "Forget Device?";
 "Hide or disconnect this device before forgetting it." = "Hide or disconnect this device before forgetting it.";
 "Impuls will remove this device's local visibility and order preferences. A connected device can appear again after discovery." = "Impuls will remove this device's local visibility and order preferences. A connected device can appear again after discovery.";
+"Battery Notifications" = "Battery Notifications";
+"Warn About Low Battery" = "Warn About Low Battery";
+"Impuls will notify you when a connected device reaches 20% or 10%." = "Impuls will notify you when a connected device reaches 20% or 10%.";
+"Notifications are disabled for Impuls in macOS settings. Battery monitoring will continue without alerts." = "Notifications are disabled for Impuls in macOS settings. Battery monitoring will continue without alerts.";
+"%@: %d%%" = "%@: %d%%";
+"%@ — %d%% remaining." = "%@ — %d%% remaining.";
+"%@ — %@." = "%@ — %@.";
+"This device may turn off soon." = "This device may turn off soon.";
+"Consider charging this device." = "Consider charging this device.";
+"Impuls Notification QA" = "Impuls Notification QA";
+"Test notification only. No device battery reading was used." = "Test notification only. No device battery reading was used.";
 
 /* Accessibility and onboarding 1.4.5. The counter nouns are lower-case on
    purpose: they are read after a number ("3 snippets"), never on their own. */

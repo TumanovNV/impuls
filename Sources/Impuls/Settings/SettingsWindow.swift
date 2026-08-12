@@ -75,7 +75,7 @@ private struct SettingsView: View {
                 .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
             ModuleSettingsPane(settings: settings)
                 .tabItem { Label("Modules", systemImage: "square.grid.2x2") }
-            AppleDeviceSettingsPane(settings: settings)
+            AppleDeviceSettingsPane(settings: settings, lowBatteryAlerts: settings.lowBatteryAlerts)
                 .tabItem { Label("Apple Devices", systemImage: "battery.100percent") }
             ClipboardSettingsPane(settings: settings)
                 .tabItem { Label("Clipboard", systemImage: "list.clipboard") }

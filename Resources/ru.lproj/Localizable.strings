@@ -445,6 +445,17 @@
 "Forget Device?" = "Забыть устройство?";
 "Hide or disconnect this device before forgetting it." = "Скройте или отключите устройство, прежде чем забыть его.";
 "Impuls will remove this device's local visibility and order preferences. A connected device can appear again after discovery." = "Impuls удалит локальные настройки видимости и порядка этого устройства. Подключённое устройство может снова появиться после обнаружения.";
+"Battery Notifications" = "Уведомления о заряде";
+"Warn About Low Battery" = "Предупреждать о низком заряде";
+"Impuls will notify you when a connected device reaches 20% or 10%." = "Impuls предупредит, когда подключённому устройству останется 20% или 10%.";
+"Notifications are disabled for Impuls in macOS settings. Battery monitoring will continue without alerts." = "Уведомления для Impuls запрещены в настройках macOS. Мониторинг заряда продолжит работать без предупреждений.";
+"%@: %d%%" = "%@: %d%%";
+"%@ — %d%% remaining." = "%@ — осталось %d%%.";
+"%@ — %@." = "%@ — %@.";
+"This device may turn off soon." = "Устройство скоро может выключиться.";
+"Consider charging this device." = "Пора подключить устройство к зарядке.";
+"Impuls Notification QA" = "Проверка уведомлений Impuls";
+"Test notification only. No device battery reading was used." = "Только тестовое уведомление. Данные о заряде устройств не использовались.";
 
 /* Доступность и онбординг 1.4.5. Существительные-счётчики со строчной
    намеренно: их читают после числа («3 заготовки»), никогда отдельно. */

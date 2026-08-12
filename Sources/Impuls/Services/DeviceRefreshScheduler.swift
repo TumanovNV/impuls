@@ -23,6 +23,7 @@ final class DeviceRefreshScheduler {
     private var entries: [DeviceProviderIdentifier: Entry] = [:]
     private var isRunning = false
     private var isActive = false
+    private var alertBackgroundInterval: TimeInterval?
 
     func setProviders(_ providers: [DeviceBatteryProviding]) {
         stop()
@@ -55,6 +56,16 @@ final class DeviceRefreshScheduler {
         rescheduleAll()
     }
 
+    /// Low-battery monitoring tightens only the background side of an existing
+    /// provider schedule. There is still one timer per polled provider, and an
+    /// open pane keeps the provider's own active cadence unchanged.
+    func setAlertBackgroundInterval(_ interval: TimeInterval?) {
+        guard alertBackgroundInterval != interval else { return }
+        alertBackgroundInterval = interval
+        guard isRunning, !isActive else { return }
+        rescheduleAll()
+    }
+
     /// Report whether the last read worked, so the back-off can grow or reset.
     func noteOutcome(for identifier: DeviceProviderIdentifier, succeeded: Bool) {
         guard var entry = entries[identifier] else { return }
@@ -73,7 +84,14 @@ final class DeviceRefreshScheduler {
               case .polled(let activeInterval, let idleInterval) = entry.provider.refreshBehavior else {
             return nil
         }
-        let base = isActive ? activeInterval : idleInterval
+        let base: TimeInterval
+        if isActive {
+            base = activeInterval
+        } else if let alertBackgroundInterval {
+            base = min(idleInterval, alertBackgroundInterval)
+        } else {
+            base = idleInterval
+        }
         guard entry.failures > 0 else { return base }
         let backoff = base * pow(2, Double(entry.failures))
         return min(backoff, Self.maximumBackoffInterval)

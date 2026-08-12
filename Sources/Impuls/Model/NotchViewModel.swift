@@ -114,7 +114,7 @@ final class NotchViewModel: ObservableObject {
         self.notes = NoteStore()
         let power = PowerMonitor()
         self.power = power
-        self.devices = DevicePowerCenter(monitor: power)
+        self.devices = DevicePowerCenter(monitor: power, lowBatteryAlerts: settings.lowBatteryAlerts)
 
         self.clipboard.isApplicationExcluded = { [weak settings] bundleIdentifier in
             settings?.excludedClipboardBundleIdentifiers.contains(bundleIdentifier) ?? false
@@ -192,6 +192,15 @@ final class NotchViewModel: ObservableObject {
         settings.configureExternalAppleDeviceRefresh { [weak devices] in
             devices?.refreshExternalDevices()
         }
+        settings.configureLowBatteryAlerts { [weak devices] enabled, requestAuthorization in
+            devices?.setLowBatteryAlertsEnabled(enabled, requestAuthorization: requestAuthorization)
+        }
+        settings.$lowBatteryAlertsEnabled
+            .sink { [weak devices] enabled in
+                // Persisted/restored settings never cause a permission prompt.
+                devices?.setLowBatteryAlertsEnabled(enabled)
+            }
+            .store(in: &cancellables)
         Publishers.CombineLatest(devices.$devices, devices.$diagnostics)
             .sink { [weak settings] devices, diagnostics in
                 settings?.updateAppleDeviceState(devices: devices, diagnostics: diagnostics)

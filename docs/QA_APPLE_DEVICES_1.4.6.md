@@ -188,11 +188,33 @@ them.
 | 11.8 | Russian and English interface, both complete | `[ ]` | |
 | 11.9 | Device age never renders as a negative duration | `[!]` | 12 Aug 2026, live iPhone Beta QA: the fresh device age rendered as `-3 с`. After hardware QA, abbreviated age was changed to a non-negative elapsed duration with future clock skew clamped to zero, and a regression test was added. The rebuilt UI still needs one manual confirmation |
 
-## 12. Performance
+## 12. Universal low-battery alerts
+
+These checks cover external Apple devices only. The host Mac keeps the existing
+macOS/Impuls Power behavior and does not receive a new alert path in Phase 07.
 
 | # | Case | Result | Notes |
 | --- | --- | --- | --- |
-| 12.1 | Idle CPU with the panel closed, comparable to 1.4.5 | `[ ]` | |
-| 12.2 | Idle CPU with several external devices present | `[ ]` | |
-| 12.3 | Wakeups and timers do not grow with the number of devices | `[ ]` | |
-| 12.4 | Memory stable over a long session | `[ ]` | |
+| 12.1 | 21 → 20 warns once; 20 → 19 does not duplicate | `[x]` | Automated regression test |
+| 12.2 | 11 → 10 is critical once; 10 → 9 does not duplicate | `[x]` | Automated regression test |
+| 12.3 | First 17 % is warning only; first 8 % and 21 → 8 are critical only | `[x]` | Automated regression tests |
+| 12.4 | Charging suppresses only that component; unknown charging permits alert; unplug at 9 % alerts | `[x]` | Automated regression tests |
+| 12.5 | Stale, missing, disappeared and provider last-good data do not alert | `[x]` | Engine freshness and `DevicePowerCenter` ready-provider boundary covered automatically |
+| 12.6 | Warning re-arms above 25 %, critical above 15 %; 20 → 21 → 20 does not spam | `[x]` | Automated regression tests |
+| 12.7 | Alert state survives engine/app restart and USB ↔ Wi-Fi without duplicate | `[x]` | Automated persistence and stable opaque identity tests |
+| 12.8 | Two devices alert independently; AirPods components aggregate to one device notification | `[x]` | Automated multi-device, multi-component and critical-precedence tests |
+| 12.9 | Alert state is bounded and contains no raw identifier, display name, percentage or pairing material | `[x]` | Local opaque-key document; 600 component cap, 180-day expiry, backup exclusion tested |
+| 12.10 | Permission is requested only by the explicit Settings toggle; denied access leaves Battery Center healthy | `[x]` | Automated Settings and injected denied-delivery tests |
+| 12.11 | Alerts off add no polling; alerts on use the existing scheduler at about 5 min / 1 min; active cadence stays provider-owned | `[x]` | Automated scheduler regression test; no second timer exists |
+| 12.12 | Real macOS permission sheet and notification delivery, RU/EN copy | `[ ]` | Use the Phase 07 QA build. `IMPULS_LOW_BATTERY_NOTIFICATION_QA=1` emits a clearly labelled test notification only after alerts are enabled/authorized; it does not use or display a fake device reading |
+| 12.13 | Notification click opens Impuls Power; denied copy is calm and monitoring continues | `[ ]` | Manual UI QA required |
+| 12.14 | Background 5 min / 1 min cadence has stable CPU, wakeups, FD/socket/task lifecycle | `[ ]` | Manual soak required with the panel closed |
+
+## 13. Performance
+
+| # | Case | Result | Notes |
+| --- | --- | --- | --- |
+| 13.1 | Idle CPU with the panel closed, comparable to 1.4.5 | `[ ]` | |
+| 13.2 | Idle CPU with several external devices present | `[ ]` | |
+| 13.3 | Wakeups and timers do not grow with the number of devices | `[ ]` | |
+| 13.4 | Memory stable over a long session | `[ ]` | |

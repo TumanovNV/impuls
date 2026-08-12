@@ -135,6 +135,19 @@ final class NotchController {
         }
     }
 
+    /// Notification clicks have one stable destination in 1.4.6: the Power
+    /// pane. Device-level selection can be added later without changing the
+    /// notification payload or exposing a hardware identifier.
+    func openPower() {
+        guard let vm = viewModel, vm.visibleTabs.contains(.power) else { return }
+        vm.select(.power, requestKeyboard: false)
+        // Like a global-shortcut open, this is an intentional entrance rather
+        // than pointer hover. Hold the panel open until the user dismisses it.
+        vm.keyboardNavigationActive = true
+        pointer.setInside(false)
+        setOpen(true)
+    }
+
     func makeBackup(settings snapshot: ImpulsSettingsSnapshot) -> ImpulsBackupDocument? {
         guard let vm = viewModel else { return nil }
         vm.notes.flush()

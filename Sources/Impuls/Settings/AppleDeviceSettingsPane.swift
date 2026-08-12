@@ -7,6 +7,7 @@ import SwiftUI
 @MainActor
 struct AppleDeviceSettingsPane: View {
     @ObservedObject var settings: SettingsStore
+    @ObservedObject var lowBatteryAlerts: LowBatteryAlertService
     @State private var devicePendingForget: AppleDeviceSnapshot?
 
     var body: some View {
@@ -59,6 +60,25 @@ struct AppleDeviceSettingsPane: View {
                 }
             }
 
+            Section(localized("Battery Notifications")) {
+                Toggle(
+                    localized("Warn About Low Battery"),
+                    isOn: Binding(
+                        get: { settings.lowBatteryAlertsEnabled },
+                        set: { settings.setLowBatteryAlertsEnabledByUser($0) }
+                    )
+                )
+                Text(localized("Impuls will notify you when a connected device reaches 20% or 10%."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                if settings.lowBatteryAlertsEnabled, lowBatteryAlerts.authorization == .denied {
+                    Text(localized("Notifications are disabled for Impuls in macOS settings. Battery monitoring will continue without alerts."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             if MobileDeviceBatteryProvider.isEnabled {
                 Section(localized("Beta")) {
                     Text(localized("iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device."))
@@ -68,6 +88,7 @@ struct AppleDeviceSettingsPane: View {
             }
         }
         .formStyle(.grouped)
+        .onAppear { lowBatteryAlerts.refreshAuthorization() }
         .alert(
             localized("Forget Device?"),
             isPresented: Binding(

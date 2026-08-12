@@ -25,6 +25,7 @@ final class DevicePowerCenter: ObservableObject {
     private let scheduler: DeviceRefreshScheduler
     private let clock: DeviceClock
     private let staleInterval: TimeInterval
+    private let lowBatteryAlerts: LowBatteryAlertService?
 
     /// The last good view from each provider, kept per provider on purpose.
     ///
@@ -46,7 +47,8 @@ final class DevicePowerCenter: ObservableObject {
         externalProviders: [DeviceBatteryProviding] = [],
         scheduler: DeviceRefreshScheduler? = nil,
         clock: DeviceClock = SystemDeviceClock(),
-        staleInterval: TimeInterval = DeviceSnapshotMerger.defaultStaleInterval
+        staleInterval: TimeInterval = DeviceSnapshotMerger.defaultStaleInterval,
+        lowBatteryAlerts: LowBatteryAlertService? = nil
     ) {
         self.localProvider = localProvider
         self.externalProviders = externalProviders
@@ -56,6 +58,7 @@ final class DevicePowerCenter: ObservableObject {
         self.scheduler = scheduler ?? DeviceRefreshScheduler()
         self.clock = clock
         self.staleInterval = staleInterval
+        self.lowBatteryAlerts = lowBatteryAlerts
     }
 
     /// The arrangement the application uses.
@@ -63,7 +66,11 @@ final class DevicePowerCenter: ObservableObject {
     /// External providers are constructed here but not started: construction is
     /// inert — no registry walk, no notification, no permission — and
     /// `setExternalDevicesEnabled` is the only thing that wakes them.
-    convenience init(monitor: PowerMonitor, clock: DeviceClock = SystemDeviceClock()) {
+    convenience init(
+        monitor: PowerMonitor,
+        clock: DeviceClock = SystemDeviceClock(),
+        lowBatteryAlerts: LowBatteryAlertService? = nil
+    ) {
         self.init(
             localProvider: LocalMacDeviceProvider(monitor: monitor, clock: clock),
             externalProviders: [
@@ -75,7 +82,8 @@ final class DevicePowerCenter: ObservableObject {
                 // is real and testable, inert until the flag is set.
                 MobileDeviceBatteryProvider(source: MobileDeviceBatterySource(clock: clock)),
             ],
-            clock: clock
+            clock: clock,
+            lowBatteryAlerts: lowBatteryAlerts
         )
     }
 
@@ -92,6 +100,11 @@ final class DevicePowerCenter: ObservableObject {
         isExternalEnabled = enabled
         guard isModuleEnabled else { return }
         enabled ? startExternalProviders() : stopExternalProviders()
+    }
+
+    func setLowBatteryAlertsEnabled(_ enabled: Bool, requestAuthorization: Bool = false) {
+        lowBatteryAlerts?.setEnabled(enabled, requestAuthorization: requestAuthorization)
+        publish()
     }
 
     /// The panel opened or closed.
@@ -209,6 +222,25 @@ final class DevicePowerCenter: ObservableObject {
             staleAfter: staleInterval
         )
         if merged != devices { devices = merged }
+
+        // The UI may honestly retain an ageing last-good reading after a
+        // provider failure. Alerts have a stricter contract: only the current
+        // output of providers that are ready participates, even during the
+        // interval in which that retained UI snapshot is not old enough to be
+        // labelled stale yet.
+        let currentProviderDevices = lastGoodDevices.compactMap { identifier, devices in
+            statuses[identifier] == .ready ? devices : nil
+        }
+        let alertSnapshots = DeviceSnapshotMerger.merge(
+            currentProviderDevices,
+            now: now,
+            staleAfter: staleInterval
+        )
+        lowBatteryAlerts?.evaluate(alertSnapshots, now: now, staleAfter: staleInterval)
+        let alertInterval = isModuleEnabled && isExternalEnabled
+            ? lowBatteryAlerts?.backgroundPollingInterval(for: alertSnapshots, now: now, staleAfter: staleInterval)
+            : nil
+        scheduler.setAlertBackgroundInterval(alertInterval)
 
         let diagnostics = DeviceProviderIdentifier.allCases.compactMap { identifier -> DeviceProviderDiagnostic? in
             guard let status = statuses[identifier] else { return nil }

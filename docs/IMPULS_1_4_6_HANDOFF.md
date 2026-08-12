@@ -14,14 +14,15 @@ produced this work. Read this, then `APPLE_DEVICE_BATTERY_SUPPORT.md`, then
 | Phase 04.1 implementation HEAD | `8159b5b` |
 | Phase 05 implementation checkpoint | `c4fac61` |
 | Phase 06 baseline | `a4cc56a` — production USB/Wi-Fi implementation begins here |
+| Phase 07 | universal low-battery alerts — implemented in the current Phase 07 commit |
 | `main` | `5672689` — Impuls 1.4.4 |
 | `release/1.4.5` | `efb3742` — 1.4.5, still unmerged into `main` |
 | `Scripts/version` | `VERSION=1.4.5` — **not yet bumped**; 1.4.6 is not a release |
-| Tests | 271, 0 failures (`swift test -c release`) |
+| Tests | 292, 0 failures (`swift test -c release`) |
 
 1.4.6 is unreleased. Phase 05 (UI, Settings, localization, accessibility) and
-Phase 06 (iPhone battery over the system usbmuxd USB and Network routes) are
-implemented. Production Wi-Fi discovery, locked reads, USB preference, Wi-Fi
+Phase 06 (iPhone battery over the system usbmuxd USB and Network routes) and
+Phase 07 (universal low-battery alerts) are implemented. Production Wi-Fi discovery, locked reads, USB preference, Wi-Fi
 fallback, identity, deduplication and lifecycle are hardware validated on one
 iPhone. Visual, VoiceOver and the remaining hardware QA below are still open.
 Do not merge PR #33 until those checks are complete. The external-device path
@@ -90,6 +91,37 @@ local to this Mac and are excluded from settings backup snapshots. Permission an
 trust states are user-facing sentences, not transport errors. English and Russian
 tables are complete, controls keep keyboard focus, and accessibility values contain
 device names, real readings and states but never device identifiers.
+
+### Phase 07 — universal low-battery alerts
+
+`LowBatteryAlertEngine` consumes only normalized external-device snapshots and
+components. It has no hardware, provider or transport knowledge. Fixed warning
+and critical thresholds are 20 % and 10 %, with re-arm hysteresis above 25 %
+and 15 %. A component known to be charging is suppressed; absent or unknown
+charging state is never guessed. First observations below a threshold work,
+critical takes precedence over warning, and all actionable components of one
+physical device are aggregated into at most one notification per evaluation.
+
+Only current output from a ready provider and component readings inside the
+existing freshness window are eligible. The UI may retain an ageing last-good
+snapshot, but that retained value cannot create an alert. State is keyed by the
+same local opaque identity plus component kind, survives app and Mac restarts,
+and is bounded to 600 component records with 180-day expiry. It contains no
+display name, percentage, raw identifier, route or pairing material and is not
+part of an exported backup.
+
+Notification permission is requested only when the user explicitly enables
+**Warn About Low Battery** in Apple Devices Settings. Denial leaves the Battery
+Center running and produces a calm explanatory Settings state; authorization
+is never requested repeatedly. Clicking a notification activates Impuls and
+opens Power. Notification copy is localized in English and Russian.
+
+There is no alert timer. `DeviceRefreshScheduler` remains the single polling
+owner: with alerts on and the pane closed it caps external-provider cadence at
+5 minutes above 25 %, or 1 minute at/below 25 % when that component is not
+confirmed charging. Opening the pane keeps each provider's existing active
+interval. Turning alerts off removes the cap and restores the original provider
+cadence.
 
 ## Hardware validation already performed
 
@@ -232,6 +264,11 @@ record:
   negative sign after the clock-skew fix;
 - Mac sleep/wake with the Wi-Fi iPhone visible. A full Mac reboot passed, but it
   is not the same lifecycle event.
+- real Notification Center delivery, denial copy and click-to-Power in the
+  Phase 07 QA build; the env-gated QA notification explicitly says it is a test
+  and uses no fabricated device reading;
+- a background-cadence soak with the panel closed to confirm real wakeups and
+  resource stability at the 5 min / 1 min policy.
 
 ## Decisions already made
 
@@ -281,13 +318,15 @@ in no backup and no feedback report.
 | `SettingsStore.showsExternalAppleDevices` | persisted, defaults to `false`, `decodeIfPresent` so 1.4.5 settings and backups migrate |
 | External-device UI | opt-in, discovery, manual refresh, per-device visibility/order and forget are exposed in the Apple Devices settings tab |
 | Local-only presentation state | keyed identity order and hidden state; never included in `ImpulsSettingsSnapshot` or backups |
+| `SettingsStore.lowBatteryAlertsEnabled` | persisted locally, defaults to `false`, excluded from backups; only the explicit Settings action may request macOS authorization |
+| Alert state | opaque identity + component + fired/re-arm state + cleanup timestamp; local UserDefaults only, bounded and excluded from backups |
 
 With the flag off, the release bundle opens no socket to `usbmuxd` at all, and
 the launch smoke test still shows zero network sockets.
 
 ## Test state
 
-271 tests, 0 failures. Groups:
+292 tests, 0 failures. Groups:
 
 | Group | What it covers |
 | --- | --- |
@@ -295,6 +334,7 @@ the launch smoke test still shows zero network sockets.
 | Identity | `.localMac`, keyed derivation, stability, redaction |
 | Dedup and merge | one iPhone over two transports, source priority, stale versus fresh, identical names not merged |
 | Scheduler | event-driven never polled, cadence, exponential back-off with a ceiling |
+| Low-battery alerts | 20/10 thresholds, first observation, critical precedence, charging suppression, freshness, hysteresis, persistence, transport identity, multi-device/component aggregation, denied permission and scheduler caps |
 | Lifecycle | module and external switches, late updates after stop, failure isolation, last good snapshot |
 | IORegistry fixtures | numeric widths, wrong types, `Int.max`, missing keys, future keys, non-Apple vendor, built-in transport |
 | `system_profiler` fixtures | current output shape, all three components, missing battery, malformed object, unknown fields, several devices, duplicates, out-of-range, explicit refresh without an internal cache |
@@ -351,7 +391,7 @@ swift test -c release
 
 # Remaining before merge
 
-Phase 05 and Phase 06 implementation, automated tests and the recorded iPhone
+Phase 05, Phase 06 and Phase 07 implementation, automated tests and the recorded iPhone
 USB/Wi-Fi hardware QA are complete. Do not reopen phases 01–04.1 without
 evidence, and do not merge PR #33 until the following manual review is recorded
 in `docs/QA_APPLE_DEVICES_1.4.6.md` where applicable:
@@ -366,3 +406,7 @@ in `docs/QA_APPLE_DEVICES_1.4.6.md` where applicable:
   marking unobserved hardware scenarios as passed;
 - manually confirm the rebuilt UI renders a fresh age as `0 с` or a positive
   duration, never `-3 с`.
+- validate real Notification Center authorization, denied-state copy, localized
+  test delivery and click-to-Power with the Phase 07 QA build;
+- soak the alert-enabled background cadence with the panel closed and record
+  CPU, wakeups and FD/socket/task stability.
