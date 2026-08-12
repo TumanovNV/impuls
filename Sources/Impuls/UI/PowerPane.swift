@@ -216,6 +216,7 @@ struct PowerPane: View {
                     AppleDevicePresentation.ageTitle(
                         since: device.lastUpdated,
                         freshness: AppleDevicePresentation.freshness(for: device),
+                        source: device.source,
                         abbreviated: true
                     )
                 )
@@ -264,6 +265,7 @@ struct PowerPane: View {
         let age = AppleDevicePresentation.ageTitle(
             since: component.lastUpdated ?? device.lastUpdated,
             freshness: freshness,
+            source: device.source,
             abbreviated: true
         )
         return VStack(spacing: Theme.Space.hair) {

@@ -12,11 +12,11 @@ produced this work. Read this, then `APPLE_DEVICE_BATTERY_SUPPORT.md`, then
 | Branch | `agent/apple-device-center-1.4.6` |
 | Base branch | `release/1.4.5` (**not** `main`) |
 | Phase 04.1 implementation HEAD | `8159b5b` |
-| Phase 05 working tree base | `f4cffc9` |
+| Phase 05 implementation checkpoint | `c4fac61` |
 | `main` | `5672689` — Impuls 1.4.4 |
 | `release/1.4.5` | `efb3742` — 1.4.5, still unmerged into `main` |
 | `Scripts/version` | `VERSION=1.4.5` — **not yet bumped**; 1.4.6 is not a release |
-| Tests | 258, 0 failures (`swift test -c release`) |
+| Tests | 261, 0 failures (`swift test -c release`) |
 
 1.4.6 is unreleased. Phase 05 (UI, Settings, localization, accessibility) is
 implemented in the working tree and has passed automated review, but the visual,
@@ -89,8 +89,8 @@ device names, real readings and states but never device identifiers.
 
 ## Hardware validation already performed
 
-One Mac, one iPhone, one pair of AirPods, on 11 August 2026. Everything below
-was observed; nothing below is inferred.
+One Mac, one iPhone and one pair of AirPods, on 11–12 August 2026. Everything
+below was observed; nothing below is inferred.
 
 ### AirPods Pro
 
@@ -104,6 +104,11 @@ was observed; nothing below is inferred.
 - runtime **0.08–0.12 s**, output about **2 KB**;
 - only components the system actually published were shown — one bud was in the
   case, so exactly one component existed and exactly one was displayed;
+- a second run on 12 August exposed a source limitation: after both buds had
+  appeared, returning the right bud to its case did not remove it from either
+  `system_profiler` or macOS Bluetooth Settings for at least 30 seconds. Both
+  continued to report left 100 %, right 100 %, case 28 %, and the JSON contained
+  no separate component-presence property;
 - provider status: **Best effort, hardware validated**.
 
 Only this model was tested. Nothing here says AirPods Max or the original
@@ -166,7 +171,10 @@ not the absence of a device.
 fallback is `/usr/sbin/system_profiler` through `Process` directly: fixed
 absolute path, fixed arguments, JSON output, empty environment, bounded stdout
 and stderr, a deadline that terminates the child, no raw output in logs, and the
-parser separated from the process runner. Best effort, never authoritative.
+parser separated from the process runner. The source does not cache: scheduler
+cadence, explicit refresh and read coalescing belong to the provider. Best
+effort, never authoritative. A timestamp from this source means "reported by
+macOS then", not "the physical component was measured then".
 
 **Magic accessories.** The IORegistry path stays. Untested on hardware.
 
@@ -201,7 +209,7 @@ the launch smoke test still shows zero network sockets.
 
 ## Test state
 
-258 tests, 0 failures. Groups:
+261 tests, 0 failures. Groups:
 
 | Group | What it covers |
 | --- | --- |
@@ -211,14 +219,14 @@ the launch smoke test still shows zero network sockets.
 | Scheduler | event-driven never polled, cadence, exponential back-off with a ceiling |
 | Lifecycle | module and external switches, late updates after stop, failure isolation, last good snapshot |
 | IORegistry fixtures | numeric widths, wrong types, `Int.max`, missing keys, future keys, non-Apple vendor, built-in transport |
-| `system_profiler` fixtures | current output shape, all three components, missing battery, malformed object, unknown fields, several devices, duplicates, out-of-range |
+| `system_profiler` fixtures | current output shape, all three components, missing battery, malformed object, unknown fields, several devices, duplicates, out-of-range, explicit refresh without an internal cache |
 | usbmux framing | length below header, four-gigabyte length, zero length, truncated plist, non-dictionary payload |
 | lockdown | error vocabulary, refused port, wrong service, session states |
 | PEM / PKCS#8 | valid material, malformed, mislabelled, truncated DER, oversized, mismatched key and certificate |
 | TLS | no session, `EnableSessionSSL` false and true, bounded handshake, nothing to pin against |
 | Privacy | no pairing material or identifier in any error or diagnostic string |
 | Process boundary | real child processes: one that never exits, one that floods its pipe, one that fails, one that is missing |
-| Presentation | component omission, per-reading age and freshness, Beta labels, identifier-free accessibility values |
+| Presentation | component omission, per-reading age and freshness, macOS-report timestamp semantics, Beta labels, identifier-free accessibility values |
 | Settings privacy | local visibility/order persistence, backup exclusion, bounded key validation, explicit opt-in before refresh |
 
 **What unit tests do not prove:** that any of it works on hardware. The hardware

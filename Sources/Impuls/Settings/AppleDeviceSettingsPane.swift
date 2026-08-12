@@ -155,7 +155,8 @@ struct AppleDeviceSettingsPane: View {
             : DeviceFreshness.stale
         let age = AppleDevicePresentation.ageTitle(
             since: device.lastUpdated,
-            freshness: freshness
+            freshness: freshness,
+            source: device.source
         )
 
         return HStack(spacing: 12) {

@@ -7,10 +7,12 @@ CI can build the code and run the fixtures; it cannot connect an iPhone or put
 AirPods in a case. A box is ticked only by someone who saw the result on the
 device named in the row, and the date and macOS version go in the notes column.
 
-**Status: eleven rows verified on 11 August 2026.** The AirPods registry
-question came back negative and the `system_profiler` fallback that replaced it
-came back positive; the iPhone USB path was refused without a session and then
-worked through one. Everything else is still untested.
+**Status: twelve rows verified and one source limitation reproduced on 11–12
+August 2026.** The AirPods registry question came back negative and the
+`system_profiler` fallback that replaced it came back positive, but the public
+macOS report can retain a bud that is already back in its case; the iPhone USB
+path was refused without a session and then worked through one. Everything else
+is still untested.
 
 Legend: `[ ]` not tested · `[x]` verified on hardware · `[—]` not applicable to
 this configuration · `[!]` tested and failed, see notes.
@@ -55,7 +57,7 @@ The existing module must not get worse. These are the rows that block a release.
 | 3.8 | Two accessories of the same model connected at once: two distinct cards | `[ ]` | |
 | 3.9 | A non-Apple Bluetooth mouse or keyboard is not listed | `[ ]` | vendor identifier, not the product name |
 | 3.10 | Accessory reconnects after being switched off: same card, not a second one | `[ ]` | |
-| 3.11 | Accessory battery updates within a minute while the panel is open | `[ ]` | polled at 60 s |
+| 3.11 | Accessory battery updates within a minute while the panel is open | `[ ]` | provider polls at 10 s while the panel is active; hardware behaviour still unverified |
 
 ## 4. AirPods
 
@@ -64,16 +66,16 @@ The existing module must not get worse. These are the rows that block a release.
 | 4.1 | AirPods connected: what the system actually publishes — overall only, or left/right/case | `[x]` | 11 Aug 2026, AirPods Pro connected: the IORegistry publishes **nothing** — no overall value, no components. macOS shows the level from `bluetoothd` |
 | 4.2 | AirPods Pro connected: same question | `[ ]` | |
 | 4.3 | AirPods Max connected: single battery presented as a single battery | `[ ]` | |
-| 4.4 | One bud in the case: the missing bud is absent, not 0% | `[ ]` | |
+| 4.4 | One bud in the case: the missing bud is absent, not 0% | `[!]` | 12 Aug 2026: after the right bud was returned to its case, both `system_profiler` and macOS Bluetooth Settings retained left 100 %, right 100 %, case 28 % for the full 30 s sample. No public presence property exists, so Impuls cannot honestly remove the last-known right value until macOS removes the key |
 | 4.5 | Case closed and away: last case value is shown with its age, or not at all | `[ ]` | |
 | 4.6 | AirPods disconnected: no stale value presented as realtime | `[ ]` | |
 | 4.7 | AirPods switched to an iPhone mid-session: card leaves cleanly | `[ ]` | |
-| 4.8 | Values match the system Bluetooth menu | `[ ]` | |
+| 4.8 | Values match the system Bluetooth menu | `[x]` | 12 Aug 2026: `system_profiler` and macOS Bluetooth Settings both showed left 100 %, right 100 %, case 28 %. They matched each other, including the last-known right value after it was put in the case |
 | 4.9 | Whether `BatteryPercentLeft` / `Right` / `Case` exist at all on current macOS | `[x]` | 11 Aug 2026: they do not. `ioreg -r -k BatteryPercent -l` returned no nodes with AirPods Pro connected; "AirPods" appears nowhere in the registry; the historical `DeviceCache` in `com.apple.Bluetooth.plist` is gone |
 | 4.10 | `system_profiler` fallback: AirPods appear with a battery | `[x]` | 11 Aug 2026, AirPods Pro: `airPodsPro` "AirPods Pro (…)", model `Headphones`, right bud 87 % |
 | 4.11 | The value matches what macOS reports at the same moment | `[x]` | 11 Aug 2026: macOS `Right Battery Level: 87 %`, Impuls `right=87`. Watched across three runs as it fell 89 → 88 → 87, matching each time |
-| 4.12 | Only the components the system actually publishes are shown | `[x]` | 11 Aug 2026: one bud was in the case; only the other bud's value existed and only it was shown. No invented left or case value |
-| 4.13 | `system_profiler` cost is acceptable | `[x]` | 11 Aug 2026: 0.08–0.12 s wall clock, ~2 KB JSON. Run at most once per 30 s, and on panel open |
+| 4.12 | Only the components the system actually publishes are shown | `[x]` | 11 Aug: only one published bud existed and only it was shown. 12 Aug clarifies the boundary: macOS can retain both component keys after one bud returns to the case, and Impuls mirrors those keys without inventing a presence signal |
+| 4.13 | `system_profiler` cost is acceptable | `[x]` | 11 Aug 2026: 0.08–0.12 s wall clock, ~2 KB JSON. No source cache; real read on manual refresh/panel open, then 10 s active and 10 min idle provider cadence |
 | 4.14 | Disconnected accessories are not listed with a stale charge | `[x]` | 11 Aug 2026: four paired but disconnected devices in the same output were correctly absent |
 
 ## 5. iPhone and iPad over USB — Beta
@@ -147,7 +149,7 @@ them.
 | 9.2 | Individual device can be hidden and shown again | `[ ]` | |
 | 9.3 | Device order can be changed and survives a restart | `[ ]` | |
 | 9.4 | A stale or hidden device can be forgotten | `[ ]` | |
-| 9.5 | Manual refresh works and is not the only way to get data | `[ ]` | |
+| 9.5 | Manual refresh works and is not the only way to get data | `[ ]` | automated regression proves each explicit refresh reruns the source; manual UI and live 10 s cadence still need observation in the QA build |
 | 9.6 | Settings survive an application restart | `[ ]` | |
 
 ## 10. Privacy

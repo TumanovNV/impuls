@@ -33,19 +33,9 @@ final class SystemProfilerAccessorySource: DeviceBatterySource, @unchecked Senda
     static let maximumErrorBytes = 8 * 1024
     static let timeout: TimeInterval = 5
 
-    /// Measured at 0.08–0.12 s wall clock and ~2 KB of output on this Mac, so
-    /// the cost is small — but it is a process spawn, and a process spawn every
-    /// minute for a number that moves by one percent an hour is waste. This is
-    /// the floor between two runs; the scheduler's cadence sits above it, and
-    /// opening the panel is what actually asks for a fresh one.
-    static let minimumInterval: TimeInterval = 30
-
     private let clock: DeviceClock
     private let resolver: DeviceIdentityResolver
     private let runner: @Sendable () throws -> Data
-    private let lock = NSLock()
-    private var cachedDevices: [AppleDeviceSnapshot] = []
-    private var lastRun: Date?
 
     init(
         clock: DeviceClock = SystemDeviceClock(),
@@ -59,28 +49,8 @@ final class SystemProfilerAccessorySource: DeviceBatterySource, @unchecked Senda
 
     func read() async throws -> [AppleDeviceSnapshot] {
         let now = clock.now
-        if let cached = cachedResult(now: now) { return cached }
-
         let data = try runner()
-        let devices = try SystemProfilerAccessoryParser.devices(fromJSON: data, now: now, resolver: resolver)
-        lock.withLock {
-            cachedDevices = devices
-            lastRun = now
-        }
-        return devices
-    }
-
-    /// Forget the cache, so the next read really runs the tool. Used when the
-    /// panel opens, which is the one moment the answer has to be current.
-    func invalidate() {
-        lock.withLock { lastRun = nil }
-    }
-
-    private func cachedResult(now: Date) -> [AppleDeviceSnapshot]? {
-        lock.withLock {
-            guard let lastRun, now.timeIntervalSince(lastRun) < Self.minimumInterval else { return nil }
-            return cachedDevices
-        }
+        return try SystemProfilerAccessoryParser.devices(fromJSON: data, now: now, resolver: resolver)
     }
 
     // MARK: - The process

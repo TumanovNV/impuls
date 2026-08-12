@@ -106,6 +106,20 @@ final class AppleDevicePresentationTests: XCTestCase {
         XCTAssertTrue(age.contains(localized("Stale · %@", "").trimmingCharacters(in: .whitespaces)))
     }
 
+    func testSystemProfilerAgeDescribesAReportInsteadOfPhysicalMeasurement() {
+        let title = AppleDevicePresentation.ageTitle(
+            since: Fixtures.noon,
+            freshness: .fresh,
+            source: .systemProfilerAccessory,
+            now: Fixtures.noon,
+            locale: Locale(identifier: "en_US")
+        )
+
+        XCTAssertTrue(title.contains("macOS"))
+        XCTAssertTrue(title.contains(localized("Reported by macOS %@", "").trimmingCharacters(in: .whitespaces)))
+        XCTAssertFalse(title.contains(localized("Updated %@", "").trimmingCharacters(in: .whitespaces)))
+    }
+
     func testAccessibilityValueNamesChargeStateFreshnessAndConnectionButNoIdentity() {
         let component = DeviceBatteryComponent(
             kind: .primary,

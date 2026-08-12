@@ -57,13 +57,14 @@ LocalMacDeviceProvider.swift     Adapter over PowerMonitor. A desktop Mac arrive
 ```text
 AppleAccessoryBatteryProvider.swift  Two sources: the registry first, system_profiler for
                                      what it left empty. IOKit arrival/departure
-                                     notifications, one read after wake, slow polling.
+                                     notifications, one read after wake, 10 s active /
+                                     10 min idle polling and one in-flight read at a time.
 IORegistryAccessorySource.swift      The registry walk, off the main actor.
 IORegistryAccessoryMapper.swift      Property dictionary → device, or nothing. Four rules
                                      that can only remove a device.
 SystemProfilerAccessorySource.swift  The only subprocess in Impuls: fixed path, fixed
                                      args, no shell, empty environment, bounded output,
-                                     deadline, 30 s cache floor.
+                                     deadline. No internal cache; every requested read runs.
 SystemProfilerAccessoryParser.swift  The JSON, and AppleAccessoryNaming shared with the
                                      registry mapper.
 ```

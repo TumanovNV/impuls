@@ -278,6 +278,10 @@ final class IORegistryAccessoryTests: XCTestCase {
 /// test can actually cause.
 @MainActor
 final class AppleAccessoryBatteryProviderTests: XCTestCase {
+    private var resolver: DeviceIdentityResolver {
+        DeviceIdentityResolver(service: "io.tumanov.impuls.tests.device-identity", account: "unit-test")
+    }
+
     func testAnEmptyMacIsAReadyProviderWithNoDevicesAndNoError() async {
         let source = FakeAccessorySource(devices: [])
         let provider = AppleAccessoryBatteryProvider(registrySource: source, profilerSource: nil)
@@ -360,6 +364,59 @@ final class AppleAccessoryBatteryProviderTests: XCTestCase {
         provider.stop()
     }
 
+    func testManualRefreshRerunsSystemProfilerAndReplacesAirPodsTopology() async {
+        let runner = MutableSystemProfilerRunner(data: profilerJSON(left: 87))
+        let profiler = SystemProfilerAccessorySource(
+            resolver: resolver,
+            runner: { try runner.run() }
+        )
+        let provider = AppleAccessoryBatteryProvider(
+            registrySource: FakeAccessorySource(devices: []),
+            profilerSource: profiler
+        )
+        let collector = UpdateCollector()
+
+        provider.start { collector.append($0) }
+        await collector.wait(forUpdateCount: 1, in: self)
+        XCTAssertEqual(collector.updates.last?.devices.first?.components.map(\.kind), [.left])
+
+        runner.data = profilerJSON(left: 87, right: 91)
+        provider.refresh()
+        await collector.wait(forUpdateCount: 2, in: self)
+        XCTAssertEqual(collector.updates.last?.devices.first?.components.map(\.kind), [.left, .right])
+
+        runner.data = profilerJSON(left: 87)
+        provider.refresh()
+        await collector.wait(forUpdateCount: 3, in: self)
+        XCTAssertEqual(collector.updates.last?.devices.first?.components.map(\.kind), [.left])
+        XCTAssertEqual(runner.readCount, 3, "every explicit refresh must execute system_profiler")
+        provider.stop()
+    }
+
+    func testSystemProfilerFailureKeepsTheLastSuccessfulAirPodsTopology() async {
+        let runner = MutableSystemProfilerRunner(data: profilerJSON(left: 87, right: 91))
+        let profiler = SystemProfilerAccessorySource(
+            resolver: resolver,
+            runner: { try runner.run() }
+        )
+        let provider = AppleAccessoryBatteryProvider(
+            registrySource: FakeAccessorySource(devices: []),
+            profilerSource: profiler
+        )
+        let collector = UpdateCollector()
+
+        provider.start { collector.append($0) }
+        await collector.wait(forUpdateCount: 1, in: self)
+        runner.shouldThrow = true
+        provider.refresh()
+        await collector.wait(forUpdateCount: 2, in: self)
+
+        XCTAssertEqual(collector.updates.last?.status, .temporarilyFailed)
+        XCTAssertEqual(collector.updates.last?.devices.first?.components.map(\.kind), [.left, .right])
+        XCTAssertEqual(runner.readCount, 2)
+        provider.stop()
+    }
+
     func testAStoppedProviderPublishesNothingFurther() async {
         let source = FakeAccessorySource(devices: [Self.mouse])
         let provider = AppleAccessoryBatteryProvider(registrySource: source, profilerSource: nil)
@@ -424,14 +481,14 @@ final class AppleAccessoryBatteryProviderTests: XCTestCase {
         }
     }
 
-    func testTheProviderIsPolledSlowlyAndSaysSo() {
+    func testTheProviderPollsQuicklyOnlyWhileItsPanelIsActive() {
         let provider = AppleAccessoryBatteryProvider(registrySource: FakeAccessorySource(devices: []), profilerSource: nil)
 
         guard case .polled(let active, let idle) = provider.refreshBehavior else {
             return XCTFail("the registry does not notify on level changes, so this has to be polled")
         }
-        XCTAssertGreaterThanOrEqual(active, 30)
-        XCTAssertGreaterThanOrEqual(idle, active * 2, "a closed panel is not worth the same attention")
+        XCTAssertEqual(active, 10, "AirPods topology can arrive late while the user is watching")
+        XCTAssertEqual(idle, 600, "a closed panel is not worth repeated process spawns")
     }
 
     // MARK: - Helpers
@@ -458,6 +515,17 @@ final class AppleAccessoryBatteryProviderTests: XCTestCase {
         await fulfillment(of: [arrived], timeout: 2)
         if !keepRunning { provider.stop() }
         return received!
+    }
+
+    private func profilerJSON(left: Int? = nil, right: Int? = nil) -> Data {
+        var batteries: [String] = []
+        if let left { batteries.append("\"device_batteryLevelLeft\":\"\(left) %\"") }
+        if let right { batteries.append("\"device_batteryLevelRight\":\"\(right) %\"") }
+        let fields = ([
+            "\"device_address\":\"aa-bb-cc-dd-ee-ff\"",
+            "\"device_vendorID\":\"0x004C\"",
+        ] + batteries).joined(separator: ",")
+        return Data("{\"SPBluetoothDataType\":[{\"device_connected\":[{\"AirPods Pro\":{\(fields)}}]}]}".utf8)
     }
 }
 
@@ -507,6 +575,41 @@ private final class FakeAccessorySource: DeviceBatterySource, @unchecked Sendabl
     func read() async throws -> [AppleDeviceSnapshot] {
         if shouldThrow { throw ReadFailure() }
         return devices
+    }
+}
+
+private final class MutableSystemProfilerRunner: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedData: Data
+    private var storedShouldThrow = false
+    private var storedReadCount = 0
+
+    init(data: Data) {
+        storedData = data
+    }
+
+    var data: Data {
+        get { lock.withLock { storedData } }
+        set { lock.withLock { storedData = newValue } }
+    }
+
+    var shouldThrow: Bool {
+        get { lock.withLock { storedShouldThrow } }
+        set { lock.withLock { storedShouldThrow = newValue } }
+    }
+
+    var readCount: Int {
+        lock.withLock { storedReadCount }
+    }
+
+    struct ReadFailure: Error {}
+
+    func run() throws -> Data {
+        try lock.withLock {
+            storedReadCount += 1
+            if storedShouldThrow { throw ReadFailure() }
+            return storedData
+        }
     }
 }
 

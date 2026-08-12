@@ -437,6 +437,8 @@
 "No Current Reading" = "No Current Reading";
 "Updated %@" = "Updated %@";
 "Stale · %@" = "Stale · %@";
+"Reported by macOS %@" = "Reported by macOS %@";
+"Last reported by macOS %@" = "Last reported by macOS %@";
 "Show %@" = "Show %@";
 "Move %@ Up" = "Move %@ Up";
 "Move %@ Down" = "Move %@ Down";

@@ -26,11 +26,13 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
     /// Event-driven where the registry allows it, polled where it does not.
     ///
     /// IOKit will tell us when an accessory appears or disappears, and those
-    /// notifications trigger an immediate read. It will not tell us when a
-    /// battery level changes, so the level itself has to be asked for — slowly,
-    /// because an accessory battery moves by a percent an hour and nobody is
-    /// watching it when the panel is closed.
-    let refreshBehavior = DeviceRefreshBehavior.polled(activeInterval: 60, idleInterval: 600)
+    /// notifications trigger an immediate read. They do not describe AirPods
+    /// component topology, though: hardware QA measured the public macOS source
+    /// taking more than 30 seconds to add a bud and retaining a returned bud as
+    /// last-known for at least 30 seconds. While the panel is visible, ten-second
+    /// polling is a bounded attempt to observe the source changing. When it is
+    /// closed, battery level alone is not worth more than a ten-minute cadence.
+    let refreshBehavior = DeviceRefreshBehavior.polled(activeInterval: 10, idleInterval: 600)
 
     private(set) var status: DeviceProviderStatus = .disabled
 
@@ -83,17 +85,13 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
         DevicePowerLog.note("provider appleAccessory stopped")
     }
 
-    /// Opening the panel is the moment a cached process result stops being
-    /// good enough, so the cache is dropped and the next read really runs.
-    func prepareForForeground() {
-        profilerSource?.invalidate()
-    }
-
     func refresh() {
         guard status != .disabled else { return }
         // One read at a time. The scheduler, a wake notification and an
         // accessory connecting can all arrive within the same second, and three
-        // concurrent registry walks would return the same answer three times.
+        // concurrent registry walks and process spawns would return the same
+        // answer three times. Cadence belongs here and in the scheduler; the
+        // source itself never caches, so a manual refresh is always a real read.
         guard readTask == nil else { return }
 
         // The task inherits this actor, so `publish` lands back on the main

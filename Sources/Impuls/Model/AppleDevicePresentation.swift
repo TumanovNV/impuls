@@ -151,6 +151,7 @@ enum AppleDevicePresentation {
     static func ageTitle(
         since date: Date?,
         freshness: DeviceFreshness,
+        source: DeviceDataSource? = nil,
         now: Date = Date(),
         locale: Locale = .current,
         abbreviated: Bool = false
@@ -162,6 +163,13 @@ enum AppleDevicePresentation {
         formatter.locale = locale
         formatter.unitsStyle = abbreviated ? .abbreviated : .full
         let relative = formatter.localizedString(fromTimeInterval: min(0, date.timeIntervalSince(now)))
+        if source == .systemProfilerAccessory {
+            switch freshness {
+            case .fresh: return localized("Reported by macOS %@", relative)
+            case .stale: return localized("Last reported by macOS %@", relative)
+            case .unavailable: return localized("No Current Reading")
+            }
+        }
         switch freshness {
         case .fresh: return localized("Updated %@", relative)
         case .stale: return localized("Stale · %@", relative)
@@ -193,6 +201,7 @@ enum AppleDevicePresentation {
                 ageTitle(
                     since: component.lastUpdated ?? snapshot.lastUpdated,
                     freshness: componentFreshness,
+                    source: snapshot.source,
                     now: now
                 )
             )

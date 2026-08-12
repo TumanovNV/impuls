@@ -435,6 +435,8 @@
 "No Current Reading" = "Нет актуальных данных";
 "Updated %@" = "Обновлено: %@";
 "Stale · %@" = "Устарело · %@";
+"Reported by macOS %@" = "Получено от macOS: %@";
+"Last reported by macOS %@" = "Последние данные macOS: %@";
 "Show %@" = "Показывать %@";
 "Move %@ Up" = "Переместить %@ выше";
 "Move %@ Down" = "Переместить %@ ниже";

@@ -120,8 +120,8 @@ implementation commits to, and what it refuses to do:
   being excluded already by having no battery property;
 - the provider is **event-driven for arrival and departure** (IOKit matching and
   termination notifications, plus a single read after the Mac wakes) and polled
-  slowly for the level itself — 60 s while the panel is open, 10 min while it is
-  closed — because the registry does not notify on a level change.
+  for the level itself — 10 s while the panel is open, 10 min while it is closed
+  — because the registry does not notify on a level or AirPods topology change.
 
 ---
 
@@ -132,9 +132,9 @@ implementation commits to, and what it refuses to do:
 | Discovery | `Best effort` | same IORegistry path, only while connected |
 | Product / model name | `Best effort` | `Product` property |
 | Overall battery | `Best effort` | `BatteryPercent`, when the system publishes it |
-| Left / Right / Case battery | `Best effort`, availability dependent | shown only if the system publishes per-component values on that service; if it does not, Impuls shows the overall value or nothing |
+| Left / Right / Case battery | `Best effort`, availability dependent | shown only if the system publishes per-component values; public macOS data can retain a last-known component after it is returned to the case |
 | Charging state | only if reliably provided | otherwise omitted, never inferred |
-| Case value freshness | must be marked | a closed case stops updating; the last value is shown with its age or not at all, never as realtime |
+| Component freshness | macOS report time only | there is no physical-presence timestamp; Impuls labels when macOS reported the value and never claims that is when the component was measured |
 
 Rejected alternatives, and why:
 
@@ -189,7 +189,7 @@ the registry produced nothing.
 | Discovery | `Best effort`, hardware validated | connected devices only; a disconnected accessory has no value here and is not listed |
 | Product name | `Best effort`, hardware validated | the device's own Bluetooth name |
 | Battery percentage | `Best effort`, hardware validated | measured against macOS: both reported 87 % for the same AirPods Pro at the same moment |
-| Left / Right / Case | `Best effort`, availability dependent | the keys exist (`device_batteryLevelLeft` / `Right` / `Case`); on the tested hardware only the bud that was out of the case reported one, and only that one was shown |
+| Left / Right / Case | `Best effort`, availability dependent | the keys exist (`device_batteryLevelLeft` / `Right` / `Case`), but they are not presence flags and may retain a last-known component |
 | Charging state | `Unavailable` | nothing in this output says an accessory is charging |
 
 How the process is run, since this is the first subprocess in Impuls: a fixed
@@ -199,10 +199,28 @@ deadline with termination, and no output of any kind in production logs.
 Malformed or oversized output is an ordinary provider failure.
 
 Cost, measured on this Mac: **0.08–0.12 s** wall clock and about **2 KB** of
-JSON. Cheap, but a process spawn all the same, so it is asked for sparingly —
-at most once every 30 s, at the provider's slow cadence (60 s with the panel
-open, 10 min without), and immediately when the panel opens, which is the only
-moment the answer has to be current.
+JSON. The source has no independent cache: a manual refresh and opening the
+panel each request a real read, while the provider coalesces concurrent requests.
+The scheduler polls every 10 s while the panel is open and every 10 min while it
+is closed.
+
+### Measured component latency, 12 August 2026
+
+With AirPods Pro connected, a one-second sampler initially saw no battery object
+for 30 seconds. A later fresh read reported left 100 %, right 100 % and case
+28 %. After the right bud was returned to the case, another 30-second sampler
+continued to receive all three values. macOS Bluetooth Settings showed the same
+100 / 100 / 28 result, and the JSON exposed no separate property that identifies
+whether an individual bud is physically present.
+
+Therefore Impuls can remove a component as soon as macOS removes its key, but it
+cannot infer presence from an unchanged value, charging level or elapsed time.
+For this source, `lastUpdated` records when Impuls observed the macOS report; the
+UI deliberately says "Reported by macOS" rather than claiming a fresh physical
+measurement. Expected application latency is one real read on manual refresh or
+panel open, then at most the 10-second active cadence **after macOS changes its
+own report**. The upstream delay itself is unbounded and was already longer than
+30 seconds in this measurement.
 
 The JSON form is used rather than the text form because its keys are stable
 identifiers; the text output is localised and would tie the parser to the
