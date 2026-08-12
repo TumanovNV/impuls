@@ -254,7 +254,7 @@ struct NotchContentView: View {
         case .notes:
             NotesPane(notes: vm.notes, wantsKeyboard: $vm.wantsKeyboard)
         case .power:
-            PowerPane(power: vm.power)
+            PowerPane(power: vm.power, devices: vm.devices, settings: vm.settings)
         }
     }
 }

@@ -386,6 +386,66 @@
 "%.0f °C" = "%.0f °C";
 "%.1f °C" = "%.1f °C";
 
+/* Apple Device Battery Center 1.4.6 */
+"Apple Devices" = "Apple Devices";
+"Discovery" = "Discovery";
+"Devices" = "Devices";
+"Show Connected Apple Devices" = "Show Connected Apple Devices";
+"External device discovery is off by default. All reads stay on this Mac and no Bluetooth permission is requested." = "External device discovery is off by default. All reads stay on this Mac and no Bluetooth permission is requested.";
+"Find Devices" = "Find Devices";
+"Refresh Devices" = "Refresh Devices";
+"Looking for connected Apple devices" = "Looking for connected Apple devices";
+"Looking for connected Apple devices…" = "Looking for connected Apple devices…";
+"Enable the Power module before looking for Apple devices." = "Enable the Power module before looking for Apple devices.";
+"Connected devices are up to date." = "Connected devices are up to date.";
+"No connected Apple devices found." = "No connected Apple devices found.";
+"Turn on discovery to find connected AirPods and Apple accessories." = "Turn on discovery to find connected AirPods and Apple accessories.";
+"Some devices could not be refreshed. Last known readings show their age." = "Some devices could not be refreshed. Last known readings show their age.";
+"Some device readings are stale." = "Some device readings are stale.";
+"Unlock your iPhone or iPad and tap Trust This Computer." = "Unlock your iPhone or iPad and tap Trust This Computer.";
+"iPhone and iPad battery support is experimental. It uses an existing USB trust relationship and never pairs or changes the device." = "iPhone and iPad battery support is experimental. It uses an existing USB trust relationship and never pairs or changes the device.";
+"This Mac" = "This Mac";
+"Mac" = "Mac";
+"iPhone" = "iPhone";
+"iPad" = "iPad";
+"AirPods" = "AirPods";
+"AirPods Pro" = "AirPods Pro";
+"AirPods Max" = "AirPods Max";
+"Magic Mouse" = "Magic Mouse";
+"Magic Keyboard" = "Magic Keyboard";
+"Magic Trackpad" = "Magic Trackpad";
+"Apple Watch" = "Apple Watch";
+"Apple Pencil" = "Apple Pencil";
+"Apple Vision Pro" = "Apple Vision Pro";
+"AirTag" = "AirTag";
+"Siri Remote" = "Siri Remote";
+"Apple Device" = "Apple Device";
+"Beta" = "Beta";
+"Left" = "Left";
+"Right" = "Right";
+"Case" = "Case";
+"External" = "External";
+"Accessory" = "Accessory";
+"Battery OK" = "Battery OK";
+"Low Battery" = "Low Battery";
+"Critical Battery" = "Critical Battery";
+"Built In" = "Built In";
+"Bluetooth" = "Bluetooth";
+"USB" = "USB";
+"Wi-Fi" = "Wi-Fi";
+"Unknown Connection" = "Unknown Connection";
+"No Current Reading" = "No Current Reading";
+"Updated %@" = "Updated %@";
+"Stale · %@" = "Stale · %@";
+"Show %@" = "Show %@";
+"Move %@ Up" = "Move %@ Up";
+"Move %@ Down" = "Move %@ Down";
+"Forget %@" = "Forget %@";
+"Forget" = "Forget";
+"Forget Device?" = "Forget Device?";
+"Hide or disconnect this device before forgetting it." = "Hide or disconnect this device before forgetting it.";
+"Impuls will remove this device's local visibility and order preferences. A connected device can appear again after discovery." = "Impuls will remove this device's local visibility and order preferences. A connected device can appear again after discovery.";
+
 /* Accessibility and onboarding 1.4.5. The counter nouns are lower-case on
    purpose: they are read after a number ("3 snippets"), never on their own. */
 "Modules, left rail" = "Modules, left rail";

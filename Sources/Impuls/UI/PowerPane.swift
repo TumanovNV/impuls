@@ -2,14 +2,291 @@ import SwiftUI
 
 struct PowerPane: View {
     @ObservedObject var power: PowerMonitor
+    @ObservedObject var devices: DevicePowerCenter
+    @ObservedObject var settings: SettingsStore
+    @State private var selectedDeviceKey = AppleDeviceIdentity.localMac.localPreferenceKey
+    @FocusState private var focusedDeviceKey: String?
 
     var body: some View {
+        if settings.showsExternalAppleDevices {
+            multiDeviceCenter
+        } else {
+            localPower
+        }
+    }
+
+    @ViewBuilder
+    private var localPower: some View {
         switch power.snapshot.deviceKind {
         case .portable:
             battery
         case .desktop:
             desktop
         }
+    }
+
+    private var externalDevices: [AppleDeviceSnapshot] {
+        settings.visibleExternalAppleDevices(from: devices.visibleDevices).filter {
+            MobileDeviceBatteryProvider.isEnabled || !AppleDevicePresentation.isBeta($0.kind)
+        }
+    }
+
+    private var effectiveSelectedDeviceKey: String {
+        externalDevices.contains { $0.identity.localPreferenceKey == selectedDeviceKey }
+            ? selectedDeviceKey
+            : AppleDeviceIdentity.localMac.localPreferenceKey
+    }
+
+    private var selectedExternalDevice: AppleDeviceSnapshot? {
+        externalDevices.first { $0.identity.localPreferenceKey == effectiveSelectedDeviceKey }
+    }
+
+    private var multiDeviceCenter: some View {
+        VStack(spacing: Theme.Space.xs) {
+            deviceSwitcher
+            Group {
+                if let selectedExternalDevice {
+                    externalDeviceCard(selectedExternalDevice)
+                } else {
+                    localPower
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private var deviceSwitcher: some View {
+        HStack(spacing: Theme.Space.xs) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Theme.Space.xs) {
+                    deviceChoice(
+                        key: AppleDeviceIdentity.localMac.localPreferenceKey,
+                        name: localized("This Mac"),
+                        symbol: power.snapshot.deviceKind == .portable ? "laptopcomputer" : "desktopcomputer",
+                        value: power.snapshot.deviceKind == .portable ? batteryPercentage : desktopStateTitle,
+                        accessibilityValue: power.snapshot.deviceKind == .portable
+                            ? "\(batteryPercentage), \(stateTitle)"
+                            : desktopStateTitle
+                    )
+
+                    ForEach(externalDevices, id: \.identity) { device in
+                        deviceChoice(
+                            key: device.identity.localPreferenceKey,
+                            name: device.displayName,
+                            symbol: AppleDevicePresentation.symbol(for: device.kind),
+                            value: device.headlinePercentage.map { "\($0)%" },
+                            accessibilityValue: AppleDevicePresentation.accessibilityValue(for: device)
+                        )
+                    }
+
+                    if let externalStatusMessage {
+                        Label(externalStatusMessage, systemImage: externalStatusSymbol)
+                            .font(Theme.Typo.caption)
+                            .foregroundStyle(Theme.tertiary)
+                            .lineLimit(1)
+                            .help(externalStatusMessage)
+                    }
+                }
+            }
+
+            Button {
+                devices.refreshExternalDevices()
+            } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(NotchButtonStyle(size: Theme.Size.touchTarget))
+            .help(localized("Refresh Devices"))
+            .accessibilityLabel(localized("Refresh Devices"))
+        }
+        .frame(height: Theme.Size.row)
+    }
+
+    private func deviceChoice(
+        key: String,
+        name: String,
+        symbol: String,
+        value: String?,
+        accessibilityValue: String
+    ) -> some View {
+        let selected = effectiveSelectedDeviceKey == key
+        return Button {
+            selectedDeviceKey = key
+        } label: {
+            HStack(spacing: Theme.Space.xs) {
+                Image(systemName: symbol)
+                    .font(Theme.Glyph.medium)
+                Text(name)
+                    .font(Theme.Typo.captionStrong)
+                    .lineLimit(1)
+                if let value {
+                    Text(value)
+                        .font(Theme.Typo.captionDigits)
+                        .foregroundStyle(Theme.secondary)
+                        .lineLimit(1)
+                }
+            }
+            .foregroundStyle(Theme.primary)
+            .padding(.horizontal, Theme.Space.s)
+            .frame(height: Theme.Size.touchTarget)
+            .background(selected ? Theme.selection : Theme.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
+                    .strokeBorder(selected ? Theme.selectionStroke : Theme.hairline, lineWidth: 1)
+                    .allowsHitTesting(false)
+            )
+        }
+        .buttonStyle(.plain)
+        .focused($focusedDeviceKey, equals: key)
+        .notchFocusRing(focusedDeviceKey == key)
+        .accessibilityLabel(name)
+        .accessibilityValue(accessibilityValue)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private var externalStatusMessage: String? {
+        let diagnostics = devices.diagnostics.filter { diagnostic in
+            switch diagnostic.provider {
+            case .localMac, .mobileWiFi: return false
+            case .mobileUSB: return MobileDeviceBatteryProvider.isEnabled
+            case .appleAccessory: return true
+            }
+        }
+        if diagnostics.contains(where: { $0.status == .permissionRequired }) {
+            return localized("Unlock your iPhone or iPad and tap Trust This Computer.")
+        }
+        if diagnostics.contains(where: { $0.status == .temporarilyFailed }) {
+            return localized("Some device readings are stale.")
+        }
+        if externalDevices.isEmpty {
+            if diagnostics.contains(where: { $0.status == .starting }) {
+                return localized("Looking for connected Apple devices…")
+            }
+            return localized("No connected Apple devices found.")
+        }
+        return nil
+    }
+
+    private var externalStatusSymbol: String {
+        if devices.diagnostics.contains(where: { $0.status == .permissionRequired }) {
+            return "lock.open"
+        }
+        if devices.diagnostics.contains(where: { $0.status == .temporarilyFailed }) {
+            return "exclamationmark.triangle"
+        }
+        return externalDevices.isEmpty ? "minus.circle" : "checkmark.circle"
+    }
+
+    private func externalDeviceCard(_ device: AppleDeviceSnapshot) -> some View {
+        HStack(spacing: Theme.Space.m) {
+            VStack(spacing: Theme.Space.xs) {
+                Image(systemName: AppleDevicePresentation.symbol(for: device.kind))
+                    .font(Theme.Glyph.hero)
+                    .foregroundStyle(Theme.primary.opacity(0.86))
+                Text(AppleDevicePresentation.connectionTitle(device.connection))
+                    .font(Theme.Typo.caption)
+                    .foregroundStyle(Theme.tertiary)
+                    .lineLimit(1)
+            }
+            .frame(width: 64)
+
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                HStack(spacing: Theme.Space.xs) {
+                    Text(device.displayName)
+                        .font(Theme.Typo.title)
+                        .foregroundStyle(Theme.primary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                    if AppleDevicePresentation.isBeta(device.kind) {
+                        Text(localized("Beta"))
+                            .font(Theme.Typo.captionSemibold)
+                            .foregroundStyle(Theme.secondary)
+                            .padding(.horizontal, Theme.Space.xs)
+                            .padding(.vertical, 1)
+                            .background(Theme.surfaceHover, in: Capsule())
+                    }
+                }
+                Text(device.modelName ?? AppleDevicePresentation.kindTitle(device.kind))
+                    .font(Theme.Typo.caption)
+                    .foregroundStyle(Theme.tertiary)
+                    .lineLimit(1)
+                Text(
+                    AppleDevicePresentation.ageTitle(
+                        since: device.lastUpdated,
+                        freshness: AppleDevicePresentation.freshness(for: device),
+                        abbreviated: true
+                    )
+                )
+                .font(Theme.Typo.caption)
+                .foregroundStyle(Theme.tertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            }
+            .frame(minWidth: 92, maxWidth: 154, alignment: .leading)
+
+            Rectangle()
+                .fill(Theme.hairline)
+                .frame(width: 1)
+                .padding(.vertical, Theme.Space.s)
+
+            HStack(spacing: Theme.Space.m) {
+                ForEach(device.components, id: \.kind) { component in
+                    componentColumn(component, device: device)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+        }
+        .padding(.horizontal, Theme.Space.m)
+        .padding(.vertical, Theme.Space.s)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
+                .strokeBorder(Theme.hairline, lineWidth: 1)
+                .allowsHitTesting(false)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(device.displayName)
+        .accessibilityValue(AppleDevicePresentation.accessibilityValue(for: device))
+    }
+
+    private func componentColumn(
+        _ component: DeviceBatteryComponent,
+        device: AppleDeviceSnapshot
+    ) -> some View {
+        let freshness = AppleDevicePresentation.freshness(
+            for: component,
+            availability: device.availability,
+            fallbackDate: device.lastUpdated
+        )
+        let age = AppleDevicePresentation.ageTitle(
+            since: component.lastUpdated ?? device.lastUpdated,
+            freshness: freshness,
+            abbreviated: true
+        )
+        return VStack(spacing: Theme.Space.hair) {
+            Text(AppleDevicePresentation.readingTitle(component))
+                .font(device.components.count == 1 ? Theme.Typo.hero : Theme.Typo.bodyDigits)
+                .foregroundStyle(Theme.primary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text(AppleDevicePresentation.componentTitle(component.kind))
+                .font(Theme.Typo.captionStrong)
+                .foregroundStyle(Theme.secondary)
+                .lineLimit(1)
+            if let charging = AppleDevicePresentation.chargingTitle(component.chargingState) {
+                Text(charging)
+                    .font(Theme.Typo.caption)
+                    .foregroundStyle(Theme.tertiary)
+                    .lineLimit(1)
+            }
+            Text(age)
+                .font(Theme.Typo.caption)
+                .foregroundStyle(freshness == .stale ? Theme.secondary : Theme.tertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
+        }
+        .frame(minWidth: 54, maxWidth: .infinity)
     }
 
     /// What the three metric columns and their furniture need to the right of

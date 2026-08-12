@@ -384,6 +384,66 @@
 "%.0f °C" = "%.0f °C";
 "%.1f °C" = "%.1f °C";
 
+/* Центр аккумуляторов устройств Apple 1.4.6 */
+"Apple Devices" = "Устройства Apple";
+"Discovery" = "Обнаружение";
+"Devices" = "Устройства";
+"Show Connected Apple Devices" = "Показывать подключённые устройства Apple";
+"External device discovery is off by default. All reads stay on this Mac and no Bluetooth permission is requested." = "Обнаружение внешних устройств по умолчанию выключено. Все данные остаются на этом Mac, а доступ к Bluetooth не запрашивается.";
+"Find Devices" = "Найти устройства";
+"Refresh Devices" = "Обновить устройства";
+"Looking for connected Apple devices" = "Поиск подключённых устройств Apple";
+"Looking for connected Apple devices…" = "Поиск подключённых устройств Apple…";
+"Enable the Power module before looking for Apple devices." = "Включите модуль «Питание», прежде чем искать устройства Apple.";
+"Connected devices are up to date." = "Данные подключённых устройств актуальны.";
+"No connected Apple devices found." = "Подключённые устройства Apple не найдены.";
+"Turn on discovery to find connected AirPods and Apple accessories." = "Включите обнаружение, чтобы найти подключённые AirPods и аксессуары Apple.";
+"Some devices could not be refreshed. Last known readings show their age." = "Не все устройства удалось обновить. Для последних известных данных указан их возраст.";
+"Some device readings are stale." = "Некоторые данные об устройствах устарели.";
+"Unlock your iPhone or iPad and tap Trust This Computer." = "Разблокируйте iPhone или iPad и нажмите «Доверять этому компьютеру».";
+"iPhone and iPad battery support is experimental. It uses an existing USB trust relationship and never pairs or changes the device." = "Поддержка аккумуляторов iPhone и iPad экспериментальная. Она использует существующее доверие по USB, не создаёт пару и не изменяет устройство.";
+"This Mac" = "Этот Mac";
+"Mac" = "Mac";
+"iPhone" = "iPhone";
+"iPad" = "iPad";
+"AirPods" = "AirPods";
+"AirPods Pro" = "AirPods Pro";
+"AirPods Max" = "AirPods Max";
+"Magic Mouse" = "Magic Mouse";
+"Magic Keyboard" = "Magic Keyboard";
+"Magic Trackpad" = "Magic Trackpad";
+"Apple Watch" = "Apple Watch";
+"Apple Pencil" = "Apple Pencil";
+"Apple Vision Pro" = "Apple Vision Pro";
+"AirTag" = "AirTag";
+"Siri Remote" = "Siri Remote";
+"Apple Device" = "Устройство Apple";
+"Beta" = "Бета";
+"Left" = "Левый";
+"Right" = "Правый";
+"Case" = "Футляр";
+"External" = "Внешний";
+"Accessory" = "Аксессуар";
+"Battery OK" = "Аккумулятор в норме";
+"Low Battery" = "Низкий заряд";
+"Critical Battery" = "Критический заряд";
+"Built In" = "Встроенное";
+"Bluetooth" = "Bluetooth";
+"USB" = "USB";
+"Wi-Fi" = "Wi-Fi";
+"Unknown Connection" = "Подключение не определено";
+"No Current Reading" = "Нет актуальных данных";
+"Updated %@" = "Обновлено: %@";
+"Stale · %@" = "Устарело · %@";
+"Show %@" = "Показывать %@";
+"Move %@ Up" = "Переместить %@ выше";
+"Move %@ Down" = "Переместить %@ ниже";
+"Forget %@" = "Забыть %@";
+"Forget" = "Забыть";
+"Forget Device?" = "Забыть устройство?";
+"Hide or disconnect this device before forgetting it." = "Скройте или отключите устройство, прежде чем забыть его.";
+"Impuls will remove this device's local visibility and order preferences. A connected device can appear again after discovery." = "Impuls удалит локальные настройки видимости и порядка этого устройства. Подключённое устройство может снова появиться после обнаружения.";
+
 /* Доступность и онбординг 1.4.5. Существительные-счётчики со строчной
    намеренно: их читают после числа («3 заготовки»), никогда отдельно. */
 "Modules, left rail" = "Модули, левая панель";
