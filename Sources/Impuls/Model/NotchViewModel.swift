@@ -186,6 +186,18 @@ final class NotchViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Settings sees the same sanitised snapshots as the panel, and only at
+        // runtime. The callback is weak because Settings outlives a coordinator
+        // when the panel is rebuilt for another display.
+        settings.configureExternalAppleDeviceRefresh { [weak devices] in
+            devices?.refreshExternalDevices()
+        }
+        Publishers.CombineLatest(devices.$devices, devices.$diagnostics)
+            .sink { [weak settings] devices, diagnostics in
+                settings?.updateAppleDeviceState(devices: devices, diagnostics: diagnostics)
+            }
+            .store(in: &cancellables)
+
         settings.$persistClipboardHistory
             .combineLatest(settings.$clipboardRetention)
             .sink { [weak self] enabled, retention in
