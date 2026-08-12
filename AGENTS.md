@@ -7,6 +7,47 @@ local panel: Actions search, music, file shelf, clipboard history, snippets, cal
 translator and notes. Swift 6 toolchain, SwiftUI on top of AppKit, macOS 15 or newer.
 Everything runs on the device.
 
+## Active development: Impuls 1.4.6 — Apple Device Battery Center
+
+Working branch `agent/apple-device-center-1.4.6`, based on `release/1.4.5` and
+**not** on `main` — 1.4.5 is not merged yet, and branching from `main` loses it.
+Phases 01–04.1 are done; phase 05 (UI, Settings, localization, accessibility) is
+next.
+
+Read before editing anything in this area:
+
+- `docs/IMPULS_1_4_6_HANDOFF.md` — state, decisions, what hardware proved
+- `docs/IMPULS_1_4_6_CODEMAP.md` — which file does what
+- `docs/APPLE_DEVICE_BATTERY_SUPPORT.md` — capability matrix, per data point
+- `docs/QA_APPLE_DEVICES_1.4.6.md` — what is verified on hardware and what is not
+- `PRIVACY.md`, `SECURITY.md` — the promises the code has to keep
+
+Invariants specific to this work, on top of the hard invariants below:
+
+1. `.power` stays the module's internal identifier — settings, backup and
+   migrations depend on it.
+2. `PowerMonitor` and the rest of the 1.4.5 power path are not rewritten.
+   `LocalMacDeviceProvider` adapts them.
+3. No private Apple frameworks. Secure Transport is legacy but public, and it
+   lives only in `LockdownTLSChannel.swift`.
+4. Raw device identifiers — UDID, serial, Bluetooth address, pairing material —
+   never reach the UI, logs, feedback or backups. `AppleDeviceIdentity` is the
+   boundary and is deliberately not `Codable`.
+5. External device discovery is off until the user turns it on. An update must
+   never produce a new prompt or connection by itself.
+6. I/O never runs on the main actor. `DeviceBatterySource` is not `@MainActor`
+   on purpose, and a test enforces it.
+7. Missing data stays missing. Never a fabricated 0%, never a guessed charging
+   state, never a category rendered as a number.
+8. The iPhone/iPad provider is Beta, behind `IMPULS_MOBILE_DEVICE_BATTERY`, off
+   by default.
+9. The AirPods `system_profiler` source is best-effort: fixed absolute path,
+   fixed arguments, no shell, no user input in the argument list, bounded
+   output, timeout.
+10. Before the final 1.4.6 pull request, sync with the finished 1.4.5.
+    `backup/1.4.5-local-handoff` holds 1.4.5 material that exists nowhere else —
+    do not merge it into 1.4.6.
+
 ## Commands
 
 ```bash

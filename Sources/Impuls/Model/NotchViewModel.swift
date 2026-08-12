@@ -93,6 +93,10 @@ final class NotchViewModel: ObservableObject {
     let snippets: SnippetStore
     let notes: NoteStore
     let power: PowerMonitor
+    /// The Apple device layer. It sits beside `power` rather than replacing it:
+    /// the local Mac still comes from `PowerMonitor`, and the centre adds the
+    /// devices around it once the user asks for them.
+    let devices: DevicePowerCenter
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -108,7 +112,9 @@ final class NotchViewModel: ObservableObject {
         self.translator = Translator()
         self.snippets = SnippetStore()
         self.notes = NoteStore()
-        self.power = PowerMonitor()
+        let power = PowerMonitor()
+        self.power = power
+        self.devices = DevicePowerCenter(monitor: power, lowBatteryAlerts: settings.lowBatteryAlerts)
 
         self.clipboard.isApplicationExcluded = { [weak settings] bundleIdentifier in
             settings?.excludedClipboardBundleIdentifiers.contains(bundleIdentifier) ?? false
@@ -144,6 +150,7 @@ final class NotchViewModel: ObservableObject {
             clipboard.objectWillChange,
             calendar.objectWillChange,
             power.objectWillChange,
+            devices.objectWillChange,
         ] {
             child
                 .sink { [weak self] _ in
@@ -159,6 +166,7 @@ final class NotchViewModel: ObservableObject {
                 guard let self else { return }
                 let enabled = preferences.compactMap { $0.isEnabled ? $0.tab : nil }
                 self.power.setEnabled(enabled.contains(.power))
+                self.devices.setEnabled(enabled.contains(.power))
                 if !enabled.contains(self.tab), let first = enabled.first {
                     self.tab = first
                 }
@@ -169,6 +177,33 @@ final class NotchViewModel: ObservableObject {
         power.$snapshot
             .sink { [weak settings] snapshot in
                 settings?.setPowerDeviceKind(snapshot.deviceKind)
+            }
+            .store(in: &cancellables)
+
+        settings.$showsExternalAppleDevices
+            .sink { [weak self] enabled in
+                self?.devices.setExternalDevicesEnabled(enabled)
+            }
+            .store(in: &cancellables)
+
+        // Settings sees the same sanitised snapshots as the panel, and only at
+        // runtime. The callback is weak because Settings outlives a coordinator
+        // when the panel is rebuilt for another display.
+        settings.configureExternalAppleDeviceRefresh { [weak devices] in
+            devices?.refreshExternalDevices()
+        }
+        settings.configureLowBatteryAlerts { [weak devices] enabled, requestAuthorization in
+            devices?.setLowBatteryAlertsEnabled(enabled, requestAuthorization: requestAuthorization)
+        }
+        settings.$lowBatteryAlertsEnabled
+            .sink { [weak devices] enabled in
+                // Persisted/restored settings never cause a permission prompt.
+                devices?.setLowBatteryAlertsEnabled(enabled)
+            }
+            .store(in: &cancellables)
+        Publishers.CombineLatest(devices.$devices, devices.$diagnostics)
+            .sink { [weak settings] devices, diagnostics in
+                settings?.updateAppleDeviceState(devices: devices, diagnostics: diagnostics)
             }
             .store(in: &cancellables)
 
@@ -324,6 +359,10 @@ final class NotchViewModel: ObservableObject {
         // never prompts on its own.
         calendar.start()
         power.setEnabled(visibleTabs.contains(.power))
+        devices.setEnabled(visibleTabs.contains(.power))
+        // Nothing external starts on its own. The switch is off for everyone
+        // who has not turned it on, including everyone updating from 1.4.5.
+        devices.setExternalDevicesEnabled(settings.showsExternalAppleDevices)
 
         // Screenshots reach the shelf through here whether they were taken on
         // this Mac or on a phone: a copy made on the phone arrives in the same
@@ -350,6 +389,7 @@ final class NotchViewModel: ObservableObject {
         clipboard.stop()
         calendar.stop()
         power.stop()
+        devices.stop()
         // Whatever was typed makes it to disk even when quitting mid-thought.
         notes.flushSynchronously()
     }

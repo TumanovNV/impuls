@@ -18,7 +18,8 @@ After the user accepts an available update, Sparkle downloads the versioned ZIP
 from the same repository's GitHub Release. GitHub may redirect that download to
 its release-asset CDN. GitHub receives the IP address required for an internet
 connection, ordinary TLS/HTTP metadata, and a User-Agent containing application
-information. System profiling is explicitly disabled. Impuls sends no clipboard
+information. Sparkle's system profiling — the profile it can attach to an
+update check — is explicitly disabled. Impuls sends no clipboard
 data, notes, snippets, files, calendar content, playback data, analytics
 identifiers, hardware serial numbers, or device identifiers.
 
@@ -77,9 +78,42 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
 - Impuls Actions searches the live clipboard, snippet, and note stores locally;
   it creates no separate search database and sends no query or result anywhere.
 - the Battery / Power module reads live power state locally from macOS public
-  IOPowerSources and, when available, a cycle-count value from the local
-  IORegistry. It stores no power telemetry, adapter identifiers, or hardware
-  serial numbers and sends none of this information anywhere;
+  IOPowerSources and, when available, further values from the local IORegistry.
+  It stores no power telemetry, adapter identifiers, or hardware serial numbers
+  and sends none of this information anywhere;
+- when the user turns on Apple devices — off by default — Impuls also reads the
+  batteries of connected Apple accessories. Values come from the local
+  IORegistry and, where the registry publishes nothing, from a local
+  `/usr/sbin/system_profiler` call for Bluetooth accessory information. That
+  call is made directly, with a fixed argument list and no shell, and its output
+  is read, parsed and discarded on this Mac;
+- an experimental, separately gated provider can read the battery of an iPhone
+  or iPad already trusted by this Mac, over USB or the device-sync route macOS
+  exposes when the user enables **Show this iPhone when on Wi-Fi** in Finder.
+  Impuls does not enable or change that macOS setting. It talks only to the local
+  `/var/run/usbmuxd` UNIX socket: it performs no LAN scan, resolves no Bonjour
+  service and opens no direct TCP connection. For a paired iPhone, macOS may
+  transmit device data over the local Wi-Fi network through its system device
+  synchronisation mechanism. No internet or cloud service is involved. Impuls
+  asks the device only for a battery percentage, charging and external-power
+  flags, a name and a model identifier. It does not pair, alter the existing
+  pairing, install anything, or request contacts, photos, messages, installed
+  apps, backups, the phone number, the IMEI or the Apple ID. The pairing
+  certificates used for the required secure session are read, used in memory,
+  and never stored by Impuls, written to a keychain, or written to disk;
+- device identifiers — UDID, serial numbers, Bluetooth addresses — are used only
+  where the protocol requires them and are never shown in the interface, written
+  to logs, added to a feedback report or included in an exported backup. What
+  Impuls keeps for recognising a device again is a value derived with a random
+  key held on this Mac, which is meaningless anywhere else;
+- if the user explicitly enables low-battery alerts, Impuls evaluates fresh
+  external-device readings locally at fixed 20 % and 10 % thresholds. A
+  component confirmed to be charging is suppressed, and several low components
+  of one device are grouped into one notification. The notification may contain
+  the device's display name and real percentage. Alert state contains only the
+  Mac-local opaque device key, component kind, fired/re-arm flags and a cleanup
+  timestamp; it is bounded, never exported and contains no percentage or device
+  name. No alert data is uploaded and there is no analytics or telemetry;
 - OCR, background removal, image conversion, resizing, and PDF creation run on
   the Mac with Apple system frameworks. Impuls does not upload source files or
   generated files. Sharing occurs only when the user explicitly chooses AirDrop
@@ -92,8 +126,10 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
   or control the installed Apple Music application;
 - web music uses the selected provider's official site and does not require
   Apple Events Automation or Accessibility access;
-- notification permission is not requested in Impuls 1.2.6 and remains reserved
-  for optional reminder functions in a later update.
+- notification permission is requested only after the user explicitly enables
+  low-battery alerts in Apple Devices Settings. If macOS denies access, device
+  monitoring continues without alerts and Impuls does not repeatedly request
+  authorization.
 
 Notes and snippets are not encrypted by Impuls. FileVault is recommended for
 protection at rest. Secrets, passwords, recovery codes, and private keys should

@@ -29,6 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         LegacyMigration.runIfNeeded()
         controller = NotchController(settings: settings)
         controller?.install()
+        settings.lowBatteryAlerts.onOpenPowerCenter = { [weak self] in
+            NSApp.activate(ignoringOtherApps: true)
+            self?.controller?.openPower()
+        }
         installGlobalHotKey()
         installStatusItem()
 

@@ -19,6 +19,12 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
     var persistClipboardHistory: Bool
     var clipboardRetention: SettingsStore.ClipboardRetention
     var excludedClipboardBundleIdentifiers: [String]
+    /// Whether Impuls may look for the user's other Apple devices.
+    ///
+    /// A preference and nothing more: no identifier, no device list, no last
+    /// known charge. That keeps it safe to carry in an exported backup, which
+    /// is why it lives here rather than in a device cache.
+    var showsExternalAppleDevices: Bool
 
     init(
         hotKey: SettingsStore.HotKeyPreset,
@@ -30,7 +36,8 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
         saveClipboardImages: Bool,
         persistClipboardHistory: Bool = false,
         clipboardRetention: SettingsStore.ClipboardRetention = .sevenDays,
-        excludedClipboardBundleIdentifiers: [String] = []
+        excludedClipboardBundleIdentifiers: [String] = [],
+        showsExternalAppleDevices: Bool = false
     ) {
         self.hotKey = hotKey
         self.activationMode = activationMode
@@ -42,12 +49,13 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
         self.persistClipboardHistory = persistClipboardHistory
         self.clipboardRetention = clipboardRetention
         self.excludedClipboardBundleIdentifiers = excludedClipboardBundleIdentifiers
+        self.showsExternalAppleDevices = showsExternalAppleDevices
     }
 
     private enum CodingKeys: String, CodingKey {
         case hotKey, activationMode, openDelay, panelSize, selectedDisplayID, modules
         case saveClipboardImages, persistClipboardHistory, clipboardRetention
-        case excludedClipboardBundleIdentifiers
+        case excludedClipboardBundleIdentifiers, showsExternalAppleDevices
     }
 
     init(from decoder: Decoder) throws {
@@ -68,7 +76,25 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
             [String].self,
             forKey: .excludedClipboardBundleIdentifiers
         ) ?? []
+        // Absent in every settings blob and backup written before 1.4.6, and
+        // `false` is the only defensible default: a new release must not start
+        // looking at the user's devices because they installed an update.
+        showsExternalAppleDevices = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .showsExternalAppleDevices
+        ) ?? false
     }
+}
+
+/// Per-device choices that belong only to this Mac.
+///
+/// The keys are HMAC-derived by `AppleDeviceIdentity`; they are not raw
+/// identifiers, but they still do not belong in an exported backup. This blob
+/// therefore has its own UserDefaults key and is never part of
+/// `ImpulsSettingsSnapshot`.
+private struct AppleDeviceLocalPreferences: Codable, Equatable {
+    var order: [String]
+    var hidden: [String]
 }
 
 @MainActor
@@ -182,6 +208,9 @@ final class SettingsStore: ObservableObject {
 
     static let storageKey = "settings.v1"
     static let saveClipboardImagesKey = "saveClipboardImages"
+    static let appleDevicePreferencesKey = "appleDevices.presentation.v1"
+    static let lowBatteryAlertsEnabledKey = "appleDevices.lowBatteryAlerts.enabled"
+    static let maximumRememberedAppleDevices = 100
 
     @Published var hotKey: HotKeyPreset { didSet { persist() } }
     @Published var activationMode: ActivationMode { didSet { persist() } }
@@ -193,6 +222,18 @@ final class SettingsStore: ObservableObject {
     @Published var persistClipboardHistory: Bool { didSet { persist() } }
     @Published var clipboardRetention: ClipboardRetention { didSet { persist() } }
     @Published private(set) var excludedClipboardBundleIdentifiers: [String] { didSet { persist() } }
+    @Published var showsExternalAppleDevices: Bool { didSet { persist() } }
+    /// Notification consent belongs to this Mac, like the macOS authorization
+    /// it controls. It persists locally but never travels in a backup.
+    @Published var lowBatteryAlertsEnabled: Bool {
+        didSet { defaults.set(lowBatteryAlertsEnabled, forKey: Self.lowBatteryAlertsEnabledKey) }
+    }
+    /// Runtime device data for Settings. It is never encoded or copied to a
+    /// backup; only the local presentation keys below survive a relaunch.
+    @Published private(set) var knownExternalAppleDevices: [AppleDeviceSnapshot]
+    @Published private(set) var appleDeviceDiagnostics: [DeviceProviderDiagnostic]
+    @Published private(set) var appleDevicePreferenceOrder: [String]
+    @Published private(set) var hiddenAppleDevicePreferenceKeys: Set<String>
     @Published private(set) var displays: [DisplayOption] = []
     @Published private(set) var hotKeyError: String?
     /// Runtime-only presentation state. It intentionally is not persisted: the
@@ -200,10 +241,19 @@ final class SettingsStore: ObservableObject {
     @Published private(set) var powerDeviceKind: PowerDeviceKind?
 
     private let defaults: UserDefaults
+    private let lowBatteryAlertsOverride: LowBatteryAlertService?
+    /// Lazy so command-line unit tests that exercise unrelated Settings logic
+    /// never instantiate macOS Notification Center outside an application.
+    lazy var lowBatteryAlerts: LowBatteryAlertService =
+        lowBatteryAlertsOverride ?? LowBatteryAlertService(defaults: defaults)
     private var isApplying = false
+    private var currentAppleDevicePreferenceKeys = Set<String>()
+    private var refreshExternalAppleDevicesAction: (() -> Void)?
+    private var configureLowBatteryAlertsAction: ((Bool, Bool) -> Void)?
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, lowBatteryAlerts: LowBatteryAlertService? = nil) {
         self.defaults = defaults
+        lowBatteryAlertsOverride = lowBatteryAlerts
         let fallback = Self.defaultSnapshot(defaults: defaults)
         let stored = defaults.data(forKey: Self.storageKey)
             .flatMap { try? JSONDecoder().decode(ImpulsSettingsSnapshot.self, from: $0) }
@@ -220,6 +270,13 @@ final class SettingsStore: ObservableObject {
         excludedClipboardBundleIdentifiers = Self.normalizedBundleIdentifiers(
             snapshot.excludedClipboardBundleIdentifiers
         )
+        showsExternalAppleDevices = snapshot.showsExternalAppleDevices
+        lowBatteryAlertsEnabled = defaults.bool(forKey: Self.lowBatteryAlertsEnabledKey)
+        let localPreferences = Self.loadAppleDevicePreferences(defaults: defaults)
+        appleDevicePreferenceOrder = localPreferences.order
+        hiddenAppleDevicePreferenceKeys = Set(localPreferences.hidden)
+        knownExternalAppleDevices = []
+        appleDeviceDiagnostics = []
         hotKeyError = nil
         powerDeviceKind = nil
         refreshDisplays()
@@ -236,13 +293,16 @@ final class SettingsStore: ObservableObject {
             saveClipboardImages: saveClipboardImages,
             persistClipboardHistory: persistClipboardHistory,
             clipboardRetention: clipboardRetention,
-            excludedClipboardBundleIdentifiers: excludedClipboardBundleIdentifiers
+            excludedClipboardBundleIdentifiers: excludedClipboardBundleIdentifiers,
+            showsExternalAppleDevices: showsExternalAppleDevices
         )
     }
 
     var enabledTabs: [NotchViewModel.Tab] {
         modules.compactMap { $0.isEnabled ? $0.tab : nil }
     }
+
+    var isPowerModuleEnabled: Bool { enabledTabs.contains(.power) }
 
     func setModule(_ tab: NotchViewModel.Tab, enabled: Bool) {
         guard let index = modules.firstIndex(where: { $0.tab == tab }) else { return }
@@ -286,6 +346,146 @@ final class SettingsStore: ObservableObject {
         excludedClipboardBundleIdentifiers.removeAll { $0 == bundleIdentifier }
     }
 
+    // MARK: - Apple device presentation
+
+    /// Installs the current coordinator's explicit refresh action. A display
+    /// change can rebuild the panel and its coordinator; the new view model
+    /// simply replaces this weak action, so Settings never holds an obsolete
+    /// provider tree alive.
+    func configureExternalAppleDeviceRefresh(_ action: @escaping () -> Void) {
+        refreshExternalAppleDevicesAction = action
+    }
+
+    func configureLowBatteryAlerts(_ action: @escaping (Bool, Bool) -> Void) {
+        configureLowBatteryAlertsAction = action
+    }
+
+    /// Only this user-initiated path may ask macOS for notification access.
+    /// Loading or restoring the preference enables policy but never prompts.
+    func setLowBatteryAlertsEnabledByUser(_ enabled: Bool) {
+        lowBatteryAlertsEnabled = enabled
+        configureLowBatteryAlertsAction?(enabled, enabled)
+    }
+
+    /// Receives only already-sanitised domain snapshots. The list is runtime
+    /// state: names, charge and timestamps are not persisted. Previously seen
+    /// rows stay for this run so a stale or hidden device can be forgotten.
+    func updateAppleDeviceState(
+        devices: [AppleDeviceSnapshot],
+        diagnostics: [DeviceProviderDiagnostic]
+    ) {
+        let external = devices.filter { !$0.identity.isLocalMac }
+        registerAppleDevices(external)
+        currentAppleDevicePreferenceKeys = Set(external.map { $0.identity.localPreferenceKey })
+
+        var byKey: [String: AppleDeviceSnapshot] = [:]
+        for device in knownExternalAppleDevices {
+            byKey[device.identity.localPreferenceKey] = device
+        }
+        for device in external {
+            byKey[device.identity.localPreferenceKey] = device
+        }
+        let ordered = orderedExternalAppleDevices(from: Array(byKey.values))
+        if ordered != knownExternalAppleDevices { knownExternalAppleDevices = ordered }
+        if diagnostics != appleDeviceDiagnostics { appleDeviceDiagnostics = diagnostics }
+    }
+
+    func findExternalAppleDevices() {
+        if showsExternalAppleDevices {
+            refreshExternalAppleDevicesAction?()
+        } else {
+            // The settings publisher starts the providers synchronously. Their
+            // own first refresh is the discovery action; asking again here
+            // would only create a duplicate read.
+            showsExternalAppleDevices = true
+        }
+    }
+
+    func refreshExternalAppleDevices() {
+        guard showsExternalAppleDevices else { return }
+        refreshExternalAppleDevicesAction?()
+    }
+
+    func orderedExternalAppleDevices(from devices: [AppleDeviceSnapshot]) -> [AppleDeviceSnapshot] {
+        let positions = Dictionary(uniqueKeysWithValues: appleDevicePreferenceOrder.enumerated().map { ($1, $0) })
+        return devices.filter { !$0.identity.isLocalMac }.sorted { lhs, rhs in
+            let leftKey = lhs.identity.localPreferenceKey
+            let rightKey = rhs.identity.localPreferenceKey
+            let leftPosition = positions[leftKey] ?? Int.max
+            let rightPosition = positions[rightKey] ?? Int.max
+            if leftPosition != rightPosition { return leftPosition < rightPosition }
+            let names = lhs.displayName.localizedStandardCompare(rhs.displayName)
+            if names != .orderedSame { return names == .orderedAscending }
+            return leftKey < rightKey
+        }
+    }
+
+    func visibleExternalAppleDevices(from devices: [AppleDeviceSnapshot]) -> [AppleDeviceSnapshot] {
+        orderedExternalAppleDevices(from: devices).filter {
+            !hiddenAppleDevicePreferenceKeys.contains($0.identity.localPreferenceKey)
+        }
+    }
+
+    func isAppleDeviceVisible(_ device: AppleDeviceSnapshot) -> Bool {
+        !hiddenAppleDevicePreferenceKeys.contains(device.identity.localPreferenceKey)
+    }
+
+    func isAppleDeviceCurrent(_ device: AppleDeviceSnapshot) -> Bool {
+        currentAppleDevicePreferenceKeys.contains(device.identity.localPreferenceKey)
+    }
+
+    func canForgetAppleDevice(_ device: AppleDeviceSnapshot) -> Bool {
+        !isAppleDeviceVisible(device) || !isAppleDeviceCurrent(device)
+    }
+
+    func setAppleDevice(_ device: AppleDeviceSnapshot, visible: Bool) {
+        guard !device.identity.isLocalMac else { return }
+        registerAppleDevices([device])
+        let key = device.identity.localPreferenceKey
+        var hidden = hiddenAppleDevicePreferenceKeys
+        if visible {
+            hidden.remove(key)
+        } else {
+            hidden.insert(key)
+        }
+        guard hidden != hiddenAppleDevicePreferenceKeys else { return }
+        hiddenAppleDevicePreferenceKeys = hidden
+        persistAppleDevicePreferences()
+    }
+
+    func moveAppleDevice(_ device: AppleDeviceSnapshot, offset: Int) {
+        moveAppleDevice(device, offset: offset, among: knownExternalAppleDevices)
+    }
+
+    func moveAppleDevice(
+        _ device: AppleDeviceSnapshot,
+        offset: Int,
+        among devices: [AppleDeviceSnapshot]
+    ) {
+        let visibleOrder = devices.map { $0.identity.localPreferenceKey }
+        let key = device.identity.localPreferenceKey
+        guard let source = visibleOrder.firstIndex(of: key) else { return }
+        let destination = source + offset
+        guard visibleOrder.indices.contains(destination) else { return }
+        let otherKey = visibleOrder[destination]
+        guard let sourceInAll = appleDevicePreferenceOrder.firstIndex(of: key),
+              let destinationInAll = appleDevicePreferenceOrder.firstIndex(of: otherKey) else { return }
+        appleDevicePreferenceOrder.swapAt(sourceInAll, destinationInAll)
+        knownExternalAppleDevices = orderedExternalAppleDevices(from: knownExternalAppleDevices)
+        persistAppleDevicePreferences()
+    }
+
+    func forgetAppleDevice(_ device: AppleDeviceSnapshot) {
+        guard canForgetAppleDevice(device) else { return }
+        let key = device.identity.localPreferenceKey
+        knownExternalAppleDevices.removeAll { $0.identity.localPreferenceKey == key }
+        appleDevicePreferenceOrder.removeAll { $0 == key }
+        var hidden = hiddenAppleDevicePreferenceKeys
+        hidden.remove(key)
+        hiddenAppleDevicePreferenceKeys = hidden
+        persistAppleDevicePreferences()
+    }
+
     func apply(_ snapshot: ImpulsSettingsSnapshot) {
         isApplying = true
         hotKey = snapshot.hotKey
@@ -300,6 +500,7 @@ final class SettingsStore: ObservableObject {
         excludedClipboardBundleIdentifiers = Self.normalizedBundleIdentifiers(
             snapshot.excludedClipboardBundleIdentifiers
         )
+        showsExternalAppleDevices = snapshot.showsExternalAppleDevices
         refreshDisplays()
         isApplying = false
         persist()
@@ -352,6 +553,21 @@ final class SettingsStore: ObservableObject {
         return result.sorted()
     }
 
+    static func normalizedAppleDevicePreferenceKeys(_ supplied: [String]) -> [String] {
+        var seen = Set<String>()
+        var result: [String] = []
+        for candidate in supplied.prefix(1_000) {
+            guard candidate.count == 32,
+                  candidate.unicodeScalars.allSatisfy({ scalar in
+                      (48...57).contains(scalar.value) || (97...102).contains(scalar.value)
+                  }),
+                  seen.insert(candidate).inserted else { continue }
+            result.append(candidate)
+            if result.count == maximumRememberedAppleDevices { break }
+        }
+        return result
+    }
+
     static func isValidBundleIdentifier(_ identifier: String) -> Bool {
         guard !identifier.isEmpty,
               identifier.lengthOfBytes(using: .utf8) <= 255,
@@ -385,8 +601,43 @@ final class SettingsStore: ObservableObject {
             saveClipboardImages: savesImages,
             persistClipboardHistory: false,
             clipboardRetention: .sevenDays,
-            excludedClipboardBundleIdentifiers: []
+            excludedClipboardBundleIdentifiers: [],
+            showsExternalAppleDevices: false
         )
+    }
+
+    private static func loadAppleDevicePreferences(defaults: UserDefaults) -> AppleDeviceLocalPreferences {
+        let decoded = defaults.data(forKey: appleDevicePreferencesKey)
+            .flatMap { try? JSONDecoder().decode(AppleDeviceLocalPreferences.self, from: $0) }
+            ?? AppleDeviceLocalPreferences(order: [], hidden: [])
+        var order = normalizedAppleDevicePreferenceKeys(decoded.order)
+        let hidden = normalizedAppleDevicePreferenceKeys(decoded.hidden)
+        for key in hidden where !order.contains(key) {
+            guard order.count < maximumRememberedAppleDevices else { break }
+            order.append(key)
+        }
+        return AppleDeviceLocalPreferences(order: order, hidden: hidden)
+    }
+
+    private func registerAppleDevices(_ devices: [AppleDeviceSnapshot]) {
+        var order = appleDevicePreferenceOrder
+        for device in devices where !device.identity.isLocalMac {
+            let key = device.identity.localPreferenceKey
+            guard !order.contains(key), order.count < Self.maximumRememberedAppleDevices else { continue }
+            order.append(key)
+        }
+        guard order != appleDevicePreferenceOrder else { return }
+        appleDevicePreferenceOrder = order
+        persistAppleDevicePreferences()
+    }
+
+    private func persistAppleDevicePreferences() {
+        let preferences = AppleDeviceLocalPreferences(
+            order: appleDevicePreferenceOrder,
+            hidden: appleDevicePreferenceOrder.filter(hiddenAppleDevicePreferenceKeys.contains)
+        )
+        guard let data = try? JSONEncoder().encode(preferences) else { return }
+        defaults.set(data, forKey: Self.appleDevicePreferencesKey)
     }
 
     private func persist() {

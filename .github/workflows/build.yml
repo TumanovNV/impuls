@@ -5,7 +5,12 @@ on:
     branches: [main]
     paths-ignore: ['**.md', 'docs/**']
   pull_request:
-    branches: [main]
+    # Release branches too, not only `main`. A release that is still on its own
+    # branch — as 1.4.5 is — collects the work for the next version as pull
+    # requests against itself, and those were running no checks at all.
+    branches:
+      - main
+      - 'release/**'
   workflow_dispatch:
 
 permissions:
@@ -19,6 +24,19 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
+
+      # Xcode 26 rather than the image default of 16.4.
+      #
+      # The device layer builds an in-memory TLS client identity with
+      # `SecIdentityCreate`, which the macOS 26 SDK declares publicly and the
+      # 16.x SDKs do not — the symbol has been in the framework since 10.12,
+      # but an older SDK cannot see it and the build fails outright. Pinned
+      # rather than "latest available" for the same reason everything else here
+      # is pinned: a toolchain that changes underneath a release is not a
+      # toolchain. `platforms: [.macOS(.v15)]` is unchanged, so what users need
+      # to run Impuls is unaffected.
+      - name: Select the Xcode the device layer needs
+        run: sudo xcode-select -switch /Applications/Xcode_26.3.app
 
       - name: Verify forbidden implementation paths are absent
         shell: bash

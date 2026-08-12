@@ -19,16 +19,51 @@ include user data, credentials, or exploit payloads in public discussions.
 - the appcast is Ed25519-signed, archive verification is mandatory before
   extraction, signed-feed failures never expire, and the private key exists only
   in protected release infrastructure;
-- automatic downloads, unattended installation, system profiling, analytics,
-  and device identifiers are disabled;
+- automatic downloads, unattended installation, Sparkle's system profiling,
+  analytics, and device identifiers are disabled. "System profiling" here means
+  the profile Sparkle can attach to an update check; it is unrelated to the
+  local `system_profiler` call the Battery Center makes for Apple accessories,
+  described below, which never leaves the Mac;
 - feedback uses no in-app network request: a length-bounded report is copied
   locally and the system browser may open only the exact Impuls new-issue URL;
 - feedback diagnostics are allow-listed and never inspect user content, paths,
   logs, device identifiers, or clipboard history;
 - no private frameworks or process injection;
-- the Battery / Power module uses only public IOPowerSources and public
-  IORegistry access, has no SMC client, helper, shell command, USB entitlement,
-  or network path, and keeps its optional live readings in memory only;
+- the Battery / Power module reads this Mac through public IOPowerSources plus
+  a best-effort supplement from the public IORegistry. No SMC client, no helper,
+  no shell, no USB entitlement, no network path; live readings stay in memory;
+- Apple accessories — AirPods, Magic Mouse, Keyboard and Trackpad — are read
+  from the public IORegistry, and, where the registry publishes nothing, from
+  `/usr/sbin/system_profiler`. That process is launched directly by `Process`
+  with an absolute path and a fixed argument list: no shell at any point, no
+  user input in the arguments, an empty environment, bounded stdout and stderr,
+  a deadline that terminates the child, and nothing from either stream in a log.
+  Both sources are best effort: a missing value is a missing value;
+- the iPhone and iPad provider is experimental, disabled by default and gated
+  behind a Beta feature flag that is not exposed in Settings. When enabled it
+  speaks Apple's device protocol over the **local** `/var/run/usbmuxd` UNIX
+  socket to `lockdownd` on a device the user has already trusted. Impuls does no
+  Bonjour discovery, LAN scan or direct TCP connection. The user must enable
+  **Show this iPhone when on Wi-Fi** in Finder before macOS can publish the
+  Network route; Impuls cannot enable or change that system setting. macOS may
+  then route the paired-device exchange over the local Wi-Fi network through
+  its system synchronisation mechanism; no internet or cloud service is
+  involved. USB is preferred when both system routes exist. Impuls reads the
+  existing pair record and never creates or modifies one, installs nothing,
+  changes no setting on the device, and requests only a battery percentage,
+  charging and external-power flags, a device name and a model identifier;
+- the TLS session that protocol requires is built entirely in memory:
+  `SecIdentityCreate` from the pair record's certificate and key, with no
+  keychain of any kind involved and no key material written to disk. The peer is
+  verified against that same pair record — anchored trust, or the device
+  certificate matched byte for byte — and there is no path that accepts an
+  unverified peer. Secure Transport is confined to one adapter file;
+- pairing material is never persisted by Impuls and never reaches the interface,
+  logs, feedback reports or backups; raw identifiers — UDID, serial number,
+  Bluetooth address — exist only inside the transport and identity boundary,
+  and the identity derived from them is not serialisable;
+- external device discovery is off until the user turns it on: an update cannot
+  produce a new permission prompt or a new connection by itself;
 - Apple Music metadata uses its scripting interface plus bounded distributed
   player notifications; the
   Hardened Runtime bundle carries the explicit Apple Events Automation

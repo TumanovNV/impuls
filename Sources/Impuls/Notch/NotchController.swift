@@ -135,6 +135,19 @@ final class NotchController {
         }
     }
 
+    /// Notification clicks have one stable destination in 1.4.6: the Power
+    /// pane. Device-level selection can be added later without changing the
+    /// notification payload or exposing a hardware identifier.
+    func openPower() {
+        guard let vm = viewModel, vm.visibleTabs.contains(.power) else { return }
+        vm.select(.power, requestKeyboard: false)
+        // Like a global-shortcut open, this is an intentional entrance rather
+        // than pointer hover. Hold the panel open until the user dismisses it.
+        vm.keyboardNavigationActive = true
+        pointer.setInside(false)
+        setOpen(true)
+    }
+
     func makeBackup(settings snapshot: ImpulsSettingsSnapshot) -> ImpulsBackupDocument? {
         guard let vm = viewModel else { return nil }
         vm.notes.flush()
@@ -322,6 +335,7 @@ final class NotchController {
             vm.media.setActive(true)
             vm.calendar.setActive(true)
             vm.power.setActive(true)
+            vm.devices.setActive(true)
         } else {
             // The keyboard goes first and the fold goes second — one run-loop
             // pass apart, never together. Dropped in the same pass, resigning
@@ -347,6 +361,7 @@ final class NotchController {
         vm.media.setActive(false)
         vm.calendar.setActive(false)
         vm.power.setActive(false)
+        vm.devices.setActive(false)
         // Shrink only once the panel has finished collapsing. Doing it
         // while it is still visibly there would leave a window in which
         // clicks land on whatever is behind the panel.
