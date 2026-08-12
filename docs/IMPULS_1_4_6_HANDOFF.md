@@ -16,7 +16,7 @@ produced this work. Read this, then `APPLE_DEVICE_BATTERY_SUPPORT.md`, then
 | `main` | `5672689` — Impuls 1.4.4 |
 | `release/1.4.5` | `efb3742` — 1.4.5, still unmerged into `main` |
 | `Scripts/version` | `VERSION=1.4.5` — **not yet bumped**; 1.4.6 is not a release |
-| Tests | 261, 0 failures (`swift test -c release`) |
+| Tests | 262, 0 failures (`swift test -c release`) |
 
 1.4.6 is unreleased. Phase 05 (UI, Settings, localization, accessibility) is
 implemented in the working tree and has passed automated review, but the visual,
@@ -132,10 +132,19 @@ Peer validation               OK — anchored on the pair record, else pinned to
 Battery read                  OK — 65 %, later 69 % while charging
 Charging state                OK — charging = true, external = true
 Five consecutive reads        65 % each, 0.02 s each, open descriptors 3 → 3
+Live UI comparison            100 % in Impuls = 100 % on the iPhone screen
+Locked read                   OK — remained visible and readable
+Unlock recovery               OK — one device, no duplicate, same process
+Disconnect during refresh     OK — successful 0 devices, FD 58 → 60 → 58
+Automatic reconnect           OK — about 1 s while locked; also after unlock
+Identity after reconnect      unchanged local opaque identity set
+Repeated Refresh Devices      no hang, duplicate or connection problem
 ```
 
-Provider status: **Beta candidate, hardware validated**. One device, one iOS
-version. Not production support.
+Provider status: **Experimental Beta — hardware validated**. This statement is
+for iPhone USB on one device and one iOS version. iPad remains untested, and
+this is not production support. The provider is still behind a flag that is off
+by default.
 
 No UDID, HostID, SystemBUID, certificate, private key or serial number appears
 in this document, in any log, in any error, or in any exported file — that is
@@ -147,16 +156,15 @@ Unit tests and fixtures prove parsing and lifecycle. They prove nothing about
 hardware. These remain open, and `docs/QA_APPLE_DEVICES_1.4.6.md` is the list of
 record:
 
-- iPhone disconnect and reconnect;
-- iPhone locked, then unlocked;
-- cable pulled during a request;
-- comparing the percentage against the iPhone's own screen;
 - iPad over USB;
 - Magic Mouse, Magic Keyboard, Magic Trackpad — the IORegistry path has **never**
   been exercised against real hardware;
 - other AirPods models;
 - sleep and wake with external devices connected;
-- several external devices at once.
+- several external devices at once;
+- an untrusted iPhone and explicit trust denial;
+- one manual visual confirmation that abbreviated age never renders with a
+  negative sign after the clock-skew fix.
 
 ## Decisions already made
 
@@ -209,7 +217,7 @@ the launch smoke test still shows zero network sockets.
 
 ## Test state
 
-261 tests, 0 failures. Groups:
+262 tests, 0 failures. Groups:
 
 | Group | What it covers |
 | --- | --- |
@@ -226,7 +234,7 @@ the launch smoke test still shows zero network sockets.
 | TLS | no session, `EnableSessionSSL` false and true, bounded handshake, nothing to pin against |
 | Privacy | no pairing material or identifier in any error or diagnostic string |
 | Process boundary | real child processes: one that never exits, one that floods its pipe, one that fails, one that is missing |
-| Presentation | component omission, per-reading age and freshness, macOS-report timestamp semantics, Beta labels, identifier-free accessibility values |
+| Presentation | component omission, per-reading age and freshness, non-negative abbreviated age with future clock-skew clamp, macOS-report timestamp semantics, Beta labels, identifier-free accessibility values |
 | Settings privacy | local visibility/order persistence, backup exclusion, bounded key validation, explicit opt-in before refresh |
 
 **What unit tests do not prove:** that any of it works on hardware. The hardware
@@ -265,7 +273,8 @@ swift test -c release
 | Production-supported | This Mac's battery and power, unchanged from 1.4.5 |
 | Best effort, hardware validated | AirPods via `system_profiler` |
 | Best effort, not hardware tested | Magic Mouse, Keyboard, Trackpad via IORegistry |
-| Experimental Beta, hardware validated | iPhone and iPad over USB, behind a flag that is off |
+| Experimental Beta, hardware validated | iPhone over USB, behind a flag that is off |
+| Experimental Beta, not hardware tested | iPad over USB, behind a flag that is off |
 | Unavailable | Apple Watch, Vision Pro, Apple Pencil, AirTag, Siri Remote — no Mac-side path found |
 | Not applicable | HomePod, Apple TV, desktop Macs — no battery |
 
@@ -281,5 +290,7 @@ review is recorded in `docs/QA_APPLE_DEVICES_1.4.6.md` where applicable:
 - verify keyboard focus and VoiceOver for the switcher, cards, refresh, visibility,
   reorder and forget controls, including that no identifier is announced;
 - check Increase Contrast, Reduce Motion and Reduce Transparency;
-- exercise external opt-in, refresh, permission/trust and disconnect paths with
-  available hardware, without marking unobserved hardware scenarios as passed.
+- exercise external opt-in and the untrusted/denied permission path without
+  marking unobserved hardware scenarios as passed;
+- manually confirm the rebuilt UI renders a fresh age as `0 с` or a positive
+  duration, never `-3 с`.

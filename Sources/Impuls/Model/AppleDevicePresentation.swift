@@ -159,10 +159,28 @@ enum AppleDevicePresentation {
         guard let date, freshness != .unavailable else {
             return localized("No Current Reading")
         }
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = locale
-        formatter.unitsStyle = abbreviated ? .abbreviated : .full
-        let relative = formatter.localizedString(fromTimeInterval: min(0, date.timeIntervalSince(now)))
+        let relative: String
+        if abbreviated {
+            // RelativeDateTimeFormatter abbreviates a past value as "-3 с" in
+            // Russian. That reads like a negative age, and a timestamp a few
+            // seconds ahead because two clocks crossed would make the same
+            // problem worse. Cards need an elapsed duration, so clamp clock
+            // skew to zero and format a non-negative quantity.
+            let formatter = DateComponentsFormatter()
+            var calendar = Calendar.current
+            calendar.locale = locale
+            formatter.calendar = calendar
+            formatter.allowedUnits = [.day, .hour, .minute, .second]
+            formatter.unitsStyle = .abbreviated
+            formatter.maximumUnitCount = 1
+            formatter.zeroFormattingBehavior = .dropAll
+            relative = formatter.string(from: max(0, now.timeIntervalSince(date))) ?? "0"
+        } else {
+            let formatter = RelativeDateTimeFormatter()
+            formatter.locale = locale
+            formatter.unitsStyle = .full
+            relative = formatter.localizedString(fromTimeInterval: min(0, date.timeIntervalSince(now)))
+        }
         if source == .systemProfilerAccessory {
             switch freshness {
             case .fresh: return localized("Reported by macOS %@", relative)

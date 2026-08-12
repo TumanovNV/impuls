@@ -7,8 +7,8 @@ CI can build the code and run the fixtures; it cannot connect an iPhone or put
 AirPods in a case. A box is ticked only by someone who saw the result on the
 device named in the row, and the date and macOS version go in the notes column.
 
-**Status: twelve rows verified and one source limitation reproduced on 11–12
-August 2026.** The AirPods registry question came back negative and the
+**Status: twenty-four rows verified and two limitations or UI issues reproduced on
+11–12 August 2026.** The AirPods registry question came back negative and the
 `system_profiler` fallback that replaced it came back positive, but the public
 macOS report can retain a bud that is already back in its case; the iPhone USB
 path was refused without a session and then worked through one. Everything else
@@ -64,7 +64,7 @@ The existing module must not get worse. These are the rows that block a release.
 | # | Case | Result | Notes |
 | --- | --- | --- | --- |
 | 4.1 | AirPods connected: what the system actually publishes — overall only, or left/right/case | `[x]` | 11 Aug 2026, AirPods Pro connected: the IORegistry publishes **nothing** — no overall value, no components. macOS shows the level from `bluetoothd` |
-| 4.2 | AirPods Pro connected: same question | `[ ]` | |
+| 4.2 | AirPods Pro connected: same question | `[x]` | 12 Aug 2026: AirPods Pro were discovered by Impuls; Left, Right and Case appeared only when macOS published their corresponding `system_profiler` keys |
 | 4.3 | AirPods Max connected: single battery presented as a single battery | `[ ]` | |
 | 4.4 | One bud in the case: the missing bud is absent, not 0% | `[!]` | 12 Aug 2026: after the right bud was returned to its case, both `system_profiler` and macOS Bluetooth Settings retained left 100 %, right 100 %, case 28 % for the full 30 s sample. No public presence property exists, so Impuls cannot honestly remove the last-known right value until macOS removes the key |
 | 4.5 | Case closed and away: last case value is shown with its age, or not at all | `[ ]` | |
@@ -74,8 +74,8 @@ The existing module must not get worse. These are the rows that block a release.
 | 4.9 | Whether `BatteryPercentLeft` / `Right` / `Case` exist at all on current macOS | `[x]` | 11 Aug 2026: they do not. `ioreg -r -k BatteryPercent -l` returned no nodes with AirPods Pro connected; "AirPods" appears nowhere in the registry; the historical `DeviceCache` in `com.apple.Bluetooth.plist` is gone |
 | 4.10 | `system_profiler` fallback: AirPods appear with a battery | `[x]` | 11 Aug 2026, AirPods Pro: `airPodsPro` "AirPods Pro (…)", model `Headphones`, right bud 87 % |
 | 4.11 | The value matches what macOS reports at the same moment | `[x]` | 11 Aug 2026: macOS `Right Battery Level: 87 %`, Impuls `right=87`. Watched across three runs as it fell 89 → 88 → 87, matching each time |
-| 4.12 | Only the components the system actually publishes are shown | `[x]` | 11 Aug: only one published bud existed and only it was shown. 12 Aug clarifies the boundary: macOS can retain both component keys after one bud returns to the case, and Impuls mirrors those keys without inventing a presence signal |
-| 4.13 | `system_profiler` cost is acceptable | `[x]` | 11 Aug 2026: 0.08–0.12 s wall clock, ~2 KB JSON. No source cache; real read on manual refresh/panel open, then 10 s active and 10 min idle provider cadence |
+| 4.12 | Only the components the system actually publishes are shown | `[x]` | 11 Aug: only one published bud existed and only it was shown. 12 Aug: macOS retained both component keys for more than 30 s after Right returned to the case; Bluetooth Settings showed the same stale state. Impuls mirrored the report and did not guess physical presence |
+| 4.13 | `system_profiler` cost is acceptable | `[x]` | 11 Aug 2026: 0.08–0.12 s wall clock, ~2 KB JSON. 12 Aug QA: manual refresh performed a fresh read and active polling ran at 10 s; source-report time was presented as «Получено от macOS» |
 | 4.14 | Disconnected accessories are not listed with a stale charge | `[x]` | 11 Aug 2026: four paired but disconnected devices in the same output were correctly absent |
 
 ## 5. iPhone and iPad over USB — Beta
@@ -85,22 +85,23 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 
 | # | Case | Result | Notes |
 | --- | --- | --- | --- |
-| 5.1 | Trusted iPhone connected by cable: discovered | `[x]` | 11 Aug 2026, iOS 26.5.2: `ListDevices` returned 1 USB device, `ReadPairRecord` found the pairing, lockdownd answered `QueryType` |
-| 5.2 | Battery percentage read and matching the iPhone's own display | `[ ]` | the value **is** read — 65 %, then 69 % while charging, over five consecutive reads. Comparing it against what the phone's own screen shows still needs a person holding the phone |
-| 5.3 | Charging state correct while charging and while not | `[ ]` | charging = true and externalConnected = true were read while the phone was on the cable; the discharging case is untested |
-| 5.4 | User-visible device name shown, no identifier anywhere in the UI | `[ ]` | |
+| 5.1 | Trusted iPhone connected by cable: discovered | `[x]` | 11 Aug 2026, iOS 26.5.2: transport sequence succeeded. 12 Aug 2026, Beta QA build: one USB iPhone reached the provider and appeared in the live UI without restarting Impuls |
+| 5.2 | Battery percentage read and matching the iPhone's own display | `[x]` | 12 Aug 2026: Impuls reported 100 % and the physical iPhone screen showed 100 % at the same moment |
+| 5.3 | Charging state correct while charging and while not | `[x]` | 11 Aug: charging = true and externalConnected = true were read while charging. 12 Aug at 100 %: not charging with external power still connected was reported correctly |
+| 5.4 | User-visible device name shown, no identifier anywhere in the UI | `[x]` | 12 Aug 2026: a display name, USB connection and Beta label appeared in the live UI; the observation and QA record contain no raw identifier |
 | 5.5 | Untrusted iPhone: the "unlock and trust this computer" explanation, not an error code | `[ ]` | |
-| 5.6 | Locked iPhone: a clear state, no hang, no repeated retries | `[ ]` | |
+| 5.6 | Locked iPhone: a clear state, no hang, no repeated retries | `[x]` | 12 Aug 2026: with USB still connected, the locked iPhone remained visible and readable; provider reads kept returning one device, the process stayed stable and no usbmuxd connection remained open. No permission or transport error occurred, so the last-good failure path was not exercised |
 | 5.7 | Trust denied by the user: understandable state, no loop | `[ ]` | |
-| 5.8 | Cable pulled mid-read: no hang, no crash, card becomes disconnected | `[ ]` | |
+| 5.8 | Cable pulled mid-read: no hang, no crash, card becomes disconnected | `[x]` | 12 Aug 2026: USB was pulled immediately after Refresh. Impuls and the UI stayed responsive; provider settled on a successful empty list and the iPhone stopped being current. FD returned 58 → 60 → 58, no usbmuxd connection remained, no duplicate or raw transport error appeared, and a 35 s stabilization window showed no retry loop |
 | 5.9 | iPad over USB: same rows as 5.1–5.3 | `[ ]` | |
 | 5.10 | iPhone and iPad connected simultaneously: two cards, correct values | `[ ]` | |
 | 5.11 | Nothing is written to the device: no pairing record, no profile, no setting, no file | `[ ]` | |
 | 5.12 | Provider disabled: no socket, no connection attempt at all | `[ ]` | |
 | 5.13 | Current iOS version noted for each device tested | `[x]` | iOS 26.5.2, `iPhone17,2`, 11 Aug 2026 |
 | 5.16 | TLS session: in-memory identity, handshake, peer validation, battery | `[x]` | 11 Aug 2026: PKCS#8 unwrapped, `SecIdentityCreate` succeeded with no keychain, handshake completed, peer validated against the pair record, battery returned |
-| 5.17 | Repeated reads are stable and leak nothing | `[x]` | 11 Aug 2026: five consecutive reads all returned 65 %, 0.02 s each; open file descriptors 3 before and 3 after |
-| 5.18 | Locked iPhone, cable pulled mid-read, reconnect | `[ ]` | needs a person at the device |
+| 5.17 | Repeated reads are stable and leak nothing | `[x]` | 11 Aug 2026: five consecutive transport reads all returned 65 %, 0.02 s each; open file descriptors 3 before and 3 after. 12 Aug, live UI: repeated Refresh Devices caused no hang, duplicate, unavailable flash or connection problem; the Impuls process remained healthy at its 58-FD baseline with no open usbmuxd connection |
+| 5.18 | Locked iPhone, cable pulled mid-read, reconnect | `[x]` | 12 Aug 2026: after the Test 4 disconnect, the same locked iPhone reappeared automatically in about 1 s; unlocked reconnect also worked. No manual refresh or Impuls restart was required, the opaque identity set stayed unchanged, one device returned, FD settled at 58 and no usbmuxd connection remained open |
+| 5.19 | Locked iPhone recovers after unlock without restarting Impuls | `[x]` | 12 Aug 2026: after unlocking the same USB-connected iPhone, one manual refresh returned one readable device at 100 % in the same Impuls process. The UI kept one card with no duplicate or transport error; visual continuity confirmed the same device identity |
 | 5.14 | **The deciding measurement:** with a trusted iPhone connected, does `GetValue` in the battery domain return a value or an error? | `[x]` | 11 Aug 2026, iOS 26.5.2: **`Error = GetProhibited`**. `StartSession` then succeeded and returned `EnableSessionSSL = true`. `DeviceName` and `ProductType` are readable without a session; the battery domain is not |
 | 5.15 | With the flag off (the shipping default), no socket is ever opened to `/var/run/usbmuxd` | `[x]` | 11 Aug 2026, macOS 15, ad-hoc release bundle: `lsof -U` showed no usbmuxd connection over a 10 s run. Verified without hardware because it is about what Impuls does *not* do |
 
@@ -149,7 +150,7 @@ them.
 | 9.2 | Individual device can be hidden and shown again | `[ ]` | |
 | 9.3 | Device order can be changed and survives a restart | `[ ]` | |
 | 9.4 | A stale or hidden device can be forgotten | `[ ]` | |
-| 9.5 | Manual refresh works and is not the only way to get data | `[ ]` | automated regression proves each explicit refresh reruns the source; manual UI and live 10 s cadence still need observation in the QA build |
+| 9.5 | Manual refresh works and is not the only way to get data | `[x]` | 12 Aug 2026, AirPods Pro: manual refresh performed a fresh `system_profiler` read; with the panel active, the provider also polled at 10 s |
 | 9.6 | Settings survive an application restart | `[ ]` | |
 
 ## 10. Privacy
@@ -174,6 +175,7 @@ them.
 | 11.6 | VoiceOver reads multi-component AirPods sensibly | `[ ]` | |
 | 11.7 | Keyboard navigation between modules and within the list still works | `[ ]` | |
 | 11.8 | Russian and English interface, both complete | `[ ]` | |
+| 11.9 | Device age never renders as a negative duration | `[!]` | 12 Aug 2026, live iPhone Beta QA: the fresh device age rendered as `-3 с`. After hardware QA, abbreviated age was changed to a non-negative elapsed duration with future clock skew clamped to zero, and a regression test was added. The rebuilt UI still needs one manual confirmation |
 
 ## 12. Performance
 

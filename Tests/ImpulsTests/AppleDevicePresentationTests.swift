@@ -120,6 +120,30 @@ final class AppleDevicePresentationTests: XCTestCase {
         XCTAssertFalse(title.contains(localized("Updated %@", "").trimmingCharacters(in: .whitespaces)))
     }
 
+    func testAbbreviatedAgeIsNonnegativeAndClampsFutureClockSkewToZero() {
+        let locale = Locale(identifier: "ru_RU")
+        let past = AppleDevicePresentation.ageTitle(
+            since: Fixtures.noon.addingTimeInterval(-3),
+            freshness: .fresh,
+            now: Fixtures.noon,
+            locale: locale,
+            abbreviated: true
+        )
+        let future = AppleDevicePresentation.ageTitle(
+            since: Fixtures.noon.addingTimeInterval(3),
+            freshness: .fresh,
+            now: Fixtures.noon,
+            locale: locale,
+            abbreviated: true
+        )
+
+        XCTAssertTrue(past.contains("3"))
+        XCTAssertFalse(past.contains("-"))
+        XCTAssertTrue(future.contains("0"))
+        XCTAssertFalse(future.contains("-"))
+        XCTAssertFalse(future.contains("+"))
+    }
+
     func testAccessibilityValueNamesChargeStateFreshnessAndConnectionButNoIdentity() {
         let component = DeviceBatteryComponent(
             kind: .primary,
