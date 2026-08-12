@@ -389,7 +389,7 @@
 "Discovery" = "Обнаружение";
 "Devices" = "Устройства";
 "Show Connected Apple Devices" = "Показывать подключённые устройства Apple";
-"External device discovery is off by default. All reads stay on this Mac and no Bluetooth permission is requested." = "Обнаружение внешних устройств по умолчанию выключено. Все данные остаются на этом Mac, а доступ к Bluetooth не запрашивается.";
+"External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested." = "Обнаружение внешних устройств по умолчанию выключено. Данные об устройствах не отправляются в интернет: обработка выполняется локально на этом Mac и подключённых к нему устройствах. Доступ к Bluetooth не запрашивается.";
 "Find Devices" = "Найти устройства";
 "Refresh Devices" = "Обновить устройства";
 "Looking for connected Apple devices" = "Поиск подключённых устройств Apple";

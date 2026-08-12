@@ -391,7 +391,7 @@
 "Discovery" = "Discovery";
 "Devices" = "Devices";
 "Show Connected Apple Devices" = "Show Connected Apple Devices";
-"External device discovery is off by default. All reads stay on this Mac and no Bluetooth permission is requested." = "External device discovery is off by default. All reads stay on this Mac and no Bluetooth permission is requested.";
+"External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested." = "External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested.";
 "Find Devices" = "Find Devices";
 "Refresh Devices" = "Refresh Devices";
 "Looking for connected Apple devices" = "Looking for connected Apple devices";

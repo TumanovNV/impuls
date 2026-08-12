@@ -46,6 +46,41 @@ enum AppleDevicePresentation {
         }
     }
 
+    /// Returns only a model name that helps a person identify the device.
+    ///
+    /// Providers retain the exact public values they receive because they can
+    /// be useful while diagnosing hardware support. The interface has a
+    /// different job: generic accessory categories and developer-facing mobile
+    /// product types are not model names a person should have to interpret.
+    static func modelTitle(for snapshot: AppleDeviceSnapshot) -> String? {
+        let model = snapshot.modelName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let kind = kindTitle(snapshot.kind)
+
+        switch snapshot.kind {
+        case .iPhone:
+            guard let model, !model.isEmpty else { return kind }
+            return isMobileProductType(model, prefix: "iPhone") ? kind : model
+        case .iPad:
+            guard let model, !model.isEmpty else { return kind }
+            return isMobileProductType(model, prefix: "iPad") ? kind : model
+        case .airPods, .airPodsPro, .airPodsMax:
+            guard let model, !model.isEmpty else { return nil }
+            let generic = ["headphones", "headset", "audio"]
+            guard !generic.contains(model.lowercased()),
+                  !repeatsDeviceName(model, snapshot: snapshot) else { return nil }
+            return model
+        case .magicMouse:
+            return usefulAccessoryModel(model, generic: "mouse", snapshot: snapshot)
+        case .magicKeyboard:
+            return usefulAccessoryModel(model, generic: "keyboard", snapshot: snapshot)
+        case .magicTrackpad:
+            return usefulAccessoryModel(model, generic: "trackpad", snapshot: snapshot)
+        default:
+            guard let model, !model.isEmpty else { return kind }
+            return repeatsDeviceName(model, snapshot: snapshot) ? nil : model
+        }
+    }
+
     static func componentTitle(_ kind: DeviceBatteryComponentKind) -> String {
         switch kind {
         case .primary: return localized("Battery")
@@ -166,5 +201,37 @@ enum AppleDevicePresentation {
         if isBeta(snapshot.kind) { values.insert(localized("Beta"), at: 0) }
         values.append(connectionTitle(snapshot.connection))
         return values.joined(separator: "; ")
+    }
+
+    private static func usefulAccessoryModel(
+        _ model: String?,
+        generic: String,
+        snapshot: AppleDeviceSnapshot
+    ) -> String? {
+        guard let model, !model.isEmpty,
+              model.caseInsensitiveCompare(generic) != .orderedSame,
+              !repeatsDeviceName(model, snapshot: snapshot) else { return nil }
+        return model
+    }
+
+    private static func repeatsDeviceName(
+        _ model: String,
+        snapshot: AppleDeviceSnapshot
+    ) -> Bool {
+        snapshot.displayName.range(
+            of: model,
+            options: [.caseInsensitive, .diacriticInsensitive]
+        ) != nil
+    }
+
+    private static func isMobileProductType(_ model: String, prefix: String) -> Bool {
+        guard model.hasPrefix(prefix) else { return false }
+        let parts = model.dropFirst(prefix.count).split(
+            separator: ",",
+            omittingEmptySubsequences: false
+        )
+        return parts.count == 2 && parts.allSatisfy { part in
+            !part.isEmpty && part.allSatisfy(\.isNumber)
+        }
     }
 }

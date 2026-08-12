@@ -16,7 +16,7 @@ struct AppleDeviceSettingsPane: View {
                     localized("Show Connected Apple Devices"),
                     isOn: $settings.showsExternalAppleDevices
                 )
-                Text(localized("External device discovery is off by default. All reads stay on this Mac and no Bluetooth permission is requested."))
+                Text(localized("External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
 

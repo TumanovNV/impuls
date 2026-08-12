@@ -2,6 +2,61 @@ import XCTest
 @testable import ImpulsCore
 
 final class AppleDevicePresentationTests: XCTestCase {
+    func testGenericAirPodsModelsAreHiddenFromTheDeviceCard() {
+        for model in ["Headphones", "Headset", "Audio", "AirPods Pro"] {
+            let device = presentationDevice(
+                kind: .airPodsPro,
+                name: "AirPods Pro (TumanovNV)",
+                modelName: model
+            )
+
+            XCTAssertNil(AppleDevicePresentation.modelTitle(for: device), model)
+        }
+    }
+
+    func testUsefulAirPodsModelIsPreserved() {
+        let device = presentationDevice(
+            kind: .airPodsPro,
+            name: "Николай — AirPods",
+            modelName: "AirPods Pro 2"
+        )
+
+        XCTAssertEqual(AppleDevicePresentation.modelTitle(for: device), "AirPods Pro 2")
+    }
+
+    func testGenericMagicAccessoryModelsAreHidden() {
+        let devices: [(AppleDeviceKind, String, String)] = [
+            (.magicMouse, "Magic Mouse", "Mouse"),
+            (.magicKeyboard, "Magic Keyboard", "Keyboard"),
+            (.magicTrackpad, "Magic Trackpad", "Trackpad"),
+        ]
+
+        for (kind, name, model) in devices {
+            XCTAssertNil(
+                AppleDevicePresentation.modelTitle(
+                    for: presentationDevice(kind: kind, name: name, modelName: model)
+                ),
+                model
+            )
+        }
+    }
+
+    func testMobileProductTypesBecomeHumanFacingKindTitles() {
+        let phone = presentationDevice(
+            kind: .iPhone,
+            name: "iPhone Николая",
+            modelName: "iPhone17,1"
+        )
+        let tablet = presentationDevice(
+            kind: .iPad,
+            name: "iPad Николая",
+            modelName: "iPad16,3"
+        )
+
+        XCTAssertEqual(AppleDevicePresentation.modelTitle(for: phone), localized("iPhone"))
+        XCTAssertEqual(AppleDevicePresentation.modelTitle(for: tablet), localized("iPad"))
+    }
+
     func testAirPodsPresentationIncludesOnlyComponentsThatActuallyArrived() {
         let device = Fixtures.airPods(left: nil, right: 87, chargingCase: nil)
 
@@ -74,5 +129,23 @@ final class AppleDevicePresentationTests: XCTestCase {
         XCTAssertTrue(value.contains(localized("Charging")))
         XCTAssertTrue(value.contains(localized("USB")))
         XCTAssertFalse(value.contains(phone.identity.localPreferenceKey))
+    }
+
+    private func presentationDevice(
+        kind: AppleDeviceKind,
+        name: String,
+        modelName: String
+    ) -> AppleDeviceSnapshot {
+        AppleDeviceSnapshot(
+            identity: Fixtures.identity("\(kind.rawValue)-\(modelName)"),
+            kind: kind,
+            displayName: name,
+            modelName: modelName,
+            connection: kind == .iPhone || kind == .iPad ? .usb : .bluetooth,
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 50)],
+            lastSeen: Fixtures.noon,
+            lastUpdated: Fixtures.noon,
+            source: kind == .iPhone || kind == .iPad ? .mobileUSB : .systemProfilerAccessory
+        )
     }
 }

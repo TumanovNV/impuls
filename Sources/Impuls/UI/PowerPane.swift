@@ -206,10 +206,12 @@ struct PowerPane: View {
                             .background(Theme.surfaceHover, in: Capsule())
                     }
                 }
-                Text(device.modelName ?? AppleDevicePresentation.kindTitle(device.kind))
-                    .font(Theme.Typo.caption)
-                    .foregroundStyle(Theme.tertiary)
-                    .lineLimit(1)
+                if let modelTitle = AppleDevicePresentation.modelTitle(for: device) {
+                    Text(modelTitle)
+                        .font(Theme.Typo.caption)
+                        .foregroundStyle(Theme.tertiary)
+                        .lineLimit(1)
+                }
                 Text(
                     AppleDevicePresentation.ageTitle(
                         since: device.lastUpdated,
