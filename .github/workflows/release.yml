@@ -43,7 +43,9 @@ jobs:
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=v$VERSION" >> "$GITHUB_ENV"
           git fetch --tags --force
-          ! git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "Reissuing existing release metadata for $TAG"
+          fi
 
       - name: Enforce security boundaries
         shell: bash
@@ -277,11 +279,24 @@ jobs:
           DMG="build/Impuls-$VERSION.dmg"
           ZIP="build/Impuls-$VERSION.zip"
           APPCAST="build/appcast.xml"
-          gh release create "$TAG" \
-            "$DMG" "$DMG.sha256" \
-            "$ZIP" "$ZIP.sha256" \
-            "$APPCAST" "$APPCAST.sha256" \
-            --target "$GITHUB_SHA" \
-            --title "Impuls $VERSION" \
-            --notes-file "docs/releases/$VERSION.md" \
-            --latest
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              "$DMG" "$DMG.sha256" \
+              "$ZIP" "$ZIP.sha256" \
+              "$APPCAST" "$APPCAST.sha256" \
+              --clobber
+            gh release edit "$TAG" \
+              --target "$GITHUB_SHA" \
+              --title "Impuls $VERSION" \
+              --notes-file "docs/releases/$VERSION.md" \
+              --latest
+          else
+            gh release create "$TAG" \
+              "$DMG" "$DMG.sha256" \
+              "$ZIP" "$ZIP.sha256" \
+              "$APPCAST" "$APPCAST.sha256" \
+              --target "$GITHUB_SHA" \
+              --title "Impuls $VERSION" \
+              --notes-file "docs/releases/$VERSION.md" \
+              --latest
+          fi
