@@ -81,7 +81,6 @@ final class NotchViewModel: ObservableObject {
     /// rail and Escape can close the panel without requiring the pointer.
     @Published var keyboardNavigationActive = false
 
-    let geometry: NotchGeometry
     let settings: SettingsStore
     let media: MediaController
     let actions: ImpulsActionsStore
@@ -100,12 +99,21 @@ final class NotchViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(geometry: NotchGeometry, settings: SettingsStore) {
-        self.geometry = geometry
+    /// Shared, and deliberately without a display.
+    ///
+    /// Geometry used to live here, which made the view model a per-display
+    /// object: moving to another screen meant building a second one, and a
+    /// second one means a second `ClipboardStore`, a second `PowerMonitor` and
+    /// a second set of timers. Since 1.4.7 the geometry belongs to
+    /// `NotchSurfaceState`, one per display, and this object is built once for
+    /// the lifetime of the app.
+    init(settings: SettingsStore) {
         self.settings = settings
         self.actions = ImpulsActionsStore()
         self.media = MediaController()
-        self.shelf = ShelfStore()
+        // The same defaults the settings live in, so one Impuls writes to one
+        // place — and a test can never persist a card into the real shelf.
+        self.shelf = ShelfStore(defaults: settings.defaults)
         self.fileTools = FileToolsCoordinator(shelf: self.shelf)
         self.clipboard = ClipboardStore()
         self.calendar = CalendarStore()
@@ -215,10 +223,9 @@ final class NotchViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    /// Size of the visible body for the current state.
-    var bodySize: CGSize {
-        isOpen || isDropTargeted ? geometry.expandedSize : geometry.collapsedSize
-    }
+    /// Whether the panel should be showing its body at all. Which display
+    /// actually shows it is the surface's decision, not this one's.
+    var isExpanded: Bool { isOpen || isDropTargeted }
 
     var visibleTabs: [Tab] { settings.enabledTabs }
 

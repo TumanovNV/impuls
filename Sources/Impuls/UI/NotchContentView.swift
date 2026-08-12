@@ -2,10 +2,16 @@ import SwiftUI
 
 struct NotchContentView: View {
     @ObservedObject var vm: NotchViewModel
+    /// This display's half of the state. The shared view model says whether
+    /// Impuls is expanded; the surface says whether it is expanded *here*.
+    /// Exactly one surface is active, so two panels cannot stand open at once —
+    /// not by convention, but because the view has no way to draw the second.
+    @ObservedObject var surface: NotchSurfaceState
     @Environment(\.colorScheme) private var colorScheme
 
-    private var isOpen: Bool { vm.isOpen || vm.isDropTargeted }
-    private var size: CGSize { vm.bodySize }
+    private var isOpen: Bool { surface.isActive && vm.isExpanded }
+    private var geometry: NotchGeometry { surface.geometry }
+    private var size: CGSize { isOpen ? geometry.expandedSize : geometry.collapsedSize }
     private var topRadius: CGFloat { isOpen ? Theme.openTopRadius : Theme.collapsedTopRadius }
     private var bottomRadius: CGFloat { isOpen ? Theme.openBottomRadius : Theme.collapsedBottomRadius }
 
@@ -89,7 +95,7 @@ struct NotchContentView: View {
                     .accessibilityHidden(true)
             }
             Spacer(minLength: 0)
-            Color.clear.frame(width: vm.geometry.notchSize.width, height: 1)
+            Color.clear.frame(width: geometry.notchSize.width, height: 1)
             Spacer(minLength: 0)
             if isOpen {
                 trailing
@@ -97,7 +103,7 @@ struct NotchContentView: View {
                     .transition(.opacity)
             }
         }
-        .frame(height: vm.geometry.notchSize.height)
+        .frame(height: geometry.notchSize.height)
     }
 
     @ViewBuilder
@@ -180,24 +186,13 @@ struct NotchContentView: View {
     }
 
     /// How tall one rail icon may be, given the height this panel actually has.
-    ///
-    /// Both rails are measured against the longer of the two and told the same
-    /// answer. Sizing each rail to its own contents would be worse than the
-    /// overflow it replaces: the shorter rail's icons would come out larger
-    /// than the longer rail's, and a rail is supposed to read as one row of
-    /// equals.
-    ///
-    /// A margin is taken off both ends before anything is divided. Fitting to
-    /// the raw height is what let the rail sit flush against the header above
-    /// and the panel edge below — it fit, but only in the sense that nothing
-    /// was clipped, and an icon touching the rim reads as an overflow that
-    /// happened to stop in time.
+    /// The arithmetic lives in `RailMetrics`, where the panel's minimum size is
+    /// derived from the same numbers.
     private func railButtonHeight(available: CGFloat) -> CGFloat {
-        let count = CGFloat(max(vm.leftRailTabs.count, vm.rightRailTabs.count, 1))
-        let usable = available - 2 * Theme.Space.xs
-        guard usable > 0 else { return Theme.Size.railButtonMax }
-        let fitted = (usable - Theme.Space.xs * (count - 1)) / count
-        return min(Theme.Size.railButtonMax, max(Theme.Size.railButtonMin, fitted.rounded(.down)))
+        RailMetrics.buttonHeight(
+            available: available,
+            count: max(vm.leftRailTabs.count, vm.rightRailTabs.count)
+        )
     }
 
     private var panes: some View {

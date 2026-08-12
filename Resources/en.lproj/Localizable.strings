@@ -149,8 +149,11 @@
 "The shortcut opens Actions. Use ↑ and ↓ to choose, Enter to copy, ← and → to change modules, and Esc to close." = "The shortcut opens Actions. Use ↑ and ↓ to choose, Enter to copy, ← and → to change modules, and Esc to close.";
 "Appearance" = "Appearance";
 "Panel Size" = "Panel Size";
-"Display" = "Display";
+"Display Behavior" = "Display Behavior";
+"All Displays" = "All Displays";
 "Automatic" = "Automatic";
+"Automatic picks Compact, Standard or Large from the size of the display the panel opens on. Every preset is kept inside that display." = "Automatic picks Compact, Standard or Large from the size of the display the panel opens on. Every preset is kept inside that display.";
+"On All Displays, Impuls appears on every connected display and opens on the one your pointer is on. Choose a display to keep it there only. Mirrored displays count as one." = "On All Displays, Impuls appears on every connected display and opens on the one your pointer is on. Choose a display to keep it there only. Mirrored displays count as one.";
 "Startup and Storage" = "Startup and Storage";
 "Choose which modules are shown and arrange them in the order you use them." = "Choose which modules are shown and arrange them in the order you use them.";
 "At least one module must remain enabled. Modules are split evenly between the two rails; with an odd number the extra one goes to the left." = "At least one module must remain enabled. Modules are split evenly between the two rails; with an odd number the extra one goes to the left.";

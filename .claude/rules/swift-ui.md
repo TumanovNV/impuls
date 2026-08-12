@@ -24,11 +24,18 @@ directories. The collapsed tab is the single exception: it is filled with
 
 ## Geometry
 
-- Expanded panel: `620 × 208` pt by default, from `NotchGeometry.expandedSize`;
-  Settings offers three presets.
+- Expanded panel: `620 × 208` pt by default, from `AdaptivePanelLayout.standard`.
+  Settings offers three presets plus Automatic, which picks one of them from the
+  display's logical width. `NotchGeometry` then clamps whatever was asked for to
+  the display it will appear on, so `expandedSize` is the clamped answer and not
+  the preset.
 - `NotchShape` draws concave shoulders, so the frame is `topRadius` wider than the
   body on each side. Radii: 12 pt top and 22 pt bottom when open, 6 and 9 when closed.
-- Displays without a cutout get a 96 × 10 pt tab with a 120 × 16 pt hover target.
+- Displays without a cutout get a 120 × 12 pt anchor with a 140 × 18 pt hover
+  target. It is deliberately nothing like a 180 pt MacBook cutout: it sits on the
+  user's menu bar, so it takes only the room it needs.
+- The panel geometry belongs to `NotchSurfaceState`, one per display, not to the
+  view model. A pane that needs it reads `surface.geometry`.
 - The header leaves a gap the width of the notch in the centre. Nothing interactive
   goes in that row — menu-bar utilities watch for clicks there with a global monitor.
 

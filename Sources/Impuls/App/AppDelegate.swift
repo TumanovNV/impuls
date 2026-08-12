@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         LegacyMigration.runIfNeeded()
-        controller = NotchController(settings: settings)
+        controller = NotchController(settings: settings, environment: .live)
         controller?.install()
         settings.lowBatteryAlerts.onOpenPowerCenter = { [weak self] in
             NSApp.activate(ignoringOtherApps: true)

@@ -147,8 +147,11 @@
 "The shortcut opens Actions. Use ↑ and ↓ to choose, Enter to copy, ← and → to change modules, and Esc to close." = "Горячая клавиша открывает Actions. Стрелки ↑ и ↓ выбирают результат, Enter копирует, ← и → переключают модули, Esc закрывает панель.";
 "Appearance" = "Внешний вид";
 "Panel Size" = "Размер панели";
-"Display" = "Экран";
+"Display Behavior" = "Экраны";
+"All Displays" = "Все экраны";
 "Automatic" = "Автоматически";
+"Automatic picks Compact, Standard or Large from the size of the display the panel opens on. Every preset is kept inside that display." = "«Автоматически» выбирает компактную, стандартную или большую панель по размеру экрана, на котором она открывается. Любой размер удерживается в границах этого экрана.";
+"On All Displays, Impuls appears on every connected display and opens on the one your pointer is on. Choose a display to keep it there only. Mirrored displays count as one." = "В режиме «Все экраны» Impuls доступен на каждом подключённом экране и открывается там, где находится курсор. Выберите конкретный экран, чтобы панель оставалась только на нём. Зеркальные экраны считаются одним.";
 "Startup and Storage" = "Запуск и хранение";
 "Choose which modules are shown and arrange them in the order you use them." = "Выберите отображаемые модули и расположите их в удобном порядке.";
 "At least one module must remain enabled. Modules are split evenly between the two rails; with an odd number the extra one goes to the left." = "Должен оставаться хотя бы один модуль. Модули делятся между панелями поровну; при нечётном числе лишний достаётся левой.";

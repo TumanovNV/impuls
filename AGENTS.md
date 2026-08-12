@@ -7,14 +7,25 @@ local panel: Actions search, music, file shelf, clipboard history, snippets, cal
 translator and notes. Swift 6 toolchain, SwiftUI on top of AppKit, macOS 15 or newer.
 Everything runs on the device.
 
-## Active development: Impuls 1.4.6 — Apple Device Battery Center
+## Active development: Impuls 1.4.7 — Multi-Display
 
-Working branch `agent/apple-device-center-1.4.6`, based on `release/1.4.5` and
-**not** on `main` — 1.4.5 is not merged yet, and branching from `main` loses it.
-Phases 01–04.1 are done; phase 05 (UI, Settings, localization, accessibility) is
-next.
+Working branch `agent/multi-display-1.4.7`, based on `main` at 1.4.6. Impuls is
+present on every connected display, opens where the user is working, and keeps
+one expanded panel and one set of services however many monitors are attached.
+Closes issue #34.
 
-Read before editing anything in this area:
+Read before editing anything under `Sources/Impuls/Notch`:
+
+- `docs/IMPULS_1_4_7_MULTI_DISPLAY.md` — audit, architecture, the reasoning
+  behind the panel's minimum size
+- `docs/QA_MULTI_DISPLAY_1.4.7.md` — what still needs real displays
+
+## Shipped: Impuls 1.4.6 — Apple Device Battery Center
+
+Released; the branch is merged. The invariants below are standing rules, not
+history — they still bind anything that touches the power or device layer.
+
+Read before editing anything in that area:
 
 - `docs/IMPULS_1_4_6_HANDOFF.md` — state, decisions, what hardware proved
 - `docs/IMPULS_1_4_6_CODEMAP.md` — which file does what
@@ -44,9 +55,9 @@ Invariants specific to this work, on top of the hard invariants below:
 9. The AirPods `system_profiler` source is best-effort: fixed absolute path,
    fixed arguments, no shell, no user input in the argument list, bounded
    output, timeout.
-10. Before the final 1.4.6 pull request, sync with the finished 1.4.5.
-    `backup/1.4.5-local-handoff` holds 1.4.5 material that exists nowhere else —
-    do not merge it into 1.4.6.
+10. `backup/1.4.5-local-handoff` holds 1.4.5 material that exists nowhere else.
+    It belongs to whoever finishes that work; do not merge it into a release
+    branch.
 
 ## Commands
 
@@ -114,7 +125,7 @@ workflow before arguing with this list.
 | --- | --- |
 | `Sources/Impuls/App` | `AppDelegate`, launcher glue, `localized()` |
 | `Sources/Impuls/Model` | `NotchViewModel` — tabs, stores, panel state |
-| `Sources/Impuls/Notch` | window, geometry, shape, pointer tracking |
+| `Sources/Impuls/Notch` | display topology, per-display windows, geometry, pointer tracking |
 | `Sources/Impuls/Services` | one store or service per file, no UI |
 | `Sources/Impuls/Settings` | native settings and feedback windows |
 | `Sources/Impuls/UI` | one `*Pane.swift` per module, plus `Theme.swift` |
@@ -131,7 +142,8 @@ workflow before arguing with this list.
   rejected when the reason is not obvious from the code.
 - **UI numbers come from the code, not from taste.** Sizes and radii live in
   `Theme.swift` and the panes; the expanded panel is `620 × 208` pt by default
-  (`NotchGeometry.expandedSize`), corner radii are 12 pt on top and 22 pt at the
+  (`AdaptivePanelLayout.standard`, clamped to the display by
+  `NotchGeometry.expandedSize`), corner radii are 12 pt on top and 22 pt at the
   bottom when open.
 - **The rail has two sides.** Enabled modules are split evenly between them, the
   left rail taking the extra one when the count is odd, so nine modules go 5/4
@@ -140,6 +152,16 @@ workflow before arguing with this list.
 - **Stores never import SwiftUI**; panes never touch the filesystem directly.
 - **One responsibility per file.** A new module means a new `*Pane.swift`, a new
   store, a `Tab` case, and string-table entries in both languages.
+- **Shared services, per-display presentation.** Since 1.4.7 Impuls presents
+  itself on every display. `NotchViewModel` is built once and holds every store;
+  a `NotchDisplaySurface` is built per display and holds only a window, a view
+  and a `NotchGeometry`. Never give a surface a store, a timer or a monitor, and
+  never rebuild the view model — a second one is a second `ClipboardStore` and a
+  second `PowerMonitor`. Exactly one surface is active, which is why two
+  expanded panels cannot exist. `PointerWatcher` is one sampler with one zone
+  per display; do not add a timer per display. `DisplayDescriptor` keeps the
+  layer testable, so `NSScreen` and CoreGraphics are read only in
+  `ScreenDisplaySource`. See `docs/IMPULS_1_4_7_MULTI_DISPLAY.md`.
 
 ## Release flow
 

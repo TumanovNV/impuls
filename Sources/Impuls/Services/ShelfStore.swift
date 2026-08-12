@@ -31,13 +31,22 @@ final class ShelfStore: ObservableObject {
     @Published private(set) var selection: Set<UUID> = []
 
     private let defaultsKey = "shelf.urls"
+    /// Where the shelf remembers itself. Handed in rather than reaching for
+    /// `.standard` so that one Impuls — the app, or a test — writes to exactly
+    /// one place. The app passes the same store `SettingsStore` uses, which is
+    /// `.standard`, so nothing about the shipped behaviour changes.
+    private let defaults: UserDefaults
     /// Generous, because saved screenshots accumulate here and nothing is
     /// deleted behind the user's back. Cards past the limit leave the shelf,
     /// but their files stay in the folder.
     private let limit = 60
 
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
     func load() {
-        let paths = UserDefaults.standard.stringArray(forKey: defaultsKey) ?? []
+        let paths = defaults.stringArray(forKey: defaultsKey) ?? []
         items = paths
             .map(URL.init(fileURLWithPath:))
             .filter { FileManager.default.fileExists(atPath: $0.path) }
@@ -227,7 +236,7 @@ final class ShelfStore: ObservableObject {
     }
 
     private func persist() {
-        UserDefaults.standard.set(items.map(\.url.path), forKey: defaultsKey)
+        defaults.set(items.map(\.url.path), forKey: defaultsKey)
     }
 }
 
