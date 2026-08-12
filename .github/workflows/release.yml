@@ -44,7 +44,7 @@ jobs:
           echo "TAG=v$VERSION" >> "$GITHUB_ENV"
           git fetch --tags --force
           if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
-            echo "Reissuing existing release metadata for $TAG"
+            echo "Reissuing existing release metadata for v$VERSION"
           fi
 
       - name: Enforce security boundaries
