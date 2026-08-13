@@ -24,9 +24,10 @@ struct DisplayDescriptor: Equatable, Identifiable, Sendable {
     let auxiliaryLeftWidth: CGFloat?
     let auxiliaryRightWidth: CGFloat?
     let menuBarHeight: CGFloat
-    /// Read for reporting only. Layout is decided in logical points, never in
-    /// pixels — a 5K display and a 1080p display of the same physical size want
-    /// the same panel, and scaling by pixel count would give them different ones.
+    /// Layout is decided in logical points, never scaled by pixel count — a 5K
+    /// display and a 1080p display of the same physical size want the same
+    /// panel. The factor is used only to snap the final AppKit window placement
+    /// to a physical-pixel boundary and for reporting.
     let backingScale: CGFloat
     /// The display the menu bar belongs to; its frame origin is the origin of
     /// the global coordinate space.

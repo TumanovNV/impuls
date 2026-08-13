@@ -44,7 +44,10 @@ final class NotchViewModel: ObservableObject {
 
     }
 
-    @Published var isOpen = false
+    /// Semantic controller state, not a second visual animation owner. Each
+    /// surface publishes its own atomic presentation state; publishing this as
+    /// well made one open invalidate the active hosting root twice.
+    var isOpen = false
     @Published var isDropTargeted = false
     @Published var tab: Tab = .media {
         didSet {
@@ -151,7 +154,8 @@ final class NotchViewModel: ObservableObject {
         // stores keep their own schedule: a track change every few minutes, a
         // copy whenever one happens, and each send re-evaluated the whole
         // view for nobody. Opening repaints from the stores directly, because
-        // `isOpen` is itself @Published and its own send does that.
+        // the surface presentation change redraws the active root from the
+        // stores directly.
         //
         // The stores with a text field in their pane — Actions, the translator,
         // snippets and notes — are deliberately absent. They change on every

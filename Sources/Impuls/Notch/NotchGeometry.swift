@@ -98,7 +98,7 @@ struct NotchGeometry: Equatable {
     /// keep a shadow nobody would have missed. The content fits; the decoration
     /// may hang over the edge.
     private static func clamped(_ size: CGSize, to display: DisplayDescriptor) -> CGSize {
-        CGSize(
+        return CGSize(
             width: max(minimumExpandedSize.width, min(size.width, display.frame.width)),
             height: max(minimumExpandedSize.height, min(size.height, display.frame.height))
         )
@@ -107,9 +107,12 @@ struct NotchGeometry: Equatable {
     // MARK: - Derived frames
 
     var windowSize: CGSize {
-        CGSize(
-            width: expandedSize.width + Self.windowPadding.left + Self.windowPadding.right,
-            height: expandedSize.height + Self.windowPadding.bottom
+        let scale = max(1, display.backingScale)
+        let width = expandedSize.width + Self.windowPadding.left + Self.windowPadding.right
+        let height = expandedSize.height + Self.windowPadding.bottom
+        return CGSize(
+            width: (width * scale).rounded() / scale,
+            height: (height * scale).rounded() / scale
         )
     }
 
@@ -129,6 +132,11 @@ struct NotchGeometry: Equatable {
         } else {
             x = display.frame.midX - size.width / 2
         }
+        // Align in the target display's local coordinate grid. A mixed-scale
+        // secondary screen can have a fractional global origin; multiplying a
+        // global x by this screen's scale would align against the wrong grid.
+        let scale = max(1, display.backingScale)
+        x = display.frame.minX + ((x - display.frame.minX) * scale).rounded() / scale
         return CGRect(
             x: x,
             y: display.frame.maxY - size.height,

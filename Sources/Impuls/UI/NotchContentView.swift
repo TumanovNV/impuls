@@ -1,74 +1,140 @@
 import SwiftUI
 
+struct PanelContentAvailability: Equatable {
+    let isExpanded: Bool
+
+    var acceptsHitTesting: Bool { isExpanded }
+    var isAccessibilityHidden: Bool { !isExpanded }
+}
+
 struct NotchContentView: View {
-    @ObservedObject var vm: NotchViewModel
+    let vm: NotchViewModel
     /// This display's half of the state. The shared view model says whether
     /// Impuls is expanded; the surface says whether it is expanded *here*.
     /// Exactly one surface is active, so two panels cannot stand open at once —
     /// not by convention, but because the view has no way to draw the second.
     @ObservedObject var surface: NotchSurfaceState
+
+    @ViewBuilder
+    var body: some View {
+        if surface.isActive {
+            ActiveNotchContentView(
+                vm: vm,
+                geometry: surface.geometry,
+                isOpen: surface.isExpanded,
+                hasMountedContent: surface.hasMountedContent,
+                motion: surface.motionPlan
+            )
+        } else {
+            CollapsedNotchContentView(geometry: surface.geometry)
+        }
+    }
+}
+
+/// Inactive displays observe presentation only. They deliberately do not
+/// observe the shared view model, so a media tick or device refresh for the one
+/// open panel cannot invalidate every collapsed NSHostingView.
+private struct CollapsedNotchContentView: View {
+    let geometry: NotchGeometry
+
+    var body: some View {
+        NotchShape(
+            topRadius: Theme.collapsedTopRadius,
+            bottomRadius: Theme.collapsedBottomRadius
+        )
+        .fill(Color.black)
+        .frame(
+            width: geometry.collapsedSize.width + 2 * Theme.collapsedTopRadius,
+            height: geometry.collapsedSize.height
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .accessibilityHidden(true)
+    }
+}
+
+/// The active surface keeps a final-size shell even while collapsed. The live
+/// pane mounts only when expanded (some panes intentionally do work on appear),
+/// but it is immediately proposed the final geometry: animation progress never
+/// becomes a new layout proposal to the rails or pane hierarchy.
+private struct ActiveNotchContentView: View {
+    let vm: NotchViewModel
+    let geometry: NotchGeometry
+    let isOpen: Bool
+    let hasMountedContent: Bool
+    let motion: Theme.PanelMotionPlan
     @Environment(\.colorScheme) private var colorScheme
-
-    private var isOpen: Bool { surface.isActive && vm.isExpanded }
-    private var geometry: NotchGeometry { surface.geometry }
-    private var size: CGSize { isOpen ? geometry.expandedSize : geometry.collapsedSize }
-    private var topRadius: CGFloat { isOpen ? Theme.openTopRadius : Theme.collapsedTopRadius }
-    private var bottomRadius: CGFloat { isOpen ? Theme.openBottomRadius : Theme.collapsedBottomRadius }
-
-    private var shape: NotchShape {
-        NotchShape(topRadius: topRadius, bottomRadius: bottomRadius)
+    private var envelopeSize: CGSize {
+        CGSize(
+            width: geometry.expandedSize.width + 2 * Theme.openTopRadius,
+            height: geometry.expandedSize.height
+        )
+    }
+    private var transitionGeometry: NotchTransitionGeometry {
+        NotchTransitionGeometry(
+            collapsedSize: geometry.collapsedSize,
+            expandedSize: geometry.expandedSize
+        )
     }
 
     var body: some View {
-        // The shape is wider than the body by `topRadius` on each side: that
-        // slack is where the concave shoulders live, so it must not be clipped.
+        let availability = PanelContentAvailability(isExpanded: isOpen)
+        let reveal = NotchTransitionShape(
+            geometry: transitionGeometry,
+            progress: isOpen ? 1 : 0
+        )
+
         ZStack(alignment: .top) {
-            canvas
-            VStack(spacing: 0) {
-                header
-                if isOpen {
-                    content
-                        .transition(.opacity)
+            Color.black
+            Theme.panelBackground
+                .opacity(isOpen ? 1 : 0)
+
+            ZStack {
+                if hasMountedContent {
+                    ZStack {
+                        Theme.panelCanvas()
+                            .allowsHitTesting(false)
+                        ExpandedPanelContent(vm: vm, geometry: geometry)
+                    }
+                    .opacity(isOpen ? 1 : 0)
+                    .animation(motion.contentAnimation(opening: isOpen), value: isOpen)
                 }
             }
-            .frame(width: size.width, height: size.height, alignment: .top)
-            .clipped()
+            // The wrapper changes immediately. An outgoing transition may
+            // still be visible for a few frames, but it cannot retain a hidden
+            // hit target or duplicate VoiceOver controls while it fades.
+            .allowsHitTesting(availability.acceptsHitTesting)
+            .accessibilityHidden(availability.isAccessibilityHidden)
         }
-        .frame(width: size.width + 2 * topRadius, height: size.height, alignment: .top)
+        .frame(width: envelopeSize.width, height: envelopeSize.height, alignment: .top)
+        // Changing Reduce Motion while a transition is in flight replaces the
+        // animatable mask at its semantic endpoint. That cancels the old
+        // spatial transaction instead of letting its remaining frames travel.
+        .mask(reveal.id(motion.reducesMotion))
+        .shadow(
+            color: .black.opacity(isOpen ? (colorScheme == .dark ? 0.5 : 0.2) : 0),
+            radius: 18,
+            y: 8
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .animation(Theme.motion(Theme.openAnimation), value: isOpen)
-        .animation(Theme.motion(Theme.paneAnimation), value: vm.tab)
+        .animation(motion.geometryAnimation(opening: isOpen), value: isOpen)
     }
 
-    // MARK: - Canvas
-    //
-    // Two layers. The base shape is opaque and casts the shadow — SwiftUI's
-    // `.shadow` does not reliably render from an AppKit-backed view, so the
-    // material cannot be the thing that casts it. The material then sits on
-    // top, blending with whatever is behind the window.
-    //
-    // The closed tab stays flat black so it melts into the physical notch;
-    // there is nothing to blur into up there, and a material would make the
-    // cutout visible as a slightly different black.
+}
 
-    private var canvas: some View {
-        ZStack(alignment: .top) {
-            shape
-                .fill(isOpen ? Theme.panelBackground : Color.black)
-                .frame(width: size.width + 2 * topRadius, height: size.height)
-                .shadow(
-                    color: .black.opacity(isOpen ? (colorScheme == .dark ? 0.5 : 0.2) : 0),
-                    radius: 18,
-                    y: 8
-                )
+/// The only subtree that observes the shared model. It does not exist while
+/// collapsed, so the idle active surface is as cheap as every inactive one and
+/// hidden pane lifecycle hooks never run before the panel is visible.
+private struct ExpandedPanelContent: View {
+    @ObservedObject var vm: NotchViewModel
+    let geometry: NotchGeometry
 
-            if isOpen {
-                Theme.panelCanvas()
-                    .frame(width: size.width + 2 * topRadius, height: size.height)
-                    .clipShape(shape)
-                    .allowsHitTesting(false)
-            }
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            content
         }
+        .frame(width: geometry.expandedSize.width, height: geometry.expandedSize.height, alignment: .top)
+        .clipped()
     }
 
     // MARK: - Header
@@ -81,27 +147,23 @@ struct NotchContentView: View {
 
     private var header: some View {
         HStack(spacing: 0) {
-            if isOpen {
-                Text(vm.title(for: vm.tab).uppercased())
-                    .font(Theme.Typo.overline)
-                    .tracking(0.8)
-                    .foregroundStyle(Theme.tertiary)
-                    .padding(.leading, Theme.Space.l)
-                    .id(vm.tab)
-                    .transition(.opacity)
-                    // The pane heading is announced by the rail button that
-                    // selected it; repeating it here would make VoiceOver read
-                    // the module name twice on every switch.
-                    .accessibilityHidden(true)
-            }
+            Text(vm.title(for: vm.tab).uppercased())
+                .font(Theme.Typo.overline)
+                .tracking(0.8)
+                .foregroundStyle(Theme.tertiary)
+                .padding(.leading, Theme.Space.l)
+                .id(vm.tab)
+                .transition(.opacity)
+                // The pane heading is announced by the rail button that
+                // selected it; repeating it here would make VoiceOver read
+                // the module name twice on every switch.
+                .accessibilityHidden(true)
             Spacer(minLength: 0)
             Color.clear.frame(width: geometry.notchSize.width, height: 1)
             Spacer(minLength: 0)
-            if isOpen {
-                trailing
-                    .padding(.trailing, Theme.Space.l)
-                    .transition(.opacity)
-            }
+            trailing
+                .padding(.trailing, Theme.Space.l)
+                .transition(.opacity)
         }
         .frame(height: geometry.notchSize.height)
     }

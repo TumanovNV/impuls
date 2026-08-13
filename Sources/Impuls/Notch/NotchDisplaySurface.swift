@@ -17,6 +17,12 @@ protocol NotchSurfacing: AnyObject {
     var geometry: NotchGeometry { get }
     /// Whether this display owns the expanded panel. Exactly one surface has it.
     var isActive: Bool { get }
+    /// The visual phase is per surface. Separating it from the shared model lets
+    /// a newly active display first lay out the collapsed endpoint, then animate
+    /// once, without making every inactive host observe the whole view model.
+    var isExpanded: Bool { get }
+    var hasMountedContent: Bool { get }
+    var motionPlan: Theme.PanelMotionPlan { get }
     var isReceivingDrag: Bool { get }
     /// Whether this display's window is currently allowed to take key input.
     var acceptsKeyboard: Bool { get set }
@@ -26,6 +32,7 @@ protocol NotchSurfacing: AnyObject {
 
     var onDragEntered: (() -> Void)? { get set }
     var onDragExited: (() -> Void)? { get set }
+    var onDragEnded: (() -> Void)? { get set }
     var onDrop: (([URL]) -> Bool)? { get set }
     var onPress: (() -> Void)? { get set }
     var onKeyCommand: ((NotchPanel.KeyCommand) -> Void)? { get set }
@@ -37,6 +44,12 @@ protocol NotchSurfacing: AnyObject {
 
     func update(geometry: NotchGeometry)
     func setActive(_ active: Bool)
+    func prepareForExpansion()
+    func commitPreparedLayout()
+    func setMotionPlan(_ plan: Theme.PanelMotionPlan)
+    func setExpanded(_ expanded: Bool)
+    func beginClosing()
+    func finishClosing()
     func setInteractive(_ interactive: Bool)
     /// Applies the click target for the current state and answers with the same
     /// rect in screen coordinates, which is what the pointer watcher needs.
@@ -53,11 +66,26 @@ protocol NotchSurfacing: AnyObject {
 /// clipboard watcher.
 @MainActor
 final class NotchSurfaceState: ObservableObject {
+    enum Presentation: Equatable {
+        case inactive
+        case collapsed
+        case preparing
+        case expanded
+        case closing
+    }
+
     /// Whether this display owns the expanded panel. Exactly one surface has
     /// it, so two panels standing open at once is not a state the app can
     /// reach: the content view expands only when its own surface is active.
-    @Published fileprivate(set) var isActive = false
+    @Published fileprivate(set) var presentation: Presentation = .inactive
     @Published fileprivate(set) var geometry: NotchGeometry
+    @Published fileprivate(set) var motionPlan = Theme.PanelMotionPlan.make(reducesMotion: false)
+
+    var isActive: Bool { presentation != .inactive }
+    var isExpanded: Bool { presentation == .expanded }
+    var hasMountedContent: Bool {
+        presentation == .preparing || presentation == .expanded || presentation == .closing
+    }
 
     init(geometry: NotchGeometry) {
         self.geometry = geometry
@@ -79,6 +107,9 @@ final class NotchDisplaySurface: NotchSurfacing {
 
     var geometry: NotchGeometry { state.geometry }
     var isActive: Bool { state.isActive }
+    var isExpanded: Bool { state.isExpanded }
+    var hasMountedContent: Bool { state.hasMountedContent }
+    var motionPlan: Theme.PanelMotionPlan { state.motionPlan }
     var isReceivingDrag: Bool { rootView.isReceivingDrag }
     var isInteractive: Bool { !panel.ignoresMouseEvents }
 
@@ -95,6 +126,11 @@ final class NotchDisplaySurface: NotchSurfacing {
     var onDragExited: (() -> Void)? {
         get { rootView.onDragExited }
         set { rootView.onDragExited = newValue }
+    }
+
+    var onDragEnded: (() -> Void)? {
+        get { rootView.onDragEnded }
+        set { rootView.onDragEnded = newValue }
     }
 
     var onDrop: (([URL]) -> Bool)? {
@@ -146,12 +182,47 @@ final class NotchDisplaySurface: NotchSurfacing {
 
     func setActive(_ active: Bool) {
         guard state.isActive != active else { return }
-        state.isActive = active
+        state.presentation = active ? .collapsed : .inactive
         if !active {
             // A surface losing activation must not still be holding the
             // keyboard: only the display the user moved to may take keys.
             panel.acceptsKeyboard = false
         }
+    }
+
+    func setExpanded(_ expanded: Bool) {
+        guard state.isExpanded != expanded else { return }
+        guard state.isActive else { return }
+        state.presentation = expanded ? .expanded : .collapsed
+    }
+
+    func prepareForExpansion() {
+        guard state.isActive, !state.hasMountedContent else { return }
+        state.presentation = .preparing
+    }
+
+    /// The preparing publication mounts the final-size pane tree while it is
+    /// hidden. The controller calls this on the following main turn, before it
+    /// publishes `.expanded`, so AppKit commits that layout instead of letting
+    /// SwiftUI coalesce mount and reveal into the first animation frame.
+    func commitPreparedLayout() {
+        guard state.presentation == .preparing else { return }
+        hosting.layoutSubtreeIfNeeded()
+    }
+
+    func setMotionPlan(_ plan: Theme.PanelMotionPlan) {
+        guard state.motionPlan != plan else { return }
+        state.motionPlan = plan
+    }
+
+    func beginClosing() {
+        guard state.isActive, state.hasMountedContent else { return }
+        state.presentation = .closing
+    }
+
+    func finishClosing() {
+        guard state.isActive, state.presentation == .closing else { return }
+        state.presentation = .collapsed
     }
 
     func setInteractive(_ interactive: Bool) {
@@ -189,6 +260,7 @@ final class NotchDisplaySurface: NotchSurfacing {
         panel.onKeyCommand = nil
         rootView.onDragEntered = nil
         rootView.onDragExited = nil
+        rootView.onDragEnded = nil
         rootView.onDrop = nil
         panel.orderOut(nil)
         // Drops the hosting view, and with it this surface's only reference to
