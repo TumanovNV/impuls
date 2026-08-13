@@ -1,5 +1,45 @@
 import Foundation
 
+/// `~/Library/Application Support/Impuls`, and the difference between naming it
+/// and making it.
+///
+/// Those used to be one act: the stores' `defaultFileURL` was a `static let`
+/// whose initializer called `createDirectory`, so merely *asking where the notes
+/// live* created the folder. Nothing in the app minded — it asks on the way to
+/// reading them — but a test asserting the app's own layout created
+/// `Application Support/Impuls` on a machine that had never run Impuls. A path
+/// is an answer to a question, not an instruction.
+///
+/// Resolution is therefore pure, and the folder is created by the code that is
+/// about to write into it, which is also the only code that needs it to exist.
+enum ApplicationSupport {
+    /// Pure. Creates nothing, touches nothing, and `base` exists so a test can
+    /// prove that on a directory that is not there.
+    static func file(named name: String, in base: URL) -> URL {
+        base
+            .appendingPathComponent("Impuls", isDirectory: true)
+            .appendingPathComponent(name, isDirectory: false)
+    }
+
+    static func file(named name: String) -> URL {
+        file(named: name, in: userBase)
+    }
+
+    /// Called immediately before a write — never on the way to a path.
+    static func ensureParentDirectory(for url: URL) {
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+    }
+
+    /// `urls(for:in:)` enumerates; it is `url(for:in:appropriateFor:create:)`
+    /// that would create, and it is deliberately not used here.
+    private static var userBase: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    }
+}
+
 /// Where the file-backed stores keep what they hold.
 ///
 /// These paths used to be constants on the store types, which made

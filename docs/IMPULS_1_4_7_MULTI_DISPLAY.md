@@ -299,9 +299,24 @@ What is true now:
 - `ShelfStore` takes its `UserDefaults`. `SettingsStore.defaults` is internal so
   the app hands it the same suite the settings live in; a test hands it a suite
   of its own and deletes it afterwards.
-- `NoteStore` and `SnippetStore` take a `fileURL`. `defaultFileURL` on each is
-  still `~/Library/Application Support/Impuls/notes.json` and `snippets.json`,
-  and it is what the app gets.
+- `NoteStore` and `SnippetStore` take a required `fileURL` — no default
+  argument, so a test cannot reach the real notes by leaving one off, and the
+  privacy boundary is something the compiler checks. `ClipboardStore` lost its
+  default persistence for the same reason. `NotchViewModel` requires its
+  `storage:`. `defaultFileURL` is still
+  `~/Library/Application Support/Impuls/notes.json` and `snippets.json`, and it
+  is what the app gets through `StorageEnvironment.live`.
+- Resolving a path and creating a folder are separate acts. `defaultFileURL` was
+  a `static let` whose initializer called `createDirectory`, so asking *where*
+  the notes live created `Application Support/Impuls` — which a test asserting
+  the app's layout did, on machines that had never run Impuls. `ApplicationSupport`
+  now resolves purely; `ensureParentDirectory` is called by `persist` on the way
+  into a write, which is also where a clean install first needs it. The one
+  deliberate exception is `SnippetStore.reveal()`: a person asking for the
+  folder should get a folder, even an empty one.
+  `testResolvingALocationCreatesNothing` is the gate, and it runs against a base
+  directory that does not exist so it cannot pass by accident on a developer's
+  Mac.
 - `StorageEnvironment` gathers those locations plus the clipboard archive
   factory. `NotchViewModel(settings:storage:)` distributes them, `.live` is the
   only value the app uses, and `NotchEnvironment.storage` passes it through the
@@ -362,6 +377,14 @@ Known and left alone, because they are deliberate and the alternative is worse:
 - `CalendarStore` builds an `EKEventStore` for every view model. Nothing reads
   it: `start()` and `refreshAccess()` are never called, and no test selects the
   Calendar tab. There is no injection seam if one ever needs to.
+- `ScreenshotVault.folder` is still a `static let` that creates
+  `~/Pictures/Impuls` as a side effect of being read — the same anti-pattern the
+  stores lost. It stays for now because the creation *is* the decision there:
+  the vault uses Pictures when it can be created and falls back to Application
+  Support when it cannot, so making resolution pure changes which folder gets
+  chosen rather than merely when it appears. No test references the vault, and
+  it is only reached from the image callback installed by `start()`, which the
+  harness does not run. Worth doing properly in its own change.
 
 ---
 

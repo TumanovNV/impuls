@@ -93,7 +93,12 @@ final class ClipboardStore: ObservableObject {
     private var persistenceEnabled = false
     private var retentionInterval: TimeInterval = SettingsStore.ClipboardRetention.sevenDays.timeInterval
 
-    init(persistence: ClipboardHistoryPersistence? = ClipboardHistoryPersistence()) {
+    /// No default, for the same reason `NoteStore` has none: `nil` here is a
+    /// history that is never written, and the default was the real archive plus
+    /// the one login-keychain key that decrypts it. A test that left the
+    /// argument off would read the user's clipboard history, and switching
+    /// persistence off deletes that key — taking the real archive with it.
+    init(persistence: ClipboardHistoryPersistence?) {
         self.persistence = persistence
     }
 

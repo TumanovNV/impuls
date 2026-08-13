@@ -104,20 +104,17 @@ final class SnippetStore: ObservableObject {
 
     /// `~/Library/Application Support/Impuls/snippets.json`. A plain array of
     /// `{"label": "...", "text": "..."}`, where `label` may be left out.
-    nonisolated static let defaultFileURL: URL = {
-        let fm = FileManager.default
-        let folder = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Impuls", isDirectory: true)
-        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder.appendingPathComponent("snippets.json")
-    }()
+    /// Resolved, not created: see `ApplicationSupport`. Only
+    /// `StorageEnvironment.live` and `reveal()` read it.
+    nonisolated static var defaultFileURL: URL { ApplicationSupport.file(named: "snippets.json") }
 
     /// The file this store owns; see `StorageEnvironment` for why it is a
     /// property. Entering the Snippets or Actions tab reloads it, so as a
     /// constant on the type it was read by any test that switched tabs.
     let fileURL: URL
 
-    init(fileURL: URL = SnippetStore.defaultFileURL) {
+    /// No default, for the same reason as `NoteStore`.
+    init(fileURL: URL) {
         self.fileURL = fileURL
     }
 
@@ -204,6 +201,7 @@ final class SnippetStore: ObservableObject {
     /// and edited by hand, and `\/` in every URL would be the app making that
     /// harder for its own convenience.
     private func persist() {
+        ApplicationSupport.ensureParentDirectory(for: fileURL)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
         do {
@@ -226,8 +224,15 @@ final class SnippetStore: ObservableObject {
         pasteboard.setString(snippet.text, forType: .string)
     }
 
+    /// The one place a folder is created without anything being written to it,
+    /// and deliberately: the menu item exists so that somebody can go and edit
+    /// the file by hand, and revealing nothing at all would be a worse answer
+    /// than revealing an empty folder. This is a person asking for the folder,
+    /// which is not the same as code asking where it is.
     static func reveal() {
-        NSWorkspace.shared.activateFileViewerSelecting([defaultFileURL])
+        let file = defaultFileURL
+        ApplicationSupport.ensureParentDirectory(for: file)
+        NSWorkspace.shared.activateFileViewerSelecting([file])
     }
 
     private func fileSignature() -> FileSignature? { Self.fileSignature(of: fileURL) }

@@ -88,6 +88,10 @@ final class StorageIsolationTests: XCTestCase {
 
     /// The default is still the real path — the point was to make the location a
     /// dependency, not to move the app's data.
+    ///
+    /// This asks the two stores where they would keep their files and checks the
+    /// shape of the answer. It opens nothing, and since resolution is pure it
+    /// creates nothing either: see `testResolvingALocationCreatesNothing`.
     func testTheDefaultLocationsAreStillTheApplicationSupportFolder() {
         for url in [NoteStore.defaultFileURL, SnippetStore.defaultFileURL] {
             let folder = url.deletingLastPathComponent()
@@ -185,15 +189,26 @@ final class StorageIsolationTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
     }
 
-    /// Belt and braces on the same claim, from the other side: the real file's
-    /// bytes are read before and after a harness runs, and never written by it.
-    /// If the injection ever regresses, this fails whatever the harness asserts
-    /// about itself.
-    func testTheRealNotesFileIsUntouchedByAMultiDisplaySession() throws {
-        let real = NoteStore.defaultFileURL
-        let before = try? Data(contentsOf: real)
-        let stampBefore = try? FileManager.default
-            .attributesOfItem(atPath: real.path)[.modificationDate] as? Date
+    /// The same claim from the other side, and without going anywhere near the
+    /// real file.
+    ///
+    /// A sentinel stands in for it: a second temporary directory laid out like
+    /// `Application Support/Impuls`, which the harness is not told about. A
+    /// display session then writes a note and flushes it. If any path in the
+    /// chain ever falls back to a location the harness did not choose, the
+    /// sentinel is where a regression would land — and the assertion that the
+    /// note went to the harness's own file would fail first.
+    ///
+    /// The earlier version of this test read the bytes and modification date of
+    /// the user's own `notes.json` to prove they had not changed. It never wrote
+    /// anything, but proving a test does not touch private notes by opening them
+    /// is not a proof anybody should accept.
+    func testAMultiDisplaySessionWritesNowhereButItsOwnStorage() throws {
+        let elsewhere = folder.appendingPathComponent("not-the-harness", isDirectory: true)
+        let sentinel = ApplicationSupport.file(named: "notes.json", in: elsewhere)
+        ApplicationSupport.ensureParentDirectory(for: sentinel)
+        let untouched = Data("[]".utf8)
+        try untouched.write(to: sentinel)
 
         let harness = DisplayHarness(
             displays: [DisplayLayout.macBook, DisplayLayout.monitor],
@@ -202,17 +217,77 @@ final class StorageIsolationTests: XCTestCase {
         harness.install()
         harness.controller.toggleFromKeyboard()
         harness.vm.select(.notes)
-        harness.vm.notes.add(text: "must never reach the real file")
+        harness.vm.notes.add(text: "belongs to the harness")
         harness.vm.notes.flushSynchronously()
-        harness.tearDown()
 
-        let after = try? Data(contentsOf: real)
-        let stampAfter = try? FileManager.default
-            .attributesOfItem(atPath: real.path)[.modificationDate] as? Date
-        XCTAssertEqual(before, after, "the user's real notes.json changed during the test")
-        XCTAssertEqual(stampBefore, stampAfter, "the user's real notes.json was rewritten")
-        if let after, let text = String(data: after, encoding: .utf8) {
-            XCTAssertFalse(text.contains("must never reach the real file"))
-        }
+        XCTAssertEqual(try Data(contentsOf: sentinel), untouched)
+        XCTAssertTrue(
+            try String(contentsOf: harness.notesFile, encoding: .utf8)
+                .contains("belongs to the harness")
+        )
+
+        harness.tearDown()
+        XCTAssertEqual(try Data(contentsOf: sentinel), untouched)
+    }
+
+    // MARK: - The gate
+
+    /// Resolving a path must create nothing.
+    ///
+    /// This is the regression gate for the whole hardening pass, and it works on
+    /// a base directory that does not exist rather than on the real one — so it
+    /// fails loudly if `createDirectory` ever creeps back into path resolution,
+    /// instead of passing quietly on a machine where the folder happens to be
+    /// there already.
+    func testResolvingALocationCreatesNothing() {
+        let base = folder.appendingPathComponent("never-created", isDirectory: true)
+        let file = ApplicationSupport.file(named: "notes.json", in: base)
+
+        XCTAssertEqual(file.lastPathComponent, "notes.json")
+        XCTAssertEqual(file.deletingLastPathComponent().lastPathComponent, "Impuls")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: base.path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: file.deletingLastPathComponent().path),
+            "resolving a path created a directory"
+        )
+
+        // And the writer's side of the split still makes it.
+        ApplicationSupport.ensureParentDirectory(for: file)
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: file.deletingLastPathComponent().path,
+                isDirectory: &isDirectory
+            )
+        )
+        XCTAssertTrue(isDirectory.boolValue)
+    }
+
+    /// The store creates its own folder on the first write, so a clean install
+    /// does not depend on anything having resolved a path earlier.
+    func testTheFirstNoteCreatesTheFolderItLivesIn() throws {
+        let base = folder.appendingPathComponent("clean-install", isDirectory: true)
+        let file = ApplicationSupport.file(named: "notes.json", in: base)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: base.path))
+
+        let store = NoteStore(fileURL: file)
+        XCTAssertTrue(store.notes.isEmpty)
+        store.add(text: "first note on a new Mac")
+        store.flushSynchronously()
+
+        XCTAssertTrue(
+            try String(contentsOf: file, encoding: .utf8).contains("first note on a new Mac")
+        )
+    }
+
+    func testTheFirstSnippetCreatesTheFolderItLivesIn() throws {
+        let base = folder.appendingPathComponent("clean-install-snippets", isDirectory: true)
+        let file = ApplicationSupport.file(named: "snippets.json", in: base)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: base.path))
+
+        let store = SnippetStore(fileURL: file)
+        store.add(label: "first", text: "value")
+
+        XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("value"))
     }
 }

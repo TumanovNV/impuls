@@ -107,7 +107,11 @@ final class NotchViewModel: ObservableObject {
     /// a second set of timers. Since 1.4.7 the geometry belongs to
     /// `NotchSurfaceState`, one per display, and this object is built once for
     /// the lifetime of the app.
-    init(settings: SettingsStore, storage: StorageEnvironment = .live) {
+    /// `storage` has no default. `.live` as one would let a future test build
+    /// this object without mentioning storage and quietly acquire the user's
+    /// real notes — which is exactly how that happened once. Requiring the
+    /// argument turns the privacy boundary into something the compiler checks.
+    init(settings: SettingsStore, storage: StorageEnvironment) {
         self.settings = settings
         self.actions = ImpulsActionsStore()
         // The same defaults the settings live in, so one Impuls writes to one

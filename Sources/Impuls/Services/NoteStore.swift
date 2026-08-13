@@ -32,14 +32,9 @@ final class NoteStore: ObservableObject {
     /// choice survives the pane being unmounted with the panel.
     @Published var selected: Note.ID?
 
-    /// `~/Library/Application Support/Impuls/notes.json`.
-    nonisolated static let defaultFileURL: URL = {
-        let fm = FileManager.default
-        let folder = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Impuls", isDirectory: true)
-        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder.appendingPathComponent("notes.json")
-    }()
+    /// `~/Library/Application Support/Impuls/notes.json`. Resolved, not created:
+    /// see `ApplicationSupport`. Only `StorageEnvironment.live` reads it.
+    nonisolated static var defaultFileURL: URL { ApplicationSupport.file(named: "notes.json") }
 
     /// The file this store owns.
     ///
@@ -54,7 +49,9 @@ final class NoteStore: ObservableObject {
     private let writeQueue = DispatchQueue(label: "io.tumanov.impuls.notes.writer", qos: .utility)
     private var saveGeneration = 0
 
-    init(fileURL: URL = NoteStore.defaultFileURL) {
+    /// No default. Every caller says out loud which notes it means, so a test
+    /// cannot reach the real ones by leaving an argument off.
+    init(fileURL: URL) {
         self.fileURL = fileURL
         load()
     }
@@ -152,6 +149,10 @@ final class NoteStore: ObservableObject {
     }
 
     nonisolated private static func persist(_ notes: [Note], to fileURL: URL) {
+        // The folder is made here rather than when the path was worked out, so
+        // that resolving a location stays free of side effects. First run after
+        // a clean install lands here on the first note.
+        ApplicationSupport.ensureParentDirectory(for: fileURL)
         do {
             try JSONEncoder().encode(notes).write(to: fileURL, options: .atomic)
         } catch {
