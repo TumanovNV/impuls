@@ -1,13 +1,13 @@
 {
   "name": "Impuls — утилита для macOS",
   "short_name": "Impuls",
-  "description": "Бесплатная локальная утилита для macOS: история буфера, полка файлов, OCR, календарь, переводчик и заметки.",
+  "description": "Бесплатное локальное приложение для macOS: панель у верхней кромки экрана с поиском по буферу обмена, полкой файлов, заметками, переводом и зарядом устройств Apple.",
   "lang": "ru",
   "start_url": "/impuls/",
   "scope": "/impuls/",
   "display": "browser",
-  "background_color": "#08080a",
-  "theme_color": "#0a0a0c",
+  "background_color": "#fbfbfd",
+  "theme_color": "#fbfbfd",
   "icons": [
     {
       "src": "assets/impuls-icon.png",

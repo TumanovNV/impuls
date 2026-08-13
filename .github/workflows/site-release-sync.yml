@@ -1,0 +1,62 @@
+name: site-release-sync
+
+# Keeps the website's static release metadata equal to the newest release.
+#
+# The site fetches the Releases API at runtime, so a person with a browser has
+# always seen the right version. Everyone else — search engines, link previews,
+# anyone with JavaScript off — reads the markup, and the markup only changes when
+# something changes it. This is that something.
+#
+# It cannot loop and it cannot ship anything:
+#   * `release.yml` triggers on `push` to `Scripts/version`, which this never touches;
+#   * `build.yml` has `paths-ignore: ['**.md', 'docs/**']`, which is all this writes;
+#   * nothing here signs, tags, builds, or uploads an asset.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: site-release-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'TumanovNV/impuls'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: main
+
+      - name: Write the current release into docs/index.html
+        run: python3 Scripts/sync-site-release.py
+
+      - name: Verify the page still satisfies the release checks
+        run: |
+          set -euo pipefail
+          # The same three literals build.yml greps for. A metadata rewrite must
+          # never be the thing that breaks them.
+          grep -F "const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';" docs/index.html
+          grep -F 'function releaseHash(asset,body)' docs/index.html
+          grep -F 'data-conversion="feedback"' docs/index.html
+          # And the page must now agree with the release it was just given.
+          python3 Scripts/sync-site-release.py --check
+
+      - name: Commit if anything changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- docs/index.html; then
+            echo "docs/index.html was already current; nothing to commit"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/index.html
+          git commit -m "docs: sync website release metadata to ${GITHUB_REF_NAME:-latest}"
+          git push origin HEAD:main
