@@ -7,8 +7,11 @@ CI can build the code and run the fixtures; it cannot connect an iPhone or put
 AirPods in a case. A box is ticked only by someone who saw the result on the
 device named in the row, and the date and macOS version go in the notes column.
 
-**Status: thirty-three rows verified and three limitations or UI issues reproduced on
-11–12 August 2026.** The AirPods registry question came back negative and the
+**Status: thirty-five rows verified and three limitations or UI issues reproduced on
+11–13 August 2026.** The 13 August rows come from the 1.4.9 hotfix QA build, run
+with `IMPULS_MOBILE_DEVICE_BATTERY` and `experimentalMobileDeviceBattery` both
+absent — which is the point of that session, since until 1.4.9 the mobile
+provider required one of them and no shipped build ever looked for a phone. The AirPods registry question came back negative and the
 `system_profiler` fallback that replaced it came back positive, but the public
 macOS report can retain a bud that is already back in its case; the iPhone USB
 path was refused without a session and then worked through one. The same trusted
@@ -95,7 +98,7 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 | 5.6 | Locked iPhone: a clear state, no hang, no repeated retries | `[x]` | 12 Aug 2026: with USB still connected, the locked iPhone remained visible and readable; provider reads kept returning one device, the process stayed stable and no usbmuxd connection remained open. No permission or transport error occurred, so the last-good failure path was not exercised |
 | 5.7 | Trust denied by the user: understandable state, no loop | `[ ]` | |
 | 5.8 | Cable pulled mid-read: no hang, no crash, card becomes disconnected | `[x]` | 12 Aug 2026: USB was pulled immediately after Refresh. Impuls and the UI stayed responsive; provider settled on a successful empty list and the iPhone stopped being current. FD returned 58 → 60 → 58, no usbmuxd connection remained, no duplicate or raw transport error appeared, and a 35 s stabilization window showed no retry loop |
-| 5.9 | iPad over USB: same rows as 5.1–5.3 | `[ ]` | |
+| 5.9 | iPad over USB: same rows as 5.1–5.3 | `[x]` | 13 Aug 2026, 1.4.9 hotfix QA build with no hidden flag set: the maintainer connected an iPad by cable and it was discovered and read like the iPhone |
 | 5.10 | iPhone and iPad connected simultaneously: two cards, correct values | `[ ]` | |
 | 5.11 | Nothing is written to the device: no pairing record, no profile, no setting, no file | `[ ]` | |
 | 5.12 | Provider disabled: no socket, no connection attempt at all | `[ ]` | |
@@ -105,7 +108,7 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 | 5.18 | Locked iPhone, cable pulled mid-read, reconnect | `[x]` | 12 Aug 2026: after the Test 4 disconnect, the same locked iPhone reappeared automatically in about 1 s; unlocked reconnect also worked. No manual refresh or Impuls restart was required, the opaque identity set stayed unchanged, one device returned, FD settled at 58 and no usbmuxd connection remained open |
 | 5.19 | Locked iPhone recovers after unlock without restarting Impuls | `[x]` | 12 Aug 2026: after unlocking the same USB-connected iPhone, one manual refresh returned one readable device at 100 % in the same Impuls process. The UI kept one card with no duplicate or transport error; visual continuity confirmed the same device identity |
 | 5.14 | **The deciding measurement:** with a trusted iPhone connected, does `GetValue` in the battery domain return a value or an error? | `[x]` | 11 Aug 2026, iOS 26.5.2: **`Error = GetProhibited`**. `StartSession` then succeeded and returned `EnableSessionSSL = true`. `DeviceName` and `ProductType` are readable without a session; the battery domain is not |
-| 5.15 | With the flag off (the shipping default), no socket is ever opened to `/var/run/usbmuxd` | `[x]` | 11 Aug 2026, macOS 15, ad-hoc release bundle: `lsof -U` showed no usbmuxd connection over a 10 s run. Verified without hardware because it is about what Impuls does *not* do |
+| 5.15 | With external device discovery off, no socket is ever opened to `/var/run/usbmuxd` | `[x]` | 11 Aug 2026, macOS 15, ad-hoc release bundle: `lsof -U` showed no usbmuxd connection over a 10 s run. Re-established for 1.4.9, when *Show Connected Apple Devices* became the only gate: with the module on and discovery off, the production centre started no mobile provider, opened no topology listener and performed no read, and an explicit refresh opened nothing either. Pinned by `testExternalDiscoveryOffMeansNoMobileTopologyAndNoRead` |
 
 ## 6. iPhone over macOS Wi-Fi sync — Beta
 
@@ -123,6 +126,7 @@ and `APPLE_DEVICE_BATTERY_SUPPORT.md` records why.
 | 6.10 | Mac reboot with USB physically absent: the Wi-Fi iPhone and battery return automatically | `[x]` | 12 Aug 2026: after rebooting the MacBook, the iPhone was rediscovered over Wi-Fi and its battery was read without attaching USB or manually refreshing Impuls |
 | 6.11 | Mac sleep/wake: topology listener and battery reads recover without restart | `[ ]` | Not covered by the reboot result; sleep/wake remains a separate test |
 | 6.12 | Repeated topology changes leave no duplicate device, task, socket or FD leak | `[x]` | 12 Aug 2026: Wi-Fi loss, USB/Wi-Fi handoffs and repeated observations left one card and one persistent topology socket. Transient usbmuxd sessions closed after reads; FD returned to baseline and no retry storm occurred |
+| 6.13 | iPad over macOS Wi-Fi sync | `[x]` | 13 Aug 2026, 1.4.9 hotfix QA build with no hidden flag set: the maintainer confirmed the same iPad was also discovered and read over Wi-Fi sync |
 
 ## 7. Devices with no Mac-side path
 

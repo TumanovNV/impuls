@@ -285,12 +285,15 @@ Decisions behind this row:
   of the UI, the logs, feedback and backups.
 
 The research began without attached hardware. It is now verified on one iPhone
-and one iOS version over both USB and macOS Wi-Fi sync. It is marked Beta and
-iPad remains untested. Until 1.4.8 it also sat behind a hidden flag
-(`IMPULS_MOBILE_DEVICE_BATTERY`, or an undocumented default), which no ordinary
-install ever set — so the feature shipped three times without once looking for a
-phone. The user's opt-in, *Show Connected Apple Devices*, is now its only
-switch.
+and one iOS version, and on one iPad, over both USB and macOS Wi-Fi sync. It
+stays marked Beta: two devices are not every device, and nothing here promises a
+model or an iOS version that has not been tried.
+
+Until 1.4.9 it also sat behind a hidden flag (`IMPULS_MOBILE_DEVICE_BATTERY`, or
+an undocumented `UserDefaults` key), which no ordinary install ever set — so the
+feature shipped three times without once looking for a phone, while AirPods,
+served by a provider with no such flag, worked throughout. The user's opt-in,
+*Show Connected Apple Devices*, is now its only switch.
 
 ### The protocol sequence, as implemented
 
