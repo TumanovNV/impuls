@@ -55,11 +55,14 @@
       "publisher": {"@type": "Organization", "name": "Интегра Импульс"},
       "image": "https://tumanovnv.github.io/impuls/assets/og-impuls-1.4.3.png",
       "screenshot": "https://tumanovnv.github.io/impuls/assets/og-impuls-1.4.3.png",
-      "softwareRequirements": "macOS 15 or later; Apple Silicon or Intel",
+      "softwareRequirements": "macOS 15 or later; Apple Silicon",
       "isAccessibleForFree": true,
       "offers": {"@type": "Offer", "price": "0", "priceCurrency": "RUB"},
       "featureList": [
         "Панель у верхней кромки экрана по хоткею или наведению",
+        "Панель на каждом подключённом дисплее: встроенном, внешнем и Sidecar",
+        "Заряд AirPods, iPhone и iPad рядом с зарядом Mac",
+        "Полная работа с VoiceOver и клавиатурой",
         "Набор и порядок модулей настраиваются пользователем",
         "Поиск по истории буфера, заготовкам и заметкам",
         "Полка файлов, OCR и удаление фона через Apple Vision",
@@ -358,6 +361,17 @@ h1 .grad{background:linear-gradient(100deg,#7fa6ff,#b39dff 55%,#7fd8b4);
 /* battery pane: the mock panel stays dark in both appearances, like every other
    pane here, so these rules need no light-mode counterpart */
 .batt{display:flex;flex-direction:column;gap:9px}
+/* device switcher — the Apple Device Battery Center row from 1.4.6 */
+.devbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.devbar .dev{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border-radius:8px;
+  border:1px solid var(--line);background:var(--surface);font-size:11px;color:var(--muted);white-space:nowrap}
+.devbar .dev svg{width:12px;height:12px;opacity:.75;flex:none}
+.devbar .dev b{font-weight:600;color:var(--text)}
+.devbar .dev.on{border-color:color-mix(in srgb,var(--accent) 52%,transparent);
+  background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--text)}
+.devbar .beta{font-size:9px;letter-spacing:.04em;text-transform:uppercase;font-weight:650;
+  padding:1.5px 5px;border-radius:4px;background:var(--surface-2);color:var(--dim)}
+.devbar .refresh{margin-left:auto;color:var(--dim);font-size:13px;flex:none}
 .batt .top{display:flex;align-items:center;gap:11px}
 .batt .lvl{position:relative;width:42px;height:19px;flex:none;
   border:1.6px solid rgba(255,255,255,.28);border-radius:6px}
@@ -394,6 +408,18 @@ h1 .grad{background:linear-gradient(100deg,#7fa6ff,#b39dff 55%,#7fd8b4);
 .trust-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:28px}
 @media(max-width:900px){.proof-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:560px){.proof-grid{grid-template-columns:1fr}}
+
+/* real screenshots — horizontal, snap-scrolled, no JS */
+.shots{display:flex;gap:18px;margin-top:40px;padding:4px max(24px,calc((100vw - var(--maxw)) / 2)) 12px;
+  overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;
+  scrollbar-color:var(--line-strong) transparent}
+.shots::-webkit-scrollbar{height:8px}
+.shots::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:4px}
+.shot{flex:none;width:min(620px,84vw);scroll-snap-align:center;margin:0}
+.shot img{display:block;width:100%;height:auto;border-radius:14px;border:1px solid var(--line);
+  background:var(--surface);box-shadow:0 18px 40px -22px rgba(0,0,0,.55)}
+.shot figcaption{margin-top:12px;font-size:13.5px;line-height:1.5;color:var(--muted)}
+@media(max-width:640px){.shot{width:88vw}.shots{gap:12px}}
 
 /* ---------- sections ---------- */
 section{padding:96px 0}
@@ -615,7 +641,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     <div class="meta">
       <span data-i="hero.m1">macOS 15 и новее</span>
       <span data-i="hero.m2">2,4 МБ</span>
-      <span data-i="hero.m3">Apple Silicon и Intel</span>
+      <span data-i="hero.m3">Apple Silicon</span>
       <span data-i="hero.m5">Бесплатно</span>
     </div>
     <div class="hero-facts" role="list" aria-label="Проверяемые свойства Impuls">
@@ -781,6 +807,12 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
             <!-- battery -->
             <div class="pane" data-p="batt">
               <div class="batt">
+                <div class="devbar">
+                  <span class="dev on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M2 20h20" stroke-linecap="round"/></svg><span data-i="bt.d1">Этот Mac</span> <b>100&#8201;%</b></span>
+                  <span class="dev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.4"/><path d="M11 19h2" stroke-linecap="round"/></svg>iPhone <b>91&#8201;%</b></span>
+                  <span class="dev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="5" y="2.5" width="14" height="19" rx="2.2"/><path d="M11 19h2" stroke-linecap="round"/></svg>iPad Pro <b>93&#8201;%</b> <span class="beta">Beta</span></span>
+                  <span class="refresh">&#8635;</span>
+                </div>
                 <div class="top">
                   <span class="lvl"><span class="fill"></span></span>
                   <span class="pc">62&#8201;%</span>
@@ -793,7 +825,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
                   <div class="row"><span class="k" data-i="bt.k4">Разъём</span><span class="na" data-i="bt.na">Не определено</span></div>
                 </div>
               </div>
-              <div class="actionbar"><span class="chip sm" data-i="bt.note">Показывается только то, что macOS действительно сообщает</span></div>
+              <div class="actionbar"><span class="chip sm" data-i="bt.note">Показывается только то, что macOS действительно сообщает</span><span class="chip sm" data-i="bt.note2">Поиск устройств Apple выключен по умолчанию</span></div>
             </div>
             </div>
             <div class="rail" id="rail-right" role="toolbar" aria-orientation="vertical" aria-label="Модули Impuls справа">
@@ -810,6 +842,43 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
   </div>
   </div>
 </div>
+
+<!-- REAL SCREENSHOTS -->
+<section id="shots" style="padding-bottom:0">
+  <div class="wrap">
+    <div class="center reveal">
+      <div class="eyebrow" data-i="sh.eyebrow">Снимки экрана</div>
+      <h2 data-i="sh.h2">Так Impuls выглядит на самом деле</h2>
+      <p class="lead" data-i="sh.lead">Ничего не дорисовано: это панель на рабочем Mac, снятая как есть.</p>
+    </div>
+  </div>
+  <div class="shots reveal" id="shots-track">
+    <figure class="shot">
+      <img src="assets/screens/power-mac.webp" width="1200" height="408" loading="lazy" decoding="async" alt="Модуль «Аккумулятор»: заряд Mac 100 %, мощность, тип подключения, температура и циклы">
+      <figcaption data-i="sh1">Аккумулятор Mac: только те показатели, которые система действительно отдаёт</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="assets/screens/power-iphone.webp" width="1200" height="417" loading="lazy" decoding="async" alt="Модуль «Аккумулятор»: карточка iPhone с зарядом 91 % и пометкой Beta">
+      <figcaption data-i="sh2">iPhone читается по уже существующему доверию к этому Mac</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="assets/screens/power-ipad.webp" width="1200" height="426" loading="lazy" decoding="async" alt="Модуль «Аккумулятор»: карточка iPad Pro, заряд 93 %, идёт зарядка">
+      <figcaption data-i="sh3">iPad — та же карточка, будь то кабель или синхронизация по Wi-Fi</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="assets/screens/music.webp" width="1200" height="414" loading="lazy" decoding="async" alt="Модуль «Музыка»: обложка, название трека, транспорт и шкала воспроизведения">
+      <figcaption data-i="sh4">Музыка: Apple Music нативно, остальные сервисы — через свои официальные сайты</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="assets/screens/translate.webp" width="1200" height="422" loading="lazy" decoding="async" alt="Модуль «Перевод»: две колонки с выбором языка в заголовке">
+      <figcaption data-i="sh5">Перевод: язык меняется прямо в заголовке колонки</figcaption>
+    </figure>
+    <figure class="shot">
+      <img src="assets/screens/shelf.webp" width="1200" height="432" loading="lazy" decoding="async" alt="Модуль «Полка»: миниатюры файлов, счётчик и команды выбора">
+      <figcaption data-i="sh6">Полка: файлы ждут между приложениями, оригиналы остаются на месте</figcaption>
+    </figure>
+  </div>
+</section>
 
 <!-- OUTCOMES -->
 <section id="benefits">
@@ -896,13 +965,16 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></div><h3 data-i="mod6">Календарь</h3><p data-i="mod6d">Ближайшие встречи в поле зрения. Доступ запрашивается системным диалогом macOS.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h10M8 3v3M5 14c3.5-1.5 6-4.5 6-8M4 9c1.5 3.5 4 5.5 7 6.5M13 21l4.5-11L22 21M15 17h5"/></svg></div><h3 data-i="mod7">Переводчик</h3><p data-i="mod7d">Быстрый перевод из панели или прямо из результата Actions. Пара языков выбирается в заголовке колонки, направление читается по алфавиту.</p></div>
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h11l5 5v11H4z"/><path d="M8 12h8M8 16h5"/></svg></div><h3 data-i="mod8">Заметки</h3><p data-i="mod8d">Мысль записывается там же, где вы работаете, без запуска отдельного приложения.</p></div>
-      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M6 10.5h6.5v3H6z" fill="currentColor" stroke="none"/></svg></div><h3 data-i="mod9">Аккумулятор</h3><p data-i="mod9d">Заряд, состояние питания и время до полной зарядки или разрядки. На десктопных Mac модуль называется «Питание». Показывается только то, что система действительно сообщает.</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="17" height="10" rx="2.5"/><path d="M22 10.5v3"/><path d="M6 10.5h6.5v3H6z" fill="currentColor" stroke="none"/></svg></div><h3 data-i="mod9">Аккумулятор</h3><p data-i="mod9d">Заряд Mac, состояние питания и время до полной зарядки или разрядки, а рядом — AirPods, iPhone и iPad. На десктопных Mac модуль называется «Питание». Показывается только то, что система действительно сообщает: недостающее остаётся пустым, а не превращается в ноль.</p></div>
     </div>
 
     <div class="grid g3" style="margin-top:14px">
       <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2.5"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg></div><h3 data-i="x1">Управление с клавиатуры</h3><p data-i="x1d">Хоткей на выбор из безопасных комбинаций, стрелки между модулями, Esc для закрытия. Мышь не обязательна.</p></div>
-      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8"/></svg></div><h3 data-i="x2">Работает не только на чёлке</h3><p data-i="x2d">Геометрия чёлки определяется по safe area дисплея. На Mac без выреза — компактная вкладка 96×10 pt у верхнего края.</p></div>
-      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M17 3.5 21 5l-1.5 4"/></svg></div><h3 data-i="x3">Настройки под себя</h3><p data-i="x3d">Размер панели, целевой экран, поведение при наведении и задержка, состав и порядок модулей. Резервная копия — локальным JSON.</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="14" height="10" rx="2"/><path d="M8 18h8"/><rect x="10" y="10" width="12" height="9" rx="2"/></svg></div><h3 data-i="x2">Работает на всех экранах</h3><p data-i="x2d">Impuls есть на каждом подключённом дисплее и открывается там, где курсор. На MacBook с вырезом геометрия чёлки определяется по safe area, на экране без выреза — компактный якорь 120×12 pt у верхней кромки.</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/><path d="M17 3.5 21 5l-1.5 4"/></svg></div><h3 data-i="x3">Настройки под себя</h3><p data-i="x3d">Размер панели, включая «Автоматически» под размер экрана, режим «Экраны», поведение при наведении и задержка, состав и порядок модулей. Резервная копия — локальным JSON.</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="15" rx="2"/><rect x="15" y="9" width="6" height="12" rx="1.6"/><path d="M8 15h.01M18 18h.01"/></svg></div><h3 data-i="x4">Заряд устройств Apple</h3><p data-i="x4d">AirPods, iPhone и iPad рядом с зарядом самого Mac — через уже существующее доверие по USB или синхронизацию Finder по Wi-Fi. Поиск устройств выключен по умолчанию и включается одним переключателем. Поддержка iPhone и iPad — Beta.</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v.01"/><path d="M9.5 11h5M12 11v5.5"/></svg></div><h3 data-i="x5">Доступность</h3><p data-i="x5d">Каждая строка, значок рейла и элемент управления доступны VoiceOver и клавиатуре, а не только указателю. Impuls учитывает «Уменьшение движения», «Увеличение контраста» и «Уменьшение прозрачности».</p></div>
+      <div class="card reveal"><div class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v11m0 0 4-4m-4 4-4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></div><h3 data-i="x6">Обновления по подписи</h3><p data-i="x6d">Проверка обновлений включается отдельно и ходит только в подписанный канал Impuls. Автоматическая установка — ещё один отдельный выбор; без него новая версия просто предлагается.</p></div>
     </div>
   </div>
 </section>
@@ -988,7 +1060,11 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px;font-size:13px;color
     </div>
     <div class="faq reveal">
       <details><summary><span data-i="q1">У меня Mac без чёлки. Impuls мне подходит?</span><span class="pm"></span></summary>
-        <p data-i="q1a">Да. На таких Mac Impuls показывает компактную вкладку 96×10 pt у верхнего края экрана с областью наведения 120×16 pt. Геометрия чёлки MacBook определяется автоматически по safe area дисплея, поэтому подстраивать ничего не нужно.</p></details>
+        <p data-i="q1a">Да. На таких Mac Impuls показывает компактный якорь 120×12 pt у верхнего края экрана с областью наведения 140×18 pt. Геометрия чёлки MacBook определяется автоматически по safe area дисплея, поэтому подстраивать ничего не нужно.</p></details>
+      <details><summary><span data-i="q8">У меня внешний монитор. Impuls будет и на нём?</span><span class="pm"></span></summary>
+        <p data-i="q8a">Да. В режиме «Все экраны» Impuls присутствует на каждом подключённом дисплее — встроенном, внешнем и на iPad в режиме Sidecar — и открывается там, где находится курсор; хоткей работает так же. Развёрнутая панель всегда одна: переход на другой экран сворачивает предыдущую и показывает тот же модуль с теми же данными. Подключение и отключение монитора не требует перезапуска, ничего из заметок, полки и настроек не теряется. В настройках Impuls можно оставить на одном конкретном экране; зеркальные экраны считаются одним.</p></details>
+      <details><summary><span data-i="q9">Как Impuls видит заряд AirPods, iPhone и iPad?</span><span class="pm"></span></summary>
+        <p data-i="q9a">Через то, что уже есть на вашем Mac. AirPods показываются по данным, которые публикует сама macOS. iPhone и iPad читаются по уже установленному доверию к этому Mac — по кабелю или через синхронизацию Finder по Wi-Fi; если доступны оба пути, выбирается USB, а карточка устройства остаётся одной. Impuls не создаёт пары, не меняет настройки Finder, не сканирует сеть и не подключается к устройству напрямую по TCP. Поиск выключен по умолчанию: включите «Показывать подключённые устройства Apple» в настройках. Идентификаторы устройств не показываются, не пишутся в логи и не попадают в резервные копии. Поддержка iPhone и iPad остаётся Beta — проверены не все модели и сценарии.</p></details>
       <details><summary><span data-i="q2">Impuls действительно ничего не отправляет?</span><span class="pm"></span></summary>
         <p data-i="q2a">Без действия пользователя Impuls не подключается к сети. Отдельно можно разрешить подписанные обновления GitHub или нажать «Открыть веб-плеер» для выбранного музыкального сайта. Содержимое буфера, заметок, заготовок, файлов и календаря не передаётся никогда; для веб-сервиса действует его собственная политика.</p></details>
       <details><summary><span data-i="q3">Почему приложение не из App Store и не нотаризовано?</span><span class="pm"></span></summary>
@@ -1060,7 +1136,7 @@ const I = {
   "hero.pill.v":"Impuls 1.2.8","hero.pill.t":"— free, native, local",
   "hero.h1":"<span class='wordmark grad'>IMPULS</span><span class='claim'>Everything you need, at the top edge</span>",
   "hero.sub":"One shortcut opens the panel over whatever app you are in. What you would normally switch windows for is right there — and gone again just as fast.",
-  "hero.m1":"macOS 15 or newer","hero.m2":"2.4 MB","hero.m3":"Apple Silicon and Intel","hero.m5":"Free",
+  "hero.m1":"macOS 15 or newer","hero.m2":"2.4 MB","hero.m3":"Apple Silicon","hero.m5":"Free",
   "hero.f1":"Work data stays on your Mac","hero.f2":"No account required","hero.f3":"Open source",
   "hero.install":"The build is not yet notarized by Apple, so the first launch needs manual approval. <a href='#install'>See the instructions</a>",
   "mb.finder":"Finder","mb.file":"File","mb.edit":"Edit","mb.view":"View",
@@ -1083,7 +1159,17 @@ const I = {
   "n1":"Impuls: 1.3 release plan","n2":"A quick thought without launching another app",
   "bt.state":"Charging · 1 h 05 min to full",
   "bt.k1":"Adapter","bt.k2":"Into the battery","bt.k3":"Cycles","bt.k4":"Connector","bt.na":"Not determined",
+  "sh.eyebrow":"Screenshots","sh.h2":"What Impuls actually looks like",
+  "sh.lead":"Nothing is mocked up: this is the panel on a working Mac, captured as it is.",
+  "sh1":"Mac battery: only the readings the system genuinely supplies",
+  "sh2":"iPhone is read over the trust this Mac already has",
+  "sh3":"iPad — the same card, whether over the cable or Wi-Fi sync",
+  "sh4":"Music: Apple Music natively, other services through their own official sites",
+  "sh5":"Translate: the language changes right in the column header",
+  "sh6":"Shelf: files wait between apps, originals stay where they were",
   "bt.note":"Only what macOS actually reports is shown",
+  "bt.note2":"Apple device discovery is off by default",
+  "bt.d1":"This Mac",
   "b.eyebrow":"Everyday workflows","b.h2":"Fewer micro-actions. More time for the work that matters.",
   "b.lead":"Impuls does not replace your apps. It removes needless trips between them when you need to find, copy, move, or quickly process a file.",
   "b1":"Bring back what you copied earlier","b1d":"One search finds a link, account detail, or command across clipboard history, snippets, and notes — even when you cannot remember where it was.",
@@ -1106,10 +1192,13 @@ const I = {
   "mod6":"Calendar","mod6d":"Your next meetings in view. Access is requested by the standard macOS dialog.",
   "mod7":"Translator","mod7d":"Quick translation from the panel or straight from an Actions result. Pick the language pair in the column heading; direction follows the alphabet you type in.",
   "mod8":"Notes","mod8d":"Capture a thought where you already are, without launching another app.",
-  "mod9":"Battery","mod9d":"Charge, power state, and time to full or empty. On desktop Macs the module is called Power. Only what the system actually reports is shown.",
+  "mod9":"Battery","mod9d":"The Mac's charge, power state, and time to full or empty — and beside it AirPods, iPhone, and iPad. On desktop Macs the module is called Power. Only what the system actually reports is shown: what is missing stays blank instead of turning into a zero.",
   "x1":"Keyboard-first control","x1d":"A shortcut chosen from safe combinations, arrow keys between modules, Esc to close. A mouse is optional.",
-  "x2":"Not just for notched Macs","x2d":"Notch geometry is detected from the display safe area. On Macs without one, Impuls shows a compact 96 × 10 pt tab at the top edge.",
-  "x3":"Tuned to your setup","x3d":"Panel size, target display, hover behaviour and delay, module visibility and order. Backups go to a local JSON file.",
+  "x2":"Works on every display","x2d":"Impuls is present on every connected display and opens on the one your pointer is on. On a notched MacBook the geometry comes from the display safe area; on a display without a cutout it is a compact 120 × 12 pt anchor at the top edge.",
+  "x3":"Tuned to your setup","x3d":"Panel size, including Automatic to match the display, Display Behavior, hover behaviour and delay, module visibility and order. Backups go to a local JSON file.",
+  "x4":"Apple device battery","x4d":"AirPods, iPhone, and iPad next to the Mac's own charge, read through the trust this Mac already has over USB or Finder Wi-Fi sync. Discovery is off by default and turns on with a single switch. iPhone and iPad support is Beta.",
+  "x5":"Accessibility","x5d":"Every row, rail icon, and control is reachable by VoiceOver and the keyboard, not only by the pointer. Impuls honours Reduce Motion, Increase Contrast, and Reduce Transparency.",
+  "x6":"Signed updates","x6d":"Update checks are opt-in and reach only the signed Impuls channel. Automatic installation is a second, separate choice; without it a new version is simply offered to you.",
   "trust.eyebrow":"Verifiable trust","trust.h2":"Do not take the claims on faith. Check the code, build, and network boundaries.",
   "trust.lead":"Impuls is open to technical inspection: source code, change history, privacy model, and the SHA-256 of every DMG are public.",
   "trust.p1":"Open source","trust.p1d":"Implementation, privacy model, and change history are available in the public repository.",
@@ -1137,7 +1226,11 @@ const I = {
   "i.copy":"Copy","i.verify":"Verify: <code style='font-family:var(--mono)'>shasum -a 256 ~/Downloads/Impuls-1.2.8.dmg</code>",
   "f.eyebrow":"FAQ","f.h2":"What people usually ask",
   "q1":"My Mac has no notch. Is Impuls for me?",
-  "q1a":"Yes. On those Macs, Impuls shows a compact 96 × 10 pt tab at the top edge with a 120 × 16 pt hover target. MacBook notch geometry is detected automatically from the display safe area, so there is nothing to configure.",
+  "q1a":"Yes. On those Macs, Impuls shows a compact 120 × 12 pt anchor at the top edge with a 140 × 18 pt hover target. MacBook notch geometry is detected automatically from the display safe area, so there is nothing to configure.",
+  "q8":"I use an external monitor. Will Impuls be there too?",
+  "q9":"How does Impuls see the battery of AirPods, iPhone, and iPad?",
+  "q9a":"Through what your Mac already has. AirPods come from the values macOS itself publishes. iPhone and iPad are read over the trust this Mac was already granted — by cable, or through Finder Wi-Fi sync; when both routes exist USB wins and the device stays a single card. Impuls never creates a pairing, never changes Finder settings, never scans the network, and never connects to the device directly over TCP. Discovery is off by default: turn on Show Connected Apple Devices in Settings. Device identifiers are never displayed, logged, or written to backups. iPhone and iPad support remains Beta — not every model and situation has been tried.",
+  "q8a":"Yes. On All Displays, Impuls is present on every connected display — built-in, external, and an iPad running as a Sidecar extended display — and opens on the one your pointer is on; the shortcut behaves the same way. Exactly one expanded panel exists at a time: moving to another display folds the previous one and shows the same module with the same data. Plugging a monitor in or out never requires a restart, and notes, shelf, and settings stay as they were. You can also keep Impuls on one specific display in Settings; mirrored displays count as one.",
   "q2":"Does Impuls really send nothing?",
   "q2a":"Impuls makes no connection without your action. You can separately allow signed GitHub updates or press Open Web Player for a selected music site. Clipboard contents, notes, snippets, files, and calendar data are never transmitted; the chosen web service has its own policy.",
   "q3":"Why is it not on the App Store or notarized?",
