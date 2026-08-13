@@ -16,6 +16,10 @@ final class FakeDisplaySurface: NotchSurfacing {
     let displayID: UInt32
     private(set) var geometry: NotchGeometry
     private(set) var isActive = false
+    private(set) var isExpanded = false
+    private(set) var hasMountedContent = false
+    private(set) var motionPlan = Theme.PanelMotionPlan.make(reducesMotion: false)
+    private(set) var preparedLayoutCommitCount = 0
     var isReceivingDrag = false
     var acceptsKeyboard = false {
         didSet {
@@ -26,6 +30,7 @@ final class FakeDisplaySurface: NotchSurfacing {
     private(set) var isInteractive = false
     private(set) var isTornDown = false
     private(set) var lastAppliedRectWasOpen: Bool?
+    private(set) var appliedRectLog: [Bool] = []
     private(set) var geometryUpdates = 0
     /// Every activation change, in order, so a test can prove the panel moved
     /// once rather than flickering between two displays.
@@ -38,6 +43,7 @@ final class FakeDisplaySurface: NotchSurfacing {
 
     var onDragEntered: (() -> Void)?
     var onDragExited: (() -> Void)?
+    var onDragEnded: (() -> Void)?
     var onDrop: (([URL]) -> Bool)?
     var onPress: (() -> Void)?
     var onKeyCommand: ((NotchPanel.KeyCommand) -> Void)?
@@ -57,17 +63,44 @@ final class FakeDisplaySurface: NotchSurfacing {
 
     func setActive(_ active: Bool) {
         guard isActive != active else { return }
+        if !active { isExpanded = false }
+        if !active { hasMountedContent = false }
         isActive = active
         activationLog.append(active)
         if !active { acceptsKeyboard = false }
         onStateChange?()
     }
 
+    func setExpanded(_ expanded: Bool) {
+        guard isExpanded != expanded else { return }
+        isExpanded = expanded
+        hasMountedContent = expanded
+        onStateChange?()
+    }
+
+    func prepareForExpansion() { hasMountedContent = true }
+
+    func commitPreparedLayout() {
+        guard hasMountedContent, !isExpanded else { return }
+        preparedLayoutCommitCount += 1
+    }
+
+    func setMotionPlan(_ plan: Theme.PanelMotionPlan) { motionPlan = plan }
+
+    func beginClosing() {
+        guard hasMountedContent else { return }
+        isExpanded = false
+        onStateChange?()
+    }
+
+    func finishClosing() { hasMountedContent = false }
+
     func setInteractive(_ interactive: Bool) { isInteractive = interactive }
 
     @discardableResult
     func applyActiveRect(open: Bool) -> CGRect {
         lastAppliedRectWasOpen = open
+        appliedRectLog.append(open)
         return geometry.contentScreenRect(for: open ? geometry.expandedSize : geometry.collapsedSize)
     }
 
@@ -76,6 +109,8 @@ final class FakeDisplaySurface: NotchSurfacing {
     /// active, key-accepting window for a display that is no longer attached.
     func teardown() {
         setActive(false)
+        isExpanded = false
+        hasMountedContent = false
         acceptsKeyboard = false
         isTornDown = true
     }
@@ -105,6 +140,11 @@ final class DisplayHarness {
     private(set) var builtSurfaces: [FakeDisplaySurface] = []
     private(set) var viewModelsBuilt = 0
     private(set) var servicesStarted = 0
+    private(set) var descriptorReads = 0
+
+    var reducesMotion = false
+    private var nextTurnOperations: [@MainActor () -> Void] = []
+    private var delayedOperations: [(delay: TimeInterval, operation: @MainActor () -> Void)] = []
 
     var displays: [DisplayDescriptor]
     var pointer: CGPoint
@@ -119,6 +159,7 @@ final class DisplayHarness {
     /// The high-water marks of the two invariants, sampled inside every state
     /// change rather than after it.
     private(set) var observedMaximumActive = 0
+    private(set) var observedMaximumExpanded = 0
     private(set) var observedMaximumKeyboard = 0
 
     private let suite: String
@@ -164,10 +205,20 @@ final class DisplayHarness {
         settings.refreshDisplays()
 
         let environment = NotchEnvironment(
-            descriptors: { [unowned self] in self.displays },
+            descriptors: { [unowned self] in
+                self.descriptorReads += 1
+                return self.displays
+            },
             mainDisplayID: { [unowned self] in self.mainDisplayID },
             pointerLocation: { [unowned self] in self.pointer },
             now: { [unowned self] in self.clock },
+            reducesMotion: { [unowned self] in self.reducesMotion },
+            deferToNextMainTurn: { [unowned self] operation in
+                self.nextTurnOperations.append(operation)
+            },
+            scheduleAfter: { [unowned self] delay, operation in
+                self.delayedOperations.append((delay, operation))
+            },
             storage: StorageEnvironment(
                 notes: storageFolder.appendingPathComponent("notes.json"),
                 snippets: storageFolder.appendingPathComponent("snippets.json"),
@@ -185,6 +236,7 @@ final class DisplayHarness {
                 // between two statements would be caught here.
                 surface.onStateChange = { [unowned self] in
                     self.observedMaximumActive = max(self.observedMaximumActive, self.activeSurfaceCount)
+                    self.observedMaximumExpanded = max(self.observedMaximumExpanded, self.expandedSurfaceCount)
                     self.observedMaximumKeyboard = max(
                         self.observedMaximumKeyboard,
                         self.keyboardOwningSurfaceCount
@@ -230,6 +282,37 @@ final class DisplayHarness {
     /// Takes one sample at the current position and clock.
     func sample() { controller.pointerSampler.tick() }
 
+    /// Drains exactly one queued main-loop turn. Work scheduled by that work
+    /// remains queued for the next explicit drain, matching DispatchQueue.main.
+    func drainNextTurn() {
+        let operations = nextTurnOperations
+        nextTurnOperations.removeAll()
+        operations.forEach { $0() }
+    }
+
+    func drainDelayed() {
+        let operations = delayedOperations
+        delayedOperations.removeAll()
+        operations.forEach { $0.operation() }
+    }
+
+    /// Runs only work for one semantic deadline. Service activation (0.22),
+    /// visual close completion (0.16) and pointer-away checks (0.6) share the
+    /// production scheduler but are distinct events in transition tests.
+    func drainDelayed(at delay: TimeInterval) {
+        let matching = delayedOperations.filter { $0.delay == delay }
+        delayedOperations.removeAll { $0.delay == delay }
+        matching.forEach { $0.operation() }
+    }
+
+    func drainFirstDelayed(at delay: TimeInterval) {
+        guard let index = delayedOperations.firstIndex(where: { $0.delay == delay }) else { return }
+        let operation = delayedOperations.remove(at: index).operation
+        operation()
+    }
+
+    var scheduledDelays: [TimeInterval] { delayedOperations.map(\.delay) }
+
     /// Moves the pointer and lets the sampler resolve it: one sample to notice
     /// the new position, the clock advanced past the dwell, one more to commit.
     /// This is the production path — `PointerWatcher.hit`, the dwell, `onChange`,
@@ -270,6 +353,7 @@ final class DisplayHarness {
     }
 
     var activeSurfaceCount: Int { surfaces.values.filter(\.isActive).count }
+    var expandedSurfaceCount: Int { surfaces.values.filter(\.isExpanded).count }
     var keyboardOwningSurfaceCount: Int { surfaces.values.filter(\.acceptsKeyboard).count }
 
     /// Re-runs the topology reconciliation the way a screen-parameter
@@ -313,6 +397,55 @@ enum DisplayLayout {
 
 @MainActor
 final class MultiDisplayControllerTests: XCTestCase {
+
+    func testActivationModeRefreshUsesTheCommittedSetting() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        XCTAssertFalse(harness.controller.pointerSampler.zones[0].openRect.isEmpty)
+        harness.settings.activationMode = .shortcutOnly
+        harness.drainNextTurn()
+
+        XCTAssertTrue(harness.controller.pointerSampler.zones[0].openRect.isEmpty)
+        XCTAssertFalse(harness.controller.pointerSampler.tracksPanelExit)
+
+        harness.settings.activationMode = .hoverAndShortcut
+        harness.drainNextTurn()
+        XCTAssertFalse(harness.controller.pointerSampler.zones[0].openRect.isEmpty)
+        XCTAssertTrue(harness.controller.pointerSampler.tracksPanelExit)
+    }
+
+    func testOpenDelayRefreshUsesTheCommittedSetting() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.settings.openDelay = .deliberate
+        harness.drainNextTurn()
+
+        XCTAssertEqual(harness.controller.pointerSampler.openDelay, 0.30)
+    }
+
+    func testSecondShortcutDuringDeferredCloseReopensInsteadOfClosingAgain() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.controller.toggleFromKeyboard()
+        harness.drainNextTurn()
+        XCTAssertTrue(harness.vm.isOpen)
+
+        harness.controller.toggleFromKeyboard()
+        XCTAssertTrue(harness.vm.isOpen, "visual close waits one keyboard-release turn")
+        harness.controller.toggleFromKeyboard()
+        harness.drainNextTurn()
+
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertTrue(harness.surface(1).isExpanded)
+        XCTAssertTrue(harness.vm.keyboardNavigationActive)
+        XCTAssertFalse(harness.scheduledDelays.contains(0.16))
+    }
 
     // MARK: Shared view model lifecycle
 
@@ -547,6 +680,53 @@ final class MultiDisplayControllerTests: XCTestCase {
         XCTAssertEqual(harness.vm.shelf.items.count, 1, "and it lands exactly once")
     }
 
+    func testDragEnterCancelsAPendingCloseAndAcceptsTheURLOnce() throws {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+        let file = try makeTemporaryFile()
+        defer { try? FileManager.default.removeItem(at: file) }
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.surface(1).onKeyCommand?(.close)
+
+        harness.surface(1).isReceivingDrag = true
+        harness.surface(1).onDragEntered?()
+        let accepted = harness.surface(1).onDrop?([file]) ?? false
+        harness.drainNextTurn()
+
+        XCTAssertTrue(accepted)
+        XCTAssertEqual(harness.vm.shelf.items.map(\.url), [file])
+        XCTAssertEqual(harness.vm.tab, .shelf)
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertTrue(harness.surface(1).isExpanded)
+        XCTAssertFalse(harness.scheduledDelays.contains(0.16), "the stale close never retires the live drop target")
+        XCTAssertEqual(harness.expandedSurfaceCount, 1)
+    }
+
+    func testCancelledDragClearsTheDropTargetAndMayCloseNormally() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.surface(1).isReceivingDrag = true
+        harness.surface(1).onDragEntered?()
+        harness.drainNextTurn()
+        XCTAssertTrue(harness.vm.isDropTargeted)
+
+        harness.pointer = harness.emptyDesktop(of: 1)
+        harness.surface(1).isReceivingDrag = false
+        harness.surface(1).onDragEnded?()
+        XCTAssertFalse(harness.vm.isDropTargeted)
+        harness.drainDelayed(at: 0.6)
+        harness.drainNextTurn()
+        harness.drainDelayed(at: 0.16)
+
+        XCTAssertFalse(harness.vm.isOpen)
+        XCTAssertFalse(harness.surface(1).isExpanded)
+    }
+
     // MARK: Notification → Power
 
     func testALowBatteryNotificationOpensPowerOnTheDisplayInUse() {
@@ -574,6 +754,47 @@ final class MultiDisplayControllerTests: XCTestCase {
         harness.controller.openPower()
 
         XCTAssertEqual(harness.controller.activeDisplayID, 1)
+        XCTAssertEqual(harness.vm.tab, .power)
+    }
+
+    func testPowerOpenCancelsADeferredCloseInsteadOfBeingClosedByIt() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.surface(1).onKeyCommand?(.close)
+
+        harness.controller.openPower()
+        harness.drainNextTurn()
+
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertTrue(harness.surface(1).isExpanded)
+        XCTAssertEqual(harness.vm.tab, .power)
+        XCTAssertTrue(harness.vm.keyboardNavigationActive)
+        XCTAssertFalse(harness.scheduledDelays.contains(0.16), "the stale close never reaches visual completion")
+        XCTAssertEqual(harness.expandedSurfaceCount, 1)
+    }
+
+    func testAStalePointerAwayCheckCannotCloseANewerPowerIntent() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.surface(1).isReceivingDrag = true
+        harness.surface(1).onDragEntered?()
+        harness.drainNextTurn()
+        harness.surface(1).isReceivingDrag = false
+        harness.surface(1).onDragExited?()
+        harness.pointer = harness.emptyDesktop(of: 1)
+
+        harness.controller.openPower()
+        harness.drainDelayed(at: 0.6)
+        harness.drainNextTurn()
+
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertTrue(harness.surface(1).isExpanded)
         XCTAssertEqual(harness.vm.tab, .power)
     }
 
@@ -639,6 +860,24 @@ final class MultiDisplayControllerTests: XCTestCase {
 
         XCTAssertEqual(harness.surface(1).geometry.expandedSize, AdaptivePanelLayout.standard)
         XCTAssertEqual(harness.surface(2).geometry.expandedSize, AdaptivePanelLayout.large)
+    }
+
+    func testRuntimeSettingsPublicationsDoNotReconcileDisplayTopology() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+        let reads = harness.descriptorReads
+
+        harness.settings.reportHotKeyRegistration(succeeded: false)
+        harness.settings.updateAppleDeviceState(devices: [], diagnostics: [])
+        harness.settings.refreshDisplays()
+
+        XCTAssertEqual(
+            harness.descriptorReads,
+            reads,
+            "runtime keyboard/device/display-list publications are not geometry invalidations"
+        )
+        XCTAssertEqual(harness.surfaces.values.map(\.geometryUpdates).reduce(0, +), 0)
     }
 
     private func makeTemporaryFile() throws -> URL {

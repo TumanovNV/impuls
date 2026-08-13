@@ -248,6 +248,342 @@ final class MultiDisplayHoverTests: XCTestCase {
         XCTAssertEqual(harness.observedMaximumActive, 1)
     }
 
+    func testRepeatedSamplesInsideOnePanelEmitExactlyOneOpen() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        let transitions = harness.pointerTransitions.count
+        let centre = harness.panelCentre(of: 1)
+        for offset in stride(from: CGFloat(-6), through: 6, by: 1) {
+            harness.pointer = CGPoint(x: centre.x + offset, y: centre.y)
+            harness.clock = harness.clock.addingTimeInterval(0.02)
+            harness.sample()
+        }
+
+        XCTAssertEqual(transitions, 1)
+        XCTAssertEqual(harness.pointerTransitions.count, transitions)
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertEqual(harness.surface(1).activationLog, [true])
+    }
+
+    func testLiveContentPreparesBeforeExpansionAndUnmountsAfterClose() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        XCTAssertTrue(harness.surface(1).hasMountedContent)
+        XCTAssertFalse(harness.surface(1).isExpanded)
+
+        harness.drainNextTurn()
+        XCTAssertTrue(harness.surface(1).isExpanded)
+        XCTAssertEqual(harness.surface(1).preparedLayoutCommitCount, 1)
+
+        harness.surface(1).onKeyCommand?(.close)
+        harness.drainNextTurn()
+        XCTAssertFalse(harness.surface(1).isExpanded)
+        XCTAssertTrue(harness.surface(1).hasMountedContent, "outgoing content stays mounted only for its fade")
+
+        harness.drainDelayed(at: 0.16)
+        XCTAssertFalse(harness.surface(1).hasMountedContent)
+    }
+
+    func testAQuickBoundaryCorrectionDoesNotFlickerClosed() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        let closeRect = harness.surface(1).geometry.expandedHoverRect
+        let inside = CGPoint(x: closeRect.maxX - 0.5, y: closeRect.midY)
+        harness.pointer = inside
+        harness.sample()
+
+        harness.pointer = CGPoint(x: closeRect.maxX + 1, y: closeRect.midY)
+        harness.sample()
+        harness.clock = harness.clock.addingTimeInterval(harness.controller.pointerSampler.closeDelay / 2)
+        harness.pointer = inside
+        harness.sample()
+        harness.clock = harness.clock.addingTimeInterval(harness.controller.pointerSampler.closeDelay)
+        harness.sample()
+
+        XCTAssertEqual(harness.pointerTransitions.count, 1, "the brief boundary crossing never becomes a close")
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertTrue(harness.surface(1).isExpanded)
+    }
+
+    func testRapidAtoBtoARetiresEveryOldSurfacePresentation() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.movePointer(to: harness.anchor(of: 2))
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.drainDelayed()
+
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertEqual(harness.controller.activeDisplayID, 1)
+        XCTAssertTrue(harness.surface(1).isExpanded)
+        XCTAssertFalse(harness.surface(2).isExpanded)
+        XCTAssertEqual(harness.surface(1).activationLog, [true, false, true])
+        XCTAssertEqual(harness.surface(2).activationLog, [true, false])
+        XCTAssertEqual(harness.expandedSurfaceCount, 1)
+        XCTAssertEqual(harness.observedMaximumExpanded, 1)
+        XCTAssertEqual(harness.observedMaximumActive, 1)
+        XCTAssertFalse(harness.scheduledDelays.contains(0.16), "the cancelled close never schedules a visual completion")
+    }
+
+    func testReenterBeforeDeferredCollapseCancelsTheStaleClose() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.vm.select(.translate)
+        harness.vm.translator.input = "still here"
+        let rectApplications = harness.surface(1).appliedRectLog.count
+
+        harness.surface(1).onKeyCommand?(.close)
+        XCTAssertTrue(harness.vm.isOpen, "keyboard release gets its own run-loop turn")
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertTrue(harness.surface(1).isExpanded)
+        XCTAssertEqual(harness.vm.tab, .translate)
+        XCTAssertEqual(harness.vm.translator.input, "still here")
+        XCTAssertEqual(harness.surface(1).appliedRectLog.count, rectApplications)
+        XCTAssertFalse(harness.scheduledDelays.contains(0.16), "the cancelled close never schedules a visual completion")
+        XCTAssertEqual(harness.observedMaximumExpanded, 1)
+    }
+
+    func testAStaleCloseCompletionCannotShrinkAReopenedPanel() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.surface(1).onKeyCommand?(.close)
+        harness.drainNextTurn()
+
+        XCTAssertFalse(harness.vm.isOpen)
+        XCTAssertTrue(harness.scheduledDelays.contains(0.16))
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        XCTAssertTrue(harness.surface(1).lastAppliedRectWasOpen == true)
+
+        harness.drainDelayed()
+
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertTrue(harness.surface(1).isExpanded)
+        XCTAssertEqual(harness.surface(1).lastAppliedRectWasOpen, true)
+        XCTAssertEqual(harness.expandedSurfaceCount, 1)
+    }
+
+    func testTopologyRefreshDuringCloseKeepsTheVisiblePanelInteractiveUntilCompletion() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.surface(1).onKeyCommand?(.close)
+        harness.drainNextTurn()
+        XCTAssertFalse(harness.vm.isOpen)
+        XCTAssertEqual(harness.surface(1).lastAppliedRectWasOpen, true)
+
+        harness.reconnectDisplays()
+        XCTAssertEqual(
+            harness.surface(1).lastAppliedRectWasOpen,
+            true,
+            "the still-visible closing panel must not become click-through after topology work"
+        )
+
+        harness.drainDelayed(at: 0.16)
+        XCTAssertEqual(harness.surface(1).lastAppliedRectWasOpen, false)
+    }
+
+    func testForegroundServicesActivateOnceAcrossEstablishedCloseReentry() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.drainDelayed(at: 0.22)
+        XCTAssertEqual(harness.controller.foregroundServiceActivationCount, 1)
+
+        harness.surface(1).onKeyCommand?(.close)
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.drainDelayed(at: 0.22)
+
+        XCTAssertEqual(harness.controller.foregroundServiceActivationCount, 1)
+        XCTAssertTrue(harness.vm.isOpen)
+    }
+
+    func testPendingCloseHandoffCommitsTheNewDisplayAfterReentry() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.drainDelayed(at: 0.22)
+        XCTAssertEqual(harness.controller.foregroundServiceActivationCount, 1)
+
+        harness.surface(1).onKeyCommand?(.close)
+        XCTAssertTrue(harness.vm.isOpen, "the keyboard-release turn has not collapsed A yet")
+        harness.movePointer(to: harness.anchor(of: 2))
+        XCTAssertTrue(harness.surface(2).hasMountedContent)
+        XCTAssertFalse(harness.surface(2).isExpanded)
+
+        harness.drainNextTurn()
+
+        XCTAssertEqual(harness.controller.activeDisplayID, 2)
+        XCTAssertFalse(harness.surface(1).isActive)
+        XCTAssertFalse(harness.surface(1).hasMountedContent)
+        XCTAssertTrue(harness.surface(2).isActive)
+        XCTAssertTrue(harness.surface(2).isExpanded)
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertEqual(harness.controller.foregroundServiceActivationCount, 1)
+        XCTAssertEqual(harness.expandedSurfaceCount, 1)
+        XCTAssertEqual(harness.observedMaximumExpanded, 1)
+    }
+
+    func testInitialPreparingHandoffStillStartsForegroundServicesOnce() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        XCTAssertTrue(harness.surface(1).hasMountedContent)
+        XCTAssertFalse(harness.surface(1).isExpanded)
+
+        harness.movePointer(to: harness.anchor(of: 2))
+        XCTAssertFalse(harness.surface(1).isActive)
+        XCTAssertTrue(harness.surface(2).hasMountedContent)
+        XCTAssertFalse(harness.surface(2).isExpanded)
+
+        harness.drainNextTurn()
+        harness.drainDelayed(at: 0.22)
+
+        XCTAssertEqual(harness.controller.activeDisplayID, 2)
+        XCTAssertTrue(harness.surface(2).isExpanded)
+        XCTAssertEqual(harness.controller.foregroundServiceActivationCount, 1)
+        XCTAssertEqual(harness.expandedSurfaceCount, 1)
+        XCTAssertEqual(harness.observedMaximumExpanded, 1)
+    }
+
+    func testHandoffInvalidatesTheOldDisplayServiceDeadline() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.movePointer(to: harness.anchor(of: 2))
+        harness.drainNextTurn()
+
+        harness.drainFirstDelayed(at: 0.22)
+        XCTAssertEqual(
+            harness.controller.foregroundServiceActivationCount,
+            0,
+            "A's old deadline must not publish during B's transition"
+        )
+        harness.drainFirstDelayed(at: 0.22)
+        XCTAssertEqual(harness.controller.foregroundServiceActivationCount, 1)
+        XCTAssertTrue(harness.surface(2).isExpanded)
+    }
+
+    func testRuntimeReduceMotionUpdatesTheLivePlanAndCloseTiming() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        XCTAssertFalse(harness.surface(1).motionPlan.reducesMotion)
+
+        harness.reducesMotion = true
+        NSWorkspace.shared.notificationCenter.post(
+            name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil
+        )
+        XCTAssertTrue(harness.surface(1).motionPlan.reducesMotion)
+
+        harness.surface(1).onKeyCommand?(.close)
+        harness.drainNextTurn()
+        XCTAssertFalse(harness.scheduledDelays.contains(0.16))
+        XCTAssertEqual(harness.surface(1).lastAppliedRectWasOpen, false)
+    }
+
+    func testForegroundServicesActivateOnceWhenFirstOpenIsCancelledThenReentered() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.surface(1).onKeyCommand?(.close)
+        harness.drainNextTurn()
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.drainDelayed(at: 0.22)
+
+        XCTAssertEqual(harness.controller.foregroundServiceActivationCount, 1)
+        XCTAssertTrue(harness.vm.isOpen)
+        XCTAssertTrue(harness.surface(1).isExpanded)
+    }
+
+    func testReduceMotionShrinksTheHitRegionWithTheImmediateVisualClose() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
+        harness.reducesMotion = true
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.drainNextTurn()
+        harness.surface(1).onKeyCommand?(.close)
+        harness.drainNextTurn()
+
+        XCTAssertFalse(harness.vm.isOpen)
+        XCTAssertFalse(harness.surface(1).isExpanded)
+        XCTAssertEqual(harness.surface(1).lastAppliedRectWasOpen, false)
+        XCTAssertFalse(harness.scheduledDelays.contains(0.16), "no visual-close hit shield remains under Reduce Motion")
+    }
+
+    func testDisconnectInvalidatesOpeningAndClosingWork() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.sidecar], pointer: DisplayLayout.onSidecar)
+        defer { harness.tearDown() }
+        harness.install()
+
+        harness.movePointer(to: harness.anchor(of: 3))
+        let removed = harness.surface(3)
+        harness.surface(3).onKeyCommand?(.close)
+        harness.displays = [DisplayLayout.macBook]
+        harness.pointer = DisplayLayout.onMacBook
+        harness.reconnectDisplays()
+        harness.drainNextTurn()
+        harness.drainDelayed()
+
+        XCTAssertTrue(removed.isTornDown)
+        XCTAssertFalse(removed.isActive)
+        XCTAssertFalse(removed.isExpanded)
+        XCTAssertFalse(harness.vm.isOpen)
+        XCTAssertEqual(harness.controller.activeDisplayID, 1)
+        XCTAssertEqual(harness.expandedSurfaceCount, 0)
+        XCTAssertEqual(harness.keyboardOwningSurfaceCount, 0)
+    }
+
     /// Hover on a display Impuls is not allowed on does nothing at all.
     func testHoverOnADisplayExcludedByThePreferenceDoesNothing() {
         let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
