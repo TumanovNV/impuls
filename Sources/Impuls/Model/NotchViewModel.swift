@@ -110,14 +110,16 @@ final class NotchViewModel: ObservableObject {
     init(settings: SettingsStore, storage: StorageEnvironment = .live) {
         self.settings = settings
         self.actions = ImpulsActionsStore()
-        self.media = MediaController()
         // The same defaults the settings live in, so one Impuls writes to one
-        // place — and a test can never persist a card into the real shelf.
+        // place — and a test can never persist a card into the real shelf, pick
+        // up the developer's music source or rewrite their language pair. In
+        // the app this is `.standard`, so every key stays where it was.
+        self.media = MediaController(defaults: settings.defaults)
         self.shelf = ShelfStore(defaults: settings.defaults)
         self.fileTools = FileToolsCoordinator(shelf: self.shelf)
         self.clipboard = ClipboardStore(persistence: storage.makeClipboardHistory())
         self.calendar = CalendarStore()
-        self.translator = Translator()
+        self.translator = Translator(defaults: settings.defaults)
         // Every file-backed store is told where its file is. This object builds
         // all of them, so it is also the one place where a test would otherwise
         // acquire the user's real notes and snippets without asking for them.

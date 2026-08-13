@@ -3,7 +3,7 @@ import XCTest
 
 /// The model's job is to refuse to invent anything. These tests are mostly
 /// about what it declines to produce.
-final class AppleDevicePowerModelTests: XCTestCase {
+final class AppleDevicePowerModelTests: DeviceIdentityTestCase {
 
     // MARK: - Level normalization
 

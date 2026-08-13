@@ -315,10 +315,53 @@ What is true now:
   suppressed: the stores load, debounce, write atomically and flush on shutdown
   exactly as they do in the app, into a directory nobody else owns.
 
+- `MediaController` and `Translator` take the same suite, for the same reason
+  and by the same one-line change: the view model built them on
+  `UserDefaults.standard`, so a display test read the developer's chosen music
+  source and saved language pair.
+
 `StorageIsolationTests` pins it from both sides — that a note added through the
 harness really does reach the harness's own file, and that the bytes and
 modification date of the real `notes.json` are the same before and after a
 multi-display session that deliberately writes and flushes a note.
+
+### The rest of the audit
+
+The whole suite was then read against every sink that could reach real state:
+`~/Library/Application Support`, `UserDefaults.standard`, the login keychain,
+`NSPasteboard.general`, EventKit, Sparkle, the network, `~/Pictures`, Desktop,
+Documents, Downloads. Four more things turned up, all now fixed:
+
+- `FileToolsServiceTests` cleared `shelf.urls` in `UserDefaults.standard` around
+  itself — the key the running Impuls keeps its shelf in. It emptied the
+  developer's real shelf. It has its own suite now.
+- The two live registry probes in `IORegistryAccessoryTests` built an
+  `IORegistryAccessorySource()` with the default resolver, which writes the
+  *shipping app's* device-identity key into the login keychain. On a Mac with an
+  Apple accessory paired, running the suite created it. They take the test
+  resolver now, which the rest of that file already used.
+- The suite's own identity keys, under
+  `io.tumanov.impuls.tests.device-identity`, were written and never removed.
+  `DeviceIdentityTestCase` takes them back out; the cases that salt an identity
+  subclass it.
+- `NotchController.install()` registered four screen, Space and sleep observers
+  and dropped the tokens. `teardown()` removed only the menu-tracking ones, so a
+  torn-down controller still answered the next test's screen-parameter
+  notification. All of them are kept and removed now. This one is 1.4.7's own.
+
+Known and left alone, because they are deliberate and the alternative is worse:
+
+- The mobile hardware probes in `MobileDeviceProtocolTests` open the real
+  usbmuxd socket and read a real phone. They `XCTSkip` when there is no socket
+  or no device, which is why CI never sees them, and reading real hardware is
+  the entire point of a hardware probe. Worth knowing they bypass
+  `IMPULS_MOBILE_DEVICE_BATTERY`: the Beta flag gates the app, not the suite.
+- The `system_profiler` probe launches the real binary and prints the display
+  names of paired accessories into the test log. Names, never identifiers — the
+  same rule the UI follows — but a QA log from that test does carry them.
+- `CalendarStore` builds an `EKEventStore` for every view model. Nothing reads
+  it: `start()` and `refreshAccess()` are never called, and no test selects the
+  Calendar tab. There is no injection seam if one ever needs to.
 
 ---
 

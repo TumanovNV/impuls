@@ -7,7 +7,7 @@ import XCTest
 /// nothing: a throwaway self-signed certificate and two unrelated 1024-bit RSA
 /// keys. No real pairing material appears in this repository, and none of these
 /// tests touch a keychain — which is the property being demonstrated.
-final class LockdownPairRecordTests: XCTestCase {
+final class LockdownPairRecordTests: DeviceIdentityTestCase {
     static let certificate = """
 -----BEGIN CERTIFICATE-----
 MIICCDCCAXGgAwIBAgIUHEL40zjMaVxDeXcBA9+dsJQ5Yj0wDQYJKoZIhvcNAQEL

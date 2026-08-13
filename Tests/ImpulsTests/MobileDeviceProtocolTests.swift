@@ -8,7 +8,7 @@ import XCTest
 /// mid-answer and a phone that refuses all produce a defined outcome instead of
 /// a crash, a hang or an invented battery level. Whether current iOS actually
 /// answers the battery question is a hardware matter and is still open.
-final class MobileDeviceProtocolTests: XCTestCase {
+final class MobileDeviceProtocolTests: DeviceIdentityTestCase {
 
     // MARK: - Framing
 

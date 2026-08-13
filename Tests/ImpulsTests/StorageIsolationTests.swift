@@ -105,10 +105,14 @@ final class StorageIsolationTests: XCTestCase {
 
     // MARK: - The view model
 
-    func testTheViewModelGivesEveryFileBackedStoreTheInjectedLocation() {
+    func testTheViewModelGivesEveryFileBackedStoreTheInjectedLocation() throws {
         let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
+        // Seeded before the stores are built, so what they read can only have
+        // come from this suite and not from the developer's own preferences.
+        defaults.set(MusicSource.youtubeMusic.rawValue, forKey: MediaController.selectedSourceKey)
+        defaults.set("de|fr", forKey: Translator.pairKey)
         // The alert service is stubbed for the same reason the display harness
         // stubs it: the real one reaches macOS Notification Center, which
         // aborts outside an app bundle.
@@ -125,9 +129,19 @@ final class StorageIsolationTests: XCTestCase {
         XCTAssertEqual(vm.snippets.fileURL, folder.appendingPathComponent("snippets.json"))
         XCTAssertNotEqual(vm.notes.fileURL, NoteStore.defaultFileURL)
         XCTAssertNotEqual(vm.snippets.fileURL, SnippetStore.defaultFileURL)
-        // The shelf keeps its list in defaults rather than a file, so its
-        // isolation is the settings suite.
+        // The stores that keep their state in defaults rather than a file —
+        // the shelf's cards, the chosen music source, the language pair — are
+        // isolated by the settings suite instead. In the app that suite is
+        // `.standard`, so nothing moved.
         XCTAssertEqual(settings.defaults, defaults)
+        XCTAssertEqual(vm.media.selectedSource, .youtubeMusic)
+        XCTAssertEqual(Translator.identifier(of: vm.translator.pair), "de|fr")
+
+        // And the writing direction, for the one of the three that writes.
+        let card = folder.appendingPathComponent("card.txt")
+        try Data("card".utf8).write(to: card)
+        vm.shelf.add([card])
+        XCTAssertEqual(defaults.stringArray(forKey: "shelf.urls"), [card.path])
     }
 
     // MARK: - The multi-display harness

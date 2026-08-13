@@ -57,6 +57,16 @@ final class NotchController {
     private var cancellables = Set<AnyCancellable>()
     private var lifetimeCancellables = Set<AnyCancellable>()
     private var menuTrackingObservers: [NSObjectProtocol] = []
+    /// The screen, Space and sleep observers, kept so `teardown` can take them
+    /// back out.
+    ///
+    /// They used to be registered and the tokens dropped, on the reasoning that
+    /// the controller lives as long as the app. It does — but a test builds one
+    /// per case, and a torn-down controller left registered still answered the
+    /// next test's screen-parameter notification, reconciling a topology it no
+    /// longer had any surfaces for. The app never noticed; the suite would have,
+    /// eventually, as something that failed only in a full run.
+    private var systemObservers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
     private var menuTrackingState = PanelMenuTrackingState()
     /// Monotonic stamp for the deferred half of closing: any newer open or
     /// close outdates the one still in flight.
@@ -93,31 +103,19 @@ final class NotchController {
                 DispatchQueue.main.async { self?.settingsChanged() }
             }
             .store(in: &lifetimeCancellables)
-        NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
+        observe(NotificationCenter.default, NSApplication.didChangeScreenParametersNotification) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.settings.refreshDisplays()
                 self?.refreshTopology()
             }
         }
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.activeSpaceDidChangeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
+        observe(NSWorkspace.shared.notificationCenter, NSWorkspace.activeSpaceDidChangeNotification) { [weak self] _ in
             MainActor.assumeIsolated { self?.activeSpaceChanged() }
         }
         // A dark display has no hover to watch, so the one timer that never
         // otherwise stops — the pointer sampler — stops with it. The panel
         // closes too, so waking always starts from the same, folded state.
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.screensDidSleepNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
+        observe(NSWorkspace.shared.notificationCenter, NSWorkspace.screensDidSleepNotification) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.setOpen(false)
@@ -129,11 +127,7 @@ final class NotchController {
         // iPad is routinely gone on the other side of it. Waking therefore
         // reconciles the topology before sampling resumes, so the pointer is
         // never routed to a surface for a display that is no longer there.
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.screensDidWakeNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
+        observe(NSWorkspace.shared.notificationCenter, NSWorkspace.screensDidWakeNotification) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.settings.refreshDisplays()
@@ -141,6 +135,20 @@ final class NotchController {
                 self.pointer.start()
             }
         }
+    }
+
+    /// Registers for a system notification and keeps the token.
+    ///
+    /// `addObserver(forName:)` returns an object the centre retains until it is
+    /// handed back; a `[weak self]` closure keeps the controller from leaking
+    /// but not the registration itself.
+    private func observe(
+        _ center: NotificationCenter,
+        _ name: Notification.Name,
+        using block: @escaping @Sendable (Notification) -> Void
+    ) {
+        let token = center.addObserver(forName: name, object: nil, queue: .main, using: block)
+        systemObservers.append((center: center, token: token))
     }
 
     /// The screenshots folder can be emptied from the menu bar; the shelf has
@@ -170,6 +178,10 @@ final class NotchController {
             NotificationCenter.default.removeObserver(observer)
         }
         menuTrackingObservers.removeAll()
+        for observer in systemObservers {
+            observer.center.removeObserver(observer.token)
+        }
+        systemObservers.removeAll()
         menuTrackingState.reset()
         cancellables.removeAll()
         lifetimeCancellables.removeAll()
