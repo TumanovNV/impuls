@@ -126,6 +126,29 @@ def rewrite(page: str, r: dict) -> str:
         rf'\g<1>{r["file_name"]}\g<2>', page)
     page = substitute(r'(<code id="hash">)[a-f0-9]{64}(</code>)', rf'\g<1>{r["sha256"]}\g<2>', page, "hash element")
 
+    # 4. The download buttons themselves.
+    #
+    # Script rewrites these on load, which is no help to the visitor the static
+    # markup exists for. Pointing them at /releases/latest was the first fix and
+    # the wrong one: it lands on a release page, not a download, so "Download for
+    # macOS" with JavaScript off cost two more clicks and a choice between six
+    # assets. They now carry the DMG itself.
+    #
+    # Matched by attribute rather than by count, because the number of buttons is
+    # a layout decision and this should not care about it.
+    def point_at_dmg(match: re.Match) -> str:
+        tag = match.group(0)
+        if 'data-conversion="download"' not in tag:
+            return tag
+        return re.sub(r'href="[^"]*"', f'href="{r["download_url"]}"', tag, count=1)
+
+    page, buttons = re.subn(r'<a\b[^>]*>', point_at_dmg, page)
+    if not any(
+        f'href="{r["download_url"]}"' in tag
+        for tag in re.findall(r'<a\b[^>]*data-conversion="download"[^>]*>', page)
+    ):
+        raise SystemExit("no download button was pointed at the DMG")
+
     return page
 
 
