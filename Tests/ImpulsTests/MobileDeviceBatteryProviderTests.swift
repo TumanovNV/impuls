@@ -58,6 +58,39 @@ final class MobileDeviceBatteryProviderTests: XCTestCase {
         XCTAssertFalse(topology.didStart)
         provider.stop()
     }
+
+    /// The 1.4.8 regression, pinned.
+    ///
+    /// Until 1.4.8 the production default for `featureEnabled` was an
+    /// environment variable and an undocumented `UserDefaults` key. Neither is
+    /// set on any ordinary install, so every shipped Impuls started this
+    /// provider and it returned `.unavailable` before opening a socket — the
+    /// phone was never looked for, while AirPods, which come from another
+    /// provider, kept working. The test process has neither flag set, which is
+    /// the point: build the provider the way `DevicePowerCenter` builds it and
+    /// it must do real work.
+    func testTheProviderWorksWithNoEnvironmentVariableAndNoHiddenDefault() async {
+        XCTAssertNil(ProcessInfo.processInfo.environment["IMPULS_MOBILE_DEVICE_BATTERY"])
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: "experimentalMobileDeviceBattery"))
+
+        let source = CountingMobileDeviceSource()
+        let topology = FakeMobileDeviceTopologyMonitor()
+        // No `featureEnabled:` — exactly the production construction.
+        let provider = MobileDeviceBatteryProvider(source: source, topologyMonitor: topology)
+        let update = expectation(description: "ready update")
+        var received: DeviceProviderUpdate?
+
+        provider.start {
+            received = $0
+            update.fulfill()
+        }
+        await fulfillment(of: [update], timeout: 2)
+
+        XCTAssertEqual(received?.status, .ready)
+        XCTAssertTrue(topology.didStart, "the topology listener must open once the user has opted in")
+        XCTAssertEqual(source.readCount, 1)
+        provider.stop()
+    }
 }
 
 private final class CountingMobileDeviceSource: DeviceBatterySource, @unchecked Sendable {

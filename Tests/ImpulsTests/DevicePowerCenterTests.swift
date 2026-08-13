@@ -254,6 +254,73 @@ final class DevicePowerCenterTests: XCTestCase {
         XCTAssertEqual(external.stopCount, 1)
     }
 
+    /// The privacy boundary, stated in terms of the socket rather than a flag.
+    ///
+    /// The mobile provider is real here — its topology monitor and source are
+    /// counted doubles — so this fails if anything ever reaches usbmuxd before
+    /// the user has turned discovery on. Since 1.4.8 that switch is the only
+    /// thing standing between an install and a phone, so it is the one that has
+    /// to be provably tight.
+    func testExternalDiscoveryOffMeansNoMobileTopologyAndNoRead() async {
+        let source = SilentCountingSource()
+        let topology = CountingTopologyMonitor()
+        let mobile = MobileDeviceBatteryProvider(source: source, topologyMonitor: topology)
+        let accessory = FakeDeviceProvider(identifier: .appleAccessory)
+        let center = makeCenter(external: [accessory, mobile])
+
+        center.setEnabled(true)
+        // The module alone is not consent.
+        XCTAssertFalse(topology.didStart)
+        XCTAssertEqual(source.readCount, 0)
+        center.refreshExternalDevices()
+        XCTAssertFalse(topology.didStart, "an explicit refresh must not open a socket either")
+        XCTAssertEqual(source.readCount, 0)
+
+        center.setExternalDevicesEnabled(true)
+        XCTAssertTrue(topology.didStart, "opting in starts the phone lookup with no hidden flag set")
+        // The read is a task, so it lands a moment after the opt-in.
+        for _ in 0..<50 where source.readCount == 0 {
+            try? await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertEqual(source.readCount, 1)
+
+        center.setExternalDevicesEnabled(false)
+        XCTAssertTrue(topology.didStop, "switching discovery off closes the topology socket")
+    }
+
+    /// A phone that cannot be read must not take the AirPods down with it.
+    func testAFailingMobileProviderLeavesTheAccessoriesAlone() {
+        let mobile = FakeDeviceProvider(identifier: .mobileDevice)
+        let accessory = FakeDeviceProvider(identifier: .appleAccessory)
+        let center = makeCenter(external: [accessory, mobile])
+
+        center.setEnabled(true)
+        center.setExternalDevicesEnabled(true)
+
+        let airPods = Fixtures.device(
+            identity: Fixtures.identity("airpods"),
+            kind: .airPods,
+            name: "AirPods",
+            connection: .bluetooth,
+            components: [DeviceBatteryComponent(kind: .left, percentage: 80, lastUpdated: Fixtures.noon)],
+            source: .ioRegistryAccessory
+        )
+        mobile.emit([], status: .temporarilyFailed)
+        accessory.emit([airPods])
+
+        XCTAssertTrue(center.devices.contains { $0.kind == .airPods })
+        XCTAssertEqual(
+            center.diagnostics.first { $0.provider == .appleAccessory }?.status,
+            .ready
+        )
+
+        mobile.emit([], status: .permissionRequired)
+        XCTAssertTrue(
+            center.devices.contains { $0.kind == .airPods },
+            "a phone waiting to be trusted is not a reason to drop the earphones"
+        )
+    }
+
     func testDisablingTheModuleStopsEveryProviderAndClearsTheList() {
         let external = FakeDeviceProvider(identifier: .appleAccessory)
         let center = makeCenter(external: [external])
@@ -446,6 +513,30 @@ final class DevicePowerCenterTests: XCTestCase {
 }
 
 // MARK: - Fixtures
+
+/// Counts reads without touching a socket.
+private final class SilentCountingSource: DeviceBatterySource, @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var readCount: Int { lock.withLock { count } }
+
+    func read() async throws -> [AppleDeviceSnapshot] {
+        lock.withLock { count += 1 }
+        return []
+    }
+}
+
+/// Records whether the usbmuxd listener would have been opened.
+private final class CountingTopologyMonitor: MobileDeviceTopologyMonitoring, @unchecked Sendable {
+    private let lock = NSLock()
+    private var started = false
+    private var stopped = false
+    var didStart: Bool { lock.withLock { started } }
+    var didStop: Bool { lock.withLock { stopped } }
+
+    func start(onChange: @escaping @Sendable () -> Void) { lock.withLock { started = true } }
+    func stop() { lock.withLock { stopped = true } }
+}
 
 @MainActor
 private final class FakeDeviceProvider: DeviceBatteryProviding {

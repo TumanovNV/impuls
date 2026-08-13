@@ -16,16 +16,6 @@ import Foundation
 /// phone is not a broad support promise, so the flag stays off by default.
 @MainActor
 final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
-    /// Off unless explicitly enabled, and not exposed in Settings yet.
-    ///
-    /// Shipping a public switch after proving one phone would overstate the
-    /// support surface; this is how the Beta path is tested without promising
-    /// every iPhone, iPad and iOS release.
-    static var isEnabled: Bool {
-        ProcessInfo.processInfo.environment["IMPULS_MOBILE_DEVICE_BATTERY"] == "1"
-            || UserDefaults.standard.bool(forKey: "experimentalMobileDeviceBattery")
-    }
-
     let identifier = DeviceProviderIdentifier.mobileDevice
 
     /// Battery cadence stays sparse. Topology is a separate usbmuxd Listen
@@ -44,6 +34,17 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
     private var wakeObserver: NSObjectProtocol?
     private var lastDevices: [AppleDeviceSnapshot] = []
 
+    /// `featureEnabled` exists so a test can hold the provider inert without a
+    /// phone attached. It is **not** the product's switch and has no hidden
+    /// production value: until 1.4.8 it fell back to an environment variable
+    /// and an undocumented `UserDefaults` key, which meant that every ordinary
+    /// install started this provider and immediately returned `.unavailable`.
+    /// AirPods came from another provider with no such flag, so the symptom was
+    /// an app that found accessories and never once looked for a phone.
+    ///
+    /// The user's own switch is *Show Connected Apple Devices*, which decides
+    /// whether `DevicePowerCenter` starts external providers at all. That is
+    /// the privacy boundary, and it is the only one.
     init(
         source: DeviceBatterySource = MobileDeviceBatterySource(),
         topologyMonitor: MobileDeviceTopologyMonitoring = MobileDeviceTopologyMonitor(),
@@ -51,7 +52,7 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
     ) {
         self.source = source
         self.topologyMonitor = topologyMonitor
-        self.featureEnabled = featureEnabled ?? { MobileDeviceBatteryProvider.isEnabled }
+        self.featureEnabled = featureEnabled ?? { true }
     }
 
     func start(onUpdate: @escaping (DeviceProviderUpdate) -> Void) {

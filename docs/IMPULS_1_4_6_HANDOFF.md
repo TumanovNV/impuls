@@ -312,9 +312,9 @@ in no backup and no feedback report.
 
 | | |
 | --- | --- |
-| `MobileDeviceBatteryProvider.isEnabled` | environment `IMPULS_MOBILE_DEVICE_BATTERY=1`, or `UserDefaults` key `experimentalMobileDeviceBattery` |
-| Default | **off**, and not exposed in Settings |
-| Why | validated on one phone and one iOS version; a switch in Settings would be a promise |
+| `MobileDeviceBatteryProvider.featureEnabled` | injectable, for tests only. Production default is `true` since 1.4.8 |
+| Historical | 1.4.6 and 1.4.7 required `IMPULS_MOBILE_DEVICE_BATTERY=1` or the `experimentalMobileDeviceBattery` default. Neither is set on any ordinary install, so the provider started and returned `.unavailable` before opening a socket: no shipped build ever looked for a phone. QA builds set the variable, which is why hardware QA passed and the released feature did not exist |
+| Switch | `SettingsStore.showsExternalAppleDevices` — the same opt-in as accessories, and the only one |
 | `SettingsStore.showsExternalAppleDevices` | persisted, defaults to `false`, `decodeIfPresent` so 1.4.5 settings and backups migrate |
 | External-device UI | opt-in, discovery, manual refresh, per-device visibility/order and forget are exposed in the Apple Devices settings tab |
 | Local-only presentation state | keyed identity order and hidden state; never included in `ImpulsSettingsSnapshot` or backups |

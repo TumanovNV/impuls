@@ -79,12 +79,14 @@ struct AppleDeviceSettingsPane: View {
                 }
             }
 
-            if MobileDeviceBatteryProvider.isEnabled {
-                Section(localized("Beta")) {
-                    Text(localized("iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device."))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
+            // Always shown while external discovery exists: the Beta
+            // sentence is what tells somebody why their phone may be the one
+            // device that does not answer, and hiding it behind the same
+            // condition that hid the feature is how it went unnoticed.
+            Section(localized("Beta")) {
+                Text(localized("iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -114,19 +116,14 @@ struct AppleDeviceSettingsPane: View {
         settings.appleDeviceDiagnostics.filter { diagnostic in
             switch diagnostic.provider {
             case .localMac: return false
-            case .mobileDevice: return MobileDeviceBatteryProvider.isEnabled
+            case .mobileDevice: return true
             case .appleAccessory: return true
             }
         }
     }
 
-    /// A mobile snapshot can remain in this run's Settings list after the
-    /// experimental flag is removed. The flag is the product boundary, so its
-    /// rows disappear with it even though their local order preference remains.
     private var displayedDevices: [AppleDeviceSnapshot] {
-        settings.knownExternalAppleDevices.filter {
-            MobileDeviceBatteryProvider.isEnabled || !AppleDevicePresentation.isBeta($0.kind)
-        }
+        settings.knownExternalAppleDevices
     }
 
     private var isStarting: Bool {
