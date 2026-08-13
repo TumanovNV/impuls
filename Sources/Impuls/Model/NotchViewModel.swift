@@ -107,7 +107,7 @@ final class NotchViewModel: ObservableObject {
     /// a second set of timers. Since 1.4.7 the geometry belongs to
     /// `NotchSurfaceState`, one per display, and this object is built once for
     /// the lifetime of the app.
-    init(settings: SettingsStore) {
+    init(settings: SettingsStore, storage: StorageEnvironment = .live) {
         self.settings = settings
         self.actions = ImpulsActionsStore()
         self.media = MediaController()
@@ -115,11 +115,14 @@ final class NotchViewModel: ObservableObject {
         // place — and a test can never persist a card into the real shelf.
         self.shelf = ShelfStore(defaults: settings.defaults)
         self.fileTools = FileToolsCoordinator(shelf: self.shelf)
-        self.clipboard = ClipboardStore()
+        self.clipboard = ClipboardStore(persistence: storage.makeClipboardHistory())
         self.calendar = CalendarStore()
         self.translator = Translator()
-        self.snippets = SnippetStore()
-        self.notes = NoteStore()
+        // Every file-backed store is told where its file is. This object builds
+        // all of them, so it is also the one place where a test would otherwise
+        // acquire the user's real notes and snippets without asking for them.
+        self.snippets = SnippetStore(fileURL: storage.snippets)
+        self.notes = NoteStore(fileURL: storage.notes)
         let power = PowerMonitor()
         self.power = power
         self.devices = DevicePowerCenter(monitor: power, lowBatteryAlerts: settings.lowBatteryAlerts)

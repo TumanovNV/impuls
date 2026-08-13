@@ -124,12 +124,31 @@ final class DisplayHarness {
     private let suite: String
     private let defaults: UserDefaults
 
+    /// This harness's own `Application Support/Impuls`, one per instance and
+    /// deleted with it.
+    ///
+    /// Not a stub and not a switched-off flush: the stores here write, debounce
+    /// and flush exactly as they do in the app, into a directory nobody else
+    /// owns. It exists because `NotchViewModel` builds every store, so a test
+    /// about displays used to inherit the real notes file and rewrite it on
+    /// `stop()`.
+    let storageFolder: URL
+    var notesFile: URL { storageFolder.appendingPathComponent("notes.json") }
+    var snippetsFile: URL { storageFolder.appendingPathComponent("snippets.json") }
+
     init(displays: [DisplayDescriptor], pointer: CGPoint = .zero, mainDisplayID: UInt32? = nil) {
         self.displays = displays
         self.pointer = pointer
         self.mainDisplayID = mainDisplayID
         suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)!
+        storageFolder = FileManager.default.temporaryDirectory
+            .appendingPathComponent("impuls-tests", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: storageFolder,
+            withIntermediateDirectories: true
+        )
         settings = SettingsStore(
             defaults: defaults,
             lowBatteryAlerts: LowBatteryAlertService(
@@ -149,6 +168,14 @@ final class DisplayHarness {
             mainDisplayID: { [unowned self] in self.mainDisplayID },
             pointerLocation: { [unowned self] in self.pointer },
             now: { [unowned self] in self.clock },
+            storage: StorageEnvironment(
+                notes: storageFolder.appendingPathComponent("notes.json"),
+                snippets: storageFolder.appendingPathComponent("snippets.json"),
+                // See `StorageEnvironment.makeClipboardHistory`: a temporary
+                // archive would still share the one keychain key with the user's
+                // real history, and switching persistence off deletes it.
+                makeClipboardHistory: { nil }
+            ),
             makeSurface: { [unowned self] geometry, _ in
                 self.viewModelsBuilt = max(self.viewModelsBuilt, 1)
                 let surface = FakeDisplaySurface(geometry: geometry)
@@ -188,9 +215,14 @@ final class DisplayHarness {
         }
     }
 
+    /// `teardown()` reaches `NotchViewModel.stop()`, which flushes the notes
+    /// synchronously. That is allowed to happen — it is the production path —
+    /// because by now it writes into this harness's own directory, which is
+    /// removed immediately afterwards.
     func tearDown() {
         controller.teardown()
         defaults.removePersistentDomain(forName: suite)
+        try? FileManager.default.removeItem(at: storageFolder)
     }
 
     // MARK: Driving the real pointer sampler
@@ -420,10 +452,10 @@ final class MultiDisplayControllerTests: XCTestCase {
 
         harness.controller.toggleFromKeyboard()
         harness.vm.select(.translate)
-        // Deliberately the translator and not the notes: `NoteStore` writes to
-        // the real Application Support folder, and a test has no business
-        // reaching the user's notes. What is being asserted — that state
-        // survives a display vanishing — is the same either way.
+        // The translator rather than the notes only because it holds the state
+        // without touching a file at all. The notes would now be safe too — the
+        // harness gives every store a temporary directory — but the cheapest
+        // thing that proves the point is still the right one.
         harness.vm.translator.input = "survives the iPad going away"
         XCTAssertEqual(harness.controller.activeDisplayID, 3)
         XCTAssertTrue(harness.vm.isOpen)

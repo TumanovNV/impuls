@@ -15,6 +15,10 @@ struct NotchEnvironment {
     var pointerLocation: () -> CGPoint
     /// The clock hover dwell is measured against. See `PointerWatcher.now`.
     var now: () -> Date
+    /// Where the file-backed stores keep their data. The live value is the real
+    /// `~/Library/Application Support/Impuls`; a test points it at a temporary
+    /// directory so building a view model here cannot reach the user's notes.
+    var storage: StorageEnvironment
     var makeSurface: (NotchGeometry, NotchViewModel) -> any NotchSurfacing
     /// Injected rather than called directly so a test can drive the display
     /// logic without starting the clipboard watcher, the media poller and the
@@ -27,6 +31,7 @@ struct NotchEnvironment {
             mainDisplayID: { ScreenDisplaySource.mainDisplayID },
             pointerLocation: { NSEvent.mouseLocation },
             now: { Date() },
+            storage: .live,
             makeSurface: { geometry, viewModel in
                 NotchDisplaySurface(geometry: geometry, viewModel: viewModel)
             },
@@ -238,7 +243,7 @@ final class NotchController {
     // MARK: - Construction
 
     private func build() {
-        let vm = NotchViewModel(settings: settings)
+        let vm = NotchViewModel(settings: settings, storage: environment.storage)
         viewModel = vm
 
         pointer.pointerLocation = environment.pointerLocation

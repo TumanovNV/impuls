@@ -277,11 +277,48 @@ Three seams, all with live defaults:
   and the surface factory are injected. `NotchEnvironment.live` is the real
   thing and `AppDelegate` passes it.
 
-`SettingsStore` gained a `displaySource` for the same reason, and its `defaults`
-became internal so `ShelfStore` writes where the settings write. That last one
-is not cosmetic: while writing these tests a drop test persisted a card into the
-real shelf and a notes test wrote into the developer's own `notes.json`. A test
-must not be able to reach a user's data, and now the shelf cannot.
+`SettingsStore` gained a `displaySource` for the same reason.
+
+### The suite and the user's own data
+
+This is the part that was got wrong twice, so it is written out in full.
+
+`NotchViewModel` builds every store. Anything that builds a view model therefore
+inherits all of them, and a test about displays builds one. While these tests
+were being written a drop test persisted a card into the real shelf, and then —
+after that was fixed — a display test left a line of its own text in the
+developer's real `notes.json`. The second one was not caught by the first fix
+because the two stores keep their data in different places, and neither was the
+store's fault: the location was a constant on the type, so there was no way to
+build one that pointed anywhere else. `NotchViewModel.stop()` flushes the notes
+synchronously — correct for an app being quit mid-sentence — and the harness's
+teardown reaches it.
+
+What is true now:
+
+- `ShelfStore` takes its `UserDefaults`. `SettingsStore.defaults` is internal so
+  the app hands it the same suite the settings live in; a test hands it a suite
+  of its own and deletes it afterwards.
+- `NoteStore` and `SnippetStore` take a `fileURL`. `defaultFileURL` on each is
+  still `~/Library/Application Support/Impuls/notes.json` and `snippets.json`,
+  and it is what the app gets.
+- `StorageEnvironment` gathers those locations plus the clipboard archive
+  factory. `NotchViewModel(settings:storage:)` distributes them, `.live` is the
+  only value the app uses, and `NotchEnvironment.storage` passes it through the
+  controller.
+- The clipboard archive is `nil` in tests rather than a temporary file. Its key
+  is one generic password in the login keychain shared with the real archive,
+  and `configurePersistence(enabled: false, …)` deletes that key — a temporary
+  file would not have helped.
+- `DisplayHarness` builds a directory under `FileManager.temporaryDirectory` per
+  instance and removes it in `tearDown`. Nothing is stubbed and no flush is
+  suppressed: the stores load, debounce, write atomically and flush on shutdown
+  exactly as they do in the app, into a directory nobody else owns.
+
+`StorageIsolationTests` pins it from both sides — that a note added through the
+harness really does reach the harness's own file, and that the bytes and
+modification date of the real `notes.json` are the same before and after a
+multi-display session that deliberately writes and flushes a note.
 
 ---
 
