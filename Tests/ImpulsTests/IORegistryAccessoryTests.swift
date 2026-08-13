@@ -7,7 +7,7 @@ import XCTest
 /// publishes: no real Bluetooth address, no real serial number. What they test
 /// is mostly the parser's willingness to give up — on a missing key, on a value
 /// of the wrong type, on a node that is not an Apple accessory at all.
-final class IORegistryAccessoryTests: XCTestCase {
+final class IORegistryAccessoryTests: DeviceIdentityTestCase {
     private let now = Date(timeIntervalSince1970: 1_770_000_000)
 
     // MARK: - Ordinary accessories
@@ -277,7 +277,7 @@ final class IORegistryAccessoryTests: XCTestCase {
 /// "the read failed" and "there is nothing paired to this Mac" are all things a
 /// test can actually cause.
 @MainActor
-final class AppleAccessoryBatteryProviderTests: XCTestCase {
+final class AppleAccessoryBatteryProviderTests: DeviceIdentityTestCase {
     private var resolver: DeviceIdentityResolver {
         DeviceIdentityResolver(service: "io.tumanov.impuls.tests.device-identity", account: "unit-test")
     }
@@ -446,7 +446,10 @@ final class AppleAccessoryBatteryProviderTests: XCTestCase {
     /// a placeholder. On a Mac with no accessories the correct answer is an
     /// empty list.
     func testReadingTheRealRegistryNeverThrowsAndNeverInventsADevice() async throws {
-        let devices = try await IORegistryAccessorySource().read()
+        // The test resolver, not the shared one: the default writes the shipping
+        // app's own device-identity key into the login keychain, which a test
+        // run has no business creating on a machine that has never run Impuls.
+        let devices = try await IORegistryAccessorySource(resolver: resolver).read()
 
         for device in devices {
             XCTAssertTrue(device.hasBatteryReading, "a device without a reading should not have been created")
@@ -469,7 +472,7 @@ final class AppleAccessoryBatteryProviderTests: XCTestCase {
     /// no identifier is.
     func testHardwareProbeOfTheAccessoryRegistry() async throws {
         let matching = IORegistryAccessorySource.matchingServiceCount()
-        let devices = try await IORegistryAccessorySource().read()
+        let devices = try await IORegistryAccessorySource(resolver: resolver).read()
 
         print("PROBE \(IORegistryAccessoryMapper.serviceClass) nodes: \(matching)")
         print("PROBE nodes publishing a battery: \(devices.count)")
@@ -614,7 +617,7 @@ private final class MutableSystemProfilerRunner: @unchecked Sendable {
 }
 
 /// The `system_profiler` path, on fixtures and on this Mac.
-final class SystemProfilerAccessoryTests: XCTestCase {
+final class SystemProfilerAccessoryTests: DeviceIdentityTestCase {
     private let now = Date(timeIntervalSince1970: 1_770_000_000)
     private var resolver: DeviceIdentityResolver {
         DeviceIdentityResolver(service: "io.tumanov.impuls.tests.device-identity", account: "unit-test")

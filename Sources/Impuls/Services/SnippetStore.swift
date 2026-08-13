@@ -104,13 +104,19 @@ final class SnippetStore: ObservableObject {
 
     /// `~/Library/Application Support/Impuls/snippets.json`. A plain array of
     /// `{"label": "...", "text": "..."}`, where `label` may be left out.
-    static let file: URL = {
-        let fm = FileManager.default
-        let folder = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Impuls", isDirectory: true)
-        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder.appendingPathComponent("snippets.json")
-    }()
+    /// Resolved, not created: see `ApplicationSupport`. Only
+    /// `StorageEnvironment.live` and `reveal()` read it.
+    nonisolated static var defaultFileURL: URL { ApplicationSupport.file(named: "snippets.json") }
+
+    /// The file this store owns; see `StorageEnvironment` for why it is a
+    /// property. Entering the Snippets or Actions tab reloads it, so as a
+    /// constant on the type it was read by any test that switched tabs.
+    let fileURL: URL
+
+    /// No default, for the same reason as `NoteStore`.
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+    }
 
     private struct FileSignature: Equatable {
         let size: UInt64
@@ -125,7 +131,7 @@ final class SnippetStore: ObservableObject {
     /// app, so the only sensible moment to trust what is in memory is the
     /// moment before it is shown.
     func reload() {
-        let initialSignature = Self.fileSignature()
+        let initialSignature = fileSignature()
         if hasLoaded, initialSignature == loadedSignature { return }
         guard initialSignature != nil else {
             items = []
@@ -138,17 +144,17 @@ final class SnippetStore: ObservableObject {
         // replaces it during the bounded read, and never publish a mixed or
         // stale snapshot into the UI.
         for _ in 0..<2 {
-            guard let before = Self.fileSignature() else { break }
+            guard let before = fileSignature() else { break }
             do {
                 let data = try BoundedFileReader.read(
-                    from: Self.file,
+                    from: fileURL,
                     maximumBytes: Self.maximumFileBytes
                 )
                 let decoded = try JSONDecoder().decode([Snippet].self, from: data)
                 guard decoded.count <= Self.maximumItems else {
                     throw SnippetStoreError.tooManyItems
                 }
-                guard let after = Self.fileSignature(), before == after else { continue }
+                guard let after = fileSignature(), before == after else { continue }
                 items = decoded
                 hasLoaded = true
                 loadedSignature = after
@@ -195,12 +201,13 @@ final class SnippetStore: ObservableObject {
     /// and edited by hand, and `\/` in every URL would be the app making that
     /// harder for its own convenience.
     private func persist() {
+        ApplicationSupport.ensureParentDirectory(for: fileURL)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
         do {
-            try encoder.encode(items).write(to: Self.file, options: .atomic)
+            try encoder.encode(items).write(to: fileURL, options: .atomic)
             hasLoaded = true
-            loadedSignature = Self.fileSignature()
+            loadedSignature = fileSignature()
         } catch {
             NSLog("Impuls: cannot write snippets.json: \(error.localizedDescription)")
         }
@@ -217,11 +224,20 @@ final class SnippetStore: ObservableObject {
         pasteboard.setString(snippet.text, forType: .string)
     }
 
+    /// The one place a folder is created without anything being written to it,
+    /// and deliberately: the menu item exists so that somebody can go and edit
+    /// the file by hand, and revealing nothing at all would be a worse answer
+    /// than revealing an empty folder. This is a person asking for the folder,
+    /// which is not the same as code asking where it is.
     static func reveal() {
+        let file = defaultFileURL
+        ApplicationSupport.ensureParentDirectory(for: file)
         NSWorkspace.shared.activateFileViewerSelecting([file])
     }
 
-    private static func fileSignature() -> FileSignature? {
+    private func fileSignature() -> FileSignature? { Self.fileSignature(of: fileURL) }
+
+    private static func fileSignature(of file: URL) -> FileSignature? {
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
               let size = (attributes[.size] as? NSNumber)?.uint64Value,
               let modificationDate = attributes[.modificationDate] as? Date else { return nil }

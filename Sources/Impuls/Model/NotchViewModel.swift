@@ -81,7 +81,6 @@ final class NotchViewModel: ObservableObject {
     /// rail and Escape can close the panel without requiring the pointer.
     @Published var keyboardNavigationActive = false
 
-    let geometry: NotchGeometry
     let settings: SettingsStore
     let media: MediaController
     let actions: ImpulsActionsStore
@@ -100,18 +99,36 @@ final class NotchViewModel: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
 
-    init(geometry: NotchGeometry, settings: SettingsStore) {
-        self.geometry = geometry
+    /// Shared, and deliberately without a display.
+    ///
+    /// Geometry used to live here, which made the view model a per-display
+    /// object: moving to another screen meant building a second one, and a
+    /// second one means a second `ClipboardStore`, a second `PowerMonitor` and
+    /// a second set of timers. Since 1.4.7 the geometry belongs to
+    /// `NotchSurfaceState`, one per display, and this object is built once for
+    /// the lifetime of the app.
+    /// `storage` has no default. `.live` as one would let a future test build
+    /// this object without mentioning storage and quietly acquire the user's
+    /// real notes — which is exactly how that happened once. Requiring the
+    /// argument turns the privacy boundary into something the compiler checks.
+    init(settings: SettingsStore, storage: StorageEnvironment) {
         self.settings = settings
         self.actions = ImpulsActionsStore()
-        self.media = MediaController()
-        self.shelf = ShelfStore()
+        // The same defaults the settings live in, so one Impuls writes to one
+        // place — and a test can never persist a card into the real shelf, pick
+        // up the developer's music source or rewrite their language pair. In
+        // the app this is `.standard`, so every key stays where it was.
+        self.media = MediaController(defaults: settings.defaults)
+        self.shelf = ShelfStore(defaults: settings.defaults)
         self.fileTools = FileToolsCoordinator(shelf: self.shelf)
-        self.clipboard = ClipboardStore()
+        self.clipboard = ClipboardStore(persistence: storage.makeClipboardHistory())
         self.calendar = CalendarStore()
-        self.translator = Translator()
-        self.snippets = SnippetStore()
-        self.notes = NoteStore()
+        self.translator = Translator(defaults: settings.defaults)
+        // Every file-backed store is told where its file is. This object builds
+        // all of them, so it is also the one place where a test would otherwise
+        // acquire the user's real notes and snippets without asking for them.
+        self.snippets = SnippetStore(fileURL: storage.snippets)
+        self.notes = NoteStore(fileURL: storage.notes)
         let power = PowerMonitor()
         self.power = power
         self.devices = DevicePowerCenter(monitor: power, lowBatteryAlerts: settings.lowBatteryAlerts)
@@ -215,10 +232,9 @@ final class NotchViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    /// Size of the visible body for the current state.
-    var bodySize: CGSize {
-        isOpen || isDropTargeted ? geometry.expandedSize : geometry.collapsedSize
-    }
+    /// Whether the panel should be showing its body at all. Which display
+    /// actually shows it is the surface's decision, not this one's.
+    var isExpanded: Bool { isOpen || isDropTargeted }
 
     var visibleTabs: [Tab] { settings.enabledTabs }
 

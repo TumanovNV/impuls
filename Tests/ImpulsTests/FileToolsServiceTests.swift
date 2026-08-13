@@ -129,10 +129,15 @@ final class FileToolsServiceTests: XCTestCase {
     func testRenameCanBeRestoredAndSelectionSurvives() async throws {
         let source = try makeImage(named: "restore-me.png", width: 10, height: 10)
         try await MainActor.run {
-            UserDefaults.standard.removeObject(forKey: "shelf.urls")
-            defer { UserDefaults.standard.removeObject(forKey: "shelf.urls") }
+            // Its own defaults suite. This used to clear `shelf.urls` in
+            // `UserDefaults.standard` before and after, which is where the
+            // running Impuls keeps its shelf: the test emptied the developer's
+            // real one to make room for a picture of its own.
+            let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+            let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+            defer { defaults.removePersistentDomain(forName: suite) }
 
-            let store = ShelfStore()
+            let store = ShelfStore(defaults: defaults)
             store.add([source])
             let original = try XCTUnwrap(store.items.first)
             store.selectAll()

@@ -32,18 +32,27 @@ final class NoteStore: ObservableObject {
     /// choice survives the pane being unmounted with the panel.
     @Published var selected: Note.ID?
 
-    private static let file: URL = {
-        let fm = FileManager.default
-        let folder = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Impuls", isDirectory: true)
-        try? fm.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder.appendingPathComponent("notes.json")
-    }()
+    /// `~/Library/Application Support/Impuls/notes.json`. Resolved, not created:
+    /// see `ApplicationSupport`. Only `StorageEnvironment.live` reads it.
+    nonisolated static var defaultFileURL: URL { ApplicationSupport.file(named: "notes.json") }
+
+    /// The file this store owns.
+    ///
+    /// A property and not a constant on the type: as a constant, the real
+    /// `notes.json` was a fact about the process, so *anything* that built a
+    /// store read it and — through `flushSynchronously` on shutdown — wrote it
+    /// back. That is correct for the app and wrong for a test, which reached it
+    /// through `NotchViewModel` without ever mentioning notes. See
+    /// `StorageEnvironment`.
+    let fileURL: URL
 
     private let writeQueue = DispatchQueue(label: "io.tumanov.impuls.notes.writer", qos: .utility)
     private var saveGeneration = 0
 
-    init() {
+    /// No default. Every caller says out loud which notes it means, so a test
+    /// cannot reach the real ones by leaving an argument off.
+    init(fileURL: URL) {
+        self.fileURL = fileURL
         load()
     }
 
@@ -96,7 +105,7 @@ final class NoteStore: ObservableObject {
 
     private func load() {
         guard let data = try? BoundedFileReader.read(
-                  from: Self.file,
+                  from: fileURL,
                   maximumBytes: Self.maximumFileBytes
               ),
               let stored = try? JSONDecoder().decode([Note].self, from: data),
@@ -114,7 +123,7 @@ final class NoteStore: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
             guard let self, self.saveGeneration == generation else { return }
             let snapshot = self.notes
-            let fileURL = Self.file
+            let fileURL = self.fileURL
             let queue = self.writeQueue
             queue.async { Self.persist(snapshot, to: fileURL) }
         }
@@ -125,7 +134,7 @@ final class NoteStore: ObservableObject {
     func flush() {
         saveGeneration += 1
         let snapshot = notes
-        let fileURL = Self.file
+        let fileURL = self.fileURL
         writeQueue.async { Self.persist(snapshot, to: fileURL) }
     }
 
@@ -135,11 +144,15 @@ final class NoteStore: ObservableObject {
     func flushSynchronously() {
         saveGeneration += 1
         let snapshot = notes
-        let fileURL = Self.file
+        let fileURL = self.fileURL
         writeQueue.sync { Self.persist(snapshot, to: fileURL) }
     }
 
     nonisolated private static func persist(_ notes: [Note], to fileURL: URL) {
+        // The folder is made here rather than when the path was worked out, so
+        // that resolving a location stays free of side effects. First run after
+        // a clean install lands here on the first note.
+        ApplicationSupport.ensureParentDirectory(for: fileURL)
         do {
             try JSONEncoder().encode(notes).write(to: fileURL, options: .atomic)
         } catch {

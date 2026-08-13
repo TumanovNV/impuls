@@ -186,12 +186,19 @@ private struct GeneralSettingsPane: View {
                         Text(size.title).tag(size)
                     }
                 }
-                Picker("Display", selection: $settings.selectedDisplayID) {
-                    Text("Automatic").tag(UInt32?.none)
+                Text("Automatic picks Compact, Standard or Large from the size of the display the panel opens on. Every preset is kept inside that display.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Picker("Display Behavior", selection: $settings.selectedDisplayID) {
+                    Text("All Displays").tag(UInt32?.none)
                     ForEach(settings.displays) { display in
                         Text(display.name).tag(Optional(display.id))
                     }
                 }
+                Text("On All Displays, Impuls appears on every connected display and opens on the one your pointer is on. Choose a display to keep it there only. Mirrored displays count as one.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Startup and Storage") {

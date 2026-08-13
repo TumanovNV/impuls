@@ -1,5 +1,22 @@
 import AppKit
 
+/// One display's worth of pointer geometry.
+struct PointerZone: Equatable {
+    let displayID: UInt32
+    /// Entering this opens the panel on this display. Empty when hover
+    /// activation is off.
+    var openRect: CGRect
+    /// Leaving this closes the panel, once this display is the one the pointer
+    /// is considered to be in.
+    var closeRect: CGRect
+    /// Where this display's surface takes clicks. Everywhere else its window
+    /// must let them through, so this doubles as the `ignoresMouseEvents`
+    /// trigger for that window.
+    var interactiveRect: CGRect
+    /// Band along the top of this display that switches sampling to full rate.
+    var warmZone: CGRect
+}
+
 /// Drives hover state by sampling the pointer position on a timer.
 ///
 /// Event monitors are not usable here. A global `NSEvent` monitor never sees
@@ -8,18 +25,29 @@ import AppKit
 /// hover depend on which window happens to sit under the pointer. Sampling
 /// `NSEvent.mouseLocation` is independent of event routing, so it behaves
 /// identically everywhere, at the cost of one cursor-position read per frame.
+///
+/// One watcher serves every display. A second monitor adds four rectangles to
+/// `zones`, not a second 60 Hz timer: the cost of asking where the pointer is
+/// does not depend on how many displays might care about the answer, and N
+/// samplers reading the same global position would be N copies of one fact.
 @MainActor
 final class PointerWatcher {
-    /// Entering this opens the panel, in screen coordinates.
-    var openRect: CGRect = .zero
-    /// Leaving this closes the panel, in screen coordinates.
-    var closeRect: CGRect = .zero
-    /// Where the panel takes clicks. Everywhere else the window must let them
-    /// through, so this doubles as the `ignoresMouseEvents` trigger.
-    var interactiveRect: CGRect = .zero
-    /// Keeps the panel interactive while a drag is being tracked, even if the
-    /// pointer wanders outside `interactiveRect` mid-session.
-    var isDragging: () -> Bool = { false }
+    /// One entry per display Impuls is present on, in the coordinator's order.
+    var zones: [PointerZone] = []
+
+    /// Where the pointer is. Injected so the routing between displays can be
+    /// exercised without moving a real mouse across real monitors.
+    var pointerLocation: () -> CGPoint = { NSEvent.mouseLocation }
+
+    /// The clock the dwell thresholds are measured against. Injected for the
+    /// same reason as the pointer: a test that has to sleep for a real 50 ms to
+    /// watch an open, and a real 320 ms to watch a close, is a test nobody runs
+    /// often enough for it to catch anything.
+    var now: () -> Date = { Date() }
+
+    /// Keeps a surface interactive while a drag is being tracked on it, even if
+    /// the pointer wanders outside its `interactiveRect` mid-session.
+    var isDragging: (UInt32) -> Bool = { _ in false }
     /// Whether the panel is expanded right now. Read, not assumed: this watcher
     /// tracks where the pointer is, and the panel is opened and closed by other
     /// things too — a drag, the menu bar, a tab that wants the keyboard.
@@ -36,11 +64,7 @@ final class PointerWatcher {
     var openDelay: TimeInterval = 0.05
     var closeDelay: TimeInterval = 0.32
 
-    /// Band along the top of the screen that switches sampling to full rate.
-    /// The pointer has to cross it to reach the notch, so the fast rate is
-    /// always already running by the time hovering matters.
-    var warmZone: CGRect = .zero
-    /// Hysteresis: how far below the band the pointer must fall to cool down.
+    /// Hysteresis: how far below a warm band the pointer must fall to cool down.
     var coolMargin: CGFloat = 80
     /// How long the pointer may stand still before sampling drops to the idle
     /// rate wherever it stands. Movement re-warms on the next idle tick.
@@ -49,30 +73,66 @@ final class PointerWatcher {
     private let fastInterval: TimeInterval = 1.0 / 60
     private let idleInterval: TimeInterval = 1.0 / 8
 
-    var onChange: ((Bool) -> Void)?
-    var onInteractiveChange: ((Bool) -> Void)?
+    /// `(inside, displayID)`. The display is the one the pointer entered, and
+    /// is `nil` when the pointer left everything.
+    var onChange: ((Bool, UInt32?) -> Void)?
+    /// `(displayID, interactive)`, raised per display as it changes.
+    var onInteractiveChange: ((UInt32, Bool) -> Void)?
 
     private(set) var isInside = false
+    /// Which display the pointer is currently considered to be inside. Only one
+    /// can be, which is the same rule that keeps one panel expanded.
+    private(set) var insideDisplayID: UInt32?
+
     private var timer: Timer?
-    private var awaitingSince: Date?
-    private var wasInteractive: Bool?
+    /// The transition being waited out, and since when. Held together so that a
+    /// pointer that changes its mind — leaving one display's notch for
+    /// another's — restarts the clock instead of inheriting it.
+    private var pending: (target: UInt32?, since: Date)?
+    private var interactiveByDisplay: [UInt32: Bool] = [:]
+    private var isSampling = false
     private var isWarm = false
     private var lastPoint = CGPoint(x: -1, y: -1)
     private var lastMovedAt = Date.distantPast
 
     func start() {
+        isSampling = true
         schedule(warm: false)
     }
 
     func stop() {
+        isSampling = false
         timer?.invalidate()
         timer = nil
-        awaitingSince = nil
+        pending = nil
+    }
+
+    /// Drops the bookkeeping for a display that is no longer there, so a
+    /// vanished Sidecar or unplugged monitor cannot be reported as the display
+    /// the pointer is in.
+    func forgetDisplay(_ displayID: UInt32) {
+        interactiveByDisplay[displayID] = nil
+        if insideDisplayID == displayID {
+            insideDisplayID = nil
+            isInside = false
+        }
+        if pending?.target == displayID { pending = nil }
+    }
+
+    /// Force the state, e.g. when the panel is toggled from the menu bar.
+    func setInside(_ value: Bool, display: UInt32? = nil) {
+        pending = nil
+        isInside = value
+        insideDisplayID = value ? display : nil
     }
 
     private func schedule(warm: Bool) {
         timer?.invalidate()
+        timer = nil
+        // The rate is remembered either way: it carries the hysteresis, and a
+        // sampler that is merely paused has not stopped being warm.
         isWarm = warm
+        guard isSampling else { return }
         let interval = warm ? fastInterval : idleInterval
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -87,58 +147,77 @@ final class PointerWatcher {
     }
 
     /// Full rate only for a pointer that is actually going somewhere near the
-    /// top; eight samples a second otherwise.
+    /// top of some display; eight samples a second otherwise.
     ///
-    /// Two conditions, both required. Place: the top band, or anywhere while
-    /// the panel is open — with the same hysteresis as ever. Motion: the
-    /// pointer must have moved recently, because a parked pointer is not on
-    /// its way anywhere, however close to the notch it is parked. The menu
-    /// bar, where cursors spend half their lives, lies entirely inside the
-    /// band — place alone used to mean full rate for as long as one rested
-    /// there. Movement is noticed on the next idle tick, 125 ms at worst,
-    /// which is less than the dwell a hover has to survive anyway — so
-    /// warming up is never the thing anybody is waiting on.
+    /// Two conditions, both required. Place: any display's top band, or
+    /// anywhere while the panel is open — with the same hysteresis as ever,
+    /// now measured against the band the pointer is actually near rather than
+    /// against a single screen's. Motion: the pointer must have moved recently,
+    /// because a parked pointer is not on its way anywhere, however close to a
+    /// notch it is parked. The menu bar, where cursors spend half their lives,
+    /// lies entirely inside the band — place alone used to mean full rate for
+    /// as long as one rested there. Movement is noticed on the next idle tick,
+    /// 125 ms at worst, which is less than the dwell a hover has to survive
+    /// anyway — so warming up is never the thing anybody is waiting on.
     private func updateRate(for point: CGPoint) {
         if point != lastPoint {
             lastPoint = point
-            lastMovedAt = Date()
+            lastMovedAt = now()
         }
-        let moving = Date().timeIntervalSince(lastMovedAt) < restThreshold
+        let moving = now().timeIntervalSince(lastMovedAt) < restThreshold
         let near: Bool
         if isInside {
             near = true
         } else if isWarm {
-            near = point.y >= warmZone.minY - coolMargin
+            near = zones.contains { zone in
+                CGRect(
+                    x: zone.warmZone.minX,
+                    y: zone.warmZone.minY - coolMargin,
+                    width: zone.warmZone.width,
+                    height: zone.warmZone.height + coolMargin
+                ).contains(point)
+            }
         } else {
-            near = warmZone.contains(point)
+            near = zones.contains { $0.warmZone.contains(point) }
         }
         let warm = near && moving
         guard warm != isWarm else { return }
         schedule(warm: warm)
     }
 
-    /// Force the state, e.g. when the panel is toggled from the menu bar.
-    func setInside(_ value: Bool) {
-        awaitingSince = nil
-        isInside = value
+    /// The display whose surface the pointer is on, or `nil`.
+    ///
+    /// Asymmetric on purpose. Once the pointer is inside a display's panel it
+    /// keeps it while it stays in that panel's generous close rect; only when
+    /// it has left does another display's much smaller open rect get to claim
+    /// it. Without that, sliding along the top edge from one monitor to the
+    /// next would hand the panel back and forth.
+    private func hit(at point: CGPoint) -> UInt32? {
+        if isInside,
+           let current = insideDisplayID,
+           let zone = zones.first(where: { $0.displayID == current }),
+           zone.closeRect.contains(point) {
+            return current
+        }
+        return zones.first { !$0.openRect.isEmpty && $0.openRect.contains(point) }?.displayID
     }
 
-    private func tick() {
-        let point = NSEvent.mouseLocation
+    /// One sample. Driven by the timer in the app, and called directly by the
+    /// suite, which is the only way to exercise the routing between displays —
+    /// hover, dwell, the handover from one display's panel to another's anchor —
+    /// through the code that actually performs it rather than around it.
+    func tick() {
+        let point = pointerLocation()
         updateRate(for: point)
-
-        let interactive = isDragging() || interactiveRect.contains(point)
-        if wasInteractive != interactive {
-            wasInteractive = interactive
-            onInteractiveChange?(interactive)
-        }
+        updateInteractiveRegions(at: point)
 
         if isPanelOpen(), (!tracksPanelExit || keepsOpenWithoutPointer()) {
-            awaitingSince = nil
+            pending = nil
             return
         }
 
-        let inside = (isInside ? closeRect : openRect).contains(point)
+        let target = hit(at: point)
+        let inside = target != nil
 
         // Whether the panel is open and where the pointer is are two separate
         // facts, and only one of them is tracked here. They are supposed to
@@ -153,30 +232,52 @@ final class PointerWatcher {
         if tracksPanelExit,
            !inside,
            !isInside,
-           !isDragging(),
+           !isDraggingAnywhere(),
            !keepsOpenWithoutPointer(),
            isPanelOpen() {
-            guard let start = awaitingSince else {
-                awaitingSince = Date()
-                return
-            }
-            guard Date().timeIntervalSince(start) >= closeDelay else { return }
-            awaitingSince = nil
-            onChange?(false)
+            guard waited(for: nil, delay: closeDelay) else { return }
+            onChange?(false, nil)
             return
         }
 
-        guard inside != isInside else {
-            awaitingSince = nil
+        // Standing still, on the same display, in the same state.
+        guard inside != isInside || target != insideDisplayID else {
+            pending = nil
             return
         }
-        guard let start = awaitingSince else {
-            awaitingSince = Date()
-            return
-        }
-        guard Date().timeIntervalSince(start) >= (inside ? openDelay : closeDelay) else { return }
-        awaitingSince = nil
+
+        // Moving straight from one display's panel to another's notch is an
+        // open, not a close: the delay that matters is the one for arriving.
+        guard waited(for: target, delay: inside ? openDelay : closeDelay) else { return }
         isInside = inside
-        onChange?(inside)
+        insideDisplayID = target
+        onChange?(inside, target)
+    }
+
+    /// True once the pending transition to `target` has stood for `delay`.
+    private func waited(for target: UInt32?, delay: TimeInterval) -> Bool {
+        guard let current = pending, current.target == target else {
+            pending = (target: target, since: now())
+            return false
+        }
+        guard now().timeIntervalSince(current.since) >= delay else { return false }
+        pending = nil
+        return true
+    }
+
+    private func isDraggingAnywhere() -> Bool {
+        zones.contains { isDragging($0.displayID) }
+    }
+
+    /// Everything outside a surface's visible body must reach the app
+    /// underneath, so each window is told separately whether the pointer is on
+    /// the part of it that takes clicks.
+    private func updateInteractiveRegions(at point: CGPoint) {
+        for zone in zones {
+            let interactive = isDragging(zone.displayID) || zone.interactiveRect.contains(point)
+            guard interactiveByDisplay[zone.displayID] != interactive else { continue }
+            interactiveByDisplay[zone.displayID] = interactive
+            onInteractiveChange?(zone.displayID, interactive)
+        }
     }
 }

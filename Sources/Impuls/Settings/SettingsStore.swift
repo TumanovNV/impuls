@@ -63,7 +63,11 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
         hotKey = try container.decode(SettingsStore.HotKeyPreset.self, forKey: .hotKey)
         activationMode = try container.decode(SettingsStore.ActivationMode.self, forKey: .activationMode)
         openDelay = try container.decode(SettingsStore.OpenDelay.self, forKey: .openDelay)
-        panelSize = try container.decode(SettingsStore.PanelSize.self, forKey: .panelSize)
+        // Tolerant on purpose. A preset this build does not know — a blob
+        // written by a newer version, or one that was truncated — must cost the
+        // user their panel size and nothing else. Decoding it strictly would
+        // fail the whole snapshot and silently reset every other setting.
+        panelSize = (try? container.decode(SettingsStore.PanelSize.self, forKey: .panelSize)) ?? .standard
         selectedDisplayID = try container.decodeIfPresent(UInt32.self, forKey: .selectedDisplayID)
         modules = try container.decode([ModulePreference].self, forKey: .modules)
         saveClipboardImages = try container.decodeIfPresent(Bool.self, forKey: .saveClipboardImages) ?? true
@@ -155,18 +159,36 @@ final class SettingsStore: ObservableObject {
     }
 
     enum PanelSize: String, CaseIterable, Codable, Identifiable {
+        /// The preset is chosen from the display the panel opens on. Listed
+        /// first because it is the right answer for anyone with more than one
+        /// display, and the three fixed presets remain for anyone who has
+        /// already decided.
+        case automatic
         case compact, standard, large
 
         var id: String { rawValue }
-        var expandedSize: CGSize {
+
+        /// The size this preset always means, or `nil` when it depends on the
+        /// display.
+        var fixedExpandedSize: CGSize? {
             switch self {
-            case .compact: return CGSize(width: 560, height: 208)
-            case .standard: return CGSize(width: 620, height: 208)
-            case .large: return CGSize(width: 700, height: 232)
+            case .automatic: return nil
+            case .compact: return AdaptivePanelLayout.compact
+            case .standard: return AdaptivePanelLayout.standard
+            case .large: return AdaptivePanelLayout.large
             }
         }
+
+        /// The size to ask for on a given display. `NotchGeometry` still clamps
+        /// the answer to what that display can actually show, for the fixed
+        /// presets as much as for Automatic.
+        func expandedSize(for display: DisplayDescriptor) -> CGSize {
+            fixedExpandedSize ?? AdaptivePanelLayout.expandedSize(forDisplayWidth: display.frame.width)
+        }
+
         var title: String {
             switch self {
+            case .automatic: return localized("Automatic")
             case .compact: return localized("Compact")
             case .standard: return localized("Standard")
             case .large: return localized("Large")
@@ -216,6 +238,11 @@ final class SettingsStore: ObservableObject {
     @Published var activationMode: ActivationMode { didSet { persist() } }
     @Published var openDelay: OpenDelay { didSet { persist() } }
     @Published var panelSize: PanelSize { didSet { persist() } }
+    /// `nil` means every display. Before 1.4.7 it meant "let Impuls choose",
+    /// and what it chose was always the display with the physical notch — which
+    /// is why Impuls was missing from external monitors entirely. The stored
+    /// value is unchanged, so a settings blob or backup from any earlier
+    /// version keeps decoding; only what `nil` means has moved on.
     @Published var selectedDisplayID: UInt32? { didSet { persist() } }
     @Published private(set) var modules: [ModulePreference] { didSet { persist() } }
     @Published var saveClipboardImages: Bool { didSet { persist() } }
@@ -240,7 +267,15 @@ final class SettingsStore: ObservableObject {
     /// same backup can be restored on a MacBook or a desktop Mac.
     @Published private(set) var powerDeviceKind: PowerDeviceKind?
 
-    private let defaults: UserDefaults
+    /// Where this Impuls keeps its preferences. Internal rather than private
+    /// so the stores that persist beside them — the shelf's card list — write
+    /// to the same place. The app uses `.standard`; a test uses its own suite,
+    /// and nothing it does can then reach the user's real data.
+    let defaults: UserDefaults
+    /// The connected displays, as the panel layer sees them. Injected so the
+    /// picker's own behaviour — mirrors folded together, a stale choice
+    /// cleared — can be exercised without the hardware.
+    var displaySource: () -> [DisplayDescriptor] = { ScreenDisplaySource.descriptors() }
     private let lowBatteryAlertsOverride: LowBatteryAlertService?
     /// Lazy so command-line unit tests that exercise unrelated Settings logic
     /// never instantiate macOS Notification Center outside an application.
@@ -506,11 +541,19 @@ final class SettingsStore: ObservableObject {
         persist()
     }
 
+    /// Which displays Impuls may present itself on.
+    var displayPreference: DisplayPreference {
+        DisplayPreference(selectedDisplayID: selectedDisplayID)
+    }
+
+    /// The picker lists the same displays the panel layer uses, mirrors folded
+    /// together and all — offering a secondary mirror as a destination would
+    /// offer a workspace that does not exist.
     func refreshDisplays() {
-        displays = NSScreen.screens.compactMap { screen in
-            guard let id = screen.impulsDisplayID else { return nil }
-            return DisplayOption(id: id, name: screen.localizedName)
-        }
+        let topology = DisplayTopology.resolve(from: displaySource(), preference: .allDisplays)
+        displays = topology.displays.map { DisplayOption(id: $0.id, name: $0.name) }
+        // A display that has been unplugged stops being a choice, and the
+        // preference falls back to every display rather than to nothing.
         if let selectedDisplayID, !displays.contains(where: { $0.id == selectedDisplayID }) {
             self.selectedDisplayID = nil
         }
