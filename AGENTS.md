@@ -50,8 +50,12 @@ Invariants specific to this work, on top of the hard invariants below:
    on purpose, and a test enforces it.
 7. Missing data stays missing. Never a fabricated 0%, never a guessed charging
    state, never a category rendered as a number.
-8. The iPhone/iPad provider is Beta, behind `IMPULS_MOBILE_DEVICE_BATTERY`, off
-   by default.
+8. The iPhone/iPad provider is Beta, and *Show Connected Apple Devices* is its
+   only switch. It used to sit behind `IMPULS_MOBILE_DEVICE_BATTERY` as well,
+   which meant no shipped build ever looked for a phone; that gate is gone.
+   Discovery still starts only after the user opts in — module on, discovery on
+   — and with discovery off there is no topology socket, no usbmuxd traffic and
+   no read.
 9. The AirPods `system_profiler` source is best-effort: fixed absolute path,
    fixed arguments, no shell, no user input in the argument list, bounded
    output, timeout.

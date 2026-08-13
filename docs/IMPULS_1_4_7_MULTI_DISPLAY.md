@@ -370,7 +370,8 @@ Known and left alone, because they are deliberate and the alternative is worse:
   usbmuxd socket and read a real phone. They `XCTSkip` when there is no socket
   or no device, which is why CI never sees them, and reading real hardware is
   the entire point of a hardware probe. Worth knowing they bypass
-  `IMPULS_MOBILE_DEVICE_BATTERY`: the Beta flag gates the app, not the suite.
+  `IMPULS_MOBILE_DEVICE_BATTERY`. That flag was removed as a production gate in
+  1.4.8; discovery is gated by the user's opt-in instead.
 - The `system_profiler` probe launches the real binary and prints the display
   names of paired accessories into the test log. Names, never identifiers — the
   same rule the UI follows — but a QA log from that test does carry them.

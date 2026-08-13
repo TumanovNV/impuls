@@ -26,9 +26,7 @@ struct PowerPane: View {
     }
 
     private var externalDevices: [AppleDeviceSnapshot] {
-        settings.visibleExternalAppleDevices(from: devices.visibleDevices).filter {
-            MobileDeviceBatteryProvider.isEnabled || !AppleDevicePresentation.isBeta($0.kind)
-        }
+        settings.visibleExternalAppleDevices(from: devices.visibleDevices)
     }
 
     private var effectiveSelectedDeviceKey: String {
@@ -148,7 +146,7 @@ struct PowerPane: View {
         let diagnostics = devices.diagnostics.filter { diagnostic in
             switch diagnostic.provider {
             case .localMac: return false
-            case .mobileDevice: return MobileDeviceBatteryProvider.isEnabled
+            case .mobileDevice: return true
             case .appleAccessory: return true
             }
         }
