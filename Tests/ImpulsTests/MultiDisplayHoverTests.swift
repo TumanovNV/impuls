@@ -317,6 +317,73 @@ final class MultiDisplayHoverTests: XCTestCase {
         XCTAssertEqual(harness.observedMaximumKeyboard, 1)
     }
 
+    // MARK: - The invariants, under a long mixed sequence
+
+    /// Everything the user can do to Impuls across three displays, in one run,
+    /// with both invariants checked inside every state change rather than at
+    /// the end: at most one surface expanded, at most one window willing to
+    /// take keys.
+    ///
+    /// The structural guarantee behind it is that exactly one line in the app
+    /// can grant the keyboard — `applyKeyboardOwnership`, to
+    /// `coordinator.activeSurface` and nothing else — and the only two paths
+    /// that change which surface is active both call it immediately. This test
+    /// is what proves the paths agree with that claim in practice.
+    func testTheOneActiveAndOneKeyboardInvariantsSurviveALongMixedSequence() throws {
+        let harness = DisplayHarness(
+            displays: [DisplayLayout.macBook, DisplayLayout.monitor, DisplayLayout.sidecar],
+            pointer: DisplayLayout.onMacBook
+        )
+        defer { harness.tearDown() }
+        harness.install()
+
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent("impuls-invariants-\(UUID().uuidString).txt")
+        try Data("drop".utf8).write(to: file)
+        defer { try? FileManager.default.removeItem(at: file) }
+
+        // Hover open on the MacBook and start typing.
+        harness.movePointer(to: harness.anchor(of: 1))
+        harness.vm.select(.translate)
+
+        // Hover across to the monitor, then on to the iPad.
+        harness.movePointer(to: harness.anchor(of: 2))
+        harness.movePointer(to: harness.anchor(of: 3))
+        XCTAssertEqual(harness.controller.activeDisplayID, 3)
+
+        // A press back on the monitor.
+        harness.pointer = DisplayLayout.onMonitor
+        harness.surface(2).onPress?()
+
+        // A drop on the MacBook.
+        harness.pointer = DisplayLayout.onMacBook
+        harness.surface(1).onDragEntered?()
+        _ = harness.surface(1).onDrop?([file])
+
+        // A notification while the pointer is on the iPad.
+        harness.pointer = DisplayLayout.onSidecar
+        harness.controller.openPower()
+
+        // The iPad is unplugged while the panel is on it.
+        harness.displays = [DisplayLayout.macBook, DisplayLayout.monitor]
+        harness.pointer = DisplayLayout.onMonitor
+        harness.reconnectDisplays()
+
+        // And comes back.
+        harness.displays = [DisplayLayout.macBook, DisplayLayout.monitor, DisplayLayout.sidecar]
+        harness.reconnectDisplays()
+
+        // Escape from the active panel.
+        harness.controller.activeDisplayID.map { harness.surface($0).onKeyCommand?(.close) }
+
+        XCTAssertEqual(harness.observedMaximumActive, 1, "two panels were expanded at once at some point")
+        XCTAssertEqual(harness.observedMaximumKeyboard, 1, "two windows were willing to take keys at some point")
+        XCTAssertLessThanOrEqual(harness.activeSurfaceCount, 1)
+        XCTAssertLessThanOrEqual(harness.keyboardOwningSurfaceCount, 1)
+        XCTAssertEqual(harness.servicesStarted, 1, "one set of services through all of that")
+        XCTAssertEqual(harness.viewModelsBuilt, 1)
+    }
+
     // MARK: - Leaving
 
     func testLeavingTheExpandedPanelForEmptyDesktopClosesIt() {

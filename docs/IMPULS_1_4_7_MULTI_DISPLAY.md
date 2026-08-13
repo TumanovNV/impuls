@@ -224,7 +224,46 @@ Nothing assumes `minX == 0`, `minY == 0`, equal heights, equal scaling, or that
 the built-in display is on the left. Every rect is computed from that display's
 own frame.
 
-## 9. How it is tested without hardware
+## 9. The synthetic anchor, reviewed rather than assumed
+
+120 × 12 pt, with a 140 × 18 pt hover target. Kept after review, for reasons
+that should be written down rather than rediscovered:
+
+- **It is not a click target first.** The panel opens on hover, and the hover
+  rect sits against the top edge of the display. Throwing the pointer at the
+  top of a screen is a gesture that cannot overshoot — the pointer stops at the
+  edge — so the only dimension the user has to aim in is horizontal, where
+  there are 140 pt. Height buys much less here than it would for a control in
+  the middle of a window, and every point of height is taken from the user's
+  menu bar.
+- **12 pt against a ~24 pt menu bar** leaves the menu bar readable either side
+  and never covers a menu title: the top centre of an external display is empty
+  on macOS, with app menus to the left and status items to the right.
+- **120 pt is deliberately not 180 pt.** A physical notch is ~180 pt wide, and
+  matching it would be drawing a fake MacBook cutout on a monitor that has
+  none. Against the 560–700 pt panel it expands into, 120 pt reads as a tab
+  belonging to something larger rather than as a lid.
+- **It scales by staying still.** Points, not pixels, so the anchor is the same
+  physical size on a Retina 27" and a non-Retina 24". On a 1180 pt Sidecar iPad
+  it is proportionally larger, which is right — the iPad is closer to the user.
+- **The silhouette is the brand.** `NotchShape` draws the same concave
+  shoulders at 6/9 pt collapsed as at 12/22 pt open, so the anchor is a small
+  Impuls rather than a black rectangle, and the open animation is the same
+  radius morph on every display.
+
+What review could not settle without hardware: whether 12 pt *feels* thin in
+the hand, and whether the anchor is discoverable on a large monitor by someone
+who has never seen Impuls. Both are in `QA_MULTI_DISPLAY_1.4.7.md` (2.1, 2.2).
+
+**Accessibility.** The anchor carries no VoiceOver label — neither does the
+physical notch, so this is not a regression, but on an external display the
+anchor is the primary affordance where previously there was nothing at all.
+The accessible route is the global shortcut, which opens on the display under
+the pointer and falls back to the display macOS reports as active — the right
+answer for someone navigating by keyboard. The expanded panel's accessibility
+is untouched from 1.4.6 and is identical on every display.
+
+## 10. How it is tested without hardware
 
 Three seams, all with live defaults:
 
