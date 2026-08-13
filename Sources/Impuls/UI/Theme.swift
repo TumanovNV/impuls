@@ -45,7 +45,49 @@ enum Theme {
 
     // MARK: - Motion
 
-    static let openAnimation = Animation.spring(response: 0.27, dampingFraction: 0.82)
+    /// One policy owns the panel transition. The shell and its content use the
+    /// same monotonic curve, while the controller uses the matching duration
+    /// to retire the expanded hit region. Keeping those three answers together
+    /// prevents a visual transition and an unrelated hard-coded delay from
+    /// drifting apart again.
+    struct PanelMotionPlan: Equatable {
+        let reducesMotion: Bool
+        let openDuration: TimeInterval
+        let closeDuration: TimeInterval
+        let contentCloseDuration: TimeInterval
+
+        static func make(reducesMotion: Bool) -> PanelMotionPlan {
+            PanelMotionPlan(
+                reducesMotion: reducesMotion,
+                openDuration: reducesMotion ? 0 : 0.22,
+                closeDuration: reducesMotion ? 0 : 0.16,
+                contentCloseDuration: reducesMotion ? 0.08 : 0.16
+            )
+        }
+
+        func geometryAnimation(opening: Bool) -> Animation? {
+            guard !reducesMotion else { return nil }
+            if opening {
+                // Fast initial response, gentle arrival, no spring overshoot.
+                return .timingCurve(0.16, 1, 0.3, 1, duration: openDuration)
+            }
+            return .timingCurve(0.4, 0, 1, 1, duration: closeDuration)
+        }
+
+        func contentAnimation(opening: Bool) -> Animation? {
+            if reducesMotion {
+                // Geometry snaps for Reduce Motion; a very short fade keeps
+                // the content change legible without making it travel.
+                return .easeOut(duration: 0.08)
+            }
+            return geometryAnimation(opening: opening)
+        }
+    }
+
+    static var panelMotion: PanelMotionPlan {
+        .make(reducesMotion: reduceMotion)
+    }
+
     static let contentAnimation = Animation.easeOut(duration: 0.16)
     /// Pane switching: the outgoing pane leaves faster than the incoming one
     /// arrives, so the two are never both half-visible for long.

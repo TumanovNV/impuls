@@ -235,6 +235,43 @@ final class NotchGeometryTests: XCTestCase {
         XCTAssertFalse(a.expandedHoverRect.intersects(b.expandedHoverRect))
     }
 
+    func testFinalWindowEdgesArePhysicalPixelAlignedAtOneAndTwoX() {
+        let cases: [(scale: CGFloat, origin: CGPoint)] = [
+            (1, CGPoint(x: -1280, y: 0)),
+            (2, CGPoint(x: 1512.25, y: 0.5)),
+        ]
+
+        for item in cases {
+            let display = DisplayFixtures.plain(
+                id: UInt32(item.scale),
+                origin: item.origin,
+                size: CGSize(width: 1440, height: 900),
+                backingScale: item.scale
+            )
+            let geometry = NotchGeometry(display: display, requestedExpandedSize: AdaptivePanelLayout.standard)
+            let frame = geometry.windowFrame
+
+            for edge in [frame.minX, frame.maxX] {
+                XCTAssertEqual(
+                    (edge - display.frame.minX) * item.scale,
+                    ((edge - display.frame.minX) * item.scale).rounded(),
+                    accuracy: 0.0001,
+                    "scale \(item.scale), local x edge \(edge)"
+                )
+            }
+            for edge in [frame.minY, frame.maxY] {
+                XCTAssertEqual(
+                    (edge - display.frame.minY) * item.scale,
+                    ((edge - display.frame.minY) * item.scale).rounded(),
+                    accuracy: 0.0001,
+                    "scale \(item.scale), local y edge \(edge)"
+                )
+            }
+            XCTAssertEqual(frame.maxY, display.frame.maxY, accuracy: 0.0001)
+            XCTAssertEqual(frame.midX, display.frame.midX, accuracy: 0.5 / item.scale)
+        }
+    }
+
     func testGeometryIsEqualOnlyWhenNothingThePanelUsesHasMoved() {
         let display = DisplayFixtures.macBook()
         let first = NotchGeometry(display: display, requestedExpandedSize: AdaptivePanelLayout.standard)

@@ -16,6 +16,7 @@ final class NotchRootView: NSView {
 
     var onDragEntered: (() -> Void)?
     var onDragExited: (() -> Void)?
+    var onDragEnded: (() -> Void)?
     var onDrop: (([URL]) -> Bool)?
 
     private(set) var isReceivingDrag = false
@@ -99,7 +100,9 @@ final class NotchRootView: NSView {
     }
 
     override func draggingEnded(_ sender: NSDraggingInfo) {
+        guard isReceivingDrag else { return }
         isReceivingDrag = false
+        onDragEnded?()
     }
 
     override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {

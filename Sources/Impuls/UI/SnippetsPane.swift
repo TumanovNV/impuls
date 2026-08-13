@@ -28,7 +28,7 @@ struct SnippetsPane: View {
             }
             focused = nil
         }
-        .animation(Theme.contentAnimation, value: isAdding)
+        .animation(Theme.motion(Theme.contentAnimation), value: isAdding)
     }
 
     // MARK: - Search

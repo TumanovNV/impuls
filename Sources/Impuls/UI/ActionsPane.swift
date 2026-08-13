@@ -133,7 +133,7 @@ struct ActionsPane: View {
                 }
                 .onChange(of: selectedID) { _, identifier in
                     guard let identifier else { return }
-                    withAnimation(Theme.contentAnimation) {
+                    withAnimation(Theme.motion(Theme.contentAnimation)) {
                         proxy.scrollTo(identifier, anchor: .center)
                     }
                 }

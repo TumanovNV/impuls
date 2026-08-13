@@ -6,6 +6,7 @@ import SwiftUI
 struct SkeletonBox: View {
     var cornerRadius: CGFloat = Theme.Radius.large
     @State private var sweep = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -26,12 +27,20 @@ struct SkeletonBox: View {
                     // Reduce Motion keeps the placeholder, drops the travel:
                     // the shape still says "not loaded yet", which is the
                     // information. The sweep was only ever the decoration.
-                    .opacity(Theme.allowsRepeatingMotion ? 1 : 0)
+                    .opacity(reduceMotion ? 0 : 1)
                 )
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         }
         .onAppear {
-            guard Theme.allowsRepeatingMotion else { return }
+            updateSweep(reduceMotion: reduceMotion)
+        }
+        .onChange(of: reduceMotion) { _, reduced in updateSweep(reduceMotion: reduced) }
+    }
+
+    private func updateSweep(reduceMotion: Bool) {
+        if reduceMotion {
+            withAnimation(nil) { sweep = false }
+        } else {
             withAnimation(.linear(duration: 1.15).repeatForever(autoreverses: false)) {
                 sweep = true
             }
@@ -54,33 +63,63 @@ struct SkeletonBox: View {
 /// Reduce Motion removed the information along with the movement.
 struct EqualizerBars: View {
     var isAnimating: Bool
-    @State private var up = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let low: [CGFloat] = [4, 7, 5]
     private let high: [CGFloat] = [10, 3, 8]
-
-    /// Whether the bars travel. Never whether they are up.
-    private var moves: Bool { isAnimating && Theme.allowsRepeatingMotion }
+    private var phase: RepeatingMotionPhase {
+        RepeatingMotionPhase(isAnimating: isAnimating, reducesMotion: reduceMotion)
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 2) {
             ForEach(0..<3, id: \.self) { index in
-                Capsule()
-                    .fill(Theme.tertiary)
-                    .frame(width: 2, height: up ? high[index] : low[index])
-                    .animation(
-                        moves
-                            ? .easeInOut(duration: 0.44)
-                                .repeatForever(autoreverses: true)
-                                .delay(Double(index) * 0.12)
-                            : Theme.motion(.easeOut(duration: 0.2)),
-                        value: up
-                    )
+                EqualizerBar(
+                    low: low[index],
+                    high: high[index],
+                    phase: phase,
+                    delay: Double(index) * 0.12
+                )
             }
         }
         .frame(height: 10, alignment: .bottom)
         .accessibilityHidden(true)
-        .onAppear { up = isAnimating }
-        .onChange(of: isAnimating) { _, playing in up = playing }
+        // The identity contains Reduce Motion and playback state. A runtime
+        // toggle therefore removes the old repeatForever transaction and
+        // constructs fresh static or moving bars with fresh @State.
+        .id(phase)
+    }
+}
+
+struct RepeatingMotionPhase: Hashable {
+    let isAnimating: Bool
+    let reducesMotion: Bool
+    var moves: Bool { isAnimating && !reducesMotion }
+}
+
+private struct EqualizerBar: View {
+    let low: CGFloat
+    let high: CGFloat
+    let phase: RepeatingMotionPhase
+    let delay: TimeInterval
+    @State private var raised = false
+
+    var body: some View {
+        Capsule()
+            .fill(Theme.tertiary)
+            .frame(width: 2, height: raised ? high : low)
+            .onAppear {
+                if phase.moves {
+                    withAnimation(
+                        .easeInOut(duration: 0.44)
+                            .repeatForever(autoreverses: true)
+                            .delay(delay)
+                    ) {
+                        raised = true
+                    }
+                } else {
+                    raised = phase.isAnimating
+                }
+            }
     }
 }

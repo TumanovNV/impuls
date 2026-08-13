@@ -15,6 +15,15 @@ struct NotchEnvironment {
     var pointerLocation: () -> CGPoint
     /// The clock hover dwell is measured against. See `PointerWatcher.now`.
     var now: () -> Date
+    /// Motion accessibility is injected so transition timing and completion
+    /// can be tested without changing the developer's system preference.
+    var reducesMotion: () -> Bool
+    /// The keyboard must resign one main-loop turn before its field is removed.
+    /// Tests hold and drain this queue manually instead of sleeping.
+    var deferToNextMainTurn: (@escaping @MainActor () -> Void) -> Void
+    /// Visual completion uses the same motion plan as the reveal path. Tests
+    /// run delayed work explicitly, so stale-completion races are deterministic.
+    var scheduleAfter: (TimeInterval, @escaping @MainActor () -> Void) -> Void
     /// Where the file-backed stores keep their data. The live value is the real
     /// `~/Library/Application Support/Impuls`; a test points it at a temporary
     /// directory so building a view model here cannot reach the user's notes.
@@ -31,6 +40,18 @@ struct NotchEnvironment {
             mainDisplayID: { ScreenDisplaySource.mainDisplayID },
             pointerLocation: { NSEvent.mouseLocation },
             now: { Date() },
+            reducesMotion: { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
+            deferToNextMainTurn: { operation in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { operation() }
+                }
+            },
+            scheduleAfter: { delay, operation in
+                let work = DispatchWorkItem {
+                    MainActor.assumeIsolated { operation() }
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+            },
             storage: .live,
             makeSurface: { geometry, viewModel in
                 NotchDisplaySurface(geometry: geometry, viewModel: viewModel)
@@ -53,7 +74,7 @@ final class NotchController {
     private let pointer = PointerWatcher()
     private let coordinator = DisplayCoordinator()
     private var topology = DisplayTopology.empty
-    private var closeActiveRectWork: DispatchWorkItem?
+    private var topologyRefreshWork: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
     private var lifetimeCancellables = Set<AnyCancellable>()
     private var menuTrackingObservers: [NSObjectProtocol] = []
@@ -71,6 +92,23 @@ final class NotchController {
     /// Monotonic stamp for the deferred half of closing: any newer open or
     /// close outdates the one still in flight.
     private var openGeneration = 0
+    /// Invalidates delayed "pointer still away?" checks. Opening for any
+    /// reason is a new intent even when the panel is already visually open.
+    private var collapseIntentGeneration = 0
+    /// The semantic target changes immediately even when the visual close has
+    /// to wait one turn for first-responder cleanup. Re-entry compares against
+    /// this value rather than stale `vm.isOpen`, so it cancels the queued close.
+    private var requestedOpen = false
+    /// The visible close keeps its expanded hit region until the motion plan's
+    /// completion. Topology changes consult this phase rather than `vm.isOpen`.
+    private var isClosing = false
+    /// Foreground store work has one owner and is idempotent across a cancelled
+    /// close/re-entry sequence.
+    private var servicesAreActive = false
+    /// A deterministic proof that a cancelled transition never starts a second
+    /// foreground refresh batch. Production does not otherwise consume it.
+    private(set) var foregroundServiceActivationCount = 0
+    private var isRefreshingDisplays = false
     /// Whether Impuls holds the keyboard at all, as opposed to which display
     /// holds it.
     ///
@@ -98,19 +136,37 @@ final class NotchController {
     func install() {
         build()
         installMenuTrackingObservers()
-        settings.objectWillChange
+        Publishers.CombineLatest(settings.$panelSize, settings.$selectedDisplayID)
+            .dropFirst()
+            .removeDuplicates { lhs, rhs in lhs.0 == rhs.0 && lhs.1 == rhs.1 }
+            .sink { [weak self] _ in self?.scheduleTopologyRefresh() }
+            .store(in: &lifetimeCancellables)
+        Publishers.CombineLatest(settings.$activationMode, settings.$openDelay)
+            .dropFirst()
+            .removeDuplicates { lhs, rhs in lhs.0 == rhs.0 && lhs.1 == rhs.1 }
             .sink { [weak self] _ in
-                DispatchQueue.main.async { self?.settingsChanged() }
+                // `@Published` emits from willSet. Read Settings on the next
+                // turn, after both stored values have committed, or the zones
+                // would remain one selection behind until another refresh.
+                self?.environment.deferToNextMainTurn { [weak self] in
+                    guard let self, let vm = self.viewModel else { return }
+                    self.refreshPointerZones(open: self.keepsExpandedHitRegion(vm))
+                }
             }
             .store(in: &lifetimeCancellables)
         observe(NotificationCenter.default, NSApplication.didChangeScreenParametersNotification) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.settings.refreshDisplays()
-                self?.refreshTopology()
+                self?.refreshDisplaysAndTopology()
             }
         }
         observe(NSWorkspace.shared.notificationCenter, NSWorkspace.activeSpaceDidChangeNotification) { [weak self] _ in
             MainActor.assumeIsolated { self?.activeSpaceChanged() }
+        }
+        observe(
+            NSWorkspace.shared.notificationCenter,
+            NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.accessibilityDisplayOptionsChanged() }
         }
         // A dark display has no hover to watch, so the one timer that never
         // otherwise stops — the pointer sampler — stops with it. The panel
@@ -130,8 +186,7 @@ final class NotchController {
         observe(NSWorkspace.shared.notificationCenter, NSWorkspace.screensDidWakeNotification) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                self.settings.refreshDisplays()
-                self.refreshTopology()
+                self.refreshDisplaysAndTopology()
                 self.pointer.start()
             }
         }
@@ -170,8 +225,15 @@ final class NotchController {
     }
 
     func teardown() {
+        openGeneration += 1
+        collapseIntentGeneration += 1
+        requestedOpen = false
+        isClosing = false
+        topologyRefreshWork?.cancel()
+        topologyRefreshWork = nil
         pointer.stop()
         viewModel?.stop()
+        servicesAreActive = false
         keyboardIsClaimed = false
         coordinator.teardown()
         for observer in menuTrackingObservers {
@@ -192,8 +254,8 @@ final class NotchController {
             toggleFromKeyboard()
             return
         }
-        guard let viewModel else { return }
-        if viewModel.isOpen {
+        guard viewModel != nil else { return }
+        if requestedOpen {
             setOpen(false)
             pointer.setInside(false)
         } else {
@@ -208,7 +270,7 @@ final class NotchController {
     /// that the display macOS considers active, then the primary one.
     func toggleFromKeyboard() {
         guard let vm = viewModel else { return }
-        if vm.isOpen {
+        if requestedOpen {
             pointer.setInside(false)
             setOpen(false)
         } else {
@@ -342,6 +404,11 @@ final class NotchController {
             // The pointer usually is not over the panel after a drag leaves.
             self.scheduleCollapseIfPointerAway()
         }
+        surface.onDragEnded = { [weak self] in
+            guard let self, let vm = self.viewModel else { return }
+            vm.isDropTargeted = false
+            self.scheduleCollapseIfPointerAway()
+        }
         surface.onDrop = { [weak self] urls in
             guard let self, let vm = self.viewModel else { return false }
             vm.isDropTargeted = false
@@ -417,8 +484,9 @@ final class NotchController {
         // one because the previous display was unplugged, must agree with the
         // rest of the app about the keyboard before it is on screen.
         applyKeyboardOwnership()
-        applyActiveRect(open: vm.isOpen)
-        refreshPointerZones(open: vm.isOpen)
+        let keepsExpandedHitRegion = keepsExpandedHitRegion(vm)
+        applyActiveRect(open: keepsExpandedHitRegion)
+        refreshPointerZones(open: keepsExpandedHitRegion)
 
         if result.activeWasRemoved {
             openIfPointerIsAlreadyOnASurface()
@@ -459,8 +527,26 @@ final class NotchController {
         // keyboard from the app underneath.
         applyKeyboardOwnership()
 
-        applyActiveRect(open: vm.isOpen)
-        refreshPointerZones(open: vm.isOpen)
+        // Closed surfaces all have the same kind of collapsed target. The open
+        // command that follows a hover applies the expanded presentation once;
+        // doing a collapsed O(N) pass here first was duplicate work in the same
+        // semantic transition.
+        if vm.isExpanded {
+            // A handoff is a new presentation generation. Any activation
+            // deadline captured for the old display must not publish into the
+            // middle of the new display's morph.
+            openGeneration += 1
+            applyActiveRect(open: true)
+            refreshPointerZones(open: true)
+            coordinator.activeSurface?.setMotionPlan(currentPanelMotionPlan())
+            coordinator.activeSurface?.prepareForExpansion()
+            let generation = openGeneration
+            // The handoff owns the replacement commit too. Reusing the open
+            // commit is important when A was only preparing: A's captured
+            // display check will cancel its callback, and B must still expand
+            // and schedule the one foreground activation batch.
+            scheduleExpansionCommit(for: generation, viewModel: vm)
+        }
     }
 
     /// Folds the panel without the animation or the deferred second pass.
@@ -471,8 +557,9 @@ final class NotchController {
     private func foldImmediately() {
         guard let vm = viewModel else { return }
         openGeneration += 1
-        closeActiveRectWork?.cancel()
-        closeActiveRectWork = nil
+        collapseIntentGeneration += 1
+        requestedOpen = false
+        isClosing = false
         vm.wantsKeyboard = false
         vm.keyboardNavigationActive = false
         vm.isDropTargeted = false
@@ -482,12 +569,10 @@ final class NotchController {
         keyboardIsClaimed = false
         applyKeyboardOwnership()
         pointer.setInside(false)
+        coordinator.activeSurface?.setExpanded(false)
         guard vm.isOpen else { return }
         vm.isOpen = false
-        vm.media.setActive(false)
-        vm.calendar.setActive(false)
-        vm.power.setActive(false)
-        vm.devices.setActive(false)
+        deactivateServices(vm)
     }
 
     /// Picks the display the pointer is on before an entrance that has no
@@ -551,12 +636,28 @@ final class NotchController {
     /// kept, so coming back finds it where it was left.
     private func setOpen(_ open: Bool) {
         guard let vm = viewModel else { return }
-        if !open { vm.keyboardNavigationActive = false }
-        guard vm.isOpen != open else { return }
-        openGeneration += 1
-        closeActiveRectWork?.cancel()
-
         if open {
+            collapseIntentGeneration += 1
+            coordinator.activeSurface?.setMotionPlan(currentPanelMotionPlan())
+            guard !requestedOpen || !vm.isOpen else { return }
+            requestedOpen = true
+            openGeneration += 1
+            let generation = openGeneration
+            isClosing = false
+            // Re-entry while the keyboard-resignation turn is pending reaches
+            // here with `vm.isOpen == true`. Advancing the generation is the
+            // cancellation; the stale close can no longer fold under the mouse.
+            guard !vm.isOpen else {
+                // An established open already owns its foreground services.
+                // Re-entry still has to commit the active surface when a
+                // display handoff happened during the keyboard-release turn:
+                // `moveActivation` prepared the new host with the previous
+                // generation, which this command has just invalidated.
+                if coordinator.activeSurface?.isExpanded != true || !servicesAreActive {
+                    scheduleExpansionCommit(for: generation, viewModel: vm)
+                }
+                return
+            }
             // Grow the interactive area first so the pointer never falls
             // through a region the animation has not covered yet.
             applyActiveRect(open: true)
@@ -564,12 +665,17 @@ final class NotchController {
             // still false for one more statement, and a zone built from it here
             // would leave the expanded panel with a collapsed click target.
             refreshPointerZones(open: true)
-            withAnimation(Theme.openAnimation) { vm.isOpen = true }
-            vm.media.setActive(true)
-            vm.calendar.setActive(true)
-            vm.power.setActive(true)
-            vm.devices.setActive(true)
+            vm.isOpen = true
+            // A newly active host first commits its collapsed shell. Expansion
+            // begins on the next main turn, with one atomic surface-state send.
+            coordinator.activeSurface?.prepareForExpansion()
+            scheduleExpansionCommit(for: generation, viewModel: vm)
         } else {
+            guard requestedOpen || vm.isOpen else { return }
+            requestedOpen = false
+            openGeneration += 1
+            let generation = openGeneration
+            if vm.keyboardNavigationActive { vm.keyboardNavigationActive = false }
             // The keyboard goes first and the fold goes second — one run-loop
             // pass apart, never together. Dropped in the same pass, resigning
             // the field's first responder and structurally removing that field
@@ -578,38 +684,169 @@ final class NotchController {
             // `isOpen` already false, wedged until the next hover repaints it.
             // That was the translate tab "hanging open" — type, move the
             // pointer away, and the picture stayed while the state closed.
-            vm.wantsKeyboard = false
-            let generation = openGeneration
-            DispatchQueue.main.async { [weak self] in
-                guard let self, self.openGeneration == generation else { return }
-                self.collapse()
+            if vm.wantsKeyboard { vm.wantsKeyboard = false }
+            environment.deferToNextMainTurn { [weak self] in
+                guard let self,
+                      self.openGeneration == generation,
+                      !self.requestedOpen else { return }
+                self.collapse(generation: generation)
             }
         }
     }
 
+    private func scheduleExpansionCommit(for generation: Int, viewModel vm: NotchViewModel) {
+        let displayID = coordinator.activeDisplayID
+        environment.deferToNextMainTurn { [weak self, weak vm] in
+            guard let self, let vm,
+                  self.openGeneration == generation,
+                  self.requestedOpen,
+                  vm.isOpen,
+                  self.coordinator.activeDisplayID == displayID else { return }
+            self.coordinator.activeSurface?.commitPreparedLayout()
+            self.coordinator.activeSurface?.setExpanded(true)
+            // Cached pane state draws the transition. Foreground refreshes
+            // start only after the final visual frame.
+            self.scheduleServiceActivation(for: generation, viewModel: vm)
+        }
+    }
+
+    private func scheduleServiceActivation(for generation: Int, viewModel vm: NotchViewModel) {
+        let displayID = coordinator.activeDisplayID
+        let activate = { [weak self, weak vm] in
+            guard let self, let vm,
+                  self.openGeneration == generation,
+                  self.requestedOpen,
+                  vm.isOpen,
+                  self.coordinator.activeDisplayID == displayID,
+                  self.coordinator.activeSurface?.isExpanded == true,
+                  !self.servicesAreActive else { return }
+            self.servicesAreActive = true
+            self.foregroundServiceActivationCount += 1
+            vm.media.setActive(true)
+            vm.calendar.setActive(true)
+            vm.power.setActive(true)
+            vm.devices.setActive(true)
+        }
+        let duration = coordinator.activeSurface?.motionPlan.openDuration
+            ?? currentPanelMotionPlan().openDuration
+        if duration == 0 {
+            // Even an instant visual state gets one commit before stores begin
+            // publishing; there is simply no travel duration to wait out.
+            environment.deferToNextMainTurn(activate)
+        } else {
+            // Cached pane state is enough for the morph. IOKit, calendar,
+            // media and device refreshes start only after its final frame.
+            environment.scheduleAfter(duration, activate)
+        }
+    }
+
     /// The visual half of closing, one pass after the keyboard was let go.
-    private func collapse() {
-        guard let vm = viewModel, vm.isOpen else { return }
-        withAnimation(Theme.openAnimation) { vm.isOpen = false }
+    private func collapse(generation: Int) {
+        guard let vm = viewModel,
+              openGeneration == generation,
+              !requestedOpen,
+              vm.isOpen else { return }
+        isClosing = true
+        coordinator.activeSurface?.setMotionPlan(currentPanelMotionPlan())
+        coordinator.activeSurface?.beginClosing()
+        vm.isOpen = false
+        deactivateServices(vm)
+        // Shrink only once the panel has finished collapsing. Doing it
+        // while it is still visibly there would leave a window in which
+        // clicks land on whatever is behind the panel.
+        let finishInteraction = { [weak self] in
+            guard let self,
+                  self.openGeneration == generation,
+                  !self.requestedOpen,
+                  self.viewModel?.isOpen == false else { return }
+            self.isClosing = false
+            self.applyActiveRect(open: false)
+            self.refreshPointerZones(open: false)
+        }
+        let plan = coordinator.activeSurface?.motionPlan ?? currentPanelMotionPlan()
+        let delay = plan.closeDuration
+        if delay == 0 {
+            finishInteraction()
+        } else {
+            environment.scheduleAfter(delay, finishInteraction)
+        }
+
+        let finishContent = { [weak self] in
+            guard let self,
+                  self.openGeneration == generation,
+                  !self.requestedOpen,
+                  self.viewModel?.isOpen == false else { return }
+            self.coordinator.activeSurface?.finishClosing()
+        }
+        if plan.contentCloseDuration == 0 {
+            finishContent()
+        } else {
+            environment.scheduleAfter(plan.contentCloseDuration, finishContent)
+        }
+    }
+
+    private func deactivateServices(_ vm: NotchViewModel) {
+        guard servicesAreActive else { return }
+        servicesAreActive = false
         vm.media.setActive(false)
         vm.calendar.setActive(false)
         vm.power.setActive(false)
         vm.devices.setActive(false)
-        // Shrink only once the panel has finished collapsing. Doing it
-        // while it is still visibly there would leave a window in which
-        // clicks land on whatever is behind the panel.
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            self.applyActiveRect(open: false)
-            self.refreshPointerZones(open: false)
+    }
+
+    private func currentPanelMotionPlan() -> Theme.PanelMotionPlan {
+        .make(reducesMotion: environment.reducesMotion())
+    }
+
+    /// Reduce Motion can change while the panel is already visible. One
+    /// controller-owned plan is published to the active SwiftUI surface and
+    /// used for controller completion timing, so the mask, hit region and
+    /// service deadline cannot sample different accessibility states.
+    private func accessibilityDisplayOptionsChanged() {
+        let plan = currentPanelMotionPlan()
+        // The workspace notification also reports contrast/transparency
+        // changes. Those are handled reactively by SwiftUI/AppKit and must not
+        // cancel an unrelated panel transition.
+        guard coordinator.activeSurface?.motionPlan.reducesMotion != plan.reducesMotion else { return }
+        for surface in coordinator.allSurfaces { surface.setMotionPlan(plan) }
+        guard let vm = viewModel else { return }
+
+        if isClosing {
+            // The mask is replaced at its closed endpoint by the motion-plan
+            // identity. Retire interaction and outgoing accessibility content
+            // in the same turn instead of leaving an old-duration completion.
+            openGeneration += 1
+            isClosing = false
+            coordinator.activeSurface?.finishClosing()
+            applyActiveRect(open: false)
+            refreshPointerZones(open: false)
+        } else if requestedOpen, vm.isOpen, !servicesAreActive {
+            // An in-flight spatial opening snaps to its endpoint when Reduce
+            // Motion is enabled. Replace its delayed foreground deadline too.
+            openGeneration += 1
+            let generation = openGeneration
+            if coordinator.activeSurface?.isExpanded == true {
+                scheduleServiceActivation(for: generation, viewModel: vm)
+            } else {
+                scheduleExpansionCommit(for: generation, viewModel: vm)
+            }
         }
-        closeActiveRectWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
+    }
+
+    private func keepsExpandedHitRegion(_ vm: NotchViewModel) -> Bool {
+        vm.isOpen || isClosing
     }
 
     private func scheduleCollapseIfPointerAway() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-            guard let self, let surface = self.coordinator.activeSurface else { return }
+        let generation = collapseIntentGeneration
+        environment.scheduleAfter(0.6) { [weak self] in
+            guard let self, let vm = self.viewModel,
+                  generation == self.collapseIntentGeneration,
+                  let surface = self.coordinator.activeSurface else { return }
+            guard !vm.keyboardNavigationActive,
+                  !vm.isDropTargeted,
+                  !self.menuTrackingState.isHoldingPanelOpen,
+                  !surface.isReceivingDrag else { return }
             // Resync either way. A pointer that is still on the panel has to be
             // recorded as inside, or hover tracking stays convinced it left and
             // the panel hangs open until the notch is touched again.
@@ -657,12 +894,11 @@ final class NotchController {
         menuTrackingState.beginTracking(menu, panelIsOpen: viewModel?.isOpen == true)
         guard menuTrackingState.isHoldingPanelOpen else { return }
 
-        // Invalidate both halves of a close that may already have been queued
-        // in the same run-loop turn as the right click.
-        openGeneration += 1
-        closeActiveRectWork?.cancel()
-        closeActiveRectWork = nil
         pointer.setInside(true, display: coordinator.activeDisplayID)
+        // Invalidate both halves of a close that may already have been queued
+        // in the same run-loop turn as the right click. Going through the
+        // command also recovers cleanly if tracking began just after collapse.
+        setOpen(true)
     }
 
     private func menuTrackingEnded(_ menu: NSMenu) {
@@ -709,13 +945,25 @@ final class NotchController {
         // panel opened — exactly when the fast rate is being used.
     }
 
-    private func settingsChanged() {
-        guard viewModel != nil else { return }
-        // Panel size, the display preference and the activation mode all land
-        // here. Reconciliation keeps every surface whose geometry is unchanged,
-        // so a setting that touches none of them costs one comparison per
-        // display.
+    private func refreshDisplaysAndTopology() {
+        isRefreshingDisplays = true
+        settings.refreshDisplays()
+        isRefreshingDisplays = false
+        topologyRefreshWork?.cancel()
+        topologyRefreshWork = nil
         refreshTopology()
+    }
+
+    private func scheduleTopologyRefresh() {
+        guard viewModel != nil, !isRefreshingDisplays else { return }
+        topologyRefreshWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.topologyRefreshWork = nil
+            self.refreshTopology()
+        }
+        topologyRefreshWork = work
+        DispatchQueue.main.async(execute: work)
     }
 }
 
