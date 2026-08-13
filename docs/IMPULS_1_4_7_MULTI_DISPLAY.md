@@ -171,9 +171,16 @@ factor. Scaling the SwiftUI hierarchy by pixel count would break every metric in
 Everything is decided in **logical points**. Retina and backing scale are never
 read for layout.
 
+The small threshold is 1400 pt, not 1280. A 1280 × 800 panel is the smallest
+display a Mac has shipped with and 1366 pt is the cheapest external anybody
+plugs in; classifying either as "not small" and giving it the middle preset
+contradicted the rule the function exists to express — Standard would have
+taken 45% of a 1366 pt width against Compact's 41%. 1400 leaves every Retina
+MacBook (1440 through 1728) exactly where it was.
+
 ```
 usable width = display.frame.width
-  < 1280 pt → Compact    (560 × 208)
+  < 1400 pt → Compact    (560 × 208)   -- 1024, 1180 Sidecar, 1280, 1366
   < 1800 pt → Standard   (620 × 208)   -- every built-in MacBook lands here
   ≥ 1800 pt → Large      (700 × 232)
 ```
@@ -196,8 +203,11 @@ fullest rail, five icons of nine modules split 5/4, still gets its designed
 
 The first draft floored at 320 × 120 on the theory that a clipped panel beats
 one hanging off the screen. That was wrong twice over. 120 pt clips the rail on
-every Mac, and no display macOS will drive is small enough to need it: the
-smallest mode it sets is 640 × 480, which holds Compact with room to spare.
+every Mac, and the floor is not somewhere ordinary hardware goes — every mode
+the suite checks, from 640 × 480 up, holds Compact without clamping. No promise
+is made about virtual, remote or future displays beyond the behaviour itself:
+below Compact the layout stops shrinking, the panel is centred, and the shadow
+rather than the content is what leaves the screen.
 `NotchGeometryTests` now asserts the whole chain — that Compact is exactly the
 rail's comfortable height, that a taller header shrinks the rail towards
 `railButtonMin` rather than clipping it (and keeps fitting up to a 72 pt

@@ -35,10 +35,12 @@ struct NotchGeometry: Equatable {
     ///
     /// An earlier draft floored at 320 × 120 on the theory that a clipped panel
     /// beats one hanging off the screen. That was wrong twice over: 120 pt
-    /// clips the rail on any Mac, and no display macOS supports is small enough
-    /// to need it — the smallest mode it will set is 640 × 480, which holds
-    /// Compact with room to spare. The floor is unreachable in practice and
-    /// correct when reached.
+    /// clips the rail on any Mac, and the floor is not somewhere ordinary
+    /// hardware goes — every mode the suite checks, from 640 × 480 up, holds
+    /// Compact without clamping. Virtual, remote and future displays are not
+    /// promised anything here beyond this: below Compact the layout stops
+    /// shrinking, the panel is centred, and the shadow rather than the content
+    /// is what leaves the screen.
     static let minimumExpandedSize = AdaptivePanelLayout.compact
 
     /// What a display without a cutout pretends the notch is, for the header

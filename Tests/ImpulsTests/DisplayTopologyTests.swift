@@ -196,8 +196,20 @@ final class DisplayTopologyTests: XCTestCase {
         XCTAssertEqual(AdaptivePanelLayout.expandedSize(forDisplayWidth: display.frame.width), AdaptivePanelLayout.compact)
     }
 
+    /// The displays that are genuinely small, and used to be handed the middle
+    /// preset by a threshold of 1280.
+    func testAutomaticChoosesCompactOnTheSmallestRealDisplays() {
+        for width in [1024, 1180, 1280, 1366] as [CGFloat] {
+            XCTAssertEqual(
+                AdaptivePanelLayout.expandedSize(forDisplayWidth: width),
+                AdaptivePanelLayout.compact,
+                "a \(Int(width)) pt display is small by any measure"
+            )
+        }
+    }
+
     func testAutomaticChoosesStandardOnEveryBuiltInMacBookDisplay() {
-        for width in [1470, 1512, 1710, 1728] as [CGFloat] {
+        for width in [1440, 1470, 1512, 1710, 1728] as [CGFloat] {
             XCTAssertEqual(
                 AdaptivePanelLayout.expandedSize(forDisplayWidth: width),
                 AdaptivePanelLayout.standard,

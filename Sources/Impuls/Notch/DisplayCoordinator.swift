@@ -84,12 +84,16 @@ final class DisplayCoordinator {
     func activate(_ displayID: UInt32) -> (any NotchSurfacing)? {
         guard displayID != activeDisplayID, let target = surfaces[displayID] else { return nil }
         let previous = activeSurface
+        // Recorded first, so the window that resigns key below is already the
+        // inactive one by the time its notification arrives and the controller
+        // asks whether the *active* surface lost the keyboard.
         activeDisplayID = displayID
-        // The new surface is activated before the old one is stood down, so the
-        // window losing key status is already the inactive one by the time its
-        // resign notification arrives.
-        target.setActive(true)
+        // Stood down before the new one is raised. There is then no instant, not
+        // even between two statements, in which two surfaces call themselves
+        // active — which is the invariant the whole design rests on, and one
+        // worth holding even where nothing could have observed the gap.
         previous?.setActive(false)
+        target.setActive(true)
         return previous
     }
 

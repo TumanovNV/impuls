@@ -13,6 +13,8 @@ struct NotchEnvironment {
     var descriptors: () -> [DisplayDescriptor]
     var mainDisplayID: () -> UInt32?
     var pointerLocation: () -> CGPoint
+    /// The clock hover dwell is measured against. See `PointerWatcher.now`.
+    var now: () -> Date
     var makeSurface: (NotchGeometry, NotchViewModel) -> any NotchSurfacing
     /// Injected rather than called directly so a test can drive the display
     /// logic without starting the clipboard watcher, the media poller and the
@@ -24,6 +26,7 @@ struct NotchEnvironment {
             descriptors: { ScreenDisplaySource.descriptors() },
             mainDisplayID: { ScreenDisplaySource.mainDisplayID },
             pointerLocation: { NSEvent.mouseLocation },
+            now: { Date() },
             makeSurface: { geometry, viewModel in
                 NotchDisplaySurface(geometry: geometry, viewModel: viewModel)
             },
@@ -53,10 +56,21 @@ final class NotchController {
     /// Monotonic stamp for the deferred half of closing: any newer open or
     /// close outdates the one still in flight.
     private var openGeneration = 0
+    /// Whether Impuls holds the keyboard at all, as opposed to which display
+    /// holds it.
+    ///
+    /// Kept as state rather than read back from the view model because the
+    /// publisher that drives it fires from `willSet`: inside that callback the
+    /// property being described still reports its previous value, so recomputing
+    /// the answer there would always be one assignment behind.
+    private var keyboardIsClaimed = false
 
     /// Read by the suite to assert that exactly one display owns the panel.
     var activeDisplayID: UInt32? { coordinator.activeDisplayID }
     var presentedDisplayIDs: [UInt32] { coordinator.order }
+    /// The one sampler, so a test can move the pointer and take a sample
+    /// instead of imitating what a sample would have done.
+    var pointerSampler: PointerWatcher { pointer }
 
     /// `environment` has no default: `NotchEnvironment.live` is main-actor
     /// isolated, and a default argument is evaluated in the caller's context.
@@ -145,6 +159,7 @@ final class NotchController {
     func teardown() {
         pointer.stop()
         viewModel?.stop()
+        keyboardIsClaimed = false
         coordinator.teardown()
         for observer in menuTrackingObservers {
             NotificationCenter.default.removeObserver(observer)
@@ -227,6 +242,7 @@ final class NotchController {
         viewModel = vm
 
         pointer.pointerLocation = environment.pointerLocation
+        pointer.now = environment.now
         pointer.isDragging = { [weak self] displayID in
             self?.coordinator.surface(for: displayID)?.isReceivingDrag ?? false
         }
@@ -380,6 +396,10 @@ final class NotchController {
         if result.activeWasRemoved { foldImmediately() }
 
         ensureActiveSurface()
+        // A surface that has just been created, or has just become the active
+        // one because the previous display was unplugged, must agree with the
+        // rest of the app about the keyboard before it is on screen.
+        applyKeyboardOwnership()
         applyActiveRect(open: vm.isOpen)
         refreshPointerZones(open: vm.isOpen)
 
@@ -409,9 +429,18 @@ final class NotchController {
               coordinator.surface(for: displayID) != nil else { return }
         guard let vm = viewModel else { return }
 
-        vm.wantsKeyboard = false
-        vm.keyboardNavigationActive = false
+        // Activation and keyboard ownership move together, and in that order.
+        // `activate` stands the old surface down — which drops its `acceptsKeyboard`
+        // and resigns its window's key status — before the new one is raised, so
+        // there is no instant at which two surfaces are active or two windows
+        // are willing to take keys.
         coordinator.activate(displayID)
+        // Whatever Impuls held, it still holds, now on the display in front of
+        // the user. Nothing is re-acquired: a claim the app did not have before
+        // the move it does not gain by moving, so hovering onto another display
+        // while a text module merely happens to be showing never takes the
+        // keyboard from the app underneath.
+        applyKeyboardOwnership()
 
         applyActiveRect(open: vm.isOpen)
         refreshPointerZones(open: vm.isOpen)
@@ -430,6 +459,11 @@ final class NotchController {
         vm.wantsKeyboard = false
         vm.keyboardNavigationActive = false
         vm.isDropTargeted = false
+        // The display that held the keyboard has gone with it. Stated rather
+        // than inferred: the two flags above may already have been false, in
+        // which case their publisher says nothing at all.
+        keyboardIsClaimed = false
+        applyKeyboardOwnership()
         pointer.setInside(false)
         guard vm.isOpen else { return }
         vm.isOpen = false
@@ -463,16 +497,34 @@ final class NotchController {
     /// Hands the keyboard to the active panel, or gives it back. No other
     /// surface is ever offered it.
     private func setKeyboard(_ wants: Bool) {
+        keyboardIsClaimed = wants
         if wants {
             setOpen(true)
             pointer.setInside(true, display: coordinator.activeDisplayID)
         }
-        for surface in coordinator.allSurfaces {
-            surface.acceptsKeyboard = wants && surface.isActive
-        }
+        applyKeyboardOwnership()
         // What was typed stays: clicking away to look something up should not
         // be the same as throwing the text out. Esc and the ✕ do that.
         if !wants { scheduleCollapseIfPointerAway() }
+    }
+
+    /// Gives the keyboard to whichever surface is active, and to no other.
+    ///
+    /// Called from both directions — when the claim changes, and when the
+    /// display holding it changes — because those are two separate events and
+    /// either one alone leaves the window and the claim disagreeing. Moving
+    /// display without this is what left a translation on the second monitor
+    /// with no caret in it: the panel travelled, the keyboard did not.
+    ///
+    /// Assigning `false` before `true` is not merely tidy. `NotchPanel` resigns
+    /// key by ordering out and straight back in, so a surface that still
+    /// believed it accepted keys while another took them would leave two
+    /// windows fighting over key status across two displays.
+    private func applyKeyboardOwnership() {
+        for surface in coordinator.allSurfaces where !surface.isActive {
+            surface.acceptsKeyboard = false
+        }
+        coordinator.activeSurface?.acceptsKeyboard = keyboardIsClaimed
     }
 
     /// The pointer decides, always. A field with something in it does not hold

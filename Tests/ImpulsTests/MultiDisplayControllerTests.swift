@@ -12,16 +12,29 @@ import XCTest
 /// which display ends up with the panel — and that is entirely in the
 /// controller and the coordinator.
 @MainActor
-private final class FakeSurface: NotchSurfacing {
+final class FakeDisplaySurface: NotchSurfacing {
     let displayID: UInt32
     private(set) var geometry: NotchGeometry
     private(set) var isActive = false
     var isReceivingDrag = false
-    var acceptsKeyboard = false
+    var acceptsKeyboard = false {
+        didSet {
+            guard acceptsKeyboard != oldValue else { return }
+            onStateChange?()
+        }
+    }
     private(set) var isInteractive = false
     private(set) var isTornDown = false
     private(set) var lastAppliedRectWasOpen: Bool?
     private(set) var geometryUpdates = 0
+    /// Every activation change, in order, so a test can prove the panel moved
+    /// once rather than flickering between two displays.
+    private(set) var activationLog: [Bool] = []
+    /// Set by the harness to a closure that fails the test if more than one
+    /// surface is ever active or key at the same instant — checked inside the
+    /// mutation, not after it, so a momentary overlap between two statements
+    /// cannot slip past.
+    var onStateChange: (() -> Void)?
 
     var onDragEntered: (() -> Void)?
     var onDragExited: (() -> Void)?
@@ -43,8 +56,11 @@ private final class FakeSurface: NotchSurfacing {
     }
 
     func setActive(_ active: Bool) {
+        guard isActive != active else { return }
         isActive = active
+        activationLog.append(active)
         if !active { acceptsKeyboard = false }
+        onStateChange?()
     }
 
     func setInteractive(_ interactive: Bool) { isInteractive = interactive }
@@ -55,17 +71,24 @@ private final class FakeSurface: NotchSurfacing {
         return geometry.contentScreenRect(for: open ? geometry.expandedSize : geometry.collapsedSize)
     }
 
-    func teardown() { isTornDown = true }
+    /// Mirrors `NotchDisplaySurface.teardown` exactly. A double that forgets to
+    /// stand itself down would let a test pass while the real surface leaked an
+    /// active, key-accepting window for a display that is no longer attached.
+    func teardown() {
+        setActive(false)
+        acceptsKeyboard = false
+        isTornDown = true
+    }
 }
 
-private final class SilentAlertDelivery: LowBatteryNotificationDelivering, @unchecked Sendable {
+final class SilentDisplayAlertDelivery: LowBatteryNotificationDelivering, @unchecked Sendable {
     var onNotificationOpened: (@MainActor @Sendable (String?) -> Void)?
     func authorizationStatus() async -> LowBatteryNotificationAuthorization { .denied }
     func requestAuthorization() async -> LowBatteryNotificationAuthorization { .denied }
     func deliver(_ notification: LowBatteryNotification) async throws {}
 }
 
-private final class MemoryAlertStore: LowBatteryAlertStateStoring {
+final class MemoryDisplayAlertStore: LowBatteryAlertStateStoring {
     var data: Data?
     func load() -> Data? { data }
     func save(_ data: Data) { self.data = data }
@@ -73,19 +96,30 @@ private final class MemoryAlertStore: LowBatteryAlertStateStoring {
 
 /// One Impuls, one set of displays, one pointer — all of them settable.
 @MainActor
-private final class Harness {
+final class DisplayHarness {
     let settings: SettingsStore
     private(set) var controller: NotchController!
-    private(set) var surfaces: [UInt32: FakeSurface] = [:]
+    private(set) var surfaces: [UInt32: FakeDisplaySurface] = [:]
     /// Every surface ever built, including ones since torn down, so a test can
     /// prove a disconnected display's surface was released rather than leaked.
-    private(set) var builtSurfaces: [FakeSurface] = []
+    private(set) var builtSurfaces: [FakeDisplaySurface] = []
     private(set) var viewModelsBuilt = 0
     private(set) var servicesStarted = 0
 
     var displays: [DisplayDescriptor]
     var pointer: CGPoint
     var mainDisplayID: UInt32?
+    /// The clock the sampler measures dwell against. Moved by hand, so a hover
+    /// costs no wall-clock time and never depends on timer scheduling.
+    var clock = Date(timeIntervalSince1970: 1_000_000)
+    /// Every `(inside, display)` the sampler decided, in order. A hover that
+    /// crosses from one display to another has to be one transition, not a
+    /// close followed by an open.
+    private(set) var pointerTransitions: [(inside: Bool, display: UInt32?)] = []
+    /// The high-water marks of the two invariants, sampled inside every state
+    /// change rather than after it.
+    private(set) var observedMaximumActive = 0
+    private(set) var observedMaximumKeyboard = 0
 
     private let suite: String
     private let defaults: UserDefaults
@@ -99,8 +133,8 @@ private final class Harness {
         settings = SettingsStore(
             defaults: defaults,
             lowBatteryAlerts: LowBatteryAlertService(
-                engine: LowBatteryAlertEngine(store: MemoryAlertStore(), now: Date()),
-                delivery: SilentAlertDelivery()
+                engine: LowBatteryAlertEngine(store: MemoryDisplayAlertStore(), now: Date()),
+                delivery: SilentDisplayAlertDelivery()
             )
         )
         // Settings reads the display list itself, for its picker. Point it at
@@ -114,9 +148,21 @@ private final class Harness {
             descriptors: { [unowned self] in self.displays },
             mainDisplayID: { [unowned self] in self.mainDisplayID },
             pointerLocation: { [unowned self] in self.pointer },
+            now: { [unowned self] in self.clock },
             makeSurface: { [unowned self] geometry, _ in
                 self.viewModelsBuilt = max(self.viewModelsBuilt, 1)
-                let surface = FakeSurface(geometry: geometry)
+                let surface = FakeDisplaySurface(geometry: geometry)
+                // The two invariants the whole design rests on, checked at every
+                // mutation rather than at the end of a test: at most one surface
+                // active, at most one willing to take keys. A momentary overlap
+                // between two statements would be caught here.
+                surface.onStateChange = { [unowned self] in
+                    self.observedMaximumActive = max(self.observedMaximumActive, self.activeSurfaceCount)
+                    self.observedMaximumKeyboard = max(
+                        self.observedMaximumKeyboard,
+                        self.keyboardOwningSurfaceCount
+                    )
+                }
                 self.surfaces[surface.displayID] = surface
                 self.builtSurfaces.append(surface)
                 return surface
@@ -128,12 +174,71 @@ private final class Harness {
         controller = NotchController(settings: settings, environment: environment)
     }
 
-    func install() { controller.install() }
+    func install() {
+        controller.install()
+        // The sampler's own timer is stopped and every sample is taken by hand
+        // below. Nothing about the routing changes — `tick()` is the same method
+        // the timer calls — but the test stops depending on when a run loop
+        // happens to fire.
+        controller.pointerSampler.stop()
+        let previous = controller.pointerSampler.onChange
+        controller.pointerSampler.onChange = { [unowned self] inside, display in
+            self.pointerTransitions.append((inside: inside, display: display))
+            previous?(inside, display)
+        }
+    }
 
     func tearDown() {
         controller.teardown()
         defaults.removePersistentDomain(forName: suite)
     }
+
+    // MARK: Driving the real pointer sampler
+
+    /// Takes one sample at the current position and clock.
+    func sample() { controller.pointerSampler.tick() }
+
+    /// Moves the pointer and lets the sampler resolve it: one sample to notice
+    /// the new position, the clock advanced past the dwell, one more to commit.
+    /// This is the production path — `PointerWatcher.hit`, the dwell, `onChange`,
+    /// `moveActivation` — and not an imitation of it.
+    func movePointer(to point: CGPoint, dwell: TimeInterval = 1) {
+        pointer = point
+        sample()
+        clock = clock.addingTimeInterval(dwell)
+        sample()
+    }
+
+    /// A pointer that crosses a region without stopping: sampled twice with
+    /// less time between the samples than any dwell threshold.
+    func sweepPointer(through points: [CGPoint], step: TimeInterval = 0.005) {
+        for point in points {
+            pointer = point
+            sample()
+            clock = clock.addingTimeInterval(step)
+        }
+    }
+
+    /// A point inside the collapsed hover target of a display.
+    func anchor(of displayID: UInt32) -> CGPoint {
+        let rect = surface(displayID).geometry.hoverRect
+        return CGPoint(x: rect.midX, y: rect.midY)
+    }
+
+    /// A point inside the expanded panel of a display.
+    func panelCentre(of displayID: UInt32) -> CGPoint {
+        let rect = surface(displayID).geometry.expandedHoverRect
+        return CGPoint(x: rect.midX, y: rect.midY)
+    }
+
+    /// Somewhere on a display but nowhere near Impuls.
+    func emptyDesktop(of displayID: UInt32) -> CGPoint {
+        let frame = surfaces[displayID]!.geometry.display.frame
+        return CGPoint(x: frame.midX, y: frame.minY + 40)
+    }
+
+    var activeSurfaceCount: Int { surfaces.values.filter(\.isActive).count }
+    var keyboardOwningSurfaceCount: Int { surfaces.values.filter(\.acceptsKeyboard).count }
 
     /// Re-runs the topology reconciliation the way a screen-parameter
     /// notification does, after `displays` has been changed.
@@ -145,13 +250,13 @@ private final class Harness {
         )
     }
 
-    func surface(_ id: UInt32) -> FakeSurface { surfaces[id]! }
+    func surface(_ id: UInt32) -> FakeDisplaySurface { surfaces[id]! }
     var vm: NotchViewModel { controller.viewModel! }
 }
 
 // MARK: - Fixtures
 
-private enum Layout {
+enum DisplayLayout {
     /// MacBook on the left, a 4K monitor to its right.
     static let macBook = DisplayFixtures.macBook()
     static let monitor = DisplayFixtures.plain(
@@ -180,7 +285,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     // MARK: Shared view model lifecycle
 
     func testOneViewModelAndOneSetOfServicesSurviveEveryTopologyChange() {
-        let harness = Harness(displays: [Layout.macBook], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
 
@@ -192,13 +297,13 @@ final class MultiDisplayControllerTests: XCTestCase {
         let calendar = ObjectIdentifier(viewModel.calendar)
 
         // Plug in a monitor, then a Sidecar iPad, then pull them both out.
-        harness.displays = [Layout.macBook, Layout.monitor]
+        harness.displays = [DisplayLayout.macBook, DisplayLayout.monitor]
         harness.reconnectDisplays()
-        harness.displays = [Layout.macBook, Layout.monitor, Layout.sidecar]
+        harness.displays = [DisplayLayout.macBook, DisplayLayout.monitor, DisplayLayout.sidecar]
         harness.reconnectDisplays()
-        harness.displays = [Layout.macBook, Layout.sidecar]
+        harness.displays = [DisplayLayout.macBook, DisplayLayout.sidecar]
         harness.reconnectDisplays()
-        harness.displays = [Layout.macBook]
+        harness.displays = [DisplayLayout.macBook]
         harness.reconnectDisplays()
 
         XCTAssertTrue(harness.vm === viewModel, "the view model is built once for the life of the app")
@@ -211,13 +316,13 @@ final class MultiDisplayControllerTests: XCTestCase {
     }
 
     func testAnUnchangedDisplayKeepsItsSurfaceAcrossAHotPlug() {
-        let harness = Harness(displays: [Layout.macBook], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
 
         let original = harness.surface(1)
 
-        harness.displays = [Layout.macBook, Layout.monitor]
+        harness.displays = [DisplayLayout.macBook, DisplayLayout.monitor]
         harness.reconnectDisplays()
 
         XCTAssertTrue(harness.surface(1) === original, "the display that did not move keeps its window")
@@ -227,13 +332,13 @@ final class MultiDisplayControllerTests: XCTestCase {
     }
 
     func testADisconnectedDisplayIsTornDownAndForgotten() {
-        let harness = Harness(displays: [Layout.macBook, Layout.sidecar], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.sidecar], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
 
         let sidecar = harness.surface(3)
 
-        harness.displays = [Layout.macBook]
+        harness.displays = [DisplayLayout.macBook]
         harness.reconnectDisplays()
 
         XCTAssertTrue(sidecar.isTornDown, "an unplugged display's window is released, not left on screen")
@@ -243,8 +348,14 @@ final class MultiDisplayControllerTests: XCTestCase {
 
     // MARK: Active display A → B
 
-    func testHoveringTheSecondDisplayMovesTheWholePanelToIt() {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor], pointer: Layout.onMacBook)
+    /// The click path, named for what it actually exercises.
+    ///
+    /// It used to be called `testHoveringTheSecondDisplayMovesTheWholePanelToIt`
+    /// while calling `onPress`, which is the press path — so it went green while
+    /// hover, the thing it claimed to cover, carried a keyboard-handoff bug all
+    /// the way to review. The hover tests below drive `PointerWatcher` itself.
+    func testPressingTheAnchorOnTheSecondDisplayMovesTheWholePanelToIt() {
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
 
@@ -258,7 +369,7 @@ final class MultiDisplayControllerTests: XCTestCase {
         XCTAssertTrue(harness.surface(1).acceptsKeyboard)
 
         // The pointer arrives at the monitor's anchor.
-        harness.pointer = Layout.onMonitor
+        harness.pointer = DisplayLayout.onMonitor
         harness.surface(2).onPress?()
 
         XCTAssertEqual(harness.controller.activeDisplayID, 2)
@@ -275,7 +386,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     }
 
     func testTheShortcutOpensOnTheDisplayThePointerIsOn() {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor], pointer: Layout.onMonitor)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMonitor)
         defer { harness.tearDown() }
         harness.install()
 
@@ -288,8 +399,8 @@ final class MultiDisplayControllerTests: XCTestCase {
     }
 
     func testTheShortcutFallsBackToTheMainDisplayWhenThePointerIsNowhere() {
-        let harness = Harness(
-            displays: [Layout.macBook, Layout.monitor],
+        let harness = DisplayHarness(
+            displays: [DisplayLayout.macBook, DisplayLayout.monitor],
             // Between the two displays, on neither of them.
             pointer: CGPoint(x: 1_000_000, y: 1_000_000),
             mainDisplayID: 2
@@ -303,7 +414,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     }
 
     func testTheActiveDisplayDisappearingFoldsThePanelAndKeepsEverythingElse() {
-        let harness = Harness(displays: [Layout.macBook, Layout.sidecar], pointer: Layout.onSidecar)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.sidecar], pointer: DisplayLayout.onSidecar)
         defer { harness.tearDown() }
         harness.install()
 
@@ -318,8 +429,8 @@ final class MultiDisplayControllerTests: XCTestCase {
         XCTAssertTrue(harness.vm.isOpen)
 
         // Sidecar is disconnected while the panel is expanded on it.
-        harness.displays = [Layout.macBook]
-        harness.pointer = Layout.onMacBook
+        harness.displays = [DisplayLayout.macBook]
+        harness.pointer = DisplayLayout.onMacBook
         harness.reconnectDisplays()
 
         XCTAssertFalse(harness.vm.isOpen, "the panel folds rather than pointing at a display that is gone")
@@ -331,7 +442,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     }
 
     func testOnlyTheActiveSurfaceIsEverOfferedTheKeyboard() {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor, Layout.sidecar], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor, DisplayLayout.sidecar], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
 
@@ -351,7 +462,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     // MARK: Drag and drop
 
     func testDroppingAFileOnTheSecondDisplayOpensTheShelfThere() throws {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
         XCTAssertEqual(harness.controller.activeDisplayID, 1)
@@ -360,7 +471,7 @@ final class MultiDisplayControllerTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: file) }
 
         // The drag enters the monitor's anchor, not the MacBook's notch.
-        harness.pointer = Layout.onMonitor
+        harness.pointer = DisplayLayout.onMonitor
         harness.surface(2).isReceivingDrag = true
         harness.surface(2).onDragEntered?()
 
@@ -377,7 +488,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     }
 
     func testOnlyOneDisplayIsADropTargetAtATime() throws {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
 
@@ -390,7 +501,7 @@ final class MultiDisplayControllerTests: XCTestCase {
 
         // The drag leaves the MacBook and arrives on the monitor.
         harness.surface(1).onDragExited?()
-        harness.pointer = Layout.onMonitor
+        harness.pointer = DisplayLayout.onMonitor
         harness.surface(2).onDragEntered?()
 
         XCTAssertEqual(harness.controller.activeDisplayID, 2)
@@ -407,7 +518,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     // MARK: Notification → Power
 
     func testALowBatteryNotificationOpensPowerOnTheDisplayInUse() {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor], pointer: Layout.onMonitor)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMonitor)
         defer { harness.tearDown() }
         harness.install()
         XCTAssertTrue(harness.vm.visibleTabs.contains(.power))
@@ -424,7 +535,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     }
 
     func testANotificationWhileWorkingOnTheMacBookStillOpensThere() {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
 
@@ -435,7 +546,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     }
 
     func testANotificationIsIgnoredWhenThePowerModuleIsOff() {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor], pointer: Layout.onMonitor)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMonitor)
         defer { harness.tearDown() }
         harness.install()
         harness.settings.setModule(.power, enabled: false)
@@ -449,7 +560,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     // MARK: Preference
 
     func testChoosingOneDisplayLeavesImpulsOnlyThere() {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor, Layout.sidecar], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor, DisplayLayout.sidecar], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
         XCTAssertEqual(harness.controller.presentedDisplayIDs.count, 3)
@@ -463,7 +574,7 @@ final class MultiDisplayControllerTests: XCTestCase {
         XCTAssertTrue(harness.surface(3).isTornDown)
 
         // Even with the pointer on the MacBook, the shortcut honours the choice.
-        harness.pointer = Layout.onMacBook
+        harness.pointer = DisplayLayout.onMacBook
         harness.controller.toggleFromKeyboard()
         XCTAssertEqual(harness.controller.activeDisplayID, 2)
     }
@@ -473,10 +584,10 @@ final class MultiDisplayControllerTests: XCTestCase {
             id: 9,
             name: "Mirror",
             origin: .zero,
-            size: Layout.macBook.frame.size,
+            size: DisplayLayout.macBook.frame.size,
             mirrorSourceID: 1
         )
-        let harness = Harness(displays: [Layout.macBook, mirror], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, mirror], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
 
@@ -487,7 +598,7 @@ final class MultiDisplayControllerTests: XCTestCase {
     // MARK: Panel size
 
     func testAutomaticGivesEachDisplayItsOwnPresetInOneRunningApp() {
-        let harness = Harness(displays: [Layout.macBook, Layout.monitor], pointer: Layout.onMacBook)
+        let harness = DisplayHarness(displays: [DisplayLayout.macBook, DisplayLayout.monitor], pointer: DisplayLayout.onMacBook)
         defer { harness.tearDown() }
         harness.install()
 

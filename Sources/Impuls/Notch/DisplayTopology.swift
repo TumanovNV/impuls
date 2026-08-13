@@ -248,13 +248,20 @@ enum AdaptivePanelLayout {
     /// surface, and Retina must not make the panel bigger.
     ///
     /// The thresholds sit either side of the built-in displays on purpose:
-    /// every MacBook, from the 13" at 1470 pt to the 16" at 1728 pt, lands on
-    /// Standard, which is what it has always had. Below 1280 pt — an old
-    /// 1280×800 panel, a small Sidecar iPad, a heavily scaled projector —
-    /// Compact leaves room either side. A desktop monitor at 1920 pt or more
-    /// gets Large.
+    /// every MacBook, from the 13" at 1440 pt through 1470 and 1512 to the 16"
+    /// at 1728 pt, lands on Standard, which is what it has always had. A
+    /// desktop monitor at 1920 pt or more gets Large.
+    ///
+    /// The small end is 1400 pt rather than 1280. A 1280 × 800 panel is the
+    /// smallest display a Mac has ever shipped with and a 1366 pt monitor is
+    /// the cheapest one anybody plugs in; calling either of them "not small"
+    /// and handing it the middle preset contradicted the rule this function
+    /// exists to express. At 1366 pt, Standard would have covered 45% of the
+    /// width against Compact's 41%. 1400 keeps every Retina MacBook exactly
+    /// where it was and moves only the displays that are genuinely small —
+    /// including a Sidecar iPad Pro at 1366 pt, where Compact is plainly right.
     static func expandedSize(forDisplayWidth width: CGFloat) -> CGSize {
-        if width < 1280 { return compact }
+        if width < 1400 { return compact }
         if width < 1800 { return standard }
         return large
     }

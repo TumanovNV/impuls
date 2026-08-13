@@ -13,7 +13,10 @@ Legend: ✅ pass · ❌ fail · — not applicable to this hardware.
 
 ## Before starting
 
-- [ ] `swift test -c release` — 331 tests, 0 failures
+- [ ] `swift test -c release` — all tests green, no failures and no unexpected
+      skips. Deliberately not a count: a number written down here is wrong the
+      day someone adds a test, and a stale number invites people to assume the
+      run was short rather than to read the output.
 - [ ] `./Scripts/bundle.sh release`, then `open build/Impuls.app`
 - [ ] Settings → General → Display Behavior is **All Displays**
 - [ ] Settings → General → Panel Size is **Automatic**

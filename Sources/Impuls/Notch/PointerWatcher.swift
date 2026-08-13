@@ -39,6 +39,12 @@ final class PointerWatcher {
     /// exercised without moving a real mouse across real monitors.
     var pointerLocation: () -> CGPoint = { NSEvent.mouseLocation }
 
+    /// The clock the dwell thresholds are measured against. Injected for the
+    /// same reason as the pointer: a test that has to sleep for a real 50 ms to
+    /// watch an open, and a real 320 ms to watch a close, is a test nobody runs
+    /// often enough for it to catch anything.
+    var now: () -> Date = { Date() }
+
     /// Keeps a surface interactive while a drag is being tracked on it, even if
     /// the pointer wanders outside its `interactiveRect` mid-session.
     var isDragging: (UInt32) -> Bool = { _ in false }
@@ -84,15 +90,18 @@ final class PointerWatcher {
     /// another's — restarts the clock instead of inheriting it.
     private var pending: (target: UInt32?, since: Date)?
     private var interactiveByDisplay: [UInt32: Bool] = [:]
+    private var isSampling = false
     private var isWarm = false
     private var lastPoint = CGPoint(x: -1, y: -1)
     private var lastMovedAt = Date.distantPast
 
     func start() {
+        isSampling = true
         schedule(warm: false)
     }
 
     func stop() {
+        isSampling = false
         timer?.invalidate()
         timer = nil
         pending = nil
@@ -119,7 +128,11 @@ final class PointerWatcher {
 
     private func schedule(warm: Bool) {
         timer?.invalidate()
+        timer = nil
+        // The rate is remembered either way: it carries the hysteresis, and a
+        // sampler that is merely paused has not stopped being warm.
         isWarm = warm
+        guard isSampling else { return }
         let interval = warm ? fastInterval : idleInterval
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -149,9 +162,9 @@ final class PointerWatcher {
     private func updateRate(for point: CGPoint) {
         if point != lastPoint {
             lastPoint = point
-            lastMovedAt = Date()
+            lastMovedAt = now()
         }
-        let moving = Date().timeIntervalSince(lastMovedAt) < restThreshold
+        let moving = now().timeIntervalSince(lastMovedAt) < restThreshold
         let near: Bool
         if isInside {
             near = true
@@ -189,7 +202,11 @@ final class PointerWatcher {
         return zones.first { !$0.openRect.isEmpty && $0.openRect.contains(point) }?.displayID
     }
 
-    private func tick() {
+    /// One sample. Driven by the timer in the app, and called directly by the
+    /// suite, which is the only way to exercise the routing between displays —
+    /// hover, dwell, the handover from one display's panel to another's anchor —
+    /// through the code that actually performs it rather than around it.
+    func tick() {
         let point = pointerLocation()
         updateRate(for: point)
         updateInteractiveRegions(at: point)
@@ -240,10 +257,10 @@ final class PointerWatcher {
     /// True once the pending transition to `target` has stood for `delay`.
     private func waited(for target: UInt32?, delay: TimeInterval) -> Bool {
         guard let current = pending, current.target == target else {
-            pending = (target: target, since: Date())
+            pending = (target: target, since: now())
             return false
         }
-        guard Date().timeIntervalSince(current.since) >= delay else { return false }
+        guard now().timeIntervalSince(current.since) >= delay else { return false }
         pending = nil
         return true
     }

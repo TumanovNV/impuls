@@ -177,6 +177,13 @@ final class NotchDisplaySurface: NotchSurfacing {
     }
 
     func teardown() {
+        // Left in the state an inactive surface is in, not merely unhooked. A
+        // display that has been unplugged is gone from the coordinator, so
+        // nothing would ever ask this object again — but an object that still
+        // says it is active and still says it takes keys is a lie waiting for
+        // the next reader, and the invariant is meant to hold over every
+        // surface that has ever existed, not only the registered ones.
+        setActive(false)
         panel.acceptsKeyboard = false
         panel.onPress = nil
         panel.onKeyCommand = nil
