@@ -244,6 +244,8 @@ h3{font-size:1.125rem;letter-spacing:-.012em;line-height:1.35}
 p{margin:0}
 
 .wrap{width:100%;max-width:var(--page);margin-inline:auto;padding-inline:var(--s5)}
+/* The proof asset earns more width than the reading measure does. */
+.wrap-wide{max-width:1440px}
 @media(min-width:768px){.wrap{padding-inline:var(--s6)}}
 .measure{max-width:var(--measure)}
 .lead{color:var(--muted);font-size:1.0625rem;line-height:1.65}
@@ -345,7 +347,8 @@ header.stuck{border-bottom-color:var(--line)}
   padding:0 var(--s3) var(--s5);
   overflow:hidden;
 }
-@media(min-width:768px){.stage{padding:0 var(--s6) var(--s6)}}
+@media(min-width:768px){.stage{padding:0 var(--s4) var(--s6)}}
+@media(min-width:1280px){.stage{padding:0 var(--s5) var(--s7)}}
 .menubar{
   display:flex;align-items:center;gap:var(--s4);height:26px;
   padding-inline:var(--s3);font-size:.6875rem;color:var(--stage-ink);
@@ -355,7 +358,7 @@ header.stuck{border-bottom-color:var(--line)}
 @media(min-width:768px){.menubar{margin-inline:calc(var(--s6) * -1);padding-inline:var(--s5)}}
 .menubar .spacer{margin-inline-start:auto}
 .stage-panel{
-  max-width:900px;margin:0 auto;
+  max-width:1180px;margin:0 auto;
   filter:drop-shadow(0 22px 40px rgba(10,14,24,.28));
 }
 @media(prefers-color-scheme:dark){.stage-panel{filter:drop-shadow(0 26px 50px rgba(0,0,0,.6))}}
@@ -375,6 +378,30 @@ header.stuck{border-bottom-color:var(--line)}
     to{transform:none;opacity:1}
   }
 }
+
+/* --- Section compositions -----------------------------------------------
+   Three deliberately different shapes, because a page where every chapter is
+   eyebrow -> two-line headline -> paragraph -> picture reads as generated even
+   when every individual section is fine.
+
+   `.statement`   — one wide block of argument, no picture.
+   `.header-split`— headline left, standfirst right, so the header itself is
+                    asymmetric instead of a centred stack.
+   `.split`       — the two-column story block below.                        */
+.statement-body{max-width:52rem;display:grid;gap:var(--s4)}
+.statement-body h2{margin-bottom:var(--s2)}
+.statement .lead{font-size:1.1875rem}
+@media(min-width:900px){
+  .statement .lead{font-size:1.375rem;line-height:1.55}
+  .statement-body{max-width:56rem}
+}
+.header-split{display:grid;gap:var(--s4);align-items:start}
+@media(min-width:900px){
+  .header-split{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:var(--s8);align-items:end}
+  .header-split>*{min-width:0}
+}
+.standfirst{color:var(--muted);font-size:1.0625rem;margin-top:var(--s3);max-width:40ch}
+@media(min-width:768px){.standfirst{font-size:1.1875rem}}
 
 /* --- Two-column story block --------------------------------------------- */
 /* `minmax(0,1fr)` and `min-width:0`, both deliberate: a grid item defaults to
@@ -631,8 +658,8 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <!-- ===== HERO ===== -->
 <div class="hero" id="top">
   <div class="wrap hero-copy">
-    <h1 data-i="hero.h1">The small stuff, next to your work instead of in another app</h1>
-    <p class="lead" data-i="hero.sub">Impuls drops a panel from the top edge of the screen: find what you copied an hour ago, park a file between windows, write a thought down, translate a phrase. One move, and the panel is gone again.</p>
+    <h1 data-i="hero.h1">Do the small thing without leaving the window</h1>
+    <p class="lead" data-i="hero.sub">Find what you copied this morning. Grab a file out of the app next door. Paste a saved line, translate a phrase. Impuls comes down over whatever you are working in, lets you do it in a couple of seconds, and goes. You never leave the document, so you never have to find your way back into it.</p>
     <div class="hero-cta">
       <a class="btn btn-primary" data-conversion="download" data-placement="hero" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.9/Impuls-1.4.9.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
@@ -656,7 +683,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
     </ul>
   </div>
 
-  <div class="wrap">
+  <div class="wrap wrap-wide">
     <div class="stage">
       <div class="menubar" aria-hidden="true">
         <span>Finder</span><span data-i="mb.file">File</span><span data-i="mb.edit">Edit</span>
@@ -677,13 +704,12 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 </div>
 
 <!-- ===== WHY ===== -->
-<section id="why">
+<section id="why" class="statement">
   <div class="wrap">
-    <div class="measure">
-      <p class="eyebrow" data-i="why.eyebrow">Why bother</p>
+    <div class="statement-body">
       <h2 data-i="why.h2">A small errand costs more than it looks</h2>
-      <p class="lead" style="margin-top:var(--s4)" data-i="why.p1">Find the address someone sent this morning. Move a file from mail into an editor. Then dig up the wording you already wrote once and cannot quite remember. Each errand costs seconds, and each one makes you leave the document, hunt for a window and come back.</p>
-      <p class="lead" style="margin-top:var(--s4)" data-i="why.p2">Impuls keeps those things on one surface above the window you are in: clipboard history, a shelf for files, snippets and notes. Instead of switching applications, you pull the panel down, take what you need and carry on from the same place.</p>
+      <p class="lead" data-i="why.p1">Find the address someone sent this morning. Move a file from mail into an editor. Then dig up the wording you already wrote once and cannot quite remember. Each errand costs seconds, and each one makes you leave the document, hunt for a window and come back.</p>
+      <p class="lead" data-i="why.p2">Impuls keeps those things on one surface above the window you are in: clipboard history, a shelf for files, snippets and notes. Instead of switching applications, you pull the panel down, take what you need and carry on from the same place.</p>
     </div>
   </div>
 </section>
@@ -695,8 +721,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
   <div class="wrap">
     <div class="split">
       <div class="reveal">
-        <p class="eyebrow" data-i="a.eyebrow">Actions</p>
-        <h2 data-i="a.h2">One search instead of three places</h2>
+        <h2 data-i="a.h2">One search across clipboard, snippets and notes</h2>
         <p class="lead" style="margin-top:var(--s4)" data-i="a.lead">Clipboard history, snippets and notes answer the same query. You do not have to remember which one you put it in.</p>
         <ol class="steps">
           <li><span class="n">1</span><div><b data-i="a.s1">Open the panel</b><p data-i="a.s1d">With the global shortcut from any application, or by moving the pointer to the top edge of the screen.</p></div></li>
@@ -724,10 +749,9 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <!-- ===== MODULES ===== -->
 <section id="modules">
   <div class="wrap">
-    <div class="measure" style="margin-bottom:var(--s7)">
-      <p class="eyebrow" data-i="m.eyebrow">Modules</p>
-      <h2 data-i="m.h2">One panel, changing its job</h2>
-      <p class="lead" style="margin-top:var(--s4)" data-i="m.lead">The rails either side of the cutout hold nine module icons, and they decide what the panel shows. You can switch any module off or reorder it in Settings, so nothing sits in the rail that you do not use. Actions and Battery have their own sections above and below; the rest are here.</p>
+    <div class="header-split" style="margin-bottom:var(--s7)">
+      <h2 data-i="m.h2">Nine modules, one rail</h2>
+      <p class="lead" data-i="m.lead">The rails either side of the cutout hold nine module icons, and they decide what the panel shows. You can switch any module off or reorder it in Settings, so nothing sits in the rail that you do not use. Actions and Battery have their own sections above and below; the rest are here.</p>
     </div>
 
     <div class="modules">
@@ -840,8 +864,8 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
   <div class="wrap">
     <div class="split reverse">
       <div class="reveal">
-        <p class="eyebrow" data-i="d.eyebrow">Power</p>
-        <h2 data-i="d.h2">The charge of your Mac and what is attached to it</h2>
+        <h2 data-i="d.h2">Power</h2>
+        <p class="standfirst" data-i="d.stand">The charge of your Mac and everything attached to it.</p>
         <p class="lead" style="margin-top:var(--s4)" data-i="d.lead">Mac, AirPods, iPhone and iPad in one tab, without a separate utility. Impuls shows what the system reports and nothing more: a value it cannot read stays unavailable rather than turning into a zero or a guess.</p>
         <ul class="boundaries boundaries-plain">
           <li><div><b data-i="d.b1">Mac</b><span data-i="d.b1d">Charge, power state, time to empty or to full, plus capacity, voltage, temperature and cycle count wherever macOS publishes them. On desktop Macs the module is called Power.</span></div></li>
@@ -869,9 +893,9 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <!-- ===== DISPLAYS & BEHAVIOUR ===== -->
 <section id="behaviour">
   <div class="wrap">
-    <div class="measure">
-      <p class="eyebrow" data-i="b.eyebrow">Behaviour</p>
-      <h2 data-i="b.h2">It arrives where you are working, and leaves on its own</h2>
+    <div class="header-split">
+      <h2 data-i="b.h2">On every screen</h2>
+      <p class="lead" data-i="b.stand">The built-in display, an external monitor, an iPad running as a Sidecar display. The panel opens wherever the pointer is, and folds back into the edge when it is no longer wanted.</p>
     </div>
     <div class="facts">
       <div class="fact reveal">
@@ -905,8 +929,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <section id="privacy">
   <div class="wrap">
     <div class="measure">
-      <p class="eyebrow" data-i="p.eyebrow">Privacy</p>
-      <h2 data-i="p.h2">Your work stays on the Mac</h2>
+      <h2 data-i="p.h2">Your data stays on the Mac</h2>
       <p class="lead" style="margin-top:var(--s4)" data-i="p.lead">Impuls has no account, analytics, advertising, telemetry, remote configuration or device identifier. Clipboard, notes, snippets, files and calendar go nowhere. Two things reach the network, and you switch on both.</p>
       <ul class="boundaries">
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><div><b data-i="p.b1">Update checks</b><span data-i="p.b1d">Impuls asks on first launch, and you can change the answer later. It reaches only the signed Impuls channel on GitHub. Sparkle's system profiling stays off, and automatic installation is a separate choice again.</span></div></li>
@@ -924,10 +947,9 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <!-- ===== OPEN ===== -->
 <section id="open">
   <div class="wrap">
-    <div class="measure">
-      <p class="eyebrow" data-i="o.eyebrow">Verify</p>
-      <h2 data-i="o.h2">You do not have to take any of this on trust</h2>
-      <p class="lead" style="margin-top:var(--s4)" data-i="o.lead">The source, the change history and the security model are public. Every build has a checksum, and Impuls checks the signature of an update before unpacking any of it.</p>
+    <div class="header-split">
+      <h2 data-i="o.h2">Source, build and checksums are public</h2>
+      <p class="lead" data-i="o.lead">The source, the change history and the security model are public. Every build has a checksum, and Impuls checks the signature of an update before unpacking any of it.</p>
     </div>
     <div class="facts">
       <div class="fact reveal"><span class="fact-k" data-i="o.k1">Code</span><h3 data-i="o.h31">Open repository</h3><p data-i="o.p1">The implementation, the tests and every release note are on GitHub under GPL-3.0-or-later.</p><p style="margin-top:var(--s3)"><a class="btn btn-ghost btn-sm" data-conversion="github" data-placement="open" href="https://github.com/TumanovNV/impuls" rel="noopener"><span data-i="o.a1">Read the source</span></a></p></div>
@@ -942,8 +964,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <section id="install" class="install">
   <div class="wrap">
     <div class="measure">
-      <p class="eyebrow" data-i="i.eyebrow">Install</p>
-      <h2 data-i="i.h2">Three steps, one of them about Gatekeeper</h2>
+      <h2 data-i="i.h2">Installing takes three steps</h2>
       <p class="lead" style="margin-top:var(--s4)"><span data-i="i.lead">Impuls is ad-hoc signed and not yet notarized by Apple, so the first launch needs your approval. Later updates install from inside the app through the signed channel.</span></p>
     </div>
     <div class="install-grid">
@@ -968,8 +989,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <section id="faq">
   <div class="wrap">
     <div class="measure">
-      <p class="eyebrow" data-i="f.eyebrow">Questions</p>
-      <h2 data-i="f.h2">What people usually ask</h2>
+      <h2 data-i="f.h2">Questions</h2>
     </div>
     <div class="faq">
       <details><summary data-i="f.q1">Do I need a MacBook with a notch?</summary><div class="a" data-i="f.a1">No. On a MacBook with a cutout the panel uses its geometry; on any other screen Impuls draws a compact anchor at the top edge. It works on the built-in display, on an external monitor and on an iPad running as a Sidecar display.</div></details>
@@ -1049,8 +1069,8 @@ var EN = {
 "cta.short":"Download","cta.mac":"Download for macOS","cta.mac2":"Download for macOS","cta.mac3":"Download for macOS",
 "cta.see":"See the modules","cta.fb":"Write to the developer",
 
-"hero.h1":"The small stuff, next to your work instead of in another app",
-"hero.sub":"Impuls drops a panel from the top edge of the screen: find what you copied an hour ago, park a file between windows, write a thought down, translate a phrase. One move, and the panel is gone again.",
+"hero.h1":"Do the small thing without leaving the window",
+"hero.sub":"Find what you copied this morning. Grab a file out of the app next door. Paste a saved line, translate a phrase. Impuls comes down over whatever you are working in, lets you do it in a couple of seconds, and goes. You never leave the document, so you never have to find your way back into it.",
 "hero.f1":"Works on any Mac screen, not only a MacBook with a notch",
 "hero.f2":"Clipboard, files and notes never leave the Mac",
 "hero.f3":"A native app, with no account and no subscription",
@@ -1063,14 +1083,14 @@ var EN = {
 "why.p1":"Find the address someone sent this morning. Move a file from mail into an editor. Then dig up the wording you already wrote once and cannot quite remember. Each errand costs seconds, and each one makes you leave the document, hunt for a window and come back.",
 "why.p2":"Impuls keeps those things on one surface above the window you are in: clipboard history, a shelf for files, snippets and notes. Instead of switching applications, you pull the panel down, take what you need and carry on from the same place.",
 
-"a.eyebrow":"Actions","a.h2":"One search instead of three places",
+"a.eyebrow":"Actions","a.h2":"One search across clipboard, snippets and notes",
 "a.lead":"Clipboard history, snippets and notes answer the same query. You do not have to remember which one you put it in.",
 "a.s1":"Open the panel","a.s1d":"With the global shortcut from any application, or by moving the pointer to the top edge of the screen.",
 "a.s2":"Type what you remember","a.s2d":"Search ignores case and diacritics and ranks exact matches higher. Impuls builds the index from the live local stores and never keeps it as a database of its own.",
 "a.s3":"Act without leaving the panel","a.s3d":"Copy, save as a snippet, start a note, translate, open a link, or reveal a file in Finder.",
 "a.k1":"move through results,","a.k2":"copies,","a.k3":"closes the panel.",
 
-"m.eyebrow":"Modules","m.h2":"One panel, changing its job",
+"m.eyebrow":"Modules","m.h2":"Nine modules, one rail",
 "m.lead":"The rails either side of the cutout hold nine module icons, and they decide what the panel shows. You can switch any module off or reorder it in Settings, so nothing sits in the rail that you do not use. Actions and Battery have their own sections above and below; the rest are here.",
 "m.cal":"That leaves Calendar: the next meeting, how long until it starts, and a join button when the invitation carries a link. Calendar access is requested by the standard macOS dialog and is needed by this module alone.",
 
@@ -1093,14 +1113,15 @@ var EN = {
 "mod.media.d":"The source is chosen explicitly. Apple Music is read natively through its scripting interface; Yandex Music, VK Music and YouTube Music open their own official sites in a system WebKit window.",
 "mod.media.n":"Choosing a source makes no request — the connection appears only after Open Web Player. Instead of a blanket “nothing is playing”, the panel names the reason: the application is not open, no track is running, or permission is needed.",
 
-"d.eyebrow":"Power","d.h2":"The charge of your Mac and what is attached to it",
+"d.eyebrow":"Power","d.h2":"Power","d.stand":"The charge of your Mac and everything attached to it.",
 "d.lead":"Mac, AirPods, iPhone and iPad in one tab, without a separate utility. Impuls shows what the system reports and nothing more: a value it cannot read stays unavailable rather than turning into a zero or a guess.",
 "d.b1":"Mac","d.b1d":"Charge, power state, time to empty or to full, plus capacity, voltage, temperature and cycle count wherever macOS publishes them. On desktop Macs the module is called Power.",
 "d.b2":"AirPods and accessories","d.b2d":"From the values macOS exposes itself. Availability depends on the model and on what the system knows at that moment.",
 "d.b3":"iPhone and iPad — Beta","d.b3d":"Through the trust the device has already given this Mac: over the cable, or through Finder Wi-Fi sync. Impuls pairs nothing, scans no network and opens no direct connection to the device.",
 "d.b4":"Off until you turn it on","d.b4d":"Device discovery is a single switch in Settings. While it is off, Impuls opens no connection and reads nothing. Raw device identifiers are never shown, logged or written into a backup.",
 
-"b.eyebrow":"Behaviour","b.h2":"It arrives where you are working, and leaves on its own",
+"b.eyebrow":"Behaviour","b.h2":"On every screen",
+"b.stand":"The built-in display, an external monitor, an iPad running as a Sidecar display. The panel opens wherever the pointer is, and folds back into the edge when it is no longer wanted.",
 "b.k1":"Displays","b.h31":"On every screen",
 "b.p1":"The built-in display with a cutout, an external monitor, an iPad running as a Sidecar display. The panel opens on whichever screen the pointer is on, and only ever one is expanded — carrying the same data.",
 "b.k2":"No cutout needed","b.h32":"Not only MacBooks",
@@ -1111,7 +1132,7 @@ var EN = {
 "b.p4":"Impuls does not become another permanent window: the panel folds back into the edge of the screen and takes no place in application switching.",
 "b.a11y":"You can drive the panel from the keyboard, and VoiceOver reads it: every row carries a name, a value and its actions, and every rail icon carries its module's name. Impuls follows the system settings for Reduce Motion, Increase Contrast and Reduce Transparency.",
 
-"p.eyebrow":"Privacy","p.h2":"Your work stays on the Mac",
+"p.eyebrow":"Privacy","p.h2":"Your data stays on the Mac",
 "p.lead":"Impuls has no account, analytics, advertising, telemetry, remote configuration or device identifier. Clipboard, notes, snippets, files and calendar go nowhere. Two things reach the network, and you switch on both.",
 "p.b1":"Update checks","p.b1d":"Impuls asks on first launch, and you can change the answer later. It reaches only the signed Impuls channel on GitHub. Sparkle's system profiling stays off, and automatic installation is a separate choice again.",
 "p.b2":"Web player","p.b2d":"Choosing a source in Music makes no request at all. A connection appears only after Open Web Player, and what opens is the selected service's official site in a system WebKit window.",
@@ -1119,21 +1140,21 @@ var EN = {
 "p.b4":"Feedback","p.b4d":"Impuls composes the report on your Mac and shows it to you in full first. It never uploads it: when you press the button, the text goes to the pasteboard and your browser opens a GitHub form. The report carries no clipboard, notes, file names, calendar data, serial numbers or identifiers.",
 "p.doc":"Privacy policy",
 
-"o.eyebrow":"Verify","o.h2":"You do not have to take any of this on trust",
+"o.eyebrow":"Verify","o.h2":"Source, build and checksums are public",
 "o.lead":"The source, the change history and the security model are public. Every build has a checksum, and Impuls checks the signature of an update before unpacking any of it.",
 "o.k1":"Code","o.h31":"Open repository","o.p1":"The implementation, the tests and every release note are on GitHub under GPL-3.0-or-later.","o.a1":"Read the source",
 "o.k2":"Build","o.h32":"Checks before release","o.p2":"CI runs the test suite, enforces the privacy boundaries and confirms that launching the app opens no socket.",
 "o.k3":"File","o.h33":"SHA-256 for every build","o.p3":"The checksum is published beside the DMG and can be compared before you install.",
 "o.k4":"History","o.h34":"What changed","o.p4":"Every version is written up separately, in Russian and English.","o.a2":"Release history",
 
-"i.eyebrow":"Install","i.h2":"Three steps, one of them about Gatekeeper",
+"i.eyebrow":"Install","i.h2":"Installing takes three steps",
 "i.lead":"Impuls is ad-hoc signed and not yet notarized by Apple, so the first launch needs your approval. Later updates install from inside the app through the signed channel.",
 "i.h31":"Download and move it","i.p1":"Open","i.p1b":"and drag Impuls into Applications.",
 "i.h32":"Allow the first launch","i.p2":"If macOS refuses to open it, go to System Settings → Privacy & Security and choose Open Anyway. This is needed once.",
 "i.h33":"Set it up","i.p3":"Pick your shortcut, the panel size, and which modules you want and in what order. Update checks and Apple device discovery are switched on separately.",
 "i.hash":"SHA-256 of the current DMG","i.copy":"Copy",
 
-"f.eyebrow":"Questions","f.h2":"What people usually ask",
+"f.eyebrow":"Questions","f.h2":"Questions",
 "f.q1":"Do I need a MacBook with a notch?",
 "f.a1":"No. On a MacBook with a cutout the panel uses its geometry; on any other screen Impuls draws a compact anchor at the top edge. It works on the built-in display, on an external monitor and on an iPad running as a Sidecar display.",
 "f.q2":"Does my data go to the internet?",
