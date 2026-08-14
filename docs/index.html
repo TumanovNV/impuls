@@ -225,7 +225,7 @@ p{margin:0}
 }
 @media(min-width:768px){.wrap{padding-inline:var(--s6)}}
 .measure{max-width:var(--measure)}
-.lead{color:var(--muted);font-size:1.0625rem;line-height:1.65}
+.lead{color:var(--muted);font-size:1.0625rem;line-height:1.65;text-wrap:pretty}
 @media(min-width:768px){.lead{font-size:1.1875rem}}
 .eyebrow{
   font-size:.75rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
@@ -268,12 +268,13 @@ header.stuck{border-bottom-color:var(--line)}
 .nav-links a:hover{color:var(--text)}
 .nav-right{display:flex;align-items:center;gap:var(--s3);margin-inline-start:auto}
 .lang{display:flex;border:1px solid var(--line);border-radius:var(--r-m);padding:2px;background:var(--surface-2)}
-.lang button{
-  border:0;background:transparent;color:var(--muted);cursor:pointer;
+.lang a{
+  border:0;background:transparent;color:var(--muted);cursor:pointer;text-decoration:none;
   font:inherit;font-size:.8125rem;font-weight:500;padding:3px 9px;border-radius:calc(var(--r-m) - 3px);
   transition:background var(--dur-open) var(--ease-open),color var(--dur-open) var(--ease-open);
 }
-.lang button[aria-pressed=true]{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.10)}
+.lang a:hover{color:var(--text)}
+.lang a[aria-current=page]{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.10)}
 
 /* --- Buttons ------------------------------------------------------------ */
 .btn{
@@ -369,12 +370,12 @@ header.stuck{border-bottom-color:var(--line)}
    `.header-split`— headline left, standfirst right, so the header itself is
                     asymmetric instead of a centred stack.
    `.split`       — the two-column story block below.                        */
-.statement-body{max-width:52rem;display:grid;gap:var(--s4)}
+.statement-body{max-width:44rem;display:grid;gap:var(--s4)}
 .statement-body h2{margin-bottom:var(--s2)}
 .statement .lead{font-size:1.1875rem}
 @media(min-width:900px){
   .statement .lead{font-size:1.375rem;line-height:1.55}
-  .statement-body{max-width:56rem}
+  .statement-body{max-width:46rem}
 }
 .header-split{display:grid;gap:var(--s4);align-items:start}
 @media(min-width:900px){
@@ -489,6 +490,9 @@ kbd{
 .facts>*{min-width:0}
 @media(min-width:700px){.facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s6)}}
 @media(min-width:1024px){.facts{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.open-facts .fact{display:flex;flex-direction:column}
+.open-facts .fact-action{margin-top:auto;padding-top:var(--s3)}
+@media(min-width:1024px){.open-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .fact h3{font-size:1rem;margin-bottom:var(--s2)}
 .fact p{color:var(--muted);font-size:.9375rem}
 .fact-k{
@@ -556,16 +560,19 @@ kbd{
 .final .hero-meta{justify-content:center}
 footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--faint);font-size:.875rem}
 .foot{display:flex;flex-wrap:wrap;gap:var(--s4) var(--s5);align-items:center}
-.foot a{color:var(--muted);text-decoration:none}
+/* padding-block, not a taller line: the footer links measured 22 px on a phone,
+   under the 24 px minimum target size, and growing the line would open the row. */
+.foot a{color:var(--muted);text-decoration:none;display:inline-block;padding-block:5px}
 .foot a:hover{color:var(--text);text-decoration:underline}
 .foot .spacer{margin-inline-start:auto}
 
-/* --- Mobile sticky CTA -------------------------------------------------- */
-.sticky-cta{
-  position:fixed;left:var(--s4);right:var(--s4);bottom:var(--s4);z-index:90;
-  display:none;justify-content:center;box-shadow:0 10px 30px -8px rgba(0,0,0,.4);
+/* At 320 px the English header row — RU · EN · Download — is 3 px wider than the
+   viewport where the shorter Russian one fits. Tighten the row rather than drop a
+   control: the language pair and the download button both have to stay reachable. */
+@media(max-width:359px){
+  .nav-right{gap:var(--s2)}
+  .btn-sm{padding:0 var(--s3)}
 }
-@media(max-width:767px){.sticky-cta.on{display:flex}}
 
 /* --- Narrow screens: pan the panel instead of shrinking it --------------
    The panel is 2.7:1. Scaled to fit a phone it becomes an illegible strip and
@@ -577,6 +584,8 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
+    -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent 100%);
+    mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent 100%);
   }
   .stage-panel img,.shot img,.module-shot img{min-width:620px}
   .stage-panel{filter:none}
@@ -630,9 +639,13 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
       <a href="#install" data-i="nav.install">Установка</a>
     </nav>
     <div class="nav-right">
+      <!-- Navigation between two static pages, not a toggle. A runtime swap left
+           the reader on the Russian URL with a Russian title, description and
+           JSON-LD above an English body, which is the exact thing docs/en/ exists
+           to prevent. -->
       <div class="lang" role="group" aria-label="Язык страницы">
-        <button type="button" id="btn-ru" aria-pressed="true" onclick="setLang('ru')">RU</button>
-        <button type="button" id="btn-en" aria-pressed="false" onclick="setLang('en')">EN</button>
+        <a id="btn-ru" href="./" hreflang="ru" aria-current="page">RU</a>
+        <a id="btn-en" href="en/" hreflang="en">EN</a>
       </div>
       <a class="btn btn-primary btn-sm" data-conversion="download" data-placement="header" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.9/Impuls-1.4.9.dmg">
         <span data-i="cta.short">Скачать</span>
@@ -647,8 +660,8 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <div class="hero" id="top">
   <div class="wrap hero-copy">
     <p class="kicker" data-i="hero.kicker">Панель для macOS</p>
-    <h1 data-i="hero.h1">Мелкое дело — не выходя из окна</h1>
-    <p class="lead" data-i="hero.sub">Найти то, что копировали утром. Забрать файл из соседнего приложения. Вставить заготовку, перевести фразу. Impuls опускается поверх того, над чем вы работаете, даёт сделать это за пару секунд и уходит. Из документа выходить не нужно — и возвращаться в него тоже.</p>
+    <h1 data-i="hero.h1">Мелкое дело&nbsp;— не выходя из окна</h1>
+    <p class="lead" data-i="hero.sub">Найти то, что копировали утром. Забрать файл из соседнего приложения. Вставить заготовку, перевести фразу. Impuls опускается поверх того, над чем вы работаете, даёт сделать это за пару секунд и уходит. Из документа выходить не нужно&nbsp;— и возвращаться в него тоже.</p>
     <div class="hero-cta">
       <a class="btn btn-primary" data-conversion="download" data-placement="hero" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.9/Impuls-1.4.9.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
@@ -739,7 +752,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
   <div class="wrap">
     <div class="header-split" style="margin-bottom:var(--s7)">
       <h2 data-i="m.h2">Девять модулей, один рейл</h2>
-      <p class="lead" data-i="m.lead">Слева и справа от выреза — рейл из девяти значков. Он переключает то, что показывает панель. Каждый модуль включается, выключается и переставляется в настройках; лишнего в рейле нет. «Действия» и «Аккумулятор» описаны выше и ниже, остальные — здесь.</p>
+      <p class="lead" data-i="m.lead">Слева и справа от выреза — рейл из девяти значков, и задача у всех девяти одна: короткое дело, ради которого не стоит уходить из окна. Что не проходит этот критерий, в рейл не попадает. Каждый модуль включается, выключается и переставляется в настройках. «Действия» и «Аккумулятор» описаны выше и ниже, остальные — здесь.</p>
     </div>
 
     <div class="modules">
@@ -939,11 +952,11 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
       <h2 data-i="o.h2">Код, сборка и контрольные суммы открыты</h2>
       <p class="lead" data-i="o.lead">Исходный код, история изменений и модель безопасности открыты. У каждой сборки есть контрольная сумма, а обновления приходят по подписанному каналу с проверкой подписи до распаковки.</p>
     </div>
-    <div class="facts">
-      <div class="fact reveal"><span class="fact-k" data-i="o.k1">Код</span><h3 data-i="o.h31">Открытый репозиторий</h3><p data-i="o.p1">Реализация, тесты и вся история релизов — на GitHub, лицензия GPL-3.0-or-later.</p><p style="margin-top:var(--s3)"><a class="btn btn-ghost btn-sm" data-conversion="github" data-placement="open" href="https://github.com/TumanovNV/impuls" rel="noopener"><span data-i="o.a1">Открыть исходный код</span></a></p></div>
+    <div class="facts open-facts">
+      <div class="fact reveal"><span class="fact-k" data-i="o.k1">Код</span><h3 data-i="o.h31">Открытый репозиторий</h3><p data-i="o.p1">Реализация, тесты и вся история релизов — на GitHub, лицензия GPL-3.0-or-later.</p><p class="fact-action"><a class="btn btn-ghost btn-sm" data-conversion="github" data-placement="open" href="https://github.com/TumanovNV/impuls" rel="noopener"><span data-i="o.a1">Открыть исходный код</span></a></p></div>
       <div class="fact reveal"><span class="fact-k" data-i="o.k2">Сборка</span><h3 data-i="o.h32">Проверки до релиза</h3><p data-i="o.p2">CI запускает тесты, проверяет границы приватности и убеждается, что запуск приложения не открывает ни одного сокета.</p></div>
       <div class="fact reveal"><span class="fact-k" data-i="o.k3">Файл</span><h3 data-i="o.h33">SHA-256 каждой сборки</h3><p data-i="o.p3">Контрольная сумма публикуется рядом с DMG, и её можно сверить до установки.</p></div>
-      <div class="fact reveal"><span class="fact-k" data-i="o.k4">История</span><h3 data-i="o.h34">Что менялось</h3><p data-i="o.p4">Каждая версия описана отдельно, на русском и английском.</p><p style="margin-top:var(--s3)"><a class="btn btn-ghost btn-sm" data-conversion="releases" data-placement="open" href="https://github.com/TumanovNV/impuls/releases" rel="noopener"><span data-i="o.a2">История релизов</span></a></p></div>
+      <div class="fact reveal"><span class="fact-k" data-i="o.k4">История</span><h3 data-i="o.h34">Что менялось</h3><p data-i="o.p4">Каждая версия описана отдельно, на русском и английском.</p><p class="fact-action"><a class="btn btn-ghost btn-sm" data-conversion="releases" data-placement="open" href="https://github.com/TumanovNV/impuls/releases" rel="noopener"><span data-i="o.a2">История релизов</span></a></p></div>
     </div>
   </div>
 </section>
@@ -1027,10 +1040,6 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
   </div>
 </footer>
 
-<a class="btn btn-primary sticky-cta" id="sticky" data-conversion="download" data-placement="mobile-sticky" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.9/Impuls-1.4.9.dmg">
-  <span data-i="cta.mac3">Скачать для macOS</span>
-</a>
-
 <script>
 /* ---------------------------------------------------------------------------
    Impuls website behaviour.
@@ -1042,7 +1051,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
         crawler and a visitor without JavaScript get correct values; the runtime
         fetch only makes an already-correct page fresher.
      2. language      — Russian lives in the markup, English in a dictionary.
-     3. presentation  — module switcher, reveal, sticky bits.
+     3. presentation  — module switcher and reveal.
 --------------------------------------------------------------------------- */
 (function(){
 'use strict';
@@ -1080,7 +1089,7 @@ var EN = {
 "a.k1":"move through results,","a.k2":"copies,","a.k3":"closes the panel.",
 
 "m.eyebrow":"Modules","m.h2":"Nine modules, one rail",
-"m.lead":"The rails either side of the cutout hold nine module icons, and they decide what the panel shows. You can switch any module off or reorder it in Settings, so nothing sits in the rail that you do not use. Actions and Battery have their own sections above and below; the rest are here.",
+"m.lead":"The rails either side of the cutout hold nine module icons, and all nine are there for the same reason: a small job not worth leaving the window for. Anything that fails that test stays out of the rail. You can switch any module off or reorder it in Settings. Actions and Battery have their own sections above and below; the rest are here.",
 "m.cal":"That leaves Calendar: the next meeting, how long until it starts, and a join button when the invitation carries a link. Calendar access is requested by the standard macOS dialog and is needed by this module alone.",
 
 "mod.shelf.t":"File shelf",
@@ -1272,6 +1281,18 @@ function loadRelease(){
 }
 
 /* --- Language ----------------------------------------------------------- */
+
+/* Where the screenshots live, relative to *this* page. Read off the markup once,
+   before any swap can overwrite it, rather than assumed to be the site root:
+   docs/en/ sits one directory down, and hardcoding 'assets/…' there requested
+   /impuls/en/assets/… and served four broken images, the hero among them. */
+var SHOT_BASE = (function(){
+  var el = document.querySelector('[data-shot]');
+  var ref = el && (el.getAttribute('src') || el.getAttribute('srcset')) || '';
+  var at = ref.indexOf('assets/screens/');
+  return at < 0 ? '' : ref.slice(0, at);
+})();
+
 function setLang(l){
   LANG = (l === 'en') ? 'en' : 'ru';
   var dict = LANG === 'en' ? EN : RU;
@@ -1283,20 +1304,9 @@ function setLang(l){
   document.querySelectorAll('[data-shot]').forEach(function(el){
     var name = el.dataset.shot;
     var ext = el.tagName === 'SOURCE' ? 'avif' : 'png';
-    var path = 'assets/screens/' + LANG + '/' + name + '.' + ext;
+    var path = SHOT_BASE + 'assets/screens/' + LANG + '/' + name + '.' + ext;
     if(el.tagName === 'SOURCE') el.srcset = path; else { el.src = path; el.alt = LANG === 'en' ? (ALT[name] || el.alt) : (RU['alt.' + name] || el.alt); }
   });
-  var ru = document.getElementById('btn-ru'), en = document.getElementById('btn-en');
-  if(ru && en){
-    ru.setAttribute('aria-pressed', String(LANG === 'ru'));
-    en.setAttribute('aria-pressed', String(LANG === 'en'));
-  }
-  try{
-    var u = new URL(location.href);
-    if(LANG === 'en') u.searchParams.set('lang','en'); else u.searchParams.delete('lang');
-    history.replaceState(null, '', u);
-    localStorage.setItem('impuls.lang', LANG);
-  }catch(e){}
   renderRelease();
   buildRail();
 }
@@ -1321,6 +1331,8 @@ var current = 0;
 function buildRail(){
   if(!rail || !panels.length) return;
   rail.hidden = false;
+  rail.setAttribute('role','tablist');
+  rail.setAttribute('aria-label', LANG === 'en' ? 'Modules' : 'Модули');
   rail.innerHTML = '';
   panels.forEach(function(p, i){
     var name = p.dataset.mod;
@@ -1475,10 +1487,9 @@ addEventListener('scroll', function(){
   depths.forEach(function(d){ if(pct >= d && !seen[d]){ seen[d] = 1; track('impuls_scroll_depth', {depth: d}); } });
 }, {passive:true});
 
-var hdr = document.getElementById('hdr'), sticky = document.getElementById('sticky'), hero = document.getElementById('top');
+var hdr = document.getElementById('hdr');
 addEventListener('scroll', function(){
   hdr.classList.toggle('stuck', scrollY > 8);
-  if(sticky && hero) sticky.classList.toggle('on', scrollY > hero.offsetHeight * 0.7);
 }, {passive:true});
 
 /* --- Start -------------------------------------------------------------- */
@@ -1487,12 +1498,19 @@ buildRail();
 /* `window.IMPULS_LANG` wins over everything: /en/ is a real page whose text is
    already English, and letting a Russian browser flip it back would undo the
    one thing that page exists for. */
-var initial = window.IMPULS_LANG === 'en' ? 'en' : (window.IMPULS_LANG === 'ru' ? 'ru' : null);
-if(!initial){
-  initial = 'ru';
+var initial = window.IMPULS_LANG === 'en' ? 'en' : 'ru';
+/* This page is Russian at every URL it answers on. It used to read
+   navigator.language and repaint itself in English, which handed an English
+   reader a Russian <title>, description and JSON-LD over an English body and
+   rewrote the address to ?lang=en — a URL no hreflang declares. Links shared
+   before docs/en/ existed still work: they are sent to the page that is
+   actually English. */
+if(!window.IMPULS_LANG){
   try{
-    var q = new URL(location.href).searchParams.get('lang');
-    initial = q === 'en' ? 'en' : (q === 'ru' ? 'ru' : (localStorage.getItem('impuls.lang') || ((navigator.language || '').slice(0,2) === 'ru' ? 'ru' : 'en')));
+    if(new URL(location.href).searchParams.get('lang') === 'en'){
+      location.replace('en/');
+      return;
+    }
   }catch(e){}
 }
 setLang(initial);

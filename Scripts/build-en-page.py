@@ -324,13 +324,18 @@ def build(page: str) -> str:
     # One directory down, so every relative asset gains a level.
     page = re.sub(r'((?:href|src|srcset)=")(assets/|manifest\.webmanifest|site-privacy\.html)', r"\g<1>../\g<2>", page)
 
-    # The language control is navigation on a static pair of pages, not a toggle.
+    # Both pages navigate rather than toggle; only the direction differs. The
+    # replacement is asserted rather than attempted, because a silent miss here
+    # leaves the English page pointing "EN" at en/en/.
+    before = page
     page = page.replace(
-        """<button type="button" id="btn-ru" aria-pressed="true" onclick="setLang('ru')">RU</button>
-        <button type="button" id="btn-en" aria-pressed="false" onclick="setLang('en')">EN</button>""",
+        """<a id="btn-ru" href="./" hreflang="ru" aria-current="page">RU</a>
+        <a id="btn-en" href="en/" hreflang="en">EN</a>""",
         """<a id="btn-ru" href="../" hreflang="ru">RU</a>
         <a id="btn-en" href="./" hreflang="en" aria-current="page">EN</a>""",
     )
+    if page == before:
+        raise SystemExit("the language control in docs/index.html no longer matches; update build-en-page.py")
 
     page = page.replace(
         "<script>document.documentElement.classList.add('js')</script>",
