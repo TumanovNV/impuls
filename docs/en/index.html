@@ -326,6 +326,14 @@ header.stuck{border-bottom-color:var(--line)}
 .hero-meta li{list-style:none}
 .hero-meta{padding:0;margin-block-end:0}
 .hero-meta li+li{position:relative;padding-inline-start:var(--s4)}
+.hero-facts{
+  list-style:none;margin:var(--s6) auto 0;padding:var(--s5) 0 0;max-width:44rem;
+  border-top:1px solid var(--line);
+  display:grid;gap:var(--s3);text-align:start;
+  color:var(--muted);font-size:.9375rem;
+}
+@media(min-width:760px){.hero-facts{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s5)}}
+.hero-facts li{min-width:0}
 .hero-meta li+li::before{content:"";position:absolute;left:0;top:50%;width:3px;height:3px;border-radius:50%;background:var(--line-strong);transform:translateY(-50%)}
 
 /* --- The stage: a Mac screen edge with the panel coming down ------------- */
@@ -369,7 +377,14 @@ header.stuck{border-bottom-color:var(--line)}
 }
 
 /* --- Two-column story block --------------------------------------------- */
-.split{display:grid;gap:var(--s6);align-items:center}
+/* `minmax(0,1fr)` and `min-width:0`, both deliberate: a grid item defaults to
+   `min-width:auto`, so it refuses to shrink below its content's minimum. The
+   screenshot frames below carry `min-width:620px` on small screens to stay
+   readable, and without these two the track sized itself to that 620 px and
+   pushed the whole section off a 390 px screen — headlines clipped mid-word,
+   while the page's own scrollWidth still looked innocent. */
+.split{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s6);align-items:center}
+.split>*{min-width:0}
 @media(min-width:900px){
   /* The screenshot always takes the wide column, whichever side it is on. */
   .split{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:var(--s8)}
@@ -407,7 +422,8 @@ kbd{
 .keys{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin-top:var(--s5);color:var(--muted);font-size:.9375rem}
 
 /* --- Module switcher: the app's own rail, as a control ------------------- */
-.modules{display:grid;gap:var(--s5)}
+.modules{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s5)}
+.modules>*{min-width:0}
 @media(min-width:900px){.modules{grid-template-columns:220px minmax(0,1fr);gap:var(--s7);align-items:start}}
 .rail{
   display:flex;gap:var(--s1);overflow-x:auto;padding-bottom:var(--s2);
@@ -415,6 +431,17 @@ kbd{
   margin-inline:calc(var(--s5) * -1);padding-inline:var(--s5);
 }
 .rail::-webkit-scrollbar{display:none}
+/* Below 900 px the rail is a horizontal scroller. Hiding its scrollbar without
+   replacing the signal left two of six modules visible and no hint of the rest,
+   so the strip fades at its trailing edge instead. */
+@media(max-width:899px){
+  .modules{position:relative}
+  .rail{
+    -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent 100%);
+    mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent 100%);
+  }
+  .rail.at-end{-webkit-mask-image:none;mask-image:none}
+}
 @media(min-width:900px){
   .rail{
     flex-direction:column;overflow:visible;margin-inline:0;padding-inline:0;
@@ -450,7 +477,8 @@ kbd{
 }
 
 /* --- Facts / trust ------------------------------------------------------ */
-.facts{display:grid;gap:var(--s5);margin-top:var(--s6)}
+.facts{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s5);margin-top:var(--s6)}
+.facts>*{min-width:0}
 @media(min-width:700px){.facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s6)}}
 @media(min-width:1024px){.facts{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .fact h3{font-size:1rem;margin-bottom:var(--s2)}
@@ -461,6 +489,7 @@ kbd{
 }
 
 .boundaries{list-style:none;margin:var(--s5) 0 0;padding:0;display:grid;gap:0}
+.boundaries-plain li{grid-template-columns:1fr}
 .boundaries li{
   display:grid;grid-template-columns:auto 1fr;gap:var(--s3);
   padding-block:var(--s4);border-top:1px solid var(--line);align-items:start;
@@ -472,7 +501,8 @@ kbd{
 
 /* --- Install ------------------------------------------------------------ */
 .install{background:var(--bg-sunken)}
-.install-grid{display:grid;gap:var(--s6);margin-top:var(--s6)}
+.install-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s6);margin-top:var(--s6)}
+.install-grid>*{min-width:0}
 @media(min-width:900px){.install-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s6)}}
 .install-step{border-top:2px solid var(--text);padding-top:var(--s4)}
 .install-step .n{font-size:.75rem;font-weight:600;color:var(--faint);letter-spacing:.08em}
@@ -612,6 +642,11 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
         <span data-i="cta.see">See the modules</span>
       </a>
     </div>
+    <ul class="hero-facts">
+      <li data-i="hero.f1">Works on any Mac screen, not only a MacBook with a notch</li>
+      <li data-i="hero.f2">Clipboard, files and notes never leave the Mac</li>
+      <li data-i="hero.f3">A native app, with no account and no subscription</li>
+    </ul>
     <ul class="hero-meta">
       <li><span data-i="hero.m1">Free</span></li>
       <li data-i="hero.m2">macOS 15 or later</li>
@@ -636,7 +671,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
         </picture>
       </div>
       <p class="pan-hint" data-i="pan">Swipe the capture to see the whole panel</p>
-      <p class="stage-caption" data-i="hero.cap">A real capture of the panel, with demo data in it. The interface is not a mock-up.</p>
+      <p class="stage-caption" data-i="hero.cap">The Impuls panel on a working Mac. The data in it is demo data.</p>
     </div>
   </div>
 </div>
@@ -648,7 +683,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
       <p class="eyebrow" data-i="why.eyebrow">Why bother</p>
       <h2 data-i="why.h2">A small errand costs more than it looks</h2>
       <p class="lead" style="margin-top:var(--s4)" data-i="why.p1">Find the address someone sent this morning. Move a file from mail into an editor. Then dig up the wording you already wrote once and cannot quite remember. Each errand costs seconds, and each one makes you leave the document, hunt for a window and come back.</p>
-      <p class="lead" style="margin-top:var(--s4)" data-i="why.p2">Impuls keeps those things on one surface above the window you are in. Instead of switching applications, you pull the panel down, take what you need and carry on.</p>
+      <p class="lead" style="margin-top:var(--s4)" data-i="why.p2">Impuls keeps those things on one surface above the window you are in: clipboard history, a shelf for files, snippets and notes. Instead of switching applications, you pull the panel down, take what you need and carry on from the same place.</p>
     </div>
   </div>
 </section>
@@ -692,7 +727,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
     <div class="measure" style="margin-bottom:var(--s7)">
       <p class="eyebrow" data-i="m.eyebrow">Modules</p>
       <h2 data-i="m.h2">One panel, changing its job</h2>
-      <p class="lead" style="margin-top:var(--s4)" data-i="m.lead">The rails either side of the cutout hold the module icons, and they decide what the panel shows. You can switch any module off or reorder it in Settings, so nothing sits in the rail that you do not use.</p>
+      <p class="lead" style="margin-top:var(--s4)" data-i="m.lead">The rails either side of the cutout hold nine module icons, and they decide what the panel shows. You can switch any module off or reorder it in Settings, so nothing sits in the rail that you do not use. Actions and Battery have their own sections above and below; the rest are here.</p>
     </div>
 
     <div class="modules">
@@ -794,7 +829,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
       </div>
       <p class="pan-hint" data-i="pan2">Swipe the capture to see the whole panel</p>
     </div>
-    <p class="lead measure" style="margin-top:var(--s7)" data-i="m.cal">The ninth module is Calendar: the next meeting, how long until it starts, and a join button when the invitation carries a link. Calendar access is requested by the standard macOS dialog and is needed by this module alone.</p>
+    <p class="lead measure" style="margin-top:var(--s7)" data-i="m.cal">That leaves Calendar: the next meeting, how long until it starts, and a join button when the invitation carries a link. Calendar access is requested by the standard macOS dialog and is needed by this module alone.</p>
   </div>
 </section>
 
@@ -808,11 +843,11 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
         <p class="eyebrow" data-i="d.eyebrow">Power</p>
         <h2 data-i="d.h2">The charge of your Mac and what is attached to it</h2>
         <p class="lead" style="margin-top:var(--s4)" data-i="d.lead">Mac, AirPods, iPhone and iPad in one tab, without a separate utility. Impuls shows what the system reports and nothing more: a value it cannot read stays unavailable rather than turning into a zero or a guess.</p>
-        <ul class="boundaries">
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12 5 5L19 7"/></svg><div><b data-i="d.b1">Mac</b><span data-i="d.b1d">Charge, power state, time to empty or to full, plus capacity, voltage, temperature and cycle count wherever macOS publishes them. On desktop Macs the module is called Power.</span></div></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12 5 5L19 7"/></svg><div><b data-i="d.b2">AirPods and accessories</b><span data-i="d.b2d">From the values macOS exposes itself. Availability depends on the model and on what the system knows at that moment.</span></div></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12 5 5L19 7"/></svg><div><b data-i="d.b3">iPhone and iPad — Beta</b><span data-i="d.b3d">Through the trust the device has already given this Mac: over the cable, or through Finder Wi-Fi sync. Impuls pairs nothing, scans no network and opens no direct connection to the device.</span></div></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12 5 5L19 7"/></svg><div><b data-i="d.b4">Off until you turn it on</b><span data-i="d.b4d">Device discovery is a single switch in Settings. While it is off, Impuls opens no connection and reads nothing. Raw device identifiers are never shown, logged or written into a backup.</span></div></li>
+        <ul class="boundaries boundaries-plain">
+          <li><div><b data-i="d.b1">Mac</b><span data-i="d.b1d">Charge, power state, time to empty or to full, plus capacity, voltage, temperature and cycle count wherever macOS publishes them. On desktop Macs the module is called Power.</span></div></li>
+          <li><div><b data-i="d.b2">AirPods and accessories</b><span data-i="d.b2d">From the values macOS exposes itself. Availability depends on the model and on what the system knows at that moment.</span></div></li>
+          <li><div><b data-i="d.b3">iPhone and iPad — Beta</b><span data-i="d.b3d">Through the trust the device has already given this Mac: over the cable, or through Finder Wi-Fi sync. Impuls pairs nothing, scans no network and opens no direct connection to the device.</span></div></li>
+          <li><div><b data-i="d.b4">Off until you turn it on</b><span data-i="d.b4d">Device discovery is a single switch in Settings. While it is off, Impuls opens no connection and reads nothing. Raw device identifiers are never shown, logged or written into a backup.</span></div></li>
         </ul>
       </div>
       <div class="reveal">
@@ -1016,14 +1051,17 @@ var EN = {
 
 "hero.h1":"The small stuff, next to your work instead of in another app",
 "hero.sub":"Impuls drops a panel from the top edge of the screen: find what you copied an hour ago, park a file between windows, write a thought down, translate a phrase. One move, and the panel is gone again.",
+"hero.f1":"Works on any Mac screen, not only a MacBook with a notch",
+"hero.f2":"Clipboard, files and notes never leave the Mac",
+"hero.f3":"A native app, with no account and no subscription",
 "hero.m1":"Free","hero.m2":"macOS 15 or later","hero.m3":"Open source",
-"hero.cap":"A real capture of the panel, with demo data in it. The interface is not a mock-up.",
+"hero.cap":"The Impuls panel on a working Mac. The data in it is demo data.",
 "mb.file":"File","mb.edit":"Edit","mb.time":"Thu 21:04",
 
 "why.eyebrow":"Why bother",
 "why.h2":"A small errand costs more than it looks",
 "why.p1":"Find the address someone sent this morning. Move a file from mail into an editor. Then dig up the wording you already wrote once and cannot quite remember. Each errand costs seconds, and each one makes you leave the document, hunt for a window and come back.",
-"why.p2":"Impuls keeps those things on one surface above the window you are in. Instead of switching applications, you pull the panel down, take what you need and carry on.",
+"why.p2":"Impuls keeps those things on one surface above the window you are in: clipboard history, a shelf for files, snippets and notes. Instead of switching applications, you pull the panel down, take what you need and carry on from the same place.",
 
 "a.eyebrow":"Actions","a.h2":"One search instead of three places",
 "a.lead":"Clipboard history, snippets and notes answer the same query. You do not have to remember which one you put it in.",
@@ -1033,8 +1071,8 @@ var EN = {
 "a.k1":"move through results,","a.k2":"copies,","a.k3":"closes the panel.",
 
 "m.eyebrow":"Modules","m.h2":"One panel, changing its job",
-"m.lead":"The rails either side of the cutout hold the module icons, and they decide what the panel shows. You can switch any module off or reorder it in Settings, so nothing sits in the rail that you do not use.",
-"m.cal":"The ninth module is Calendar: the next meeting, how long until it starts, and a join button when the invitation carries a link. Calendar access is requested by the standard macOS dialog and is needed by this module alone.",
+"m.lead":"The rails either side of the cutout hold nine module icons, and they decide what the panel shows. You can switch any module off or reorder it in Settings, so nothing sits in the rail that you do not use. Actions and Battery have their own sections above and below; the rest are here.",
+"m.cal":"That leaves Calendar: the next meeting, how long until it starts, and a join button when the invitation carries a link. Calendar access is requested by the standard macOS dialog and is needed by this module alone.",
 
 "mod.shelf.t":"File shelf",
 "mod.shelf.d":"Drop a file on the panel, switch to another application and pick it up there. The original never moves: the shelf holds a reference, not a copy.",
@@ -1293,6 +1331,14 @@ function buildRail(){
     p.tabIndex = 0;
   });
   show(current);
+  rail.addEventListener('scroll', markRailEnd, {passive:true});
+  markRailEnd();
+}
+
+/* The fade goes away once there is nothing left to scroll to. */
+function markRailEnd(){
+  if(!rail) return;
+  rail.classList.toggle('at-end', rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 2);
 }
 
 function onRailKey(e){
