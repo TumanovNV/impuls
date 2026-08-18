@@ -27,9 +27,12 @@ version; unavailable hardware data is shown as unavailable rather than guessed.
 
 ## Privacy by design
 
-- no analytics, telemetry, advertising, or device fingerprinting;
-- no network connection unless the user explicitly allows update checks or
-  opens a selected web music service;
+- no advertising, account, remote configuration, or device fingerprinting;
+- no network connection unless the user explicitly allows update checks,
+  opens a selected web music service, or separately opts in to minimal version
+  statistics;
+- version statistics contain only a random installation pseudonym and app
+  version (plus a correctly observed previous version), at most once per day;
 - update checks contact only the Impuls GitHub Releases endpoint;
 - an update is downloaded and installed only after the user acts;
 - clipboard content, notes, snippets, files, and calendar data never leave the Mac;
@@ -103,11 +106,12 @@ opens the public GitHub form in the system browser.
 
 Repository forms use the same core area, frequency, rating, and version fields
 and unstructured blank issues are disabled, keeping voluntary feedback useful
-for prioritization without adding analytics to the app.
+for prioritization without adding feedback analytics to the app. The separate
+1.4.10 version statistic remains off until the user opts in.
 
 ## Settings and keyboard control
 
-The native Settings window can configure the global shortcut,
+The native sidebar-and-detail Settings window can configure the global shortcut,
 hover behaviour, panel size, target display, visible modules, and their order.
 When opened from the keyboard, use the left and right arrows to move between
 modules and Escape to close the panel. Settings, snippets, and notes can be

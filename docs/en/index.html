@@ -84,7 +84,7 @@
         "The charge of your Mac, AirPods, iPhone and iPad in one place",
         "Present on every connected display, including Sidecar",
         "Works with VoiceOver and from the keyboard",
-        "No account, no cloud, no telemetry"
+        "No advertising or cloud; version statistics only after a separate opt-in"
       ]
     },
     {
@@ -104,7 +104,7 @@
           "name": "Does Impuls send my clipboard and files to the internet?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "No. Clipboard, notes, snippets, files and calendar stay on the Mac. The network is used in two explicit cases: the update check you enable yourself, and the web player that opens only when you press Open Web Player."
+            "text": "Clipboard, notes, snippets, files and calendar stay on the Mac. Update checks and the web player are enabled separately. A third switch can allow minimal version statistics: a random installation pseudonym and the Impuls version, with no content or personal data."
           }
         },
         {
@@ -961,10 +961,11 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
   <div class="wrap">
     <div class="measure">
       <h2 data-i="p.h2">Your data stays on the Mac</h2>
-      <p class="lead" style="margin-top:var(--s4)" data-i="p.lead">Impuls has no account, analytics, advertising, telemetry, remote configuration or device identifier. Clipboard, notes, snippets, files and calendar go nowhere. Two things reach the network, and you switch on both.</p>
+      <p class="lead" style="margin-top:var(--s4)" data-i="p.lead">Impuls has no account, advertising, remote configuration or device fingerprinting. Clipboard, notes, snippets, files and calendar go nowhere. The app has three separate network boundaries, and each requires its own action or consent.</p>
       <ul class="boundaries">
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><div><b data-i="p.b1">Update checks</b><span data-i="p.b1d">Impuls asks on first launch, and you can change the answer later. It reaches only the signed Impuls channel on GitHub. Sparkle's system profiling stays off, and automatic installation is a separate choice again.</span></div></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg><div><b data-i="p.b2">Web player</b><span data-i="p.b2d">Choosing a source in Music makes no request at all. A connection appears only after Open Web Player, and what opens is the selected service's official site in a system WebKit window.</span></div></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 17h3V9H4zm6 0h3V5h-3zm6 0h3v-6h-3z"/><path d="M3 20h18"/></svg><div><b data-i="p.b5">Version statistics</b><span data-i="p.b5d">Off until a separate opt-in. At most once a day it sends a random installation pseudonym and the Impuls version, plus a correctly observed previous version after an update. No content or personal data is included.</span></div></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg><div><b data-i="p.b3">Local data</b><span data-i="p.b3d">Clipboard history lives in memory by default. If you turn on persistence, the archive is encrypted with AES-GCM and its key is kept in the macOS Keychain. Concealed password-manager entries never reach the history.</span></div></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h9l5 5v11H5z"/><path d="M8 12.5h8M8 16.5h5"/></svg><div><b data-i="p.b4">Feedback</b><span data-i="p.b4d">Impuls composes the report on your Mac and shows it to you in full first. It never uploads it: when you press the button, the text goes to the pasteboard and your browser opens a GitHub form. The report carries no clipboard, notes, file names, calendar data, serial numbers or identifiers.</span></div></li>
       </ul>
@@ -1024,7 +1025,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
     </div>
     <div class="faq">
       <details><summary data-i="f.q1">Do I need a MacBook with a notch?</summary><div class="a" data-i="f.a1">No. On a MacBook with a cutout the panel uses its geometry; on any other screen Impuls draws a compact anchor at the top edge. It works on the built-in display, on an external monitor and on an iPad running as a Sidecar display.</div></details>
-      <details><summary data-i="f.q2">Does my data go to the internet?</summary><div class="a" data-i="f.a2">No. Clipboard, notes, snippets, files and calendar stay on the Mac. The network is used in two explicit cases: the update check you enable yourself, and the web player you open with a button. There is no analytics and no telemetry in the app.</div></details>
+      <details><summary data-i="f.q2">Does my data go to the internet?</summary><div class="a" data-i="f.a2">Clipboard, notes, snippets, files and calendar stay on the Mac. Update checks and the web player are enabled separately. A third separate switch can allow minimal version statistics: a random installation pseudonym and the Impuls version, with no content or personal data.</div></details>
       <details><summary data-i="f.q3">What does it cost?</summary><div class="a" data-i="f.a3">Nothing. Impuls is free, open source under GPL-3.0-or-later, and needs no account.</div></details>
       <details><summary data-i="f.q4">Why does macOS complain on first launch?</summary><div class="a" data-i="f.a4">The build is ad-hoc signed and not yet notarized by Apple, and notarizing it needs a Developer ID. The first launch goes through System Settings → Privacy & Security → Open Anyway. After that Impuls updates itself through a signed channel and checks the signature before unpacking.</div></details>
       <details><summary data-i="f.q5">Why are some Battery values missing?</summary><div class="a" data-i="f.a5">Impuls shows only what macOS publishes about that particular Mac. Temperature, cycles, full capacity and connector type are missing on some machines. Rather than invent a value, the panel leaves it unavailable, which is more use to you than a plausible zero.</div></details>
@@ -1161,9 +1162,10 @@ var EN = {
 "b.a11y":"You can drive the panel from the keyboard, and VoiceOver reads it: every row carries a name, a value and its actions, and every rail icon carries its module's name. Impuls follows the system settings for Reduce Motion, Increase Contrast and Reduce Transparency.",
 
 "p.eyebrow":"Privacy","p.h2":"Your data stays on the Mac",
-"p.lead":"Impuls has no account, analytics, advertising, telemetry, remote configuration or device identifier. Clipboard, notes, snippets, files and calendar go nowhere. Two things reach the network, and you switch on both.",
+"p.lead":"Impuls has no account, advertising, remote configuration or device fingerprinting. Clipboard, notes, snippets, files and calendar go nowhere. The app has three separate network boundaries, and each requires its own action or consent.",
 "p.b1":"Update checks","p.b1d":"Impuls asks on first launch, and you can change the answer later. It reaches only the signed Impuls channel on GitHub. Sparkle's system profiling stays off, and automatic installation is a separate choice again.",
 "p.b2":"Web player","p.b2d":"Choosing a source in Music makes no request at all. A connection appears only after Open Web Player, and what opens is the selected service's official site in a system WebKit window.",
+"p.b5":"Version statistics","p.b5d":"Off until a separate opt-in. At most once a day it sends a random installation pseudonym and the Impuls version, plus a correctly observed previous version after an update. No content or personal data is included.",
 "p.b3":"Local data","p.b3d":"Clipboard history lives in memory by default. If you turn on persistence, the archive is encrypted with AES-GCM and its key is kept in the macOS Keychain. Concealed password-manager entries never reach the history.",
 "p.b4":"Feedback","p.b4d":"Impuls composes the report on your Mac and shows it to you in full first. It never uploads it: when you press the button, the text goes to the pasteboard and your browser opens a GitHub form. The report carries no clipboard, notes, file names, calendar data, serial numbers or identifiers.",
 "p.doc":"Privacy policy",
@@ -1186,7 +1188,7 @@ var EN = {
 "f.q1":"Do I need a MacBook with a notch?",
 "f.a1":"No. On a MacBook with a cutout the panel uses its geometry; on any other screen Impuls draws a compact anchor at the top edge. It works on the built-in display, on an external monitor and on an iPad running as a Sidecar display.",
 "f.q2":"Does my data go to the internet?",
-"f.a2":"No. Clipboard, notes, snippets, files and calendar stay on the Mac. The network is used in two explicit cases: the update check you enable yourself, and the web player you open with a button. There is no analytics and no telemetry in the app.",
+"f.a2":"Clipboard, notes, snippets, files and calendar stay on the Mac. Update checks and the web player are enabled separately. A third separate switch can allow minimal version statistics: a random installation pseudonym and the Impuls version, with no content or personal data.",
 "f.q3":"What does it cost?",
 "f.a3":"Nothing. Impuls is free, open source under GPL-3.0-or-later, and needs no account.",
 "f.q4":"Why does macOS complain on first launch?",

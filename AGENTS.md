@@ -81,13 +81,16 @@ is set and falls back to an ad-hoc signature otherwise.
 breaking one turns CI red rather than producing a subtly worse app. Read that
 workflow before arguing with this list.
 
-1. **Network access has two explicit owners.** `UpdateService.swift` owns the
+1. **Network access has three explicit owners.** `UpdateService.swift` owns the
    opt-in Sparkle channel. `WebMusicPlayer.swift` may open only the official HTTPS
    site selected by the user, and only from the explicit Open Web Player action;
    merely launching Impuls or selecting a source must not construct `WKWebView`.
-   `URLSession`, `NSURLSession`, `URLRequest`, `NSURLConnection`, `NWConnection`,
-   `NWListener`, `webSocketTask` and `CFStreamCreatePairWithSocketToHost` are banned
-   everywhere else. The PR smoke test must still observe zero sockets at launch.
+   `VersionTelemetryService.swift` owns the separately consented version-only
+   heartbeat to an optional build-configured HTTPS collector. `URLSession`,
+   `NSURLSession`, `URLRequest`, `NSURLConnection`, `NWConnection`, `NWListener`,
+   `webSocketTask` and `CFStreamCreatePairWithSocketToHost` are banned everywhere
+   else. The PR smoke test must still observe zero sockets at launch when no
+   consent or collector endpoint exists.
 2. **No private media APIs and no injection.** `/usr/bin/perl`, `MediaRemote`,
    `dl_load_file` and `DynaLoader` must not appear anywhere in `Sources` or `Scripts`.
    Native Apple Music metadata comes from its scripting interface and bounded
