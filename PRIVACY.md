@@ -1,4 +1,10 @@
-# Privacy Policy
+# Privacy and Local Data Model
+
+The operator's Russian-language policy under Federal Law No. 152-FZ is
+published at
+[`site-privacy.html`](https://tumanovnv.github.io/impuls/site-privacy.html).
+This document is the technical inventory of application data flows and local
+storage; it complements, but does not replace, that operator policy.
 
 Impuls is designed to work locally. It has no advertising, automatic
 crash-report upload, remote configuration, account system, or device
@@ -56,6 +62,10 @@ release build also needs an owner-configured HTTPS collector endpoint; the
 repository does not contain or invent a production URL, and a build without the
 endpoint cannot make the request even after consent.
 
+The public 1.4.10 build is configured for the first-party endpoint
+`https://stats.tumanov.space/v1/heartbeat`. The endpoint is visible in the
+application's `Info.plist`; it is not a hidden or remotely changed destination.
+
 When allowed and configured, Impuls sends at most one `POST /v1/heartbeat`
 attempt per 24 hours, outside the critical launch path. The JSON body has an
 exact allow-list:
@@ -89,6 +99,12 @@ installation UUID is replaced with a server-side HMAC-SHA256 digest using an
 owner secret. The database stores only that digest, `first_seen`, `last_seen`,
 current version, and an available previous version. Collector and reverse-proxy
 deployment instructions disable or anonymize access logs for this route.
+
+The stable installation pseudonym and connection metadata are treated as
+personal data where applicable law requires that classification; the product
+does not describe them as fully anonymous. Installation and transition records
+are deleted after 365 days without a heartbeat. The collector enforces this
+retention in the same transaction that records new heartbeats.
 
 The heartbeat never includes clipboard contents, notes, snippets, file names or
 paths, calendar data, music/playback data, device names, serial numbers, UDIDs,

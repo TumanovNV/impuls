@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Импульс (Impuls) для macOS — рабочая поверхность у верхней кромки экрана</title>
-<meta name="description" content="Impuls — бесплатное приложение для macOS. Одна панель у верхней кромки любого экрана: поиск по буферу и заготовкам, полка файлов, заметки, перевод, календарь, музыка и заряд устройств Apple. Локально, без учётной записи, с открытым кодом.">
+<title>ИМПУЛЬС для macOS — буфер обмена, файлы, заметки и перевод</title>
+<meta name="description" content="ИМПУЛЬС (Impuls) — бесплатная утилита для macOS: буфер обмена, полка файлов, заметки, перевод, календарь, музыка и заряд устройств. Локально, без аккаунта.">
 <meta name="author" content="Интегра Импульс">
-<meta name="application-name" content="Impuls">
+<meta name="application-name" content="ИМПУЛЬС">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfd">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0d11">
@@ -21,10 +21,10 @@
 <link rel="apple-touch-icon" href="assets/impuls-icon.png">
 <!-- The module set changes with releases, so nothing here counts them or claims
      to list them all: a number baked into a shared link cannot be corrected. -->
-<meta property="og:title" content="Импульс для macOS — одна панель вместо десятка переключений">
-<meta property="og:description" content="Панель у верхней кромки любого экрана Mac: буфер, файлы, заметки, перевод и заряд устройств — там, где вы работаете. Бесплатно, локально, открытый код.">
+<meta property="og:title" content="ИМПУЛЬС для macOS — всё нужное у верхней кромки экрана">
+<meta property="og:description" content="Буфер обмена, файлы, заметки, перевод, календарь, музыка и заряд устройств в одной нативной панели. Бесплатно, локально, без аккаунта.">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="Impuls">
+<meta property="og:site_name" content="ИМПУЛЬС">
 <meta property="og:locale" content="ru_RU">
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:url" content="https://tumanovnv.github.io/impuls/">
@@ -33,13 +33,33 @@
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Импульс — панель Impuls у верхней кромки экрана Mac">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Импульс для macOS — одна панель вместо десятка переключений">
-<meta name="twitter:description" content="Панель у верхней кромки любого экрана Mac: буфер, файлы, заметки, перевод и заряд устройств — там, где вы работаете.">
+<meta name="twitter:title" content="ИМПУЛЬС для macOS — всё нужное у верхней кромки экрана">
+<meta name="twitter:description" content="Буфер обмена, файлы, заметки, перевод, календарь, музыка и заряд устройств в одной нативной панели.">
 <meta name="twitter:image" content="https://tumanovnv.github.io/impuls/assets/og-impuls.png">
 <script type="application/ld+json" id="software-schema">
 {
   "@context": "https://schema.org",
   "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://tumanovnv.github.io/impuls/#organization",
+      "name": "Интегра Импульс",
+      "legalName": "ООО «ИНТЕГРА ИМПУЛЬС»",
+      "taxID": "5001169552",
+      "identifier": {"@type": "PropertyValue", "propertyID": "ОГРН", "value": "1265000041327"},
+      "url": "https://tumanovnv.github.io/impuls/",
+      "logo": "https://tumanovnv.github.io/impuls/assets/impuls-icon.png",
+      "sameAs": ["https://github.com/TumanovNV/impuls"]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://tumanovnv.github.io/impuls/#website",
+      "url": "https://tumanovnv.github.io/impuls/",
+      "name": "ИМПУЛЬС",
+      "alternateName": ["Impuls", "Импульс для macOS"],
+      "inLanguage": ["ru", "en"],
+      "publisher": {"@id": "https://tumanovnv.github.io/impuls/#organization"}
+    },
     {
       "@type": "SoftwareApplication",
       "@id": "https://tumanovnv.github.io/impuls/#software",
@@ -57,8 +77,8 @@
       "softwareHelp": "https://github.com/TumanovNV/impuls/issues",
       "license": "https://github.com/TumanovNV/impuls/blob/main/LICENSE",
       "codeRepository": "https://github.com/TumanovNV/impuls",
-      "author": {"@type": "Organization", "name": "Интегра Импульс"},
-      "publisher": {"@type": "Organization", "name": "Интегра Импульс"},
+      "author": {"@id": "https://tumanovnv.github.io/impuls/#organization"},
+      "publisher": {"@id": "https://tumanovnv.github.io/impuls/#organization"},
       "image": "https://tumanovnv.github.io/impuls/assets/og-impuls.png",
       "screenshot": "https://tumanovnv.github.io/impuls/assets/screens/ru/actions.png",
       "softwareRequirements": "macOS 15 or later",
@@ -87,7 +107,7 @@
         {
           "@type": "Question",
           "name": "Передаёт ли Impuls содержимое буфера обмена и файлов в интернет?",
-          "acceptedAnswer": {"@type": "Answer", "text": "Нет. Буфер обмена, заметки, заготовки, файлы и календарь остаются на Mac. Проверка обновлений и веб-плеер включаются отдельно. Ещё одним отдельным переключателем можно разрешить минимальную статистику версии: случайный псевдоним установки и версия Impuls, без содержимого и персональных данных."}
+          "acceptedAnswer": {"@type": "Answer", "text": "Нет. Буфер обмена, заметки, заготовки, файлы и календарь остаются на Mac. Проверка обновлений и веб-плеер включаются отдельно. Ещё одним отдельным переключателем можно разрешить статистику версии: случайный псевдоним установки и версия Impuls, без содержимого приложения, имени, контактов и аппаратных идентификаторов."}
         },
         {
           "@type": "Question",
@@ -630,7 +650,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 
 <header id="hdr">
   <div class="wrap nav">
-    <a class="brand" href="#top"><img src="assets/impuls-icon.svg" alt="" width="26" height="26">Impuls</a>
+    <a class="brand" href="#top"><img src="assets/impuls-icon.svg" alt="" width="26" height="26"><span data-i="brand.name">ИМПУЛЬС</span></a>
     <nav class="nav-links" aria-label="Разделы страницы">
       <a href="#actions" data-i="nav.actions">Поиск</a>
       <a href="#modules" data-i="nav.modules">Модули</a>
@@ -659,9 +679,9 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <!-- ===== HERO ===== -->
 <div class="hero" id="top">
   <div class="wrap hero-copy">
-    <p class="kicker" data-i="hero.kicker">Панель для macOS</p>
-    <h1 data-i="hero.h1">Мелкое дело&nbsp;— не выходя из окна</h1>
-    <p class="lead" data-i="hero.sub">Найти то, что копировали утром. Забрать файл из соседнего приложения. Вставить заготовку, перевести фразу. Impuls опускается поверх того, над чем вы работаете, даёт сделать это за пару секунд и уходит. Из документа выходить не нужно&nbsp;— и возвращаться в него тоже.</p>
+    <p class="kicker" data-i="hero.kicker">Нативное приложение для macOS</p>
+    <h1 data-i="hero.h1">ИМПУЛЬС&nbsp;— всё нужное у верхней кромки экрана</h1>
+    <p class="lead" data-i="hero.sub">Найти то, что копировали утром. Забрать файл из соседнего приложения. Вставить заготовку, перевести фразу. ИМПУЛЬС открывается поверх текущего окна, помогает за пару секунд и снова освобождает экран. Из документа выходить не нужно&nbsp;— и возвращаться в него тоже.</p>
     <div class="hero-cta">
       <a class="btn btn-primary" data-conversion="download" data-placement="hero" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.10/Impuls-1.4.10.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
@@ -935,11 +955,11 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
       <ul class="boundaries">
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><div><b data-i="p.b1">Проверка обновлений</b><span data-i="p.b1d">Спрашивается при первом запуске и остаётся выключаемой. Обращается только к подписанному каналу Impuls на GitHub. Профилирование системы в Sparkle отключено, автоматическая установка — отдельный выбор.</span></div></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg><div><b data-i="p.b2">Веб-плеер</b><span data-i="p.b2d">Выбор источника в модуле «Музыка» не создаёт ни одного запроса. Соединение появляется только после кнопки «Открыть веб-плеер», и открывается официальный сайт выбранного сервиса в системном окне WebKit.</span></div></li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 17h3V9H4zm6 0h3V5h-3zm6 0h3v-6h-3z"/><path d="M3 20h18"/></svg><div><b data-i="p.b5">Статистика версии</b><span data-i="p.b5d">Выключена до отдельного согласия. Не чаще раза в сутки отправляет случайный псевдоним установки и версию Impuls, а при корректно определённом обновлении — предыдущую версию. Содержимое и персональные данные не входят в запрос.</span></div></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 17h3V9H4zm6 0h3V5h-3zm6 0h3v-6h-3z"/><path d="M3 20h18"/></svg><div><b data-i="p.b5">Статистика версии</b><span data-i="p.b5d">Выключена до отдельного согласия. Не чаще раза в сутки отправляет случайный псевдоним установки и версию Impuls, а при корректно определённом обновлении — предыдущую версию. Содержимого приложения, имени, контактов и аппаратных идентификаторов в запросе нет.</span></div></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg><div><b data-i="p.b3">Локальные данные</b><span data-i="p.b3d">История буфера по умолчанию живёт только в памяти. Если включить её сохранение, архив шифруется AES-GCM, а ключ хранится в Связке ключей macOS. Скрытые записи менеджеров паролей в историю не попадают.</span></div></li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h9l5 5v11H5z"/><path d="M8 12.5h8M8 16.5h5"/></svg><div><b data-i="p.b4">Обратная связь</b><span data-i="p.b4d">Отчёт формируется локально и полностью показывается до отправки. Impuls его не загружает: по нажатию кнопки текст копируется в буфер, а браузер открывает форму на GitHub. В отчёт не попадают буфер, заметки, имена файлов, календарь, серийные номера и идентификаторы.</span></div></li>
       </ul>
-      <p style="margin-top:var(--s6)"><a class="btn btn-ghost btn-sm" href="https://github.com/TumanovNV/impuls/blob/main/PRIVACY.md" rel="noopener"><span data-i="p.doc">Политика конфиденциальности</span></a></p>
+      <p style="margin-top:var(--s6)"><a class="btn btn-ghost btn-sm" href="site-privacy.html"><span data-i="p.doc">Политика обработки персональных данных</span></a></p>
     </div>
   </div>
 </section>
@@ -995,7 +1015,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
     </div>
     <div class="faq">
       <details><summary data-i="f.q1">Нужен ли MacBook с вырезом экрана?</summary><div class="a" data-i="f.a1">Нет. На MacBook с вырезом панель использует его геометрию, на любом другом экране Impuls рисует компактный якорь у верхней кромки. Приложение работает на встроенном экране, на внешнем мониторе и на iPad в режиме Sidecar.</div></details>
-      <details><summary data-i="f.q2">Уходят ли мои данные в интернет?</summary><div class="a" data-i="f.a2">Буфер обмена, заметки, заготовки, файлы и календарь остаются на Mac. Проверка обновлений и веб-плеер включаются отдельно. Ещё одним отдельным переключателем можно разрешить минимальную статистику версии: случайный псевдоним установки и версия Impuls, без содержимого и персональных данных.</div></details>
+      <details><summary data-i="f.q2">Уходят ли мои данные в интернет?</summary><div class="a" data-i="f.a2">Буфер обмена, заметки, заготовки, файлы и календарь остаются на Mac. Проверка обновлений и веб-плеер включаются отдельно. Ещё одним отдельным переключателем можно разрешить статистику версии: случайный псевдоним установки и версия Impuls, без содержимого приложения, имени, контактов и аппаратных идентификаторов.</div></details>
       <details><summary data-i="f.q3">Сколько это стоит?</summary><div class="a" data-i="f.a3">Нисколько. Impuls бесплатен, распространяется с открытым исходным кодом по лицензии GPL-3.0-or-later и не требует учётной записи.</div></details>
       <details><summary data-i="f.q4">Почему macOS ругается при первом запуске?</summary><div class="a" data-i="f.a4">Сборка подписана ad-hoc и пока не нотаризована Apple: для этого нужен Developer ID. Первый запуск требует подтверждения в «Системных настройках» → «Конфиденциальность и безопасность» → «Всё равно открыть». Дальше Impuls обновляется сам через подписанный канал с проверкой подписи до распаковки.</div></details>
       <details><summary data-i="f.q5">Почему в «Аккумуляторе» показаны не все значения?</summary><div class="a" data-i="f.a5">Impuls показывает только то, что macOS публикует про конкретный Mac. Температура, циклы, полная ёмкость и тип разъёма доступны не на каждой машине. Вместо выдуманного значения остаётся «Не определено» — это честнее, чем правдоподобный ноль.</div></details>
@@ -1032,11 +1052,11 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 
 <footer>
   <div class="wrap foot">
-    <span>© <span id="year">2026</span> <span data-i="foot.co">Интегра Импульс</span></span>
+    <span>© <span id="year">2026</span> <span data-i="foot.co">ООО «ИНТЕГРА ИМПУЛЬС»</span></span>
     <a href="https://github.com/TumanovNV/impuls" rel="noopener">GitHub</a>
-    <a href="https://github.com/TumanovNV/impuls/blob/main/PRIVACY.md" rel="noopener" data-i="foot.privacy">Приватность</a>
+    <a href="site-privacy.html" data-i="foot.privacy">Персональные данные</a>
     <a href="https://github.com/TumanovNV/impuls/blob/main/SECURITY.md" rel="noopener" data-i="foot.security">Безопасность</a>
-    <a href="site-privacy.html" data-i="foot.site">О сайте</a>
+    <a href="https://github.com/TumanovNV/impuls/blob/main/PRIVACY.md" rel="noopener" data-i="foot.site">Техническая модель приватности</a>
     <span class="spacer" data-i="foot.lic">GPL-3.0-or-later</span>
   </div>
 </footer>
@@ -1063,13 +1083,14 @@ document.querySelectorAll('[data-i]').forEach(function(el){ RU[el.dataset.i] = e
 
 var EN = {
 "a11y.skip":"Skip to content",
+"brand.name":"IMPULS",
 "nav.actions":"Search","nav.modules":"Modules","nav.devices":"Devices","nav.privacy":"Privacy","nav.install":"Install",
 "cta.short":"Download","cta.mac":"Download free for macOS","cta.mac2":"Download for macOS","cta.mac3":"Download for macOS",
 "cta.see":"See the modules","cta.fb":"Write to the developer",
 
-"hero.kicker":"A panel for macOS",
-"hero.h1":"Do the small thing without leaving the window",
-"hero.sub":"Find what you copied this morning. Grab a file out of the app next door. Paste a saved line, translate a phrase. Impuls comes down over whatever you are working in, lets you do it in a couple of seconds, and goes. You never leave the document, so you never have to find your way back into it.",
+"hero.kicker":"A native app for macOS",
+"hero.h1":"IMPULS — everything you need at the top edge of the screen",
+"hero.sub":"Find what you copied this morning. Grab a file out of the app next door. Paste a saved line, translate a phrase. IMPULS opens above the current window, helps for a couple of seconds, then gets out of the way. You never leave the document, so you never have to find your way back into it.",
 "hero.f1":"Present on every connected display: built-in, external monitor and Sidecar",
 "hero.f2":"Clipboard, files and notes never leave the Mac",
 "hero.f3":"A native app, with no account and no subscription",
@@ -1135,10 +1156,10 @@ var EN = {
 "p.lead":"Impuls has no account, advertising, remote configuration or device fingerprinting. Clipboard, notes, snippets, files and calendar go nowhere. The app has three separate network boundaries, and each requires its own action or consent.",
 "p.b1":"Update checks","p.b1d":"Impuls asks on first launch, and you can change the answer later. It reaches only the signed Impuls channel on GitHub. Sparkle's system profiling stays off, and automatic installation is a separate choice again.",
 "p.b2":"Web player","p.b2d":"Choosing a source in Music makes no request at all. A connection appears only after Open Web Player, and what opens is the selected service's official site in a system WebKit window.",
-"p.b5":"Version statistics","p.b5d":"Off until a separate opt-in. At most once a day it sends a random installation pseudonym and the Impuls version, plus a correctly observed previous version after an update. No content or personal data is included.",
+"p.b5":"Version statistics","p.b5d":"Off until a separate opt-in. At most once a day it sends a random installation pseudonym and the Impuls version, plus a correctly observed previous version after an update. It sends no app content, name, contact details or hardware identifiers.",
 "p.b3":"Local data","p.b3d":"Clipboard history lives in memory by default. If you turn on persistence, the archive is encrypted with AES-GCM and its key is kept in the macOS Keychain. Concealed password-manager entries never reach the history.",
 "p.b4":"Feedback","p.b4d":"Impuls composes the report on your Mac and shows it to you in full first. It never uploads it: when you press the button, the text goes to the pasteboard and your browser opens a GitHub form. The report carries no clipboard, notes, file names, calendar data, serial numbers or identifiers.",
-"p.doc":"Privacy policy",
+"p.doc":"Personal data policy",
 
 "o.eyebrow":"Verify","o.h2":"Source, build and checksums are public",
 "o.lead":"The source, the change history and the security model are public. Every build has a checksum, and Impuls checks the signature of an update before unpacking any of it.",
@@ -1158,7 +1179,7 @@ var EN = {
 "f.q1":"Do I need a MacBook with a notch?",
 "f.a1":"No. On a MacBook with a cutout the panel uses its geometry; on any other screen Impuls draws a compact anchor at the top edge. It works on the built-in display, on an external monitor and on an iPad running as a Sidecar display.",
 "f.q2":"Does my data go to the internet?",
-"f.a2":"Clipboard, notes, snippets, files and calendar stay on the Mac. Update checks and the web player are enabled separately. A third separate switch can allow minimal version statistics: a random installation pseudonym and the Impuls version, with no content or personal data.",
+"f.a2":"Clipboard, notes, snippets, files and calendar stay on the Mac. Update checks and the web player are enabled separately. A third separate switch can allow version statistics: a random installation pseudonym and the Impuls version, with no app content, name, contact details or hardware identifiers.",
 "f.q3":"What does it cost?",
 "f.a3":"Nothing. Impuls is free, open source under GPL-3.0-or-later, and needs no account.",
 "f.q4":"Why does macOS complain on first launch?",
@@ -1175,7 +1196,7 @@ var EN = {
 "fin.h2":"Try it on your own Mac","fin.lead":"Free, no account, no commitment. If it does not suit you, drag it to the Trash and it is gone.",
 "fin.m1":"macOS 15 or later",
 "pan":"Swipe the capture to see the whole panel","pan2":"Swipe the capture to see the whole panel",
-"foot.co":"Integra Impuls","foot.privacy":"Privacy","foot.security":"Security","foot.site":"About this site","foot.lic":"GPL-3.0-or-later"
+"foot.co":"INTEGRA IMPULS LLC","foot.privacy":"Personal data","foot.security":"Security","foot.site":"Technical privacy model","foot.lic":"GPL-3.0-or-later"
 };
 
 /* Alt text is content, so it is translated like everything else. */

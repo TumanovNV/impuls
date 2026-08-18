@@ -37,17 +37,15 @@ TARGET = ROOT / "docs" / "en" / "index.html"
 
 SITE = "https://tumanovnv.github.io/impuls/"
 
-TITLE = "Impuls for macOS — a working surface at the top edge of the screen"
+TITLE = "IMPULS for macOS — clipboard, files, notes and translation"
 DESCRIPTION = (
-    "Impuls is a free macOS app. One panel at the top edge of any screen: search across "
-    "clipboard history, snippets and notes, a file shelf, scratch notes, translation, "
-    "your next meeting, music and the charge of your Apple devices. Local, no account, "
-    "open source."
+    "IMPULS is a free native macOS utility with clipboard history, a file shelf, notes, "
+    "translation, calendar, music and device battery levels. Local and no account."
 )
-OG_TITLE = "Impuls for macOS — one panel instead of a dozen switches"
+OG_TITLE = "IMPULS for macOS — everything you need at the top edge"
 OG_DESCRIPTION = (
-    "A panel at the top edge of any Mac screen: clipboard, files, notes, translation and "
-    "device charge, right where you are working. Free, local, open source."
+    "Clipboard, files, notes, translation, calendar, music and device battery levels "
+    "in one native panel. Free, local and no account required."
 )
 
 # The English graph. Kept beside the Russian one in docs/index.html rather than
@@ -56,6 +54,26 @@ OG_DESCRIPTION = (
 SCHEMA_EN = {
     "@context": "https://schema.org",
     "@graph": [
+        {
+            "@type": "Organization",
+            "@id": SITE + "#organization",
+            "name": "Integra Impuls",
+            "legalName": "INTEGRA IMPULS LLC",
+            "taxID": "5001169552",
+            "identifier": {"@type": "PropertyValue", "propertyID": "OGRN", "value": "1265000041327"},
+            "url": SITE,
+            "logo": SITE + "assets/impuls-icon.png",
+            "sameAs": ["https://github.com/TumanovNV/impuls"],
+        },
+        {
+            "@type": "WebSite",
+            "@id": SITE + "#website",
+            "url": SITE,
+            "name": "IMPULS",
+            "alternateName": ["Impuls", "Impuls for macOS"],
+            "inLanguage": ["ru", "en"],
+            "publisher": {"@id": SITE + "#organization"},
+        },
         {
             "@type": "SoftwareApplication",
             "@id": SITE + "en/#software",
@@ -76,8 +94,8 @@ SCHEMA_EN = {
             "softwareHelp": "https://github.com/TumanovNV/impuls/issues",
             "license": "https://github.com/TumanovNV/impuls/blob/main/LICENSE",
             "codeRepository": "https://github.com/TumanovNV/impuls",
-            "author": {"@type": "Organization", "name": "Integra Impuls"},
-            "publisher": {"@type": "Organization", "name": "Integra Impuls"},
+            "author": {"@id": SITE + "#organization"},
+            "publisher": {"@id": SITE + "#organization"},
             "image": SITE + "assets/og-impuls.png",
             "screenshot": SITE + "assets/screens/en/actions.png",
             "softwareRequirements": "macOS 15 or later",
@@ -120,8 +138,8 @@ SCHEMA_EN = {
                         "text": (
                             "Clipboard, notes, snippets, files and calendar stay on the Mac. Update "
                             "checks and the web player are enabled separately. A third switch can allow "
-                            "minimal version statistics: a random installation pseudonym and the Impuls "
-                            "version, with no content or personal data."
+                            "version statistics: a random installation pseudonym and the Impuls version, "
+                            "with no app content, name, contact details or hardware identifiers."
                         ),
                     },
                 },
