@@ -16,13 +16,25 @@ SCOPE_NOTICE = (
 )
 
 
+def open_read_only_database(database_path: Path) -> sqlite3.Connection:
+    """Open an existing SQLite database without granting write access."""
+    database_uri = f"{database_path.resolve().as_uri()}?mode=ro"
+    database = sqlite3.connect(database_uri, uri=True)
+    try:
+        database.execute("PRAGMA query_only=ON")
+    except sqlite3.Error:
+        database.close()
+        raise
+    return database
+
+
 def build_report(database_path: Path, latest_version: str, now: datetime | None = None) -> dict:
     observed = now or datetime.now(timezone.utc)
     cutoffs = {
         str(days): (observed - timedelta(days=days)).isoformat(timespec="seconds")
         for days in (1, 7, 30)
     }
-    with contextlib.closing(sqlite3.connect(database_path)) as database:
+    with contextlib.closing(open_read_only_database(database_path)) as database:
         active = {
             days: database.execute(
                 "SELECT count(*) FROM installations WHERE last_seen >= ?", (cutoff,)
@@ -56,6 +68,12 @@ def build_report(database_path: Path, latest_version: str, now: datetime | None 
                 """
             )
         ]
+        total_consenting_installations = database.execute(
+            "SELECT count(*) FROM installations"
+        ).fetchone()[0]
+        last_heartbeat_at = database.execute(
+            "SELECT max(last_seen) FROM installations"
+        ).fetchone()[0]
     latest_share = 0.0 if active["30"] == 0 else 100 * by_version.get(latest_version, 0) / active["30"]
     return {
         "scope_notice": SCOPE_NOTICE,
@@ -64,6 +82,8 @@ def build_report(database_path: Path, latest_version: str, now: datetime | None 
         "installations_by_app_version_30_day": by_version,
         "latest_version": latest_version,
         "latest_version_share_30_day_percent": round(latest_share, 2),
+        "total_consenting_installations": total_consenting_installations,
+        "last_heartbeat_at": last_heartbeat_at,
         "transitions": transitions,
         "new_first_seen_installations_by_day": first_seen,
     }
@@ -76,6 +96,8 @@ def print_human(report: dict) -> None:
     print(f"Active 1 day:  {active['1_day']}")
     print(f"Active 7 days: {active['7_day']}")
     print(f"Active 30 days: {active['30_day']}")
+    print(f"Total consenting installations: {report['total_consenting_installations']}")
+    print(f"Last heartbeat: {report['last_heartbeat_at'] or 'none'}")
     print("\nActive installations by app version (30 days):")
     for version, count in report["installations_by_app_version_30_day"].items():
         print(f"  {version}: {count}")

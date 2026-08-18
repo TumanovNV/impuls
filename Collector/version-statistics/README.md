@@ -56,6 +56,39 @@ python3 report.py \
 Add `--json` for automation. Every output includes the scope warning that the
 figures describe consenting active installations only.
 
+Both the CLI report and the private dashboard open SQLite with `mode=ro` and
+`PRAGMA query_only=ON`. They can read the collector's WAL database but cannot
+create or modify rows.
+
+## Private dashboard
+
+`dashboard.py` serves one owner-only HTML page using Python's
+`ThreadingHTTPServer`; it has no web-framework, JavaScript, font, asset or CDN
+dependency. Run it only on a private administration network, never through the
+public telemetry reverse proxy:
+
+```bash
+export IMPULS_DASHBOARD_HOST=10.0.0.21
+export IMPULS_DASHBOARD_PORT=8090
+export IMPULS_DASHBOARD_DATABASE=/var/lib/impuls-statistics/version-statistics.sqlite3
+export IMPULS_DASHBOARD_LATEST_VERSION=1.4.10
+export IMPULS_DASHBOARD_ALLOWED_CIDR=10.0.0.0/24
+python3 dashboard.py
+```
+
+The host defaults to `127.0.0.1`, the port to `8090`, and the allowed network
+to `127.0.0.0/8`. Database and latest-version values are required. In
+production, bind to the WireGuard address only and set the CIDR to the VPN peer
+network. The handler checks the socket peer address directly and deliberately
+ignores proxy headers.
+
+The HTTP surface is limited to `GET` and `HEAD` for `/` and `/healthz`.
+Mutating methods return `405`; other paths return `404`. `/healthz` performs a
+minimal read-only database query. Request logging is disabled, and the page
+contains only aggregate counts: it never exposes installation hashes or raw
+database rows. The page refreshes every 60 seconds and carries restrictive
+cache, framing, referrer and content-security headers.
+
 ## Container
 
 ```bash
