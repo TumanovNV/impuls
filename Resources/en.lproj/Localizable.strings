@@ -98,7 +98,6 @@
 /* Updates and network consent */
 "Check for Updates…" = "Check for Updates…";
 "Allow Impuls to check for updates?" = "Allow Impuls to check for updates?";
-"If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action." = "If allowed, Impuls contacts only its signed GitHub update channel. It sends no notes, clipboard contents, files, calendar data, analytics, device identifiers, or system profile. An update is downloaded and installed only after your action.";
 "Allow Update Checks" = "Allow Update Checks";
 "Do Not Check" = "Do Not Check";
 "Could Not Check for Updates" = "Could Not Check for Updates";
@@ -128,10 +127,12 @@
 /* Settings */
 "Settings…" = "Settings…";
 "Impuls Settings" = "Impuls Settings";
+"Settings Sections" = "Settings Sections";
 "General" = "General";
 "Modules" = "Modules";
 "Permissions" = "Permissions";
 "Data" = "Data";
+"Data and Privacy" = "Data and Privacy";
 "Disabled" = "Disabled";
 "Hover and keyboard shortcut" = "Hover and keyboard shortcut";
 "Keyboard shortcut only" = "Keyboard shortcut only";
@@ -179,6 +180,12 @@
 "Import Data…" = "Import Data…";
 "Privacy" = "Privacy";
 "The backup is a local JSON file. Impuls does not upload it or send it over the network." = "The backup is a local JSON file. Impuls does not upload it or send it over the network.";
+"Send Version Statistics" = "Send Version Statistics";
+"Controls the separate opt-in version statistics network request." = "Controls the separate opt-in version statistics network request.";
+"When enabled, Impuls sends a random installation identifier, the current Impuls version, and the previous version when it can be determined correctly." = "When enabled, Impuls sends a random installation identifier, the current Impuls version, and the previous version when it can be determined correctly.";
+"Impuls content and personal data are never included. The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier." = "Impuls content and personal data are never included. The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier.";
+"Version statistics are unavailable in this build because no collector endpoint is configured." = "Version statistics are unavailable in this build because no collector endpoint is configured.";
+"Learn More About Privacy" = "Learn More About Privacy";
 "Export Impuls Data" = "Export Impuls Data";
 "Import Impuls Data" = "Import Impuls Data";
 "Replace Current Impuls Data?" = "Replace Current Impuls Data?";
@@ -340,6 +347,7 @@
 "Could Not Open GitHub" = "Could Not Open GitHub";
 "Report a problem, suggest an improvement, or tell us about your experience. Impuls prepares a transparent report and opens GitHub only after your action." = "Report a problem, suggest an improvement, or tell us about your experience. Impuls prepares a transparent report and opens GitHub only after your action.";
 "No feedback, analytics, diagnostics, or crash reports are sent automatically. GitHub issues are public, and the report can be reviewed before it leaves your Mac." = "No feedback, analytics, diagnostics, or crash reports are sent automatically. GitHub issues are public, and the report can be reviewed before it leaves your Mac.";
+"No feedback, diagnostics, or crash reports are sent automatically. Version statistics have a separate opt-in in Data and Privacy. GitHub issues are public, and the report can be reviewed before it leaves your Mac." = "No feedback, diagnostics, or crash reports are sent automatically. Version statistics have a separate opt-in in Data and Privacy. GitHub issues are public, and the report can be reviewed before it leaves your Mac.";
 "Security Reports" = "Security Reports";
 "Do not publish an unpatched vulnerability or confidential data in a public issue. Use the private security reporting process described in SECURITY.md." = "Do not publish an unpatched vulnerability or confidential data in a public issue. Use the private security reporting process described in SECURITY.md.";
 "The update server response was unexpectedly large." = "The update server response was unexpectedly large.";
