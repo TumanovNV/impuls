@@ -88,6 +88,37 @@ class CollectorTests(unittest.TestCase):
         self.assertFalse(limiter.allows("203.0.113.42", 102))
         self.assertNotIn("203.0.113.42", limiter.events)
 
+    def test_database_prunes_installations_inactive_for_more_than_twelve_months(self):
+        secret = b"a production secret with more than thirty two bytes"
+        old_payload = self.payload()
+        active_payload = self.payload()
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "statistics.sqlite3"
+            collector.initialize_database(database)
+            collector.record_heartbeat(
+                database,
+                secret,
+                old_payload,
+                datetime(2025, 8, 17, 12, tzinfo=timezone.utc),
+            )
+            collector.record_heartbeat(
+                database,
+                secret,
+                active_payload,
+                datetime(2026, 8, 18, 12, tzinfo=timezone.utc),
+            )
+
+            with contextlib.closing(sqlite3.connect(database)) as connection:
+                installations = connection.execute(
+                    "SELECT installation_hash FROM installations"
+                ).fetchall()
+                transitions = connection.execute(
+                    "SELECT installation_hash FROM transitions"
+                ).fetchall()
+            active_digest = collector.installation_digest(secret, active_payload["installation_id"])
+            self.assertEqual(installations, [(active_digest,)])
+            self.assertEqual(transitions, [(active_digest,)])
+
     def test_http_contract_returns_204_and_rejects_extra_fields(self):
         secret = b"a production secret with more than thirty two bytes"
         with tempfile.TemporaryDirectory() as directory:

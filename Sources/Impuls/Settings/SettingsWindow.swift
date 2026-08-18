@@ -640,7 +640,7 @@ private struct DataSettingsPane: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(localized("Impuls content and personal data are never included. The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier."))
+                Text(localized("The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier. It is treated as personal data where required, and inactive server records are deleted after 12 months."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -662,7 +662,7 @@ private struct DataSettingsPane: View {
     }
 
     private func openPrivacyPolicy() {
-        guard let url = URL(string: "https://github.com/TumanovNV/impuls/blob/main/PRIVACY.md") else { return }
+        guard let url = URL(string: "https://tumanovnv.github.io/impuls/site-privacy.html") else { return }
         NSWorkspace.shared.open(url)
     }
 }

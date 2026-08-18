@@ -35,6 +35,10 @@ UUID. IP addresses and User-Agent values are not written to the product database
 or by the collector's request logger. The in-process rate limiter keeps only a
 temporary HMAC of the peer address.
 
+Every accepted heartbeat also removes installations whose `last_seen` is older
+than 365 days and their transition rows. Retention is enforced inside the same
+database transaction as the write, so it does not depend on a separate cron job.
+
 At the reverse proxy, disable access logs for `/v1/heartbeat` or configure them
 to omit/anonymize client IP and User-Agent. Do not forward a public client IP in
 a header merely for this collector. Apply a second body-size and rate limit at

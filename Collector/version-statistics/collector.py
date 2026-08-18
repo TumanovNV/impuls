@@ -14,11 +14,12 @@ import sqlite3
 import threading
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 MAXIMUM_BODY_BYTES = 2_048
+RETENTION_DAYS = 365
 VERSION_PATTERN = re.compile(r"^[0-9]+(?:\.[0-9]+){2}(?:[-.][0-9A-Za-z]+)*$")
 REQUIRED_FIELDS = {"schema", "installation_id", "app_version"}
 ALLOWED_FIELDS = REQUIRED_FIELDS | {"previous_version"}
@@ -105,7 +106,9 @@ def initialize_database(path: Path) -> None:
 
 
 def record_heartbeat(path: Path, secret: bytes, payload: dict, now: datetime | None = None) -> None:
-    observed = (now or utc_now()).isoformat(timespec="seconds")
+    observed_at = now or utc_now()
+    observed = observed_at.isoformat(timespec="seconds")
+    retention_cutoff = (observed_at - timedelta(days=RETENTION_DAYS)).isoformat(timespec="seconds")
     digest = installation_digest(secret, payload["installation_id"])
     previous = payload.get("previous_version")
     with contextlib.closing(sqlite3.connect(path, timeout=5)) as database:
@@ -131,6 +134,20 @@ def record_heartbeat(path: Path, secret: bytes, payload: dict, now: datetime | N
                 """,
                 (digest, previous, payload["app_version"], observed),
             )
+        # The published policy promises that an inactive installation does not
+        # remain in the product database longer than twelve months. Pruning in
+        # the same transaction makes that promise part of the write path rather
+        # than a deployment-specific cron job that can silently stop running.
+        database.execute(
+            """
+            DELETE FROM transitions
+            WHERE installation_hash IN (
+                SELECT installation_hash FROM installations WHERE last_seen < ?
+            )
+            """,
+            (retention_cutoff,),
+        )
+        database.execute("DELETE FROM installations WHERE last_seen < ?", (retention_cutoff,))
         database.commit()
 
 

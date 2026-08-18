@@ -183,7 +183,7 @@
 "Send Version Statistics" = "Send Version Statistics";
 "Controls the separate opt-in version statistics network request." = "Controls the separate opt-in version statistics network request.";
 "When enabled, Impuls sends a random installation identifier, the current Impuls version, and the previous version when it can be determined correctly." = "When enabled, Impuls sends a random installation identifier, the current Impuls version, and the previous version when it can be determined correctly.";
-"Impuls content and personal data are never included. The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier." = "Impuls content and personal data are never included. The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier.";
+"The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier. It is treated as personal data where required, and inactive server records are deleted after 12 months." = "The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier. It is treated as personal data where required, and inactive server records are deleted after 12 months.";
 "Version statistics are unavailable in this build because no collector endpoint is configured." = "Version statistics are unavailable in this build because no collector endpoint is configured.";
 "Learn More About Privacy" = "Learn More About Privacy";
 "Export Impuls Data" = "Export Impuls Data";
