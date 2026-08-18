@@ -15,6 +15,9 @@ name: site-release-sync
 on:
   release:
     types: [published]
+  workflow_run:
+    workflows: [release]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -26,7 +29,9 @@ concurrency:
 
 jobs:
   sync:
-    if: github.repository == 'TumanovNV/impuls'
+    if: >-
+      github.repository == 'TumanovNV/impuls' &&
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
