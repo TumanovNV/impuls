@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ИМПУЛЬС для macOS — буфер обмена, файлы, заметки и перевод</title>
 <meta name="description" content="ИМПУЛЬС (Impuls) — бесплатная утилита для macOS: буфер обмена, полка файлов, заметки, перевод, календарь, музыка и заряд устройств. Локально, без аккаунта.">
-<meta name="author" content="Интегра Импульс">
+<meta name="author" content="Николай Туманов">
 <meta name="application-name" content="ИМПУЛЬС">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfd">
@@ -41,14 +41,11 @@
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": "Organization",
-      "@id": "https://tumanovnv.github.io/impuls/#organization",
-      "name": "Интегра Импульс",
-      "legalName": "ООО «ИНТЕГРА ИМПУЛЬС»",
-      "taxID": "5001169552",
-      "identifier": {"@type": "PropertyValue", "propertyID": "ОГРН", "value": "1265000041327"},
+      "@type": "Person",
+      "@id": "https://tumanovnv.github.io/impuls/#author",
+      "name": "Николай Туманов",
       "url": "https://tumanovnv.github.io/impuls/",
-      "logo": "https://tumanovnv.github.io/impuls/assets/impuls-icon.png",
+      "image": "https://tumanovnv.github.io/impuls/assets/impuls-icon.png",
       "sameAs": ["https://github.com/TumanovNV/impuls"]
     },
     {
@@ -58,7 +55,7 @@
       "name": "ИМПУЛЬС",
       "alternateName": ["Impuls", "Импульс для macOS"],
       "inLanguage": ["ru", "en"],
-      "publisher": {"@id": "https://tumanovnv.github.io/impuls/#organization"}
+      "publisher": {"@id": "https://tumanovnv.github.io/impuls/#author"}
     },
     {
       "@type": "SoftwareApplication",
@@ -77,8 +74,8 @@
       "softwareHelp": "https://github.com/TumanovNV/impuls/issues",
       "license": "https://github.com/TumanovNV/impuls/blob/main/LICENSE",
       "codeRepository": "https://github.com/TumanovNV/impuls",
-      "author": {"@id": "https://tumanovnv.github.io/impuls/#organization"},
-      "publisher": {"@id": "https://tumanovnv.github.io/impuls/#organization"},
+      "author": {"@id": "https://tumanovnv.github.io/impuls/#author"},
+      "publisher": {"@id": "https://tumanovnv.github.io/impuls/#author"},
       "image": "https://tumanovnv.github.io/impuls/assets/og-impuls.png",
       "screenshot": "https://tumanovnv.github.io/impuls/assets/screens/ru/actions.png",
       "softwareRequirements": "macOS 15 or later",
@@ -1052,7 +1049,7 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 
 <footer>
   <div class="wrap foot">
-    <span>© <span id="year">2026</span> <span data-i="foot.co">ООО «ИНТЕГРА ИМПУЛЬС»</span></span>
+    <span>© <span id="year">2026</span> <span data-i="foot.co">Проект ИМПУЛЬС</span></span>
     <a href="https://github.com/TumanovNV/impuls" rel="noopener">GitHub</a>
     <a href="site-privacy.html" data-i="foot.privacy">Персональные данные</a>
     <a href="https://github.com/TumanovNV/impuls/blob/main/SECURITY.md" rel="noopener" data-i="foot.security">Безопасность</a>
@@ -1196,7 +1193,7 @@ var EN = {
 "fin.h2":"Try it on your own Mac","fin.lead":"Free, no account, no commitment. If it does not suit you, drag it to the Trash and it is gone.",
 "fin.m1":"macOS 15 or later",
 "pan":"Swipe the capture to see the whole panel","pan2":"Swipe the capture to see the whole panel",
-"foot.co":"INTEGRA IMPULS LLC","foot.privacy":"Personal data","foot.security":"Security","foot.site":"Technical privacy model","foot.lic":"GPL-3.0-or-later"
+"foot.co":"IMPULS project","foot.privacy":"Personal data","foot.security":"Security","foot.site":"Technical privacy model","foot.lic":"GPL-3.0-or-later"
 };
 
 /* Alt text is content, so it is translated like everything else. */
