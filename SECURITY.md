@@ -20,10 +20,21 @@ include user data, credentials, or exploit payloads in public discussions.
   extraction, signed-feed failures never expire, and the private key exists only
   in protected release infrastructure;
 - automatic downloads, unattended installation, Sparkle's system profiling,
-  analytics, and device identifiers are disabled. "System profiling" here means
+  and device identifiers are disabled. "System profiling" here means
   the profile Sparkle can attach to an update check; it is unrelated to the
   local `system_profiler` call the Battery Center makes for Apple accessories,
   described below, which never leaves the Mac;
+- version statistics are a separate third boundary owned only by
+  `VersionTelemetryService.swift`; without `allowed` consent and a validated,
+  build-configured HTTPS `/v1/heartbeat` endpoint it cannot construct a request;
+- its payload type exposes only schema, a random installation UUID, current app
+  version and an optional correctly observed previous version; CI and unit tests
+  pin that allow-list, the 24-hour attempt throttle and zero requests for
+  `unknown` or `denied`;
+- the random UUID is stored as a device-only Keychain item and has no hardware
+  or user input. The collector HMACs it with an owner secret before SQLite,
+  rejects extra/malformed fields and bodies over 2 KiB, rate limits requests,
+  and does not log IP or User-Agent as product analytics;
 - feedback uses no in-app network request: a length-bounded report is copied
   locally and the system browser may open only the exact Impuls new-issue URL;
 - feedback diagnostics are allow-listed and never inspect user content, paths,
@@ -84,8 +95,9 @@ include user data, credentials, or exploit payloads in public discussions.
 - release credentials belong only in protected GitHub Actions secrets;
 - optional clipboard persistence uses AES-GCM and keeps the device-only archive
   key in macOS Keychain; clipboard persistence remains disabled by default;
-- CI rejects Impuls-owned networking APIs outside the update service and the
-  explicit WebKit music boundary, proves the web view is lazily constructed,
+- CI rejects Impuls-owned networking APIs outside the update service, the
+  explicit WebKit music boundary, and the opt-in version-statistics service;
+  it proves the web view is lazily constructed,
   pins the Sparkle version and revision, validates security Info.plist keys,
   verifies the embedded framework, and checks that no MediaRemote/perl helper is
   bundled;
@@ -126,4 +138,4 @@ but never plays. A provider may also refuse to sign a user in inside an
 embedded web view; Impuls surfaces that message instead of hiding it.
 
 The latest documented review is
-[`docs/audits/1.3.1-web-music-boundary.md`](docs/audits/1.3.1-web-music-boundary.md).
+[`docs/audits/1.4.10-version-statistics.md`](docs/audits/1.4.10-version-statistics.md).

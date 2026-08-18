@@ -53,9 +53,10 @@ jobs:
           set -euo pipefail
           PATTERN='URLSession|NSURLSession|URLRequest|NSURLConnection|NWConnection|NWListener|webSocketTask|CFStreamCreatePairWithSocketToHost'
           if find Sources -type f \( -name '*.swift' -o -name '*.m' \) \
-              ! -name 'UpdateService.swift' ! -name 'WebMusicPlayer.swift' -print0 \
+              ! -name 'UpdateService.swift' ! -name 'WebMusicPlayer.swift' \
+              ! -name 'VersionTelemetryService.swift' -print0 \
               | xargs -0 grep -En "$PATTERN"; then
-            echo "Network API found outside the update or explicit web-player boundaries" >&2
+            echo "Network API found outside the three documented boundaries" >&2
             exit 1
           fi
           grep -F 'https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml' Sources/Impuls/Services/UpdateService.swift
@@ -67,6 +68,13 @@ jobs:
           grep -F 'let player = webPlayer ?? makeWebPlayer()' Sources/Impuls/Services/MediaController.swift
           test "$(grep -RFl 'WebMusicPlayer()' Sources --include='*.swift' | tr '\n' ' ')" = 'Sources/Impuls/Services/MediaController.swift '
           test -s docs/audits/1.3.0-web-music-security.md
+          TELEMETRY=Sources/Impuls/Services/VersionTelemetryService.swift
+          grep -F 'static let heartbeatInterval: TimeInterval = 24 * 60 * 60' "$TELEMETRY"
+          grep -F 'case installationID = "installation_id"' "$TELEMETRY"
+          grep -F 'case appVersion = "app_version"' "$TELEMETRY"
+          grep -F 'case previousVersion = "previous_version"' "$TELEMETRY"
+          grep -F 'endpoint.path == "/v1/heartbeat"' "$TELEMETRY"
+          test -s docs/audits/1.4.10-version-statistics.md
           ! grep -RFn 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources
 
       - name: Verify security and performance budgets
@@ -163,7 +171,9 @@ jobs:
           fi
 
       - name: Run automated tests
-        run: swift test -c release
+        run: |
+          swift test -c release
+          python3 -m unittest discover -s Tests/PythonTests -p 'test_*.py'
 
       - name: Build application
         run: ./Scripts/bundle.sh release

@@ -1,12 +1,74 @@
 import AppKit
+import Combine
 import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
+
+enum SettingsSection: String, CaseIterable, Identifiable {
+    case general
+    case updates
+    case modules
+    case appleDevices
+    case clipboard
+    case permissions
+    case dataAndPrivacy
+    case feedback
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return localized("General")
+        case .updates: return localized("Updates")
+        case .modules: return localized("Modules")
+        case .appleDevices: return localized("Apple Devices")
+        case .clipboard: return localized("Clipboard")
+        case .permissions: return localized("Permissions")
+        case .dataAndPrivacy: return localized("Data and Privacy")
+        case .feedback: return localized("Feedback")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: return "gearshape"
+        case .updates: return "arrow.triangle.2.circlepath"
+        case .modules: return "square.grid.2x2"
+        case .appleDevices: return "battery.100percent"
+        case .clipboard: return "list.clipboard"
+        case .permissions: return "hand.raised"
+        case .dataAndPrivacy: return "lock.shield"
+        case .feedback: return "bubble.left.and.bubble.right"
+        }
+    }
+}
+
+@MainActor
+final class SettingsNavigationState: ObservableObject {
+    static let selectionKey = "settings.selectedSection.v1"
+
+    @Published var selection: SettingsSection? {
+        didSet {
+            if let selection {
+                defaults.set(selection.rawValue, forKey: Self.selectionKey)
+            }
+        }
+    }
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        selection = defaults.string(forKey: Self.selectionKey)
+            .flatMap(SettingsSection.init(rawValue:)) ?? .general
+    }
+}
 
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let settings: SettingsStore
     private let updateService: UpdateService
+    private let versionTelemetryService: VersionTelemetryService
     private let onExport: () -> Void
     private let onImport: () -> Void
     private let onFeedback: () -> Void
@@ -15,12 +77,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     init(
         settings: SettingsStore,
         updateService: UpdateService,
+        versionTelemetryService: VersionTelemetryService,
         onExport: @escaping () -> Void,
         onImport: @escaping () -> Void,
         onFeedback: @escaping () -> Void
     ) {
         self.settings = settings
         self.updateService = updateService
+        self.versionTelemetryService = versionTelemetryService
         self.onExport = onExport
         self.onImport = onImport
         self.onFeedback = onFeedback
@@ -39,6 +103,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let view = SettingsView(
             settings: settings,
             updateService: updateService,
+            versionTelemetryService: versionTelemetryService,
             onExport: onExport,
             onImport: onImport,
             onFeedback: onFeedback
@@ -46,11 +111,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let hosting = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: hosting)
         window.title = localized("Impuls Settings")
-        window.setContentSize(NSSize(width: 700, height: 540))
-        window.minSize = NSSize(width: 640, height: 500)
+        window.minSize = NSSize(width: 760, height: 540)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
         window.isReleasedWhenClosed = false
-        window.center()
+        window.setFrameAutosaveName("ImpulsSettingsWindow")
+        if !window.setFrameUsingName("ImpulsSettingsWindow") {
+            window.setContentSize(NSSize(width: 900, height: 640))
+            window.center()
+        }
         window.delegate = self
         self.window = window
 
@@ -62,32 +130,87 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 private struct SettingsView: View {
     @ObservedObject var settings: SettingsStore
     @StateObject private var permissions = PermissionCenter()
+    @StateObject private var navigation = SettingsNavigationState()
+    @FocusState private var sidebarFocused: Bool
     let updateService: UpdateService
+    let versionTelemetryService: VersionTelemetryService
     let onExport: () -> Void
     let onImport: () -> Void
     let onFeedback: () -> Void
 
     var body: some View {
-        TabView {
-            GeneralSettingsPane(settings: settings)
-                .tabItem { Label("General", systemImage: "gearshape") }
-            UpdateSettingsPane(updateService: updateService)
-                .tabItem { Label("Updates", systemImage: "arrow.triangle.2.circlepath") }
-            ModuleSettingsPane(settings: settings)
-                .tabItem { Label("Modules", systemImage: "square.grid.2x2") }
-            AppleDeviceSettingsPane(settings: settings, lowBatteryAlerts: settings.lowBatteryAlerts)
-                .tabItem { Label("Apple Devices", systemImage: "battery.100percent") }
-            ClipboardSettingsPane(settings: settings)
-                .tabItem { Label("Clipboard", systemImage: "list.clipboard") }
-            PermissionSettingsPane(permissions: permissions)
-                .tabItem { Label("Permissions", systemImage: "hand.raised") }
-            DataSettingsPane(onExport: onExport, onImport: onImport)
-                .tabItem { Label("Data", systemImage: "externaldrive") }
-            SupportSettingsPane(onFeedback: onFeedback)
-                .tabItem { Label("Feedback", systemImage: "bubble.left.and.bubble.right") }
+        NavigationSplitView {
+            List(SettingsSection.allCases, selection: $navigation.selection) { section in
+                Label(section.title, systemImage: section.symbol)
+                    .tag(section)
+                    .accessibilityLabel(section.title)
+            }
+            .listStyle(.sidebar)
+            .navigationTitle(localized("Settings"))
+            .navigationSplitViewColumnWidth(min: 220, ideal: 230, max: 280)
+            .focused($sidebarFocused)
+            .accessibilityLabel(localized("Settings Sections"))
+        } detail: {
+            detail(for: navigation.selection ?? .general)
         }
-        .padding(18)
-        .frame(minWidth: 600, minHeight: 430)
+        .navigationSplitViewStyle(.balanced)
+        .frame(minWidth: 760, minHeight: 540)
+        .onAppear { sidebarFocused = true }
+    }
+
+    @ViewBuilder
+    private func detail(for section: SettingsSection) -> some View {
+        SettingsDetailPage(title: section.title) {
+            switch section {
+            case .general:
+                GeneralSettingsPane(settings: settings)
+            case .updates:
+                UpdateSettingsPane(updateService: updateService)
+            case .modules:
+                ModuleSettingsPane(settings: settings)
+            case .appleDevices:
+                AppleDeviceSettingsPane(settings: settings, lowBatteryAlerts: settings.lowBatteryAlerts)
+            case .clipboard:
+                ClipboardSettingsPane(settings: settings)
+            case .permissions:
+                PermissionSettingsPane(permissions: permissions)
+            case .dataAndPrivacy:
+                DataSettingsPane(
+                    telemetryService: versionTelemetryService,
+                    onExport: onExport,
+                    onImport: onImport
+                )
+            case .feedback:
+                SupportSettingsPane(onFeedback: onFeedback)
+            }
+        }
+    }
+}
+
+private struct SettingsDetailPage<Content: View>: View {
+    let title: String
+    let content: Content
+
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.largeTitle.weight(.semibold))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+                .padding(.horizontal, 24)
+                .padding(.top, 20)
+                .padding(.bottom, 14)
+            Divider()
+            content
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
@@ -445,7 +568,9 @@ private struct PermissionSettingsPane: View {
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .layoutPriority(1)
 
             Spacer(minLength: 12)
 
@@ -471,8 +596,10 @@ private struct PermissionSettingsPane: View {
 }
 
 private struct DataSettingsPane: View {
+    let telemetryService: VersionTelemetryService
     let onExport: () -> Void
     let onImport: () -> Void
+    @State private var sendsVersionStatistics = false
 
     var body: some View {
         Form {
@@ -491,8 +618,52 @@ private struct DataSettingsPane: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
+
+            Section(localized("Help Improve Impuls")) {
+                Toggle(
+                    localized("Send Version Statistics"),
+                    isOn: Binding(
+                        get: { sendsVersionStatistics },
+                        set: { enabled in
+                            sendsVersionStatistics = enabled
+                            telemetryService.setConsent(enabled ? .allowed : .denied)
+                            if enabled {
+                                Task { _ = await telemetryService.sendHeartbeatIfNeeded() }
+                            }
+                        }
+                    )
+                )
+                .disabled(!telemetryService.isEndpointConfigured && !sendsVersionStatistics)
+                .accessibilityHint(localized("Controls the separate opt-in version statistics network request."))
+
+                Text(localized("When enabled, Impuls sends a random installation identifier, the current Impuls version, and the previous version when it can be determined correctly."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(localized("Impuls content and personal data are never included. The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if !telemetryService.isEndpointConfigured {
+                    Text(localized("Version statistics are unavailable in this build because no collector endpoint is configured."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Button(localized("Learn More About Privacy"), action: openPrivacyPolicy)
+            }
         }
         .formStyle(.grouped)
+        .onAppear {
+            sendsVersionStatistics = telemetryService.consent == .allowed
+        }
+    }
+
+    private func openPrivacyPolicy() {
+        guard let url = URL(string: "https://github.com/TumanovNV/impuls/blob/main/PRIVACY.md") else { return }
+        NSWorkspace.shared.open(url)
     }
 }
 
@@ -509,9 +680,10 @@ private struct SupportSettingsPane: View {
             }
 
             Section("Privacy") {
-                Text("No feedback, analytics, diagnostics, or crash reports are sent automatically. GitHub issues are public, and the report can be reviewed before it leaves your Mac.")
+                Text(localized("No feedback, diagnostics, or crash reports are sent automatically. Version statistics have a separate opt-in in Data and Privacy. GitHub issues are public, and the report can be reviewed before it leaves your Mac."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Section("Security Reports") {

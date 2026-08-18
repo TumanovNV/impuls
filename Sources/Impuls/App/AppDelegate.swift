@@ -16,10 +16,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var vaultUsageGeneration = 0
     private var cancellables = Set<AnyCancellable>()
     private let updateService = UpdateService()
+    private let versionTelemetryService = VersionTelemetryService()
     private lazy var feedbackWindowController = FeedbackWindowController()
     private lazy var settingsWindowController = SettingsWindowController(
         settings: settings,
         updateService: updateService,
+        versionTelemetryService: versionTelemetryService,
         onExport: { [weak self] in self?.exportData() },
         onImport: { [weak self] in self?.importData() },
         onFeedback: { [weak self] in self?.feedbackWindowController.show() }
@@ -38,6 +40,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
             self?.updateService.requestConsentIfNeeded()
+        }
+        // Consent and endpoint checks happen before the network transport is touched.
+        // Delaying the best-effort heartbeat also keeps it outside the launch
+        // path that builds the panel, status item, and global shortcut.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self else { return }
+            Task { _ = await self.versionTelemetryService.sendHeartbeatIfNeeded() }
         }
     }
 

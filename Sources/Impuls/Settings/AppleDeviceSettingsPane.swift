@@ -20,6 +20,7 @@ struct AppleDeviceSettingsPane: View {
                 Text(localized("External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 HStack {
                     Button(
@@ -71,6 +72,7 @@ struct AppleDeviceSettingsPane: View {
                 Text(localized("Impuls will notify you when a connected device reaches 20% or 10%."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 if settings.lowBatteryAlertsEnabled, lowBatteryAlerts.authorization == .denied {
                     Text(localized("Notifications are disabled for Impuls in macOS settings. Battery monitoring will continue without alerts."))
@@ -87,6 +89,7 @@ struct AppleDeviceSettingsPane: View {
                 Text(localized("iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device."))
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .formStyle(.grouped)

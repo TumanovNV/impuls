@@ -10,6 +10,7 @@ ENTITLEMENTS="$ROOT/Resources/Impuls.entitlements"
 ADHOC_ENTITLEMENTS="$ROOT/Resources/Impuls.AdHoc.entitlements"
 SPARKLE_PUBLIC_KEY="/fAb0WKLYV8FTT+VkvGKgtIXfsiVG74NlJ+to0BusDg="
 SPARKLE_FEED_URL="https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml"
+VERSION_STATISTICS_ENDPOINT="${IMPULS_VERSION_STATISTICS_ENDPOINT:-}"
 
 echo "==> swift build -c $CONFIG"
 swift build -c "$CONFIG" --package-path "$ROOT"
@@ -78,6 +79,20 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
+
+# The collector address is deployment configuration, not source truth. A build
+# without it has no statistics endpoint and VersionTelemetryService stays inert.
+if [ -n "$VERSION_STATISTICS_ENDPOINT" ]; then
+    case "$VERSION_STATISTICS_ENDPOINT" in
+        https://?*/v1/heartbeat) ;;
+        *)
+            echo "IMPULS_VERSION_STATISTICS_ENDPOINT must be an HTTPS /v1/heartbeat URL" >&2
+            exit 1
+            ;;
+    esac
+    /usr/bin/plutil -insert ImpulsVersionStatisticsEndpoint \
+        -string "$VERSION_STATISTICS_ENDPOINT" "$APP/Contents/Info.plist"
+fi
 
 echo "==> localizations"
 for lproj in "$ROOT"/Resources/*.lproj; do

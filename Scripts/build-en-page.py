@@ -92,7 +92,7 @@ SCHEMA_EN = {
                 "The charge of your Mac, AirPods, iPhone and iPad in one place",
                 "Present on every connected display, including Sidecar",
                 "Works with VoiceOver and from the keyboard",
-                "No account, no cloud, no telemetry",
+                "No advertising or cloud; version statistics only after a separate opt-in",
             ],
         },
         {
@@ -118,9 +118,10 @@ SCHEMA_EN = {
                     "acceptedAnswer": {
                         "@type": "Answer",
                         "text": (
-                            "No. Clipboard, notes, snippets, files and calendar stay on the Mac. The "
-                            "network is used in two explicit cases: the update check you enable "
-                            "yourself, and the web player that opens only when you press Open Web Player."
+                            "Clipboard, notes, snippets, files and calendar stay on the Mac. Update "
+                            "checks and the web player are enabled separately. A third switch can allow "
+                            "minimal version statistics: a random installation pseudonym and the Impuls "
+                            "version, with no content or personal data."
                         ),
                     },
                 },

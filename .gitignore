@@ -5,6 +5,8 @@ artifacts/
 *.xcodeproj
 *.xcworkspace
 .swiftpm/
+__pycache__/
+*.py[cod]
 
 # Чтобы секрет не уехал в публичный репозиторий по случайности
 .env

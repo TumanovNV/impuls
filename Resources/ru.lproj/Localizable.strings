@@ -126,10 +126,12 @@
 /* Настройки */
 "Settings…" = "Настройки…";
 "Impuls Settings" = "Настройки Impuls";
+"Settings Sections" = "Разделы настроек";
 "General" = "Основные";
 "Modules" = "Модули";
 "Permissions" = "Разрешения";
 "Data" = "Данные";
+"Data and Privacy" = "Данные и конфиденциальность";
 "Disabled" = "Отключено";
 "Hover and keyboard shortcut" = "Наведение и горячая клавиша";
 "Keyboard shortcut only" = "Только горячая клавиша";
@@ -177,6 +179,12 @@
 "Import Data…" = "Импортировать данные…";
 "Privacy" = "Конфиденциальность";
 "The backup is a local JSON file. Impuls does not upload it or send it over the network." = "Резервная копия — локальный JSON-файл. Impuls не загружает и не отправляет его по сети.";
+"Send Version Statistics" = "Отправлять статистику версии";
+"Controls the separate opt-in version statistics network request." = "Управляет отдельной добровольной отправкой статистики версии.";
+"When enabled, Impuls sends a random installation identifier, the current Impuls version, and the previous version when it can be determined correctly." = "Если включить, Impuls отправляет случайный идентификатор установки, текущую версию Impuls и предыдущую версию, когда её можно определить корректно.";
+"Impuls content and personal data are never included. The installation identifier is a pseudonym stored in this Mac's Keychain, not a hardware or user identifier." = "Содержимое Impuls и персональные данные не отправляются. Идентификатор установки — это псевдоним в Связке ключей этого Mac, а не идентификатор оборудования или пользователя.";
+"Version statistics are unavailable in this build because no collector endpoint is configured." = "Статистика версии недоступна в этой сборке: адрес коллектора не настроен.";
+"Learn More About Privacy" = "Подробнее о конфиденциальности";
 "Export Impuls Data" = "Экспорт данных Impuls";
 "Import Impuls Data" = "Импорт данных Impuls";
 "Replace Current Impuls Data?" = "Заменить текущие данные Impuls?";
@@ -304,7 +312,7 @@
 "Send Feedback" = "Отправить обратную связь";
 "Send Feedback…" = "Отправить обратную связь…";
 "Feedback" = "Обратная связь";
-"Help Improve Impuls" = "Помогите улучшить Impuls";
+"Help Improve Impuls" = "Помогать улучшать Impuls";
 "Tell us what got in your way or what should be improved before new features are added." = "Расскажите, что вам помешало или что нужно улучшить до добавления новых функций.";
 "Problem" = "Проблема";
 "Feature Idea" = "Предложение";
@@ -338,6 +346,7 @@
 "Could Not Open GitHub" = "Не удалось открыть GitHub";
 "Report a problem, suggest an improvement, or tell us about your experience. Impuls prepares a transparent report and opens GitHub only after your action." = "Сообщите о проблеме, предложите улучшение или поделитесь впечатлением. Impuls подготовит прозрачный отчёт и откроет GitHub только после вашего действия.";
 "No feedback, analytics, diagnostics, or crash reports are sent automatically. GitHub issues are public, and the report can be reviewed before it leaves your Mac." = "Отзывы, аналитика, диагностика и отчёты о сбоях не отправляются автоматически. Issues на GitHub публичны, а отчёт можно проверить до передачи с Mac.";
+"No feedback, diagnostics, or crash reports are sent automatically. Version statistics have a separate opt-in in Data and Privacy. GitHub issues are public, and the report can be reviewed before it leaves your Mac." = "Отзывы, диагностика и отчёты о сбоях не отправляются автоматически. Статистика версии включается отдельно в разделе «Данные и конфиденциальность». Issues на GitHub публичны, а отчёт можно проверить до передачи с Mac.";
 "Security Reports" = "Сообщения о безопасности";
 "Do not publish an unpatched vulnerability or confidential data in a public issue. Use the private security reporting process described in SECURITY.md." = "Не публикуйте неисправленную уязвимость или конфиденциальные данные в публичном issue. Используйте приватный порядок сообщения, описанный в SECURITY.md.";
 "The update server response was unexpectedly large." = "Ответ сервера обновлений имеет недопустимо большой размер.";

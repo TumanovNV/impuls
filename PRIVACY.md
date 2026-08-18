@@ -1,8 +1,10 @@
 # Privacy Policy
 
-Impuls is designed to work locally. It has no analytics, advertising, telemetry,
-automatic crash-report upload, remote configuration, account system, or device
-identifier.
+Impuls is designed to work locally. It has no advertising, automatic
+crash-report upload, remote configuration, account system, or device
+fingerprinting. Impuls 1.4.10 adds one minimal first-party version statistic,
+disabled until the user explicitly enables it. It never contains Impuls content
+or personal, account, or hardware identifiers.
 
 ## Network access
 
@@ -44,6 +46,55 @@ provider. Password fields and authentication tokens are never read by the
 bridge. WebKit stores the provider's normal cookies and website data locally so
 the user does not need to sign in after every launch.
 
+## Optional version statistics
+
+Version statistics are a third network boundary, separate from updates and web
+music. The consent state is `unknown`, `allowed`, or `denied`. New and upgraded
+installations start at `unknown`; `unknown` and `denied` make no statistics
+request. The choice can be changed under **Settings → Data and Privacy**. A
+release build also needs an owner-configured HTTPS collector endpoint; the
+repository does not contain or invent a production URL, and a build without the
+endpoint cannot make the request even after consent.
+
+When allowed and configured, Impuls sends at most one `POST /v1/heartbeat`
+attempt per 24 hours, outside the critical launch path. The JSON body has an
+exact allow-list:
+
+```json
+{
+  "schema": 1,
+  "installation_id": "random-uuid",
+  "app_version": "1.4.10",
+  "previous_version": "1.4.9"
+}
+```
+
+`previous_version` is omitted unless Impuls previously recorded the running
+version and can identify a real transition. In particular, 1.4.10 does not guess
+that every first observation came from 1.4.9. The previous version is sent once
+after a successful transition heartbeat.
+
+The installation UUID is generated randomly and stored as a device-only item in
+the user's macOS Keychain so it is stable across launches. It is not derived
+from a serial number, UDID, MAC address, Mac name, Apple ID, account, or other
+hardware/user value. Disabling statistics stops requests but keeps the local ID,
+so enabling the setting later continues the same pseudonymous installation. The
+ID can be removed by deleting the `io.tumanov.impuls.version-statistics`
+Keychain item; a new one is then generated if statistics are enabled again.
+
+The collector receives normal connection metadata such as an IP address and
+User-Agent at the transport layer, as any HTTPS server does, but neither is a
+payload field or stored as product analytics. Before database storage, the raw
+installation UUID is replaced with a server-side HMAC-SHA256 digest using an
+owner secret. The database stores only that digest, `first_seen`, `last_seen`,
+current version, and an available previous version. Collector and reverse-proxy
+deployment instructions disable or anonymize access logs for this route.
+
+The heartbeat never includes clipboard contents, notes, snippets, file names or
+paths, calendar data, music/playback data, device names, serial numbers, UDIDs,
+hardware identifiers, installed applications, logs, or other user content. A
+timeout, server error, or malformed response has no effect on Impuls operation.
+
 ## Feedback
 
 Impuls 1.2.6 includes a voluntary feedback window. The app prepares the report
@@ -62,7 +113,8 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
 
 - notes and snippets are stored in `~/Library/Application Support/Impuls`;
 - saved clipboard screenshots are stored in `~/Pictures/Impuls` when available;
-- shelf references and preferences are stored in macOS UserDefaults;
+- shelf references, preferences, version-statistics consent and the last
+  observed app version are stored in macOS UserDefaults;
 - the selected music source is stored in macOS UserDefaults; web login cookies
   and website data are managed locally by the system WebKit data store;
 - clipboard history is held in memory by default and is not uploaded;
@@ -113,7 +165,7 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
   the device's display name and real percentage. Alert state contains only the
   Mac-local opaque device key, component kind, fired/re-arm flags and a cleanup
   timestamp; it is bounded, never exported and contains no percentage or device
-  name. No alert data is uploaded and there is no analytics or telemetry;
+  name. No alert data is uploaded or included in version statistics;
 - OCR, background removal, image conversion, resizing, and PDF creation run on
   the Mac with Apple system frameworks. Impuls does not upload source files or
   generated files. Sharing occurs only when the user explicitly chooses AirDrop
