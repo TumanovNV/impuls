@@ -14,6 +14,8 @@ jobs:
     if: github.repository == 'TumanovNV/impuls'
     runs-on: macos-15
     timeout-minutes: 25
+    env:
+      IMPULS_VERSION_STATISTICS_ENDPOINT: ${{ vars.IMPULS_VERSION_STATISTICS_ENDPOINT }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -40,6 +42,10 @@ jobs:
           VERSION="$(sed -n 's/^VERSION=//p' Scripts/version)"
           test -n "$VERSION"
           test -s "docs/releases/$VERSION.md"
+          if [[ ! "$IMPULS_VERSION_STATISTICS_ENDPOINT" =~ ^https://([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\.)+[A-Za-z]{2,63}/v1/heartbeat$ ]]; then
+            echo "IMPULS_VERSION_STATISTICS_ENDPOINT must be an HTTPS hostname with the exact /v1/heartbeat path" >&2
+            exit 1
+          fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=v$VERSION" >> "$GITHUB_ENV"
           git fetch --tags --force
@@ -57,9 +63,10 @@ jobs:
           fi
           PATTERN='URLSession|NSURLSession|URLRequest|NSURLConnection|NWConnection|NWListener|webSocketTask|CFStreamCreatePairWithSocketToHost'
           if find Sources -type f \( -name '*.swift' -o -name '*.m' \) \
-              ! -name 'UpdateService.swift' ! -name 'WebMusicPlayer.swift' -print0 \
+              ! -name 'UpdateService.swift' ! -name 'WebMusicPlayer.swift' \
+              ! -name 'VersionTelemetryService.swift' -print0 \
               | xargs -0 grep -En "$PATTERN"; then
-            echo "Network API found outside the update or explicit web-player boundaries" >&2
+            echo "Network API found outside the three documented boundaries" >&2
             exit 1
           fi
           grep -F 'https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml' Sources/Impuls/Services/UpdateService.swift
@@ -71,6 +78,13 @@ jobs:
           grep -F 'let player = webPlayer ?? makeWebPlayer()' Sources/Impuls/Services/MediaController.swift
           test "$(grep -RFl 'WebMusicPlayer()' Sources --include='*.swift' | tr '\n' ' ')" = 'Sources/Impuls/Services/MediaController.swift '
           test -s docs/audits/1.3.0-web-music-security.md
+          TELEMETRY=Sources/Impuls/Services/VersionTelemetryService.swift
+          grep -F 'static let heartbeatInterval: TimeInterval = 24 * 60 * 60' "$TELEMETRY"
+          grep -F 'case installationID = "installation_id"' "$TELEMETRY"
+          grep -F 'case appVersion = "app_version"' "$TELEMETRY"
+          grep -F 'case previousVersion = "previous_version"' "$TELEMETRY"
+          grep -F 'endpoint.path == "/v1/heartbeat"' "$TELEMETRY"
+          test -s docs/audits/1.4.10-version-statistics.md
           ! grep -RFn 'https://api.github.com/repos/TumanovNV/impuls/releases/latest' Sources
           grep -F 'exact: "2.9.5"' Package.swift
           grep -F '79bc9e872948e47877e76f194cb0c8e0412b0b90' Package.resolved
@@ -162,6 +176,7 @@ jobs:
         run: |
           swift test -c release
           ./Scripts/bundle.sh release
+          test "$(/usr/libexec/PlistBuddy -c 'Print ImpulsVersionStatisticsEndpoint' build/Impuls.app/Contents/Info.plist)" = "$IMPULS_VERSION_STATISTICS_ENDPOINT"
 
 
       - name: Verify no unsolicited network connection
@@ -196,6 +211,7 @@ jobs:
           DMG="build/Impuls-$VERSION.dmg"
           ZIP="build/Impuls-$VERSION.zip"
           APPCAST="build/appcast.xml"
+          test "$(/usr/libexec/PlistBuddy -c 'Print ImpulsVersionStatisticsEndpoint' "$APP/Contents/Info.plist)" = "$IMPULS_VERSION_STATISTICS_ENDPOINT"
           ditto -c -k --keepParent "$APP" "$ZIP"
           codesign --verify --deep --strict "$APP"
           test -s "$APP/Contents/Resources/AppIcon.icns"
