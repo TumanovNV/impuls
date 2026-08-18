@@ -3,7 +3,9 @@ name: release
 on:
   push:
     branches: [main]
-    paths: [Scripts/version]
+    paths:
+      - Scripts/version
+      - .github/workflows/release.yml
   workflow_dispatch:
 
 permissions:
@@ -211,7 +213,7 @@ jobs:
           DMG="build/Impuls-$VERSION.dmg"
           ZIP="build/Impuls-$VERSION.zip"
           APPCAST="build/appcast.xml"
-          test "$(/usr/libexec/PlistBuddy -c 'Print ImpulsVersionStatisticsEndpoint' "$APP/Contents/Info.plist)" = "$IMPULS_VERSION_STATISTICS_ENDPOINT"
+          test "$(/usr/libexec/PlistBuddy -c 'Print ImpulsVersionStatisticsEndpoint' "$APP/Contents/Info.plist")" = "$IMPULS_VERSION_STATISTICS_ENDPOINT"
           ditto -c -k --keepParent "$APP" "$ZIP"
           codesign --verify --deep --strict "$APP"
           test -s "$APP/Contents/Resources/AppIcon.icns"
