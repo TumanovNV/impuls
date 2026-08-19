@@ -63,6 +63,7 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.11**.
 - [Threat Model](06-security/threat-model.md)
 - [Data Classification](06-security/data-classification.md)
 - [Privacy Boundaries](06-security/privacy-boundaries.md)
+- [Dependency and Supply-Chain Policy](06-security/supply-chain.md)
 
 ## 07 — Web / Operations software
 - [Website Architecture](07-web/website.md)
@@ -87,6 +88,7 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.11**.
 
 ## 12 — Reference
 - [Reference Layer Index](12-reference/README.md)
+- [Machine-Readable Project Manifest](12-reference/project-manifest.md)
 - [Schema & Migration Registry](12-reference/schema-migration-registry.md)
 - [Core Type Reference](12-reference/core-type-reference.md)
 - [Generated Type → Tests → Docs Map](12-reference/generated-type-test-doc-map.md)
@@ -106,18 +108,15 @@ flowchart LR
     G -->|contract-sensitive diff| DOC[Canonical KB review]
     SRC --> F[Git-history Freshness Guard]
     DOC --> F
-    M[knowledge-map-manifest.json] --> GEN[generate-knowledge-map.py]
-    GEN --> MAP[Type → Tests → Docs Map]
-    KB[Markdown + frontmatter + links] --> CHECK[check-knowledge-base.py]
-    DOC --> CHECK
-    MAP --> CI[knowledge-base workflow]
-    CHECK --> CI
+    M[PROJECT-MANIFEST + curated manifests] --> V[Machine validators]
+    V --> CI[knowledge-base workflow]
+    KB[Markdown + frontmatter + links] --> CI
     G --> CI
     F --> CI
     CI -->|green| PR[PR may merge]
 ```
 
-v1.3 adds explicit performance/concurrency and resource-budget registries, a behavioral QA inventory, a semantic diff guard and a Git-history freshness guard. The automation does not write documentation automatically; it prevents contract-sensitive code changes or source evolution from silently outrunning canonical docs.
+v1.3 now combines explicit performance/concurrency and resource-budget registries, behavioral QA, semantic diff protection, historical freshness, a routing-only project manifest and dependency supply-chain policy.
 
 The lightweight knowledge-base workflow also runs weekly. On the scheduled run, freshness additionally enforces periodic review-age budgets; normal PRs enforce only real source→doc drift.
 

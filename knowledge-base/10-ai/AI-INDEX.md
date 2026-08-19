@@ -12,7 +12,7 @@ tags: [impuls, ai, agents, index]
 
 ## Обязательный старт
 
-Перед изменением проекта: `AGENTS.md` → этот индекс → relevant subsystem/reference docs → code/tests/CI. Старые handoff/release docs используются как history, не как current source of truth.
+Перед изменением проекта: `AGENTS.md` → root `PROJECT-MANIFEST.json` → этот индекс → relevant subsystem/reference docs → code/tests/CI. Manifest — routing-only; старые handoff/release docs используются как history, не как current source of truth.
 
 ## Core map
 
@@ -22,9 +22,9 @@ tags: [impuls, ai, agents, index]
 - [State and Ownership](../01-architecture/state-and-ownership.md)
 - [System Diagrams](../01-architecture/system-diagrams.md)
 - [Module Catalog](../02-modules/README.md)
-- [Settings/Onboarding/Feedback](../01-architecture/settings-onboarding-feedback.md)
 - [Security Model](../06-security/security-model.md)
 - [Threat Model](../06-security/threat-model.md)
+- [Dependency / Supply Chain](../06-security/supply-chain.md)
 - [Release Pipeline](../05-release/release-pipeline.md)
 - [Website](../07-web/website.md)
 - [Collector](../07-web/version-statistics-collector.md)
@@ -38,6 +38,7 @@ tags: [impuls, ai, agents, index]
 
 ## Precision reference layer — read when applicable
 
+- [Machine-Readable Project Manifest](../12-reference/project-manifest.md)
 - [Reference Index](../12-reference/README.md)
 - [Schema & Migration Registry](../12-reference/schema-migration-registry.md)
 - [Core Type Reference](../12-reference/core-type-reference.md)
@@ -47,92 +48,55 @@ tags: [impuls, ai, agents, index]
 - [Public / Private Operations Boundary](../12-reference/operations-boundary.md)
 - [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md)
 
-The generated map is the fastest path from an important production type to source, mapped tests and canonical docs. The v1.3 registries are the fastest path for persisted formats, background work and explicit performance budgets. Documentation Guardian checks contract-sensitive diffs, while the freshness guard checks historical source→doc ordering so older drift cannot remain silently trusted.
-
 ## Routing
 
 ### UI / panel / display
-
-Read state ownership → multi-display → Background Work Registry → Behavioral QA Matrix → Core Type Reference → generated map → `Theme.swift` / relevant Notch/UI code → mapped tests.
-
-Do not multiply service work per display. Pointer sampling is shared process-wide.
+Read state ownership → multi-display → Background Work Registry → Behavioral QA Matrix → Core Type Reference → generated map → source/tests.
 
 ### Module
-
-Read exact page in `02-modules/` → generated map for the owning type → store/service + pane + mapped tests. If data/permission/network/performance changes, include the corresponding v1.3 reference registry plus security/threat docs.
+Read exact page in `02-modules/` → generated map for the owning type → store/service + pane + mapped tests. If data/permission/network/performance changes, include the corresponding reference/security docs.
 
 ### Performance / concurrency / background work
-
-**Mandatory:** read [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md) before adding or changing a timer, poller, debounce, retry, `Task`, persistent observer/socket, queue/actor boundary or work that survives while the panel is closed.
-
-If a size/count/cadence/timeout/backpressure constant changes, also read [Input & Resource Budget Registry](../12-reference/resource-budget-registry.md).
-
-### Settings / onboarding / feedback
-
-Read subsystem page + [Schema & Migration Registry](../12-reference/schema-migration-registry.md) + SettingsStore/Onboarding/Feedback implementation. Do not turn Feedback into an implicit network client.
+**Mandatory:** read Background Work & Concurrency Registry before a timer, poller, debounce, retry, `Task`, observer/socket, queue/actor boundary or closed-panel work. For size/count/cadence/timeout/backpressure changes also read Resource Budget Registry.
 
 ### Persistence / backup / Keychain
+**Mandatory:** read Schema & Migration Registry first. Compatibility/migration, backup inclusion/exclusion and test isolation must be explicit.
 
-**Mandatory:** read [Schema & Migration Registry](../12-reference/schema-migration-registry.md) before editing. Then storage-persistence + data-classification + affected module + migration/storage tests.
+### Dependency / Package.swift / Package.resolved
+**Mandatory:** read [Dependency and Supply-Chain Policy](../06-security/supply-chain.md), `Scripts/dependency-policy.json`, `Package.swift` and `Package.resolved`. Every resolved remote Swift package must be explicitly approved. Direct dependencies use exact versions. A new package is an architecture/security change and may require an ADR.
 
-A persisted-format change is not complete until compatibility/migration behavior, backup inclusion/exclusion and test isolation are explicit.
+Run `python3 Scripts/check-dependency-policy.py` plus normal Swift/security CI.
 
 ### Permission
-
-Read permission architecture + macOS TCC + [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md) + public privacy/security docs. Permission prompts must remain user-contextual and explicit.
+Read permission architecture + macOS TCC + Behavioral QA Matrix + public privacy/security docs. Permission prompts remain user-contextual and explicit.
 
 ### Network
-
-Read networking + ADR-003 + threat model. Current app model has exactly three Internet network owners. A fourth owner is an architectural/security change, not an ordinary implementation detail.
+Read networking + ADR-003 + threat model. Current app model has exactly three Internet network owners. A fourth owner is an architectural/security change.
 
 ### Release/signing
-
-Read signing/distribution + release pipeline + update system + ADR-005 + workflows + relevant REL rows in the Behavioral QA Matrix.
+Read signing/distribution + release pipeline + update system + ADR-005 + supply-chain policy + workflows + relevant REL QA rows.
 
 ### Website
-
 Read website page + `.claude/rules/website.md`; preserve release sync, RU/EN static SEO and theme constraints.
 
 ### Version statistics software
-
 Read collector page + schema registry + operations boundary + Collector README/code + tests. Never commit operational secrets/private topology.
 
 ### Version statistics production runtime
-
-Current production host/network/service/backup/dashboard state belongs to the private infrastructure vault, not this repository.
-
-If `TumanovNV/office-it-docs` is connected and the task explicitly requires runtime current-state, start from:
-
-```text
-office-it-docs: Проекты/Impuls.md
-```
-
-Then follow that vault's navigation/source-of-truth rules.
-
-If the private vault is unavailable, mark runtime/topology facts as **unverified** rather than guessing from source defaults or historical public audits.
+Current production host/network/service/backup/dashboard state belongs to the private infrastructure vault. If connected and current-state is required, start from `office-it-docs: Проекты/Impuls.md`. If unavailable, mark runtime/topology facts unverified rather than guessing.
 
 ### Power/devices
-
-Read power page + ADR-004 + Background Work Registry + Resource Budget Registry + generated map + PWR rows in Behavioral QA Matrix. Device I/O remains off-main and external providers remain user-enabled.
+Read power page + ADR-004 + Background Work Registry + Resource Budget Registry + generated map + PWR QA rows. Device I/O stays off-main and external providers stay user-enabled.
 
 ### Core type ownership change
-
-1. Read [Core Type Reference](../12-reference/core-type-reference.md).
-2. Edit `Scripts/knowledge-map-manifest.json` if ownership/source/test/doc mapping changes.
-3. Run `python3 Scripts/generate-knowledge-map.py`.
-4. Commit the generated map.
-5. Run `python3 Scripts/generate-knowledge-map.py --check` plus normal tests/CI.
+Update `Scripts/knowledge-map-manifest.json`, regenerate with `python3 Scripts/generate-knowledge-map.py`, commit the map and run `--check`.
 
 ### Canonical documentation mapping change
-
-If a new high-risk canonical document or implementation owner is introduced, consider whether `Scripts/documentation-freshness.json` must track it. The freshness manifest is curated just like the type map: it should cover architectural contracts, not every Markdown file.
+Consider whether `Scripts/documentation-freshness.json` must track a new high-risk canonical owner. It is curated, not a map of every Markdown file.
 
 ### New behavioral edge
-
-When a change creates a new user-visible failure/lifecycle/topology/TCC/hardware/update path that is not adequately represented by a unit test, add or update a row in [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md). Do not mark it passed merely by documenting it.
+Add/update a Behavioral QA row for a new user-visible failure/lifecycle/topology/TCC/hardware/update path that deterministic unit tests cannot fully prove. Documentation is not pass evidence.
 
 ## Trust rule
 
-При конфликте сначала code + tests + CI. Затем исправь knowledge base. Documentation describes verified reality and rationale.
-
-For production infrastructure current-state, private operational documents own the fact. Do not copy private current-state into this public knowledge base merely to make AI navigation easier.
+При конфликте сначала code + tests + CI. Затем исправь knowledge base. Documentation describes verified reality and rationale. For production infrastructure current-state, private operational documents own the fact.
