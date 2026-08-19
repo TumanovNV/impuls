@@ -3,7 +3,7 @@ title: Update System
 type: release
 status: active
 documentation_version: 1.1
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, updates, sparkle, security]
 ---
@@ -55,6 +55,14 @@ CI проверяет:
 - automatic checks/downloads default false;
 - scheduled interval 86400;
 - public Ed25519 key соответствует release signing secret.
+
+## Version-statistics release guard
+
+Release workflow отдельно fail-closed проверяет repository variable
+`IMPULS_VERSION_STATISTICS_ENDPOINT`: допустим только HTTPS hostname с точным
+`/v1/heartbeat`. Он передаётся в `bundle.sh`, а собранный `Info.plist` обязан
+содержать то же значение до создания release artifacts. HMAC secret collector
+остаётся только на сервере и в workflow не передаётся.
 
 ## Signing chain
 
