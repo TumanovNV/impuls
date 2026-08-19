@@ -50,3 +50,16 @@ jobs:
             echo 'Branch cleanup incomplete: expected only main.' >&2
             exit 1
           fi
+
+      - name: Remove this one-time workflow from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          path='.github/workflows/pre-audit-branch-cleanup.yml'
+          sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${path}?ref=main" --jq '.sha')
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/contents/${path}" \
+            -f message='chore: remove one-time branch cleanup workflow' \
+            -f sha="$sha" \
+            -f branch='main'
