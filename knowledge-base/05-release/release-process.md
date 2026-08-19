@@ -38,11 +38,11 @@ knowledge-base/13-qa/release-evidence/x.y.z.md
 7. Выбрать release decision: `certified`, `ship-with-known-gaps` или `blocked`.
 8. Добавить/обновить security audit, если изменение касается updates, networking, permissions или stored data.
 9. Обновить релевантную knowledge base документацию.
-10. Выполнить normal checks, включая `python3 Scripts/check-release-qa-evidence.py --all`.
+10. Выполнить normal checks, включая `python3 Scripts/check-release-qa-evidence.py --release-gate`.
 11. Открыть Pull Request.
 12. Дождаться успешного CI.
 13. Слить PR в `main`.
-14. Release workflow создаёт tag `v<version>`, собирает и проверяет артефакты, подписывает appcast и публикует GitHub Release.
+14. Release workflow создаёт или обновляет tag/release `v<version>`, собирает и проверяет артефакты, подписывает appcast и публикует GitHub Release.
 15. Website sync обновляет статический fallback публичного сайта после релиза.
 
 ## Release QA gate
@@ -58,9 +58,15 @@ knowledge-base/13-qa/release-evidence/x.y.z.md
 - `manual-hardware` требует `real-mac-hardware` environment;
 - `certified` разрешён только если все manual/mixed строки — `pass` или обоснованный `not-applicable`;
 - `ship-with-known-gaps` обязан сохранять unresolved rows и непустой раздел `Known gaps`;
-- `blocked` означает, что кандидат нельзя считать готовым к выпуску.
+- `blocked` означает, что кандидат нельзя считать готовым к выпуску и `--release-gate` должен вернуть ошибку.
 
 `1.4.11` остаётся честным retrospective baseline: до появления системы structured evidence repository не сохранял release-time hardware/TCC matrix, поэтому прошлые пробелы не подменяются фиктивными `pass`.
+
+Для проверки только структуры/исторических записей без shipping-decision gate можно отдельно запускать:
+
+```bash
+python3 Scripts/check-release-qa-evidence.py --all
+```
 
 ## Что не делать вручную
 
@@ -75,13 +81,13 @@ knowledge-base/13-qa/release-evidence/x.y.z.md
 
 ## Сборка локально
 
-Основные команды проекта:
+Основные команды проекта перед release candidate:
 
 ```bash
 swift test -c release
 ./Scripts/bundle.sh release
 ./Scripts/dmg.sh
-python3 Scripts/check-release-qa-evidence.py --all
+python3 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
 `bundle.sh` использует Developer ID Application, если соответствующая переменная окружения доступна; иначе предусмотрен ad-hoc fallback. Фактическое состояние подписи и notarization перед конкретным релизом проверяется по build/release workflow и артефакту, а не по старой документации.
