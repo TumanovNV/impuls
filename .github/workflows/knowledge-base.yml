@@ -1,0 +1,120 @@
+name: knowledge-base
+
+on:
+  pull_request:
+    paths:
+      - 'PROJECT-MANIFEST.json'
+      - 'Package.swift'
+      - 'Package.resolved'
+      - 'knowledge-base/**'
+      - 'Sources/**'
+      - 'Resources/**'
+      - 'Collector/**'
+      - 'docs/releases/**'
+      - 'Scripts/bundle.sh'
+      - 'Scripts/version'
+      - 'Scripts/check-project-manifest.py'
+      - 'Scripts/check-dependency-policy.py'
+      - 'Scripts/dependency-policy.json'
+      - 'Scripts/generate-architecture-ledger.py'
+      - 'Scripts/architecture-milestones.json'
+      - 'Scripts/check-knowledge-base.py'
+      - 'Scripts/generate-knowledge-map.py'
+      - 'Scripts/knowledge-map-manifest.json'
+      - 'Scripts/check-documentation-guardian.py'
+      - 'Scripts/documentation-guardian-rules.json'
+      - 'Scripts/check-documentation-freshness.py'
+      - 'Scripts/documentation-freshness.json'
+      - 'Tests/PythonTests/test_project_manifest.py'
+      - 'Tests/PythonTests/test_dependency_policy.py'
+      - 'Tests/PythonTests/test_architecture_ledger.py'
+      - 'Tests/PythonTests/test_documentation_guardian.py'
+      - 'Tests/PythonTests/test_documentation_freshness.py'
+      - '.github/workflows/knowledge-base.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'PROJECT-MANIFEST.json'
+      - 'Package.swift'
+      - 'Package.resolved'
+      - 'knowledge-base/**'
+      - 'Sources/**'
+      - 'Resources/**'
+      - 'Collector/**'
+      - 'docs/releases/**'
+      - 'Scripts/bundle.sh'
+      - 'Scripts/version'
+      - 'Scripts/check-project-manifest.py'
+      - 'Scripts/check-dependency-policy.py'
+      - 'Scripts/dependency-policy.json'
+      - 'Scripts/generate-architecture-ledger.py'
+      - 'Scripts/architecture-milestones.json'
+      - 'Scripts/check-knowledge-base.py'
+      - 'Scripts/generate-knowledge-map.py'
+      - 'Scripts/knowledge-map-manifest.json'
+      - 'Scripts/check-documentation-guardian.py'
+      - 'Scripts/documentation-guardian-rules.json'
+      - 'Scripts/check-documentation-freshness.py'
+      - 'Scripts/documentation-freshness.json'
+      - 'Tests/PythonTests/test_project_manifest.py'
+      - 'Tests/PythonTests/test_dependency_policy.py'
+      - 'Tests/PythonTests/test_architecture_ledger.py'
+      - 'Tests/PythonTests/test_documentation_guardian.py'
+      - 'Tests/PythonTests/test_documentation_freshness.py'
+      - '.github/workflows/knowledge-base.yml'
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate machine-readable project manifest
+        run: python3 Scripts/check-project-manifest.py
+      - name: Test project manifest contract
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_project_manifest.py'
+      - name: Validate dependency supply-chain policy
+        run: python3 Scripts/check-dependency-policy.py
+      - name: Test dependency supply-chain policy
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_dependency_policy.py'
+      - name: Verify release architecture ledger
+        run: python3 Scripts/generate-architecture-ledger.py --check
+      - name: Test release architecture ledger
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_architecture_ledger.py'
+      - name: Validate engineering knowledge base
+        run: python3 Scripts/check-knowledge-base.py
+      - name: Verify generated source-test-doc map
+        run: python3 Scripts/generate-knowledge-map.py --check
+      - name: Test Documentation Guardian matcher
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_documentation_guardian.py'
+      - name: Test documentation freshness logic
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_documentation_freshness.py'
+      - name: Verify semantic documentation contracts
+        env:
+          GUARD_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${GUARD_BASE:-}" ] && [ "$GUARD_BASE" != "0000000000000000000000000000000000000000" ]; then
+            python3 Scripts/check-documentation-guardian.py --base "$GUARD_BASE"
+          else
+            python3 Scripts/check-documentation-guardian.py
+          fi
+      - name: Verify canonical documentation freshness
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            python3 Scripts/check-documentation-freshness.py --enforce-review-age
+          else
+            python3 Scripts/check-documentation-freshness.py
+          fi

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {
+      "id": "background-concurrency",
+      "description": "Periodic, delayed, queued or task-owned work changed",
+      "source_globs": ["Sources/**/*.swift"],
+      "patterns": ["\\bTimer\\s*\\(","\\bDispatchQueue\\b","\\bTask\\s*\\{","\\bTask\\.detached\\b","\\.asyncAfter\\s*\\(","\\bTask\\.sleep\\b","refreshBehavior\\s*=","timer\\.tolerance\\s*="],
+      "required_docs_any": ["knowledge-base/12-reference/background-concurrency-registry.md"]
+    },
+    {
+      "id": "resource-budgets",
+      "description": "Input, count, cadence, timeout or backpressure budget changed",
+      "source_globs": ["Sources/**/*.swift", "Scripts/bundle.sh"],
+      "patterns": ["\\bmaximum[A-Za-z0-9_]*\\s*=","\\bmaximumItems\\s*=","\\bmaximumFileBytes\\s*=","\\bheartbeatInterval\\s*:","timeoutInterval(?:ForRequest|ForResource)?\\s*=","activeInterval\\s*:","idleInterval\\s*:","saveDelay\\s*:","Task\\.sleep\\s*\\(","timer\\.tolerance\\s*=","SUScheduledCheckInterval"],
+      "required_docs_any": ["knowledge-base/12-reference/resource-budget-registry.md"]
+    },
+    {
+      "id": "persisted-contract",
+      "description": "Persisted key, schema, Keychain identity or database-version contract changed",
+      "source_globs": ["Sources/**/*.swift", "Collector/**/*.py"],
+      "patterns": ["currentSchemaVersion\\s*=","currentVersion\\s*=\\s*[0-9]","\\bstorageKey\\s*=","kSecAttr(?:Service|Account)","service\\s*=\\s*\"io\\.tumanov\\.impuls","account\\s*=\\s*\"","file\\(named:","PRAGMA\\s+user_version"],
+      "required_docs_any": ["knowledge-base/12-reference/schema-migration-registry.md"]
+    },
+    {
+      "id": "network-contract",
+      "description": "Internet endpoint, host, feed, redirect or heartbeat network contract changed",
+      "source_globs": ["Sources/Impuls/Services/UpdateService.swift","Sources/Impuls/Services/WebMusicPlayer.swift","Sources/Impuls/Services/VersionTelemetryService.swift","Scripts/bundle.sh"],
+      "patterns": ["https://","SUFeedURL","endpoint\\.path","validatedEndpoint","willPerformHTTPRedirection","homeURL","allowedHost","heartbeatInterval"],
+      "required_docs_any": ["knowledge-base/01-architecture/networking.md"]
+    },
+    {
+      "id": "permissions",
+      "description": "TCC, entitlement or explicit permission-request path changed",
+      "source_globs": ["Sources/**/*.swift", "Resources/*.entitlements", "Scripts/bundle.sh"],
+      "patterns": ["com\\.apple\\.security\\.","NSAppleEventsUsageDescription","requestFullAccessToEvents","AEDeterminePermissionToAutomateTarget","requestAuthorization","Privacy_[A-Za-z]+"],
+      "required_docs_any": ["knowledge-base/01-architecture/permissions.md","knowledge-base/03-macos/permissions-and-tcc.md"]
+    },
+    {
+      "id": "dependency-contract",
+      "description": "Swift package dependency requirement or resolved pin changed",
+      "source_globs": ["Package.swift", "Package.resolved"],
+      "patterns": ["\\.package\\s*\\(","\\\"identity\\\"\\s*:","\\\"location\\\"\\s*:","\\\"revision\\\"\\s*:","\\\"version\\\"\\s*:"],
+      "required_docs_any": ["knowledge-base/06-security/supply-chain.md"]
+    }
+  ]
+}
