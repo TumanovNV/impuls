@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "enforce_from_version": "1.4.12",
+  "matrix_path": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+  "evidence_directory": "knowledge-base/13-qa/release-evidence",
+  "manual_modes": [
+    "mixed",
+    "manual-macos",
+    "manual-hardware",
+    "manual-service"
+  ],
+  "result_values": [
+    "pass",
+    "fail",
+    "blocked",
+    "not-run",
+    "not-applicable",
+    "not-recorded"
+  ],
+  "release_decisions": [
+    "retrospective",
+    "certified",
+    "ship-with-known-gaps",
+    "blocked"
+  ],
+  "environment_kinds": [
+    "real-mac",
+    "real-mac-hardware",
+    "service",
+    "historical-unknown"
+  ]
+}
