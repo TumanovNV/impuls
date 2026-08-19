@@ -126,23 +126,18 @@ final class MenuBarWorkspaceController: NSObject, NSMenuDelegate {
 
     private func updateStatusButton(_ item: NSStatusItem, content: MenuBarWorkspaceContent) {
         guard let button = item.button else { return }
-        switch content {
-        case .logo:
-            item.length = NSStatusItem.squareLength
+        let presentation = MenuBarStatusItemPresentation(content: content)
+        item.length = presentation.usesVariableLength ? NSStatusItem.variableLength : NSStatusItem.squareLength
+        button.imagePosition = .imageLeft
+        button.title = presentation.title
+        button.toolTip = presentation.toolTip
+        button.setAccessibilityLabel(presentation.toolTip)
+
+        switch presentation.image {
+        case .impulsLogo:
             button.image = statusIcon()
-            button.title = ""
-            button.toolTip = "Impuls"
         case .battery(let battery):
-            item.length = NSStatusItem.variableLength
-            button.image = statusIcon()
-            let charging = battery.state == .charging || battery.state == .charged
-            button.title = battery.percentage.map { charging ? " ⚡ \($0)%" : " \($0)%" } ?? ""
-            button.toolTip = batteryDescription(battery)
-        case .player(let player):
-            item.length = NSStatusItem.variableLength
-            button.image = statusIcon()
-            button.title = player.isPlaying ? " ♪" : " ♫"
-            button.toolTip = player.subtitle.isEmpty ? player.title : "\(player.title) — \(player.subtitle)"
+            button.image = batteryStatusImage(battery)
         }
     }
 
@@ -228,7 +223,7 @@ final class MenuBarWorkspaceController: NSObject, NSMenuDelegate {
         switch content {
         case .battery(let battery):
             item = self.item(batteryDescription(battery), action: #selector(openPower))
-            item.image = statusImage(named: batterySymbol(for: battery.percentage))
+            item.image = statusImage(named: MenuBarBatteryStatusPresentation.symbolName(for: battery.percentage))
         case .player(let player):
             let description = player.subtitle.isEmpty ? player.title : "\(player.title) — \(player.subtitle)"
             item = self.item(description, action: #selector(openMusic))
@@ -337,14 +332,67 @@ final class MenuBarWorkspaceController: NSObject, NSMenuDelegate {
         return values.joined(separator: " — ")
     }
 
-    private func batterySymbol(for percentage: Int?) -> String {
-        guard let percentage else { return "battery.0" }
-        switch percentage {
-        case 0...10: return "battery.0"
-        case 11...35: return "battery.25"
-        case 36...65: return "battery.50"
-        case 66...90: return "battery.75"
-        default: return "battery.100percent"
+    private func batteryStatusImage(_ presentation: MenuBarBatteryStatusPresentation) -> NSImage? {
+        guard let battery = coloredStatusSymbol(
+            named: presentation.symbolName,
+            color: statusColor(for: presentation.levelColorRole),
+            pointSize: 13
+        ) else {
+            return nil
+        }
+        guard let chargingSymbolName = presentation.chargingSymbolName,
+              let bolt = coloredStatusSymbol(
+                  named: chargingSymbolName,
+                  color: .secondaryLabelColor,
+                  pointSize: 10
+              ) else {
+            return battery
+        }
+
+        let spacing: CGFloat = 1
+        let size = NSSize(
+            width: battery.size.width + spacing + bolt.size.width,
+            height: max(battery.size.height, bolt.size.height)
+        )
+        let image = NSImage(size: size, flipped: false) { _ in
+            battery.draw(
+                at: NSPoint(x: 0, y: (size.height - battery.size.height) / 2),
+                from: .zero,
+                operation: .sourceOver,
+                fraction: 1
+            )
+            bolt.draw(
+                at: NSPoint(x: battery.size.width + spacing, y: (size.height - bolt.size.height) / 2),
+                from: .zero,
+                operation: .sourceOver,
+                fraction: 1
+            )
+            return true
+        }
+        image.isTemplate = false
+        return image
+    }
+
+    private func coloredStatusSymbol(named name: String, color: NSColor?, pointSize: CGFloat) -> NSImage? {
+        let sizing = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .medium)
+        let configuration: NSImage.SymbolConfiguration
+        if let color {
+            configuration = sizing.applying(NSImage.SymbolConfiguration(hierarchicalColor: color))
+        } else {
+            configuration = sizing
+        }
+        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil)?
+            .withSymbolConfiguration(configuration)
+        image?.isTemplate = color == nil
+        return image
+    }
+
+    private func statusColor(for role: MenuBarBatteryStatusPresentation.LevelColorRole?) -> NSColor? {
+        switch role {
+        case .green: return .systemGreen
+        case .orange: return .systemOrange
+        case .red: return .systemRed
+        case nil: return nil
         }
     }
 
