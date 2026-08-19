@@ -14,6 +14,7 @@ on:
       - 'Scripts/knowledge-map-manifest.json'
       - 'Scripts/check-documentation-guardian.py'
       - 'Scripts/documentation-guardian-rules.json'
+      - 'Tests/PythonTests/test_documentation_guardian.py'
       - '.github/workflows/knowledge-base.yml'
   push:
     branches: [main]
@@ -29,6 +30,7 @@ on:
       - 'Scripts/knowledge-map-manifest.json'
       - 'Scripts/check-documentation-guardian.py'
       - 'Scripts/documentation-guardian-rules.json'
+      - 'Tests/PythonTests/test_documentation_guardian.py'
       - '.github/workflows/knowledge-base.yml'
   workflow_dispatch:
 
@@ -48,6 +50,8 @@ jobs:
         run: python3 Scripts/check-knowledge-base.py
       - name: Verify generated source-test-doc map
         run: python3 Scripts/generate-knowledge-map.py --check
+      - name: Test Documentation Guardian matcher
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_documentation_guardian.py'
       - name: Verify semantic documentation contracts
         env:
           GUARD_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}

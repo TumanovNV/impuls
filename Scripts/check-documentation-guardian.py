@@ -75,12 +75,22 @@ def changed_files(base: str) -> set[str]:
 
 
 def changed_source_lines(base: str) -> list[tuple[str, str]]:
+    """Return added and removed payload lines, attributed to new or old path.
+
+    Tracking both paths matters for deletions and renames: removing the last
+    timer/network/schema line is still a contract change and must not escape
+    review merely because `+++ /dev/null` has no new path.
+    """
     patch = git("diff", "--unified=0", "--no-ext-diff", f"{base}...HEAD")
     output: list[tuple[str, str]] = []
     old_path: str | None = None
     new_path: str | None = None
 
     for line in patch.splitlines():
+        if line.startswith("diff --git "):
+            old_path = None
+            new_path = None
+            continue
         if line.startswith("--- "):
             raw = line[4:].strip()
             old_path = None if raw == "/dev/null" else raw.removeprefix("a/")
@@ -88,10 +98,6 @@ def changed_source_lines(base: str) -> list[tuple[str, str]]:
         if line.startswith("+++ "):
             raw = line[4:].strip()
             new_path = None if raw == "/dev/null" else raw.removeprefix("b/")
-            continue
-        if line.startswith("diff --git "):
-            old_path = None
-            new_path = None
             continue
         if line.startswith("@@") or line.startswith("index "):
             continue
@@ -104,12 +110,12 @@ def changed_source_lines(base: str) -> list[tuple[str, str]]:
     return output
 
 
-def check(base: str | None, rules: list[dict]) -> list[str]:
-    if base is None:
-        return []
-
-    files = changed_files(base)
-    lines = changed_source_lines(base)
+def evaluate(
+    files: set[str],
+    lines: list[tuple[str, str]],
+    rules: list[dict],
+) -> list[str]:
+    """Pure matcher used by CI and unit tests."""
     errors: list[str] = []
 
     for rule in rules:
@@ -134,6 +140,12 @@ def check(base: str | None, rules: list[dict]) -> list[str]:
             f"{rule['id']}: {rule['description']}. Review/update {docs}. Hits: {examples}"
         )
     return errors
+
+
+def check(base: str | None, rules: list[dict]) -> list[str]:
+    if base is None:
+        return []
+    return evaluate(changed_files(base), changed_source_lines(base), rules)
 
 
 def main() -> int:
