@@ -105,6 +105,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | UI-03 | Change appearance while app runs | manual-macos | surfaces update without restart |
 | UI-04 | Reduce Motion enabled | mixed | transitions use reduced-motion contract rather than full animation |
 | UI-05 | Keyboard handoff between displays/text modules | mixed | keyboard ownership follows active surface without stealing focus from another app |
+| UI-06 | Menu Bar battery status in light/dark on Retina display | manual-macos | native battery glyph, percentage and charging bolt remain legible, aligned and semantically coloured in both appearances at Retina scale |
 
 ## Release and update
 
