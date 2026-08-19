@@ -15,7 +15,7 @@ Start with:
 3. `knowledge-base/00-project/project-status.md` — current shipped baseline.
 4. `knowledge-base/10-ai/invariants.md` — concise project invariants.
 5. `knowledge-base/12-reference/README.md` — schema/type/performance reference routes.
-6. `knowledge-base/13-qa/README.md` — behavioral verification routes when platform/hardware behavior matters.
+6. `knowledge-base/13-qa/README.md` — behavioral verification and release-evidence routes when platform/hardware behavior matters.
 7. The implementation and tests for the area you are changing.
 
 The root manifest is a routing aid, not a duplicate implementation database. Do not put persisted keys, performance constants, live endpoints, production topology, addresses or secrets into it.
@@ -34,6 +34,7 @@ python3 Scripts/check-project-manifest.py
 python3 Scripts/check-knowledge-base.py
 python3 Scripts/generate-knowledge-map.py --check
 python3 Scripts/check-documentation-freshness.py
+python3 Scripts/check-release-qa-evidence.py --all
 # PR/diff-aware documentation check:
 python3 Scripts/check-documentation-guardian.py --base <base-sha>
 open build/Impuls.app
@@ -51,7 +52,7 @@ open build/Impuls.app
 4. **The panel follows system appearance.** Semantic colours come from the project's theme system. The collapsed tab is the deliberate black exception so it visually merges with the physical cutout.
 5. **Actions selection never follows the pointer.** Hover is visual affordance only; it must not silently replace explicit selection.
 6. **Localization is complete.** Every `localized("…")` key must exist in both `Resources/en.lproj/Localizable.strings` and `Resources/ru.lproj/Localizable.strings`.
-7. **Version and release notes travel together.** `Scripts/version` holds `VERSION=x.y.z`, and `docs/releases/x.y.z.md` must exist and be non-empty.
+7. **Version, release notes and release QA evidence travel together.** `Scripts/version` holds `VERSION=x.y.z`, `docs/releases/x.y.z.md` must exist and be non-empty, and `knowledge-base/13-qa/release-evidence/x.y.z.md` must account for the release's manual/mixed Behavioral QA rows. From 1.4.12 onward `not-recorded` is forbidden.
 8. **The website has CI-sensitive literals.** `docs/index.html` is part of the GitHub Pages production contract. Read `.claude/rules/website.md` and current CI before editing it.
 9. **Feedback collects nothing automatically.** `FeedbackService.swift` must not grow hidden networking, hardware identifiers or user-content collection. Feedback is explicit and user-visible.
 10. **Sparkle is opt-in and verified.** Automatic checks and automatic installation default to false; system profiling stays false. Automatic installation requires update-check consent. Signed feed and verify-before-extraction remain enabled.
@@ -59,6 +60,7 @@ open build/Impuls.app
 12. **Background work is owned and bounded.** New timers/pollers/tasks/queues require lifecycle, cadence/tolerance, cancellation and documentation review. Presentation surfaces never create duplicate shared work.
 13. **Slow I/O stays off the main actor.** Disk, process, socket and device reads must not freeze observable/UI state.
 14. **Resource budgets are contracts.** Raising/removing size/count/cadence/timeout/backpressure limits requires explicit review and tests, not a magic-number edit.
+15. **QA inventory is not pass evidence.** A Behavioral QA row, unit test or historical screenshot does not prove a particular release passed real hardware/TCC. A `pass`/`fail`/`blocked` manual result must be tied to a truthful release-specific environment without serials, UDIDs or secrets.
 
 ## Device and power invariants
 
@@ -74,7 +76,7 @@ These are standing rules for anything touching Apple-device discovery or power d
 8. iPhone/iPad discovery is controlled by the user-facing device-discovery setting. With discovery off there must be no topology socket, usbmuxd traffic or read.
 9. Best-effort system tools use fixed executable paths, fixed arguments, no shell/user argument injection, bounded output and timeouts.
 
-See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-model.md`, `knowledge-base/12-reference/background-concurrency-registry.md`, `knowledge-base/12-reference/resource-budget-registry.md`, `knowledge-base/13-qa/behavioral-qa-matrix.md`, `docs/APPLE_DEVICE_BATTERY_SUPPORT.md` and the relevant tests before changing this area.
+See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-model.md`, `knowledge-base/12-reference/background-concurrency-registry.md`, `knowledge-base/12-reference/resource-budget-registry.md`, `knowledge-base/13-qa/behavioral-qa-matrix.md`, `knowledge-base/13-qa/release-evidence/README.md`, `docs/APPLE_DEVICE_BATTERY_SUPPORT.md` and the relevant tests before changing this area.
 
 ## Layout
 
@@ -117,15 +119,18 @@ The semantic `Documentation Guardian` checks sensitive changed lines during PR C
 
 1. Bump `VERSION` in `Scripts/version`.
 2. Write `docs/releases/<version>.md` with a Russian section, then `---`, then a short English summary.
-3. Add/update a security audit if networking, permissions, updates or stored data changed.
-4. Update the relevant files under `knowledge-base/` when architecture/current state changed.
-5. Update Behavioral QA when a change introduces a new platform/hardware/TCC/lifecycle verification scenario.
-6. Open a pull request and let CI pass.
-7. Merge to `main`; the release workflow performs the normal tag/build/appcast/release process.
+3. Copy `knowledge-base/13-qa/release-evidence/TEMPLATE.md` to `knowledge-base/13-qa/release-evidence/<version>.md` and record the exact candidate/release commit, real test environments and one result for every manual/mixed QA row.
+4. Add/update a security audit if networking, permissions, updates or stored data changed.
+5. Update the relevant files under `knowledge-base/` when architecture/current state changed.
+6. Update Behavioral QA when a change introduces a new platform/hardware/TCC/lifecycle verification scenario; then update the candidate release evidence so the new manual obligation is explicit.
+7. Choose the truthful release decision: `certified`, `ship-with-known-gaps` or `blocked`. Do not invent passes to remove a gap.
+8. Run `python3 Scripts/check-release-qa-evidence.py --all` together with the normal repository checks.
+9. Open a pull request and let CI pass.
+10. Merge to `main`; the release workflow performs the normal tag/build/appcast/release process.
 
-Do not create production tags/releases manually during the normal flow, and never commit signing keys or secrets.
+Do not create production tags/releases manually during the normal flow, and never commit signing keys, secrets or raw device identifiers to QA evidence.
 
-See `knowledge-base/05-release/release-process.md` for the current release documentation.
+See `knowledge-base/05-release/release-process.md` and `knowledge-base/13-qa/release-evidence/README.md` for the current release documentation.
 
 ## Documentation rule
 
@@ -135,7 +140,7 @@ If a change alters stable project topology — shipped modules, canonical owners
 
 If a change alters architecture, module ownership, networking, permissions, persistence, device identity, background work/concurrency, resource budgets, release semantics or the current shipped baseline, update the corresponding document under `knowledge-base/` in the same change. Long-lived architectural decisions require an ADR under `knowledge-base/08-decisions/`.
 
-If a change introduces a new user-visible platform/hardware/TCC/lifecycle edge, update `knowledge-base/13-qa/behavioral-qa-matrix.md` even when part of the deterministic core is unit-tested.
+If a change introduces a new user-visible platform/hardware/TCC/lifecycle edge, update `knowledge-base/13-qa/behavioral-qa-matrix.md` even when part of the deterministic core is unit-tested. If a release is being prepared, the version-specific evidence file must classify that row too.
 
 If a new canonical architecture/reference owner is introduced, consider adding it to `Scripts/documentation-freshness.json` so historical drift is machine-detectable.
 
