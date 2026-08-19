@@ -35,6 +35,11 @@ include user data, credentials, or exploit payloads in public discussions.
   or user input. The collector HMACs it with an owner secret before SQLite,
   rejects extra/malformed fields and bodies over 2 KiB, rate limits requests,
   and does not log IP or User-Agent as product analytics;
+- the private owner dashboard may make one server-originated, unauthenticated
+  request to the fixed GitHub latest-release API to label aggregate data. It
+  follows no redirect, accepts only a bounded stable release tag, sends no
+  telemetry or credentials, and atomically retains the last validated version
+  locally when GitHub is unavailable;
 - feedback uses no in-app network request: a length-bounded report is copied
   locally and the system browser may open only the exact Impuls new-issue URL;
 - feedback diagnostics are allow-listed and never inspect user content, paths,

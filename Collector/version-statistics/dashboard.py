@@ -6,12 +6,19 @@ from __future__ import annotations
 import contextlib
 import html
 import ipaddress
+import json
 import logging
 import os
+import re
 import sqlite3
+import tempfile
+import threading
+import urllib.error
+import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Callable
 
 from report import build_report, open_read_only_database
 
@@ -23,6 +30,14 @@ CONTENT_SECURITY_POLICY = (
     "form-action 'none'; "
     "frame-ancestors 'none'"
 )
+GITHUB_LATEST_RELEASE_URL = "https://api.github.com/repos/TumanovNV/impuls/releases/latest"
+GITHUB_RESPONSE_LIMIT = 32 * 1024
+GITHUB_REQUEST_TIMEOUT_SECONDS = 5
+DEFAULT_GITHUB_REFRESH_INTERVAL_SECONDS = 60 * 60
+MINIMUM_GITHUB_REFRESH_INTERVAL_SECONDS = 5 * 60
+MAXIMUM_GITHUB_REFRESH_INTERVAL_SECONDS = 24 * 60 * 60
+LATEST_VERSION_CACHE_SCHEMA = 1
+VERSION_PATTERN = re.compile(r"^[0-9]+(?:\.[0-9]+){2}(?:[-+][0-9A-Za-z][0-9A-Za-z.-]*)?$")
 
 
 def is_client_allowed(address: str, allowed_network: ipaddress.IPv4Network | ipaddress.IPv6Network) -> bool:
@@ -30,6 +45,149 @@ def is_client_allowed(address: str, allowed_network: ipaddress.IPv4Network | ipa
         return ipaddress.ip_address(address) in allowed_network
     except ValueError:
         return False
+
+
+def validate_version(value: object) -> str:
+    if not isinstance(value, str) or not VERSION_PATTERN.fullmatch(value):
+        raise ValueError("version must be a supported release version")
+    return value
+
+
+class NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Treat every redirect from the fixed upstream as an unavailable refresh."""
+
+    def redirect_request(self, *_args: object, **_kwargs: object) -> None:
+        return None
+
+
+def parse_github_latest_release(payload_bytes: bytes) -> str:
+    if len(payload_bytes) > GITHUB_RESPONSE_LIMIT:
+        raise ValueError("GitHub latest-release response exceeds the limit")
+    try:
+        payload = json.loads(payload_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ValueError("GitHub latest-release response is not JSON") from error
+    if not isinstance(payload, dict):
+        raise ValueError("GitHub latest-release response is not an object")
+    if payload.get("draft") is not False or payload.get("prerelease") is not False:
+        raise ValueError("GitHub latest-release response is not a published stable release")
+    tag_name = payload.get("tag_name")
+    if not isinstance(tag_name, str) or not tag_name.startswith("v"):
+        raise ValueError("GitHub latest-release tag is invalid")
+    return validate_version(tag_name[1:])
+
+
+def fetch_github_latest_release() -> str:
+    """Fetch only the fixed public release endpoint, with no redirect follow."""
+
+    request = urllib.request.Request(
+        GITHUB_LATEST_RELEASE_URL,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "ImpulsStatisticsDashboard/1.0",
+        },
+        method="GET",
+    )
+    opener = urllib.request.build_opener(NoRedirectHandler())
+    try:
+        with opener.open(request, timeout=GITHUB_REQUEST_TIMEOUT_SECONDS) as response:
+            if response.geturl() != GITHUB_LATEST_RELEASE_URL:
+                raise ValueError("GitHub latest-release response changed URL")
+            if response.status != 200:
+                raise ValueError("GitHub latest-release response has an unexpected status")
+            content_length = response.headers.get("Content-Length")
+            if content_length is not None and (
+                not content_length.isdecimal() or int(content_length) > GITHUB_RESPONSE_LIMIT
+            ):
+                raise ValueError("GitHub latest-release response exceeds the limit")
+            payload_bytes = response.read(GITHUB_RESPONSE_LIMIT + 1)
+    except (OSError, urllib.error.HTTPError, urllib.error.URLError) as error:
+        raise ValueError("GitHub latest-release request failed") from error
+    return parse_github_latest_release(payload_bytes)
+
+
+class LatestVersionResolver:
+    """Keeps the last validated GitHub release version durable across outages."""
+
+    def __init__(
+        self,
+        bootstrap_version: str,
+        cache_path: Path | None,
+        fetcher: Callable[[], str] = fetch_github_latest_release,
+    ) -> None:
+        self.bootstrap_version = validate_version(bootstrap_version)
+        self.cache_path = cache_path
+        self.fetcher = fetcher
+        self._lock = threading.Lock()
+        self._latest_version = self._read_cached_version() or self.bootstrap_version
+
+    @property
+    def latest_version(self) -> str:
+        with self._lock:
+            return self._latest_version
+
+    def _read_cached_version(self) -> str | None:
+        if self.cache_path is None:
+            return None
+        try:
+            with self.cache_path.open(encoding="utf-8") as cache_file:
+                cached = json.load(cache_file)
+        except (OSError, json.JSONDecodeError):
+            return None
+        if not isinstance(cached, dict) or set(cached) != {"schema", "latest_version", "fetched_at"}:
+            return None
+        if cached["schema"] != LATEST_VERSION_CACHE_SCHEMA or not isinstance(cached["fetched_at"], str):
+            return None
+        try:
+            timestamp = datetime.fromisoformat(cached["fetched_at"])
+            if timestamp.tzinfo is None:
+                return None
+            return validate_version(cached["latest_version"])
+        except ValueError:
+            return None
+
+    def _write_cached_version(self, version: str) -> None:
+        if self.cache_path is None:
+            return
+        self.cache_path.parent.mkdir(mode=0o750, parents=True, exist_ok=True)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{self.cache_path.name}.", suffix=".tmp", dir=self.cache_path.parent
+        )
+        temporary_path = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "w", encoding="utf-8") as cache_file:
+                json.dump(
+                    {
+                        "schema": LATEST_VERSION_CACHE_SCHEMA,
+                        "latest_version": version,
+                        "fetched_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    },
+                    cache_file,
+                    separators=(",", ":"),
+                )
+                cache_file.flush()
+                os.fsync(cache_file.fileno())
+            os.chmod(temporary_path, 0o600)
+            os.replace(temporary_path, self.cache_path)
+            directory_descriptor = os.open(self.cache_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        except BaseException:
+            temporary_path.unlink(missing_ok=True)
+            raise
+
+    def refresh(self) -> bool:
+        try:
+            version = validate_version(self.fetcher())
+            self._write_cached_version(version)
+        except (OSError, ValueError):
+            logging.warning("Latest published Impuls version refresh failed; retaining the last validated value")
+            return False
+        with self._lock:
+            self._latest_version = version
+        return True
 
 
 def _escaped(value: object) -> str:
@@ -300,11 +458,55 @@ class DashboardServer(ThreadingHTTPServer):
         database: Path,
         latest_version: str,
         allowed_network: ipaddress.IPv4Network | ipaddress.IPv6Network,
+        *,
+        cache_path: Path | None = None,
+        github_refresh_interval_seconds: int = DEFAULT_GITHUB_REFRESH_INTERVAL_SECONDS,
+        latest_version_fetcher: Callable[[], str] = fetch_github_latest_release,
+        start_latest_version_refresh: bool = False,
     ) -> None:
         self.database = database
-        self.latest_version = latest_version
         self.allowed_network = allowed_network
+        self.latest_version_resolver = LatestVersionResolver(
+            latest_version, cache_path, latest_version_fetcher
+        )
+        self.github_refresh_interval_seconds = github_refresh_interval_seconds
+        self._latest_version_refresh_stop = threading.Event()
+        self._latest_version_refresh_thread: threading.Thread | None = None
         super().__init__(address, DashboardHandler)
+        if start_latest_version_refresh:
+            self.start_latest_version_refresh()
+
+    @property
+    def latest_version(self) -> str:
+        return self.latest_version_resolver.latest_version
+
+    def start_latest_version_refresh(self) -> None:
+        if self._latest_version_refresh_thread is not None:
+            return
+        self._latest_version_refresh_thread = threading.Thread(
+            target=self._refresh_latest_version_forever,
+            name="impuls-latest-version-refresh",
+            daemon=True,
+        )
+        self._latest_version_refresh_thread.start()
+
+    def _refresh_latest_version_forever(self) -> None:
+        while not self._latest_version_refresh_stop.is_set():
+            self.latest_version_resolver.refresh()
+            self._latest_version_refresh_stop.wait(self.github_refresh_interval_seconds)
+
+    def _stop_latest_version_refresh(self) -> None:
+        self._latest_version_refresh_stop.set()
+        if self._latest_version_refresh_thread is not None:
+            self._latest_version_refresh_thread.join(timeout=GITHUB_REQUEST_TIMEOUT_SECONDS + 1)
+
+    def shutdown(self) -> None:
+        self._stop_latest_version_refresh()
+        super().shutdown()
+
+    def server_close(self) -> None:
+        self._stop_latest_version_refresh()
+        super().server_close()
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -380,7 +582,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
         return
 
 
-def configuration() -> tuple[str, int, Path, str, ipaddress.IPv4Network | ipaddress.IPv6Network]:
+def configuration() -> tuple[
+    str,
+    int,
+    Path,
+    str,
+    Path,
+    int,
+    ipaddress.IPv4Network | ipaddress.IPv6Network,
+]:
     host = os.environ.get("IMPULS_DASHBOARD_HOST", "127.0.0.1")
     try:
         port = int(os.environ.get("IMPULS_DASHBOARD_PORT", "8090"))
@@ -392,22 +602,77 @@ def configuration() -> tuple[str, int, Path, str, ipaddress.IPv4Network | ipaddr
     database_text = os.environ.get("IMPULS_DASHBOARD_DATABASE", "")
     if not database_text:
         raise SystemExit("IMPULS_DASHBOARD_DATABASE is required")
-    latest_version = os.environ.get("IMPULS_DASHBOARD_LATEST_VERSION", "")
-    if not latest_version:
+    bootstrap_version = os.environ.get("IMPULS_DASHBOARD_LATEST_VERSION", "")
+    if not bootstrap_version:
         raise SystemExit("IMPULS_DASHBOARD_LATEST_VERSION is required")
+    try:
+        bootstrap_version = validate_version(bootstrap_version)
+    except ValueError as error:
+        raise SystemExit("IMPULS_DASHBOARD_LATEST_VERSION must be a supported release version") from error
+    cache_path = Path(
+        os.environ.get(
+            "IMPULS_DASHBOARD_LATEST_VERSION_CACHE",
+            str(Path(database_text).with_name("latest-version.json")),
+        )
+    )
+    try:
+        github_refresh_interval_seconds = int(
+            os.environ.get(
+                "IMPULS_DASHBOARD_GITHUB_REFRESH_INTERVAL",
+                str(DEFAULT_GITHUB_REFRESH_INTERVAL_SECONDS),
+            )
+        )
+    except ValueError as error:
+        raise SystemExit("IMPULS_DASHBOARD_GITHUB_REFRESH_INTERVAL must be an integer") from error
+    if not (
+        MINIMUM_GITHUB_REFRESH_INTERVAL_SECONDS
+        <= github_refresh_interval_seconds
+        <= MAXIMUM_GITHUB_REFRESH_INTERVAL_SECONDS
+    ):
+        raise SystemExit(
+            "IMPULS_DASHBOARD_GITHUB_REFRESH_INTERVAL must be between "
+            f"{MINIMUM_GITHUB_REFRESH_INTERVAL_SECONDS} and {MAXIMUM_GITHUB_REFRESH_INTERVAL_SECONDS}"
+        )
     try:
         allowed_network = ipaddress.ip_network(
             os.environ.get("IMPULS_DASHBOARD_ALLOWED_CIDR", "127.0.0.0/8"), strict=True
         )
     except ValueError as error:
         raise SystemExit("IMPULS_DASHBOARD_ALLOWED_CIDR must be a valid network") from error
-    return host, port, Path(database_text), latest_version, allowed_network
+    return (
+        host,
+        port,
+        Path(database_text),
+        bootstrap_version,
+        cache_path,
+        github_refresh_interval_seconds,
+        allowed_network,
+    )
 
 
 def main() -> None:
-    host, port, database, latest_version, allowed_network = configuration()
-    server = DashboardServer((host, port), database, latest_version, allowed_network)
-    server.serve_forever()
+    (
+        host,
+        port,
+        database,
+        bootstrap_version,
+        cache_path,
+        github_refresh_interval_seconds,
+        allowed_network,
+    ) = configuration()
+    server = DashboardServer(
+        (host, port),
+        database,
+        bootstrap_version,
+        allowed_network,
+        cache_path=cache_path,
+        github_refresh_interval_seconds=github_refresh_interval_seconds,
+        start_latest_version_refresh=True,
+    )
+    try:
+        server.serve_forever()
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":
