@@ -98,8 +98,8 @@ jobs:
         run: python3 -m unittest discover -s Tests/PythonTests -p 'test_architecture_ledger.py'
       - name: Validate engineering knowledge base
         run: python3 Scripts/check-knowledge-base.py
-      - name: Verify release QA evidence
-        run: python3 Scripts/check-release-qa-evidence.py --all
+      - name: Verify release QA shipping gate
+        run: python3 Scripts/check-release-qa-evidence.py --release-gate
       - name: Test release QA evidence policy
         run: python3 -m unittest discover -s Tests/PythonTests -p 'test_release_qa_evidence.py'
       - name: Verify generated source-test-doc map
