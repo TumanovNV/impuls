@@ -124,7 +124,7 @@ The semantic `Documentation Guardian` checks sensitive changed lines during PR C
 5. Update the relevant files under `knowledge-base/` when architecture/current state changed.
 6. Update Behavioral QA when a change introduces a new platform/hardware/TCC/lifecycle verification scenario; then update the candidate release evidence so the new manual obligation is explicit.
 7. Choose the truthful release decision: `certified`, `ship-with-known-gaps` or `blocked`. Do not invent passes to remove a gap.
-8. Run `python3 Scripts/check-release-qa-evidence.py --all` together with the normal repository checks.
+8. Run `python3 Scripts/check-release-qa-evidence.py --release-gate` together with the normal repository checks.
 9. Open a pull request and let CI pass.
 10. Merge to `main`; the release workflow performs the normal tag/build/appcast/release process.
 
