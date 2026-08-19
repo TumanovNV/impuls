@@ -54,7 +54,7 @@ The knowledge base contains:
 - diff-aware QA impact reports that identify exact `DISP-*`, `PERM-*`, `PWR-*`, `DATA-*`, `ACT-*`, `TR-*`, `MUS-*`, `UI-*` and `REL-*` contracts affected by a change;
 - per-release QA evidence records that bind manual/mixed scenarios to real environments, outcomes and known gaps;
 - a machine-checked release QA policy that requires an evidence file whenever the version baseline changes and forbids historical `not-recorded` results from 1.4.12 onward;
-- semantic Documentation Guardian that detects contract-sensitive source diffs without canonical documentation review;
+- Documentation Guardian v2 with 11 semantic contract families, including privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and module topology in addition to the original background/resource/persistence/network/permission/dependency rules;
 - Git-history freshness guard that detects canonical docs whose mapped source evolved after their latest review commit/date;
 - weekly periodic review-age enforcement for curated high-risk docs;
 - explicit collector SQLite schema versioning and ordered migration boundary using `PRAGMA user_version`.
@@ -75,7 +75,8 @@ The knowledge base contains:
 12. performance limits and wake-up cadences are documented review contracts, not anonymous magic numbers;
 13. collector database versions are explicit, ordered and fail closed on unknown future or malformed legacy schemas;
 14. a QA scenario inventory never implies a release passed it; manual/hardware/TCC pass claims require per-release evidence tied to an explicit environment;
-15. behavioral source/test ownership is machine-routed to Behavioral QA IDs; a newly changed tracked behavioral source must have a QA route or a narrow documented exemption.
+15. behavioral source/test ownership is machine-routed to Behavioral QA IDs; a newly changed tracked behavioral source must have a QA route or a narrow documented exemption;
+16. privacy identity, telemetry payload, update-signing integrity, actor ownership and shipped module topology changes create machine-enforced canonical documentation review obligations.
 
 ## Documentation automation
 
@@ -90,13 +91,13 @@ Scripts/check-qa-impact.py --base <base-sha>
 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files. The third inspects changed source lines for background/concurrency, resource-budget, persistence, networking and permission contracts and requires a matching canonical documentation review in the same diff. The fourth uses full Git history to prove that curated canonical docs are not older than their tracked implementation.
+The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files. The third is Documentation Guardian v2: it inspects added and removed source lines across 11 narrow semantic contract families and requires the appropriate canonical owner in the same diff. The protected families now include background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and shipped module topology. The fourth uses full Git history to prove that curated canonical docs are not older than their tracked implementation.
 
 The fifth maps the actual Git diff through `Scripts/qa-impact-rules.json`, reports impacted Behavioral QA IDs, fails when a changed tracked behavioral source has no route, requires every matrix scenario to be covered by the map, requires automated QA IDs to have a mapped test route, and on version-bump diffs verifies that impacted non-automated IDs exist in that version's Release QA Evidence. The sixth validates the full release evidence contract and rejects a release candidate whose decision is `blocked`.
 
 The weekly scheduled knowledge-base workflow additionally enables freshness review-age policy. It does not make ordinary PRs fail merely because calendar time passed. QA impact validation runs configuration-only when no meaningful diff base exists.
 
-These guards are intentionally conservative: they do not pretend automation can understand architecture or simulate real hardware/TCC. Their job is to make high-risk changes, stale ownership, unmapped behavioral code and missing manual evidence impossible to overlook during an AI/PR workflow.
+These guards are intentionally conservative: they do not pretend automation can understand architecture or simulate real hardware/TCC. Their job is to make high-risk changes, stale ownership, unmapped behavioral code and missing manual evidence impossible to overlook during an AI/PR workflow. Guardian v2 deliberately uses narrow file scopes and identifiers instead of broad keywords so ordinary implementation edits remain quiet.
 
 ## Collector schema state
 
@@ -118,4 +119,4 @@ Production telemetry runtime/topology is intentionally not duplicated here. The 
 
 ## Next documentation work
 
-The broad documentation foundation and source/test→QA traceability are now in place. Future work should primarily happen as part of product changes. Useful next improvements are expanding the curated type/test and freshness mappings where new core owners appear, preserving concrete release evidence as new versions are tested on real macOS hardware, and refining QA impact rules only when real product changes expose an ownership gap or overly broad route.
+The broad documentation foundation, source/test→QA traceability and Guardian v2 semantic protection are now in place. Future work should primarily happen as part of product changes. The next useful maintenance layer is expanding curated Type → Tests → Docs and historical freshness mappings when new core owners appear, while preserving concrete release evidence on real macOS hardware and refining Guardian/QA rules only when actual product changes expose an ownership gap or overly broad matcher.

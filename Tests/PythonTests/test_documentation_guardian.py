@@ -26,6 +26,18 @@ class DocumentationGuardianTests(unittest.TestCase):
             )
         )
 
+    def test_guardian_v2_rule_families_are_present(self):
+        self.assertGreaterEqual(len(self.rules), 11)
+        self.assertTrue(
+            {
+                "privacy-device-identity",
+                "telemetry-payload-privacy",
+                "update-signing-integrity",
+                "ownership-actor-boundary",
+                "module-topology",
+            }.issubset(self.rules)
+        )
+
     def test_background_timer_requires_registry_review(self):
         path = "Sources/Impuls/Services/Example.swift"
         errors = self.evaluate(
@@ -72,6 +84,69 @@ class DocumentationGuardianTests(unittest.TestCase):
             "permissions",
             {path, tcc_doc},
             [(path, "requestAuthorization(options: [.alert])")],
+        )
+        self.assertEqual([], errors)
+
+    def test_device_identity_change_requires_privacy_review(self):
+        path = "Sources/Impuls/Services/AppleDeviceIdentity.swift"
+        errors = self.evaluate(
+            "privacy-device-identity",
+            {path},
+            [(path, "func identity(forRawIdentifier rawIdentifier: String, kind: AppleDeviceKind)")],
+        )
+        self.assertEqual(1, len(errors))
+        self.assertIn("privacy-device-identity", errors[0])
+
+    def test_device_identity_change_accepts_privacy_boundary_review(self):
+        path = "Sources/Impuls/Services/AppleDeviceIdentity.swift"
+        doc = "knowledge-base/06-security/privacy-boundaries.md"
+        errors = self.evaluate(
+            "privacy-device-identity",
+            {path, doc},
+            [(path, "query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly")],
+        )
+        self.assertEqual([], errors)
+
+    def test_telemetry_payload_change_requires_collector_or_privacy_review(self):
+        path = "Sources/Impuls/Services/VersionTelemetryService.swift"
+        errors = self.evaluate(
+            "telemetry-payload-privacy",
+            {path},
+            [(path, 'case installationID = "installation_id"')],
+        )
+        self.assertEqual(1, len(errors))
+        self.assertIn("telemetry-payload-privacy", errors[0])
+
+    def test_sparkle_integrity_change_requires_release_security_review(self):
+        path = "Scripts/bundle.sh"
+        errors = self.evaluate(
+            "update-signing-integrity",
+            {path},
+            [(path, "set_plist_bool SUVerifyUpdateBeforeExtraction true")],
+        )
+        self.assertEqual(1, len(errors))
+        self.assertIn("update-signing-integrity", errors[0])
+
+    def test_actor_ownership_change_requires_ownership_review(self):
+        path = "Sources/Impuls/Services/Example.swift"
+        errors = self.evaluate(
+            "ownership-actor-boundary",
+            {path},
+            [(path, "final class Example: @unchecked Sendable {")],
+        )
+        self.assertEqual(1, len(errors))
+        self.assertIn("ownership-actor-boundary", errors[0])
+
+    def test_module_topology_change_requires_project_manifest(self):
+        path = "Sources/Impuls/Services/AppFeatureCatalog.swift"
+        line = "feature(.power, detail: \"Battery status\"),"
+        errors = self.evaluate("module-topology", {path}, [(path, line)])
+        self.assertEqual(1, len(errors))
+
+        errors = self.evaluate(
+            "module-topology",
+            {path, "PROJECT-MANIFEST.json"},
+            [(path, line)],
         )
         self.assertEqual([], errors)
 

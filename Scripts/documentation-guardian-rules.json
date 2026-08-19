@@ -5,43 +5,125 @@
       "id": "background-concurrency",
       "description": "Periodic, delayed, queued or task-owned work changed",
       "source_globs": ["Sources/**/*.swift"],
-      "patterns": ["\\bTimer\\s*\\(","\\bDispatchQueue\\b","\\bTask\\s*\\{","\\bTask\\.detached\\b","\\.asyncAfter\\s*\\(","\\bTask\\.sleep\\b","refreshBehavior\\s*=","timer\\.tolerance\\s*="],
+      "patterns": ["\\bTimer\\s*\\(", "\\bDispatchQueue\\b", "\\bTask\\s*\\{", "\\bTask\\.detached\\b", "\\.asyncAfter\\s*\\(", "\\bTask\\.sleep\\b", "refreshBehavior\\s*=", "timer\\.tolerance\\s*="],
       "required_docs_any": ["knowledge-base/12-reference/background-concurrency-registry.md"]
     },
     {
       "id": "resource-budgets",
       "description": "Input, count, cadence, timeout or backpressure budget changed",
       "source_globs": ["Sources/**/*.swift", "Scripts/bundle.sh"],
-      "patterns": ["\\bmaximum[A-Za-z0-9_]*\\s*=","\\bmaximumItems\\s*=","\\bmaximumFileBytes\\s*=","\\bheartbeatInterval\\s*:","timeoutInterval(?:ForRequest|ForResource)?\\s*=","activeInterval\\s*:","idleInterval\\s*:","saveDelay\\s*:","Task\\.sleep\\s*\\(","timer\\.tolerance\\s*=","SUScheduledCheckInterval"],
+      "patterns": ["\\bmaximum[A-Za-z0-9_]*\\s*=", "\\bmaximumItems\\s*=", "\\bmaximumFileBytes\\s*=", "\\bheartbeatInterval\\s*:", "timeoutInterval(?:ForRequest|ForResource)?\\s*=", "activeInterval\\s*:", "idleInterval\\s*:", "saveDelay\\s*:", "Task\\.sleep\\s*\\(", "timer\\.tolerance\\s*=", "SUScheduledCheckInterval"],
       "required_docs_any": ["knowledge-base/12-reference/resource-budget-registry.md"]
     },
     {
       "id": "persisted-contract",
       "description": "Persisted key, schema, Keychain identity or database-version contract changed",
       "source_globs": ["Sources/**/*.swift", "Collector/**/*.py"],
-      "patterns": ["currentSchemaVersion\\s*=","currentVersion\\s*=\\s*[0-9]","\\bstorageKey\\s*=","kSecAttr(?:Service|Account)","service\\s*=\\s*\"io\\.tumanov\\.impuls","account\\s*=\\s*\"","file\\(named:","PRAGMA\\s+user_version"],
+      "patterns": ["currentSchemaVersion\\s*=", "currentVersion\\s*=\\s*[0-9]", "\\bstorageKey\\s*=", "kSecAttr(?:Service|Account)", "service\\s*=\\s*\"io\\.tumanov\\.impuls", "account\\s*=\\s*\"", "file\\(named:", "PRAGMA\\s+user_version"],
       "required_docs_any": ["knowledge-base/12-reference/schema-migration-registry.md"]
     },
     {
       "id": "network-contract",
       "description": "Internet endpoint, host, feed, redirect or heartbeat network contract changed",
-      "source_globs": ["Sources/Impuls/Services/UpdateService.swift","Sources/Impuls/Services/WebMusicPlayer.swift","Sources/Impuls/Services/VersionTelemetryService.swift","Scripts/bundle.sh"],
-      "patterns": ["https://","SUFeedURL","endpoint\\.path","validatedEndpoint","willPerformHTTPRedirection","homeURL","allowedHost","heartbeatInterval"],
+      "source_globs": ["Sources/Impuls/Services/UpdateService.swift", "Sources/Impuls/Services/WebMusicPlayer.swift", "Sources/Impuls/Services/VersionTelemetryService.swift", "Scripts/bundle.sh"],
+      "patterns": ["https://", "SUFeedURL", "endpoint\\.path", "validatedEndpoint", "willPerformHTTPRedirection", "homeURL", "allowedHost", "heartbeatInterval"],
       "required_docs_any": ["knowledge-base/01-architecture/networking.md"]
     },
     {
       "id": "permissions",
       "description": "TCC, entitlement or explicit permission-request path changed",
       "source_globs": ["Sources/**/*.swift", "Resources/*.entitlements", "Scripts/bundle.sh"],
-      "patterns": ["com\\.apple\\.security\\.","NSAppleEventsUsageDescription","requestFullAccessToEvents","AEDeterminePermissionToAutomateTarget","requestAuthorization","Privacy_[A-Za-z]+"],
-      "required_docs_any": ["knowledge-base/01-architecture/permissions.md","knowledge-base/03-macos/permissions-and-tcc.md"]
+      "patterns": ["com\\.apple\\.security\\.", "NSAppleEventsUsageDescription", "requestFullAccessToEvents", "AEDeterminePermissionToAutomateTarget", "requestAuthorization", "Privacy_[A-Za-z]+"],
+      "required_docs_any": ["knowledge-base/01-architecture/permissions.md", "knowledge-base/03-macos/permissions-and-tcc.md"]
     },
     {
       "id": "dependency-contract",
       "description": "Swift package dependency requirement or resolved pin changed",
       "source_globs": ["Package.swift", "Package.resolved"],
-      "patterns": ["\\.package\\s*\\(","\\\"identity\\\"\\s*:","\\\"location\\\"\\s*:","\\\"revision\\\"\\s*:","\\\"version\\\"\\s*:"],
+      "patterns": ["\\.package\\s*\\(", "\\\"identity\\\"\\s*:", "\\\"location\\\"\\s*:", "\\\"revision\\\"\\s*:", "\\\"version\\\"\\s*:"],
       "required_docs_any": ["knowledge-base/06-security/supply-chain.md"]
+    },
+    {
+      "id": "privacy-device-identity",
+      "description": "Raw Apple-device identity, local derived identity or device-only Keychain handling changed",
+      "source_globs": [
+        "Sources/Impuls/Services/AppleDeviceIdentity.swift",
+        "Sources/Impuls/Services/AppleAccessoryBatteryProvider.swift",
+        "Sources/Impuls/Services/MobileDeviceBatteryProvider.swift",
+        "Sources/Impuls/Settings/SettingsStore.swift"
+      ],
+      "patterns": [
+        "identity\\(forRawIdentifier:",
+        "\\brawIdentifier\\b",
+        "\\blocalPreferenceKey\\b",
+        "\\bIOPlatformSerialNumber\\b",
+        "\\buniqueDeviceID\\b",
+        "\\bserialNumber\\b",
+        "\\bbluetoothAddress\\b",
+        "kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly"
+      ],
+      "required_docs_any": ["knowledge-base/06-security/privacy-boundaries.md", "knowledge-base/06-security/data-classification.md"]
+    },
+    {
+      "id": "telemetry-payload-privacy",
+      "description": "Version-statistics payload, installation identity, hashing or retention semantics changed",
+      "source_globs": ["Sources/Impuls/Services/VersionTelemetryService.swift", "Collector/version-statistics/collector.py"],
+      "patterns": [
+        "case\\s+installationID\\s*=",
+        "case\\s+appVersion\\s*=",
+        "case\\s+previousVersion\\s*=",
+        "\\bPayload\\s*\\(",
+        "schema:\\s*[0-9]",
+        "installation_id",
+        "app_version",
+        "previous_version",
+        "installation_hash",
+        "HMAC",
+        "retention"
+      ],
+      "required_docs_any": ["knowledge-base/07-web/version-statistics-collector.md", "knowledge-base/06-security/privacy-boundaries.md"]
+    },
+    {
+      "id": "update-signing-integrity",
+      "description": "Sparkle verification, update consent, signing or release-artifact integrity changed",
+      "source_globs": ["Sources/Impuls/Services/UpdateService.swift", "Scripts/bundle.sh", ".github/workflows/release.yml"],
+      "patterns": [
+        "SURequireSignedFeed",
+        "SUVerifyUpdateBeforeExtraction",
+        "SUSignedFeedFailureExpirationInterval",
+        "SUAllowsAutomaticUpdates",
+        "SUEnableAutomaticChecks",
+        "SPARKLE_EDDSA_PRIVATE_KEY",
+        "generate_appcast",
+        "sign_update",
+        "IMPULS_DEVELOPER_ID_APPLICATION",
+        "\\bcodesign\\b",
+        "notari"
+      ],
+      "required_docs_any": [
+        "knowledge-base/05-release/update-system.md",
+        "knowledge-base/05-release/release-pipeline.md",
+        "knowledge-base/03-macos/signing-distribution.md",
+        "knowledge-base/06-security/supply-chain.md"
+      ]
+    },
+    {
+      "id": "ownership-actor-boundary",
+      "description": "Main-actor, Sendable, lock or isolation ownership boundary changed",
+      "source_globs": ["Sources/Impuls/Model/*.swift", "Sources/Impuls/Notch/*.swift", "Sources/Impuls/Services/*.swift"],
+      "patterns": ["@MainActor", "@unchecked\\s+Sendable", "\\bnonisolated\\b", "\\bNSLock\\s*\\(", "\\bactor\\s+[A-Za-z_]"],
+      "required_docs_any": ["knowledge-base/01-architecture/state-and-ownership.md", "knowledge-base/12-reference/background-concurrency-registry.md"]
+    },
+    {
+      "id": "module-topology",
+      "description": "Shipped module/tab topology or feature-catalog membership changed",
+      "source_globs": ["Sources/Impuls/Services/AppFeatureCatalog.swift", "Sources/Impuls/Model/NotchViewModel.swift"],
+      "patterns": [
+        "enum\\s+Tab\\b",
+        "\\bcase\\s+(?:actions|media|shelf|clipboard|snippets|calendar|translate|notes|power)\\b",
+        "feature\\(\\.(?:actions|media|shelf|clipboard|snippets|calendar|translate|notes|power)"
+      ],
+      "required_docs_any": ["PROJECT-MANIFEST.json"]
     }
   ]
 }
