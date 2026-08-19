@@ -17,6 +17,7 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.12**.
 ## 00 — Project
 - [Project Overview](00-project/project-overview.md)
 - [Project Status](00-project/project-status.md)
+- [Pre-Audit Baseline — 1.4.12](00-project/pre-audit-baseline-1.4.12.md)
 
 ## 01 — Architecture
 - [Architecture Overview](01-architecture/architecture-overview.md)
@@ -103,6 +104,7 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.12**.
 - [Behavioral QA Change Impact Traceability](13-qa/change-impact-traceability.md)
 - [Release QA Evidence](13-qa/release-evidence/README.md)
 - [1.4.11 Retrospective Evidence](13-qa/release-evidence/1.4.11.md)
+- [1.4.12 Release Evidence](13-qa/release-evidence/1.4.12.md)
 
 ## v1.3 anti-drift loop
 
@@ -146,6 +148,8 @@ This public repository owns application/software facts. Current private producti
 ## Source-of-truth rule
 
 Current software contract: knowledge base + code + tests + CI. Historical release/handoff/audit documents preserve evidence and context, but do not override current implementation.
+
+For a whole-repository security/performance audit, use [Pre-Audit Baseline — 1.4.12](00-project/pre-audit-baseline-1.4.12.md) as the handoff after verifying `Scripts/version` and `main`.
 
 Release certification claims require the version-specific Release QA Evidence record; the Behavioral QA Matrix alone is never pass evidence. Change-impact claims are derived from the machine-readable QA impact map plus the actual Git diff, not from memory.
 
