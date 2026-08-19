@@ -58,7 +58,7 @@ python3 Scripts/check-qa-impact.py --base <base-sha>
 python3 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-The project-manifest checker protects stable routing/ownership. The generated map protects curated type→test→doc routes. Documentation Guardian v2 protects high-risk semantic diffs. The freshness checker protects historical source→doc ordering for 19 curated canonical mappings and periodic review age. QA impact maps changed product source/tests to Behavioral QA IDs, while the release evidence gate decides whether a version-specific manual/hardware/TCC record is shippable.
+The project-manifest checker protects stable routing/ownership. The generated map protects curated type→test→doc routes. Documentation Guardian v2 protects high-risk semantic diffs. The freshness checker protects historical source→doc ordering for 20 curated canonical mappings and periodic review age. QA impact maps changed product source/tests to Behavioral QA IDs, while the release evidence gate decides whether a version-specific manual/hardware/TCC record is shippable.
 
 These layers deliberately overlap only where their evidence differs. A generated type route proves discoverability and test ownership; a freshness route proves that a canonical document was reviewed after its tracked source; neither proves a real-Mac QA scenario passed.
 
@@ -66,7 +66,9 @@ These layers deliberately overlap only where their evidence differs. A generated
 
 `Scripts/documentation-freshness.json` is not meant to track every Markdown file. Use it for canonical documents whose staleness would materially mislead architecture/security/release work.
 
-Current high-risk coverage includes architecture ownership/multi-display/storage/networking/permissions, update + signing, version statistics + privacy, selected module contracts, persisted schemas, background work and resource budgets. Menu Bar, Privacy Boundaries, Signing & Distribution and State & Ownership are explicitly tracked from 1.4.12 onward.
+Current high-risk coverage includes architecture ownership/multi-display/storage/networking/permissions, update + signing, version statistics + privacy, selected module contracts, persisted schemas, background work and resource budgets. Menu Bar, Privacy Boundaries, Signing & Distribution, State & Ownership and the Core Type Reference are explicitly tracked from 1.4.12 onward.
+
+The Core Type Reference was added to the freshness set after a real drift was found there (`VersionTelemetryService` still described the old daily cadence after 1.4.12 moved the bounded attempt cadence to one hour). Its mapping is intentionally narrow and follows only the boundary-owner sources whose summarized contracts are most consequential; it does not track the entire repository.
 
 ## Rule for persisted data
 
