@@ -26,6 +26,12 @@ This is the trusted starting point for the next whole-repository security and pe
 
 Historical `docs/` audits, release handoffs and old branch names are evidence only. They do not override current code/tests/CI.
 
+## Repository hygiene
+
+For the audit, `main` is the single current source branch. The pre-audit cleanup removes obsolete merged/abandoned development branches after this baseline passes the normal pull-request checks. Release tags are retained: tags are immutable historical release identities and are not competing source branches.
+
+A future audit must not switch to an old `agent/*`, `docs/*`, `fix/*`, `release/*` or backup branch to resolve ambiguity. If history is needed, use commits/tags/merged PRs as evidence and return to `main` for current truth.
+
 ## Release / main relationship
 
 Published product release: **Impuls 1.4.12**.
