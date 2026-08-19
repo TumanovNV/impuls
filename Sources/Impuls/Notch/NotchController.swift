@@ -282,6 +282,16 @@ final class NotchController {
         }
     }
 
+    /// Opens the current panel without interpreting a Menu Bar command as a
+    /// request to close an already-visible workspace.
+    func open() {
+        guard let vm = viewModel else { return }
+        activateDisplayUnderPointer()
+        vm.keyboardNavigationActive = true
+        pointer.setInside(false)
+        setOpen(true)
+    }
+
     /// Notification clicks have one stable destination in 1.4.6: the Power
     /// pane. Device-level selection can be added later without changing the
     /// notification payload or exposing a hardware identifier.
@@ -291,6 +301,17 @@ final class NotchController {
         vm.select(.power, requestKeyboard: false)
         // Like a global-shortcut open, this is an intentional entrance rather
         // than pointer hover. Hold the panel open until the user dismisses it.
+        vm.keyboardNavigationActive = true
+        pointer.setInside(false)
+        setOpen(true)
+    }
+
+    /// A deliberate Menu Bar quick action. It follows the same single-surface
+    /// path as a notification and never creates a second view model or window.
+    func open(tab: NotchViewModel.Tab) {
+        guard let vm = viewModel, vm.visibleTabs.contains(tab) else { return }
+        activateDisplayUnderPointer()
+        vm.select(tab, requestKeyboard: tab.needsKeyboard)
         vm.keyboardNavigationActive = true
         pointer.setInside(false)
         setOpen(true)

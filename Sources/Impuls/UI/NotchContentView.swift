@@ -244,7 +244,6 @@ private struct ExpandedPanelContent: View {
         }
         .padding(.horizontal, Theme.Space.m)
         .padding(.bottom, Theme.Space.m)
-        .overlay(alignment: .center) { OnboardingOverlay() }
     }
 
     /// How tall one rail icon may be, given the height this panel actually has.

@@ -25,6 +25,9 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
     /// known charge. That keeps it safe to carry in an exported backup, which
     /// is why it lives here rather than in a device cache.
     var showsExternalAppleDevices: Bool
+    /// Generic Menu Bar choices remain useful after a backup is restored on a
+    /// second Mac. A selected physical-device key stays local-only below.
+    var menuBarWorkspace: MenuBarWorkspaceConfiguration
 
     init(
         hotKey: SettingsStore.HotKeyPreset,
@@ -37,7 +40,8 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
         persistClipboardHistory: Bool = false,
         clipboardRetention: SettingsStore.ClipboardRetention = .sevenDays,
         excludedClipboardBundleIdentifiers: [String] = [],
-        showsExternalAppleDevices: Bool = false
+        showsExternalAppleDevices: Bool = false,
+        menuBarWorkspace: MenuBarWorkspaceConfiguration = .init()
     ) {
         self.hotKey = hotKey
         self.activationMode = activationMode
@@ -50,12 +54,13 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
         self.clipboardRetention = clipboardRetention
         self.excludedClipboardBundleIdentifiers = excludedClipboardBundleIdentifiers
         self.showsExternalAppleDevices = showsExternalAppleDevices
+        self.menuBarWorkspace = MenuBarWorkspaceConfiguration.normalized(menuBarWorkspace)
     }
 
     private enum CodingKeys: String, CodingKey {
         case hotKey, activationMode, openDelay, panelSize, selectedDisplayID, modules
         case saveClipboardImages, persistClipboardHistory, clipboardRetention
-        case excludedClipboardBundleIdentifiers, showsExternalAppleDevices
+        case excludedClipboardBundleIdentifiers, showsExternalAppleDevices, menuBarWorkspace
     }
 
     init(from decoder: Decoder) throws {
@@ -87,6 +92,9 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
             Bool.self,
             forKey: .showsExternalAppleDevices
         ) ?? false
+        menuBarWorkspace = MenuBarWorkspaceConfiguration.normalized(
+            try? container.decodeIfPresent(MenuBarWorkspaceConfiguration.self, forKey: .menuBarWorkspace)
+        )
     }
 }
 
@@ -99,6 +107,12 @@ struct ImpulsSettingsSnapshot: Codable, Equatable {
 private struct AppleDeviceLocalPreferences: Codable, Equatable {
     var order: [String]
     var hidden: [String]
+}
+
+/// This opaque identity is derived from a local Keychain secret. It is useful
+/// only on this Mac, so it must not travel in an exported backup.
+private struct MenuBarWorkspaceLocalPreferences: Codable, Equatable {
+    var selectedDeviceKey: String?
 }
 
 @MainActor
@@ -232,6 +246,7 @@ final class SettingsStore: ObservableObject {
     static let saveClipboardImagesKey = "saveClipboardImages"
     static let appleDevicePreferencesKey = "appleDevices.presentation.v1"
     static let lowBatteryAlertsEnabledKey = "appleDevices.lowBatteryAlerts.enabled"
+    static let menuBarWorkspacePreferencesKey = "menuBarWorkspace.presentation.v1"
     static let maximumRememberedAppleDevices = 100
 
     @Published var hotKey: HotKeyPreset { didSet { persist() } }
@@ -250,6 +265,7 @@ final class SettingsStore: ObservableObject {
     @Published var clipboardRetention: ClipboardRetention { didSet { persist() } }
     @Published private(set) var excludedClipboardBundleIdentifiers: [String] { didSet { persist() } }
     @Published var showsExternalAppleDevices: Bool { didSet { persist() } }
+    @Published private(set) var menuBarWorkspace: MenuBarWorkspaceConfiguration { didSet { persist() } }
     /// Notification consent belongs to this Mac, like the macOS authorization
     /// it controls. It persists locally but never travels in a backup.
     @Published var lowBatteryAlertsEnabled: Bool {
@@ -261,6 +277,9 @@ final class SettingsStore: ObservableObject {
     @Published private(set) var appleDeviceDiagnostics: [DeviceProviderDiagnostic]
     @Published private(set) var appleDevicePreferenceOrder: [String]
     @Published private(set) var hiddenAppleDevicePreferenceKeys: Set<String>
+    /// An HMAC-derived key for one local device, never written to a backup or
+    /// exposed in UI/accessibility text.
+    @Published private(set) var menuBarSelectedDevicePreferenceKey: String?
     @Published private(set) var displays: [DisplayOption] = []
     @Published private(set) var hotKeyError: String?
     /// Runtime-only presentation state. It intentionally is not persisted: the
@@ -306,10 +325,12 @@ final class SettingsStore: ObservableObject {
             snapshot.excludedClipboardBundleIdentifiers
         )
         showsExternalAppleDevices = snapshot.showsExternalAppleDevices
+        menuBarWorkspace = MenuBarWorkspaceConfiguration.normalized(snapshot.menuBarWorkspace)
         lowBatteryAlertsEnabled = defaults.bool(forKey: Self.lowBatteryAlertsEnabledKey)
         let localPreferences = Self.loadAppleDevicePreferences(defaults: defaults)
         appleDevicePreferenceOrder = localPreferences.order
         hiddenAppleDevicePreferenceKeys = Set(localPreferences.hidden)
+        menuBarSelectedDevicePreferenceKey = Self.loadMenuBarWorkspacePreferences(defaults: defaults).selectedDeviceKey
         knownExternalAppleDevices = []
         appleDeviceDiagnostics = []
         hotKeyError = nil
@@ -329,7 +350,8 @@ final class SettingsStore: ObservableObject {
             persistClipboardHistory: persistClipboardHistory,
             clipboardRetention: clipboardRetention,
             excludedClipboardBundleIdentifiers: excludedClipboardBundleIdentifiers,
-            showsExternalAppleDevices: showsExternalAppleDevices
+            showsExternalAppleDevices: showsExternalAppleDevices,
+            menuBarWorkspace: menuBarWorkspace
         )
     }
 
@@ -379,6 +401,31 @@ final class SettingsStore: ObservableObject {
 
     func includeClipboardApp(bundleIdentifier: String) {
         excludedClipboardBundleIdentifiers.removeAll { $0 == bundleIdentifier }
+    }
+
+    // MARK: - Menu Bar workspace
+
+    func updateMenuBarWorkspace(_ update: (inout MenuBarWorkspaceConfiguration) -> Void) {
+        var next = menuBarWorkspace
+        update(&next)
+        next.normalize()
+        guard next != menuBarWorkspace else { return }
+        menuBarWorkspace = next
+    }
+
+    func applyMenuBarWorkspacePreset(_ preset: MenuBarWorkspacePreset) {
+        updateMenuBarWorkspace { $0.applyPreset(preset) }
+    }
+
+    func setMenuBarSelectedDevice(_ device: AppleDeviceSnapshot?) {
+        let candidate = device.flatMap { snapshot -> String? in
+            guard !snapshot.identity.isLocalMac else { return nil }
+            return snapshot.identity.localPreferenceKey
+        }
+        let normalized = candidate.flatMap(Self.validMenuBarDeviceKey)
+        guard normalized != menuBarSelectedDevicePreferenceKey else { return }
+        menuBarSelectedDevicePreferenceKey = normalized
+        persistMenuBarWorkspacePreferences()
     }
 
     // MARK: - Apple device presentation
@@ -536,6 +583,7 @@ final class SettingsStore: ObservableObject {
             snapshot.excludedClipboardBundleIdentifiers
         )
         showsExternalAppleDevices = snapshot.showsExternalAppleDevices
+        menuBarWorkspace = MenuBarWorkspaceConfiguration.normalized(snapshot.menuBarWorkspace)
         refreshDisplays()
         isApplying = false
         persist()
@@ -645,7 +693,8 @@ final class SettingsStore: ObservableObject {
             persistClipboardHistory: false,
             clipboardRetention: .sevenDays,
             excludedClipboardBundleIdentifiers: [],
-            showsExternalAppleDevices: false
+            showsExternalAppleDevices: false,
+            menuBarWorkspace: .init()
         )
     }
 
@@ -660,6 +709,20 @@ final class SettingsStore: ObservableObject {
             order.append(key)
         }
         return AppleDeviceLocalPreferences(order: order, hidden: hidden)
+    }
+
+    private static func loadMenuBarWorkspacePreferences(defaults: UserDefaults) -> MenuBarWorkspaceLocalPreferences {
+        let decoded = defaults.data(forKey: menuBarWorkspacePreferencesKey)
+            .flatMap { try? JSONDecoder().decode(MenuBarWorkspaceLocalPreferences.self, from: $0) }
+            ?? MenuBarWorkspaceLocalPreferences(selectedDeviceKey: nil)
+        return MenuBarWorkspaceLocalPreferences(
+            selectedDeviceKey: decoded.selectedDeviceKey.flatMap(validMenuBarDeviceKey)
+        )
+    }
+
+    private static func validMenuBarDeviceKey(_ value: String) -> String? {
+        guard normalizedAppleDevicePreferenceKeys([value]).first == value else { return nil }
+        return value
     }
 
     private func registerAppleDevices(_ devices: [AppleDeviceSnapshot]) {
@@ -681,6 +744,14 @@ final class SettingsStore: ObservableObject {
         )
         guard let data = try? JSONEncoder().encode(preferences) else { return }
         defaults.set(data, forKey: Self.appleDevicePreferencesKey)
+    }
+
+    private func persistMenuBarWorkspacePreferences() {
+        let preferences = MenuBarWorkspaceLocalPreferences(
+            selectedDeviceKey: menuBarSelectedDevicePreferenceKey
+        )
+        guard let data = try? JSONEncoder().encode(preferences) else { return }
+        defaults.set(data, forKey: Self.menuBarWorkspacePreferencesKey)
     }
 
     private func persist() {
