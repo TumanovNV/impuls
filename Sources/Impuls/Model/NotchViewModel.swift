@@ -412,6 +412,9 @@ final class NotchViewModel: ObservableObject {
         devices.stop()
         // Whatever was typed makes it to disk even when quitting mid-thought.
         notes.flushSynchronously()
+        // Snippets write from their own queue now, so a snippet added moments
+        // before quitting has the same claim on landing as a note does.
+        snippets.flushSynchronously()
     }
 
     func accept(urls: [URL]) -> Bool {

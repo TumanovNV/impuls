@@ -70,8 +70,10 @@ struct ClipItem: Identifiable, Codable, Equatable, Sendable {
 /// twice a second, and nothing at all is read until the counter moves.
 @MainActor
 final class ClipboardStore: ObservableObject {
-    static let maximumTextBytes = 512 * 1_024
-    static let maximumImageBytes = 64 * 1_024 * 1_024
+    // Pure budgets and pure predicates: `nonisolated` so the image conversion
+    // can apply them from its own queue rather than hopping back for a bound.
+    nonisolated static let maximumTextBytes = 512 * 1_024
+    nonisolated static let maximumImageBytes = 64 * 1_024 * 1_024
 
     @Published private(set) var items: [ClipItem] = []
     @Published private(set) var isPaused = false
@@ -84,6 +86,14 @@ final class ClipboardStore: ObservableObject {
     var onImage: ((Data, Date) -> Void)?
     var wantsImages: () -> Bool = { true }
     var isApplicationExcluded: (String) -> Bool = { _ in false }
+
+    /// Serial: one clipboard image is converted at a time. A burst of copies
+    /// should queue behind each other rather than decode several tens of
+    /// megabytes at once, and the generation check discards the stale ones.
+    private static let conversionQueue = DispatchQueue(
+        label: "io.tumanov.impuls.clipboard.image-conversion",
+        qos: .userInitiated
+    )
 
     private var timer: Timer?
     private var lastChangeCount = NSPasteboard.general.changeCount
@@ -227,16 +237,9 @@ final class ClipboardStore: ObservableObject {
             return
         }
 
-        if wantsImages() {
-            if let png = pngFromPasteboard(pasteboard), let onImage {
-                onImage(png, Date())
-                return
-            }
-
-            if pasteboard.availableType(from: [.png, .tiff]) != nil {
-                awaitImage(at: pasteboard.changeCount, attempt: 0)
-                return
-            }
+        if wantsImages(), pasteboard.availableType(from: [.png, .tiff]) != nil {
+            convertImage(at: pasteboard.changeCount, attempt: 0)
+            return
         }
 
         guard let string = pasteboard.string(forType: .string),
@@ -248,7 +251,49 @@ final class ClipboardStore: ObservableObject {
         ))
     }
 
-    private func awaitImage(at changeCount: Int, attempt: Int) {
+    /// Takes the bytes off the pasteboard here and converts them elsewhere.
+    ///
+    /// A copied screenshot can be tens of megabytes, and turning one into PNG
+    /// means decoding a TIFF and re-encoding it. That ran inside the twice-a-
+    /// second poll, on the main actor, so a large copy froze the panel — and
+    /// froze it during the exact animation the copy tends to interrupt. Only
+    /// the pasteboard reads stay here, because `NSPasteboard` belongs to the
+    /// main thread; the decode does not.
+    ///
+    /// `changeCount` is the generation. It is re-checked after the hop, so a
+    /// conversion that finishes after the user has copied something else is
+    /// discarded rather than recorded against the newer clipboard.
+    private func convertImage(at changeCount: Int, attempt: Int) {
+        let pasteboard = NSPasteboard.general
+        guard pasteboard.changeCount == changeCount else { return }
+
+        let png = pasteboard.data(forType: .png)
+        let tiff = png == nil ? pasteboard.data(forType: .tiff) : nil
+        guard png != nil || tiff != nil else {
+            retryOrRecordText(at: changeCount, attempt: attempt)
+            return
+        }
+
+        Self.conversionQueue.async { [weak self] in
+            let converted = Self.pngData(png: png, tiff: tiff)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    guard NSPasteboard.general.changeCount == changeCount else { return }
+                    if let converted, let onImage = self.onImage {
+                        onImage(converted, Date())
+                        return
+                    }
+                    self.retryOrRecordText(at: changeCount, attempt: attempt)
+                }
+            }
+        }
+    }
+
+    /// An image can be advertised before its data is available, so a failed
+    /// conversion is retried a bounded number of times before the clipboard
+    /// settles for whatever text came with it.
+    private func retryOrRecordText(at changeCount: Int, attempt: Int) {
         guard attempt < 12 else {
             let pasteboard = NSPasteboard.general
             guard pasteboard.changeCount == changeCount,
@@ -263,29 +308,21 @@ final class ClipboardStore: ObservableObject {
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
             MainActor.assumeIsolated {
-                guard let self else { return }
-                let pasteboard = NSPasteboard.general
-                guard pasteboard.changeCount == changeCount else { return }
-                if let png = self.pngFromPasteboard(pasteboard), let onImage = self.onImage {
-                    onImage(png, Date())
-                    return
-                }
-                self.awaitImage(
-                    at: changeCount,
-                    attempt: attempt + 1
-                )
+                self?.convertImage(at: changeCount, attempt: attempt + 1)
             }
         }
     }
 
-    private func pngFromPasteboard(_ pasteboard: NSPasteboard) -> Data? {
-        if let png = pasteboard.data(forType: .png), Self.isImagePayloadAllowed(png) { return png }
-        guard let tiff = pasteboard.data(forType: .tiff),
-              Self.isImagePayloadAllowed(tiff),
+    /// Runs off the main actor. Takes only the bytes, so nothing it touches is
+    /// owned by another thread.
+    nonisolated private static func pngData(png: Data?, tiff: Data?) -> Data? {
+        if let png, isImagePayloadAllowed(png) { return png }
+        guard let tiff,
+              isImagePayloadAllowed(tiff),
               let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]),
-              png.count <= Self.maximumImageBytes else { return nil }
-        return png
+              let converted = rep.representation(using: .png, properties: [:]),
+              converted.count <= maximumImageBytes else { return nil }
+        return converted
     }
 
     /// Internal so the deterministic history rules can be exercised without
@@ -332,7 +369,7 @@ final class ClipboardStore: ObservableObject {
         text.lengthOfBytes(using: .utf8) <= maximumTextBytes
     }
 
-    static func isImagePayloadAllowed(_ data: Data) -> Bool {
+    nonisolated static func isImagePayloadAllowed(_ data: Data) -> Bool {
         guard data.count <= maximumImageBytes,
               let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
         return (try? FileToolsService.validateImageDimensions(in: source)) != nil

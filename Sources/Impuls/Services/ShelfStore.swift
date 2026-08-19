@@ -41,17 +41,57 @@ final class ShelfStore: ObservableObject {
     /// but their files stay in the folder.
     private let limit = 60
 
+    /// Serial, and only ever used for the existence sweep in `load`.
+    private static let ioQueue = DispatchQueue(
+        label: "io.tumanov.impuls.shelf.io",
+        qos: .userInitiated
+    )
+    private var loadGeneration = 0
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
 
+    /// Restores the shelf without stating every remembered path on the main
+    /// actor first.
+    ///
+    /// Two things were wrong here. The limit was applied by `add` only, so a
+    /// remembered list longer than 60 came back in full and stayed that way
+    /// until the next drop. And every path was checked for existence inline, at
+    /// launch, on the actor that draws the panel — one `stat` per card before
+    /// anything could be shown.
+    ///
+    /// The existence check now runs off the actor and the result is clamped
+    /// before any card is built, so the icon work is bounded by `limit` rather
+    /// than by whatever the defaults happen to hold. `NSWorkspace.icon` stays
+    /// on the main actor: AppKit does not promise it anywhere else, and it is
+    /// the one step left that has to be there.
     func load() {
+        loadGeneration += 1
+        let generation = loadGeneration
         let paths = defaults.stringArray(forKey: defaultsKey) ?? []
-        items = paths
-            .map(URL.init(fileURLWithPath:))
-            .filter { FileManager.default.fileExists(atPath: $0.path) }
-            .map { ShelfItem(url: $0, icon: NSWorkspace.shared.icon(forFile: $0.path)) }
-        items.forEach(loadThumbnail)
+        let limit = self.limit
+
+        Self.ioQueue.async { [weak self] in
+            let existing = paths.filter { FileManager.default.fileExists(atPath: $0) }
+            let kept = Array(existing.prefix(limit))
+            let droppedOverflow = existing.count > kept.count
+
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    // A shelf reloaded again while this one was still stating
+                    // files must not be overwritten by the older answer.
+                    guard let self, self.loadGeneration == generation else { return }
+                    self.items = kept.map {
+                        ShelfItem(url: URL(fileURLWithPath: $0), icon: NSWorkspace.shared.icon(forFile: $0))
+                    }
+                    self.items.forEach(self.loadThumbnail)
+                    // Write the trimmed list back so an over-long remembered
+                    // shelf heals instead of being re-clamped on every launch.
+                    if droppedOverflow { self.persist() }
+                }
+            }
+        }
     }
 
     func add(_ urls: [URL]) {

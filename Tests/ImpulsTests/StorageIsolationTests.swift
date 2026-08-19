@@ -79,6 +79,9 @@ final class StorageIsolationTests: XCTestCase {
         XCTAssertNotEqual(store.fileURL, SnippetStore.defaultFileURL)
 
         store.add(label: "test", text: "value")
+        // Snippets write from their own queue, as notes do; `flushSynchronously`
+        // is the shutdown path that makes the pending snapshot land.
+        store.flushSynchronously()
         XCTAssertTrue(FileManager.default.fileExists(atPath: url.path))
 
         let reopened = SnippetStore(fileURL: url)
@@ -287,6 +290,7 @@ final class StorageIsolationTests: XCTestCase {
 
         let store = SnippetStore(fileURL: file)
         store.add(label: "first", text: "value")
+        store.flushSynchronously()
 
         XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("value"))
     }

@@ -1,3 +1,4 @@
+import Combine
 import CoreGraphics
 import ImageIO
 import PDFKit
@@ -153,6 +154,44 @@ final class FileToolsServiceTests: XCTestCase {
             XCTAssertEqual(restored.url, source)
             XCTAssertTrue(store.selection.contains(restored.id))
             XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+            store.clear()
+        }
+    }
+
+    /// `add` clamped to the limit and `load` did not, so a remembered shelf
+    /// longer than the limit came back in full — and paid for an icon and a
+    /// thumbnail request for every one of those cards on the main actor.
+    func testRestoringAnOverlongShelfClampsToTheLimitAndHealsWhatItRemembers() async throws {
+        let files = try (0..<70).map { try makeImage(named: "shelf-\($0).png", width: 4, height: 4) }
+        defer { files.forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(files.map(\.path), forKey: "shelf.urls")
+
+        let restored = expectation(description: "shelf restored")
+        let store = await MainActor.run { ShelfStore(defaults: defaults) }
+        // `load` stats the remembered paths off the main actor, so the cards
+        // appear a hop later rather than inline. Wait for the publisher rather
+        // than spinning on the value.
+        let subscription = await MainActor.run {
+            store.$items
+                .filter { !$0.isEmpty }
+                .first()
+                .sink { _ in restored.fulfill() }
+        }
+        defer { subscription.cancel() }
+        await MainActor.run { store.load() }
+        await fulfillment(of: [restored], timeout: 5)
+
+        await MainActor.run {
+            XCTAssertEqual(store.items.count, 60, "the limit has to hold on the way back in, not only on the way in")
+            XCTAssertEqual(
+                defaults.stringArray(forKey: "shelf.urls")?.count,
+                60,
+                "the trimmed shelf is written back, so it is not re-clamped on every launch"
+            )
             store.clear()
         }
     }
