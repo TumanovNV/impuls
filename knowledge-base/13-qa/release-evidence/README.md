@@ -5,14 +5,14 @@ status: active
 documentation_version: 1.3
 app_version: 1.4.11
 last_reviewed: 2026-08-19
-tags: [impuls, qa, release, evidence, hardware, tcc]
+tags: [impuls, qa, release, evidence, hardware, tcc, traceability]
 ---
 
 # Release QA Evidence
 
 This directory is the **release-specific evidence layer** for the Behavioral QA Matrix.
 
-The matrix answers **what must be exercised**. A file here answers **what was actually exercised for one release, on what environment, with what result and what remains unverified**.
+The matrix answers **what must be exercised**. [QA Change Impact Traceability](../change-impact-traceability.md) answers **which scenario IDs the candidate's source/test diff may have affected**. A file here answers **what was actually exercised for one release, on what environment, with what result and what remains unverified**.
 
 ## Why this exists
 
@@ -25,11 +25,14 @@ Each release evidence record therefore keeps four facts separate:
 3. one result for every `mixed`, `manual-macos`, `manual-hardware` and `manual-service` matrix row;
 4. the release decision: certified, intentionally shipped with known gaps, blocked, or historical/retrospective.
 
+QA impact output is a fifth, independent fact: it tells reviewers **which of those rows deserve special attention because the candidate changed their source/test ownership area**. It never changes a row's result automatically.
+
 ## Files
 
 - [`TEMPLATE.md`](TEMPLATE.md) — starting point for a new version.
 - [`1.4.11.md`](1.4.11.md) — retrospective baseline for the release that existed before this evidence system was introduced.
 - [`../behavioral-qa-matrix.md`](../behavioral-qa-matrix.md) — canonical scenario inventory.
+- [`../change-impact-traceability.md`](../change-impact-traceability.md) — diff → impacted QA ID contract.
 
 ## Result vocabulary
 
@@ -51,6 +54,8 @@ Each release evidence record therefore keeps four facts separate:
 
 The policy is machine-readable in [`../../../Scripts/release-qa-policy.json`](../../../Scripts/release-qa-policy.json). Validation is performed by [`../../../Scripts/check-release-qa-evidence.py`](../../../Scripts/check-release-qa-evidence.py).
 
+The source/test → QA-ID policy is separately machine-readable in [`../../../Scripts/qa-impact-rules.json`](../../../Scripts/qa-impact-rules.json) and validated by [`../../../Scripts/check-qa-impact.py`](../../../Scripts/check-qa-impact.py).
+
 ## Enforcement
 
 The first enforced version is **1.4.12**. From that version onward:
@@ -61,15 +66,20 @@ The first enforced version is **1.4.12**. From that version onward:
 - a candidate may be `certified`, `ship-with-known-gaps` or `blocked` in the document, but the CI shipping gate rejects `blocked`;
 - `retrospective` cannot be used for a new enforced release.
 
-The `knowledge-base` workflow runs:
+In addition, when a version-bump diff touches production source/tests mapped by QA impact traceability, every impacted non-automated ID must be present in the candidate evidence file. This is checked before the shipping decision.
+
+The `knowledge-base` workflow runs both layers:
 
 ```bash
+python3 Scripts/check-qa-impact.py --base <base-sha>
 python3 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-Because that workflow already triggers on `Scripts/version`, a version-bump PR cannot become green without a matching evidence record and a shippable decision. This deliberately avoids editing `release.yml`, whose own path trigger could otherwise reissue the current GitHub Release.
+The first command produces the affected QA set and checks its release-evidence presence. The second validates the complete evidence record and shipping decision.
 
-Hosted CI validates the evidence **contract**; it does not pretend to execute MagSafe, external-display, TCC or iPhone hardware tests.
+Because the workflow already triggers on `Scripts/version`, a version-bump PR cannot become green without matching evidence and a shippable decision. This deliberately avoids editing `release.yml`, whose own path trigger could otherwise reissue the current GitHub Release.
+
+Hosted CI validates the traceability/evidence **contracts**; it does not pretend to execute MagSafe, external-display, TCC or iPhone hardware tests.
 
 For a structural audit without the shipping-decision check:
 
@@ -104,16 +114,19 @@ A `pass`/`fail`/`blocked` result for `manual-macos`, `manual-hardware` or `mixed
 
 Links to a PR, issue, audit note, screenshot attachment or CI run may supplement the row, but they do not replace the environment description.
 
+An impacted QA ID from `check-qa-impact.py` is a **retest/review signal**, not evidence. Do not promote its release result merely because its mapped unit tests are green.
+
 ## Release workflow for agents
 
 When bumping `Scripts/version`:
 
 1. copy `TEMPLATE.md` to `<version>.md`;
 2. set the release commit to the exact candidate SHA once known;
-3. enumerate test environments without sensitive device identifiers;
-4. exercise or explicitly classify every manual/mixed matrix row;
-5. choose the truthful release decision;
-6. run `python3 Scripts/check-release-qa-evidence.py --release-gate`;
-7. only call the release certified when the checker permits that decision.
+3. run `python3 Scripts/check-qa-impact.py --base <base-sha>` and review the impacted QA IDs;
+4. enumerate test environments without sensitive device identifiers;
+5. exercise or explicitly classify every manual/mixed matrix row, paying particular attention to the IDs reported by the impact checker;
+6. choose the truthful release decision;
+7. run `python3 Scripts/check-release-qa-evidence.py --release-gate`;
+8. only call the release certified when the checker permits that decision.
 
 Do not convert `not-run` to `pass` merely to satisfy CI. A visible known gap is safer than fictitious release evidence.
