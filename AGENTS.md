@@ -15,7 +15,7 @@ Start with:
 3. `knowledge-base/00-project/project-status.md` — current shipped baseline.
 4. `knowledge-base/10-ai/invariants.md` — concise project invariants.
 5. `knowledge-base/12-reference/README.md` — schema/type/performance reference routes.
-6. `knowledge-base/13-qa/README.md` — behavioral verification and release-evidence routes when platform/hardware behavior matters.
+6. `knowledge-base/13-qa/README.md` — behavioral verification, source/test impact traceability and release-evidence routes when platform/hardware behavior matters.
 7. The implementation and tests for the area you are changing.
 
 The root manifest is a routing aid, not a duplicate implementation database. Do not put persisted keys, performance constants, live endpoints, production topology, addresses or secrets into it.
@@ -34,6 +34,7 @@ python3 Scripts/check-project-manifest.py
 python3 Scripts/check-knowledge-base.py
 python3 Scripts/generate-knowledge-map.py --check
 python3 Scripts/check-documentation-freshness.py
+python3 Scripts/check-qa-impact.py --base <base-sha>
 python3 Scripts/check-release-qa-evidence.py --all
 # PR/diff-aware documentation check:
 python3 Scripts/check-documentation-guardian.py --base <base-sha>
@@ -61,6 +62,7 @@ open build/Impuls.app
 13. **Slow I/O stays off the main actor.** Disk, process, socket and device reads must not freeze observable/UI state.
 14. **Resource budgets are contracts.** Raising/removing size/count/cadence/timeout/backpressure limits requires explicit review and tests, not a magic-number edit.
 15. **QA inventory is not pass evidence.** A Behavioral QA row, unit test or historical screenshot does not prove a particular release passed real hardware/TCC. A `pass`/`fail`/`blocked` manual result must be tied to a truthful release-specific environment without serials, UDIDs or secrets.
+16. **Behavioral source/test ownership is traceable.** `Scripts/qa-impact-rules.json` maps product owners and verification tests to Behavioral QA IDs. Run `Scripts/check-qa-impact.py --base <base-sha>` for real diffs. A changed tracked behavioral source with no route must be mapped or receive a narrow documented exemption; broad exemptions are forbidden in spirit and must not be used to silence CI.
 
 ## Device and power invariants
 
@@ -76,7 +78,7 @@ These are standing rules for anything touching Apple-device discovery or power d
 8. iPhone/iPad discovery is controlled by the user-facing device-discovery setting. With discovery off there must be no topology socket, usbmuxd traffic or read.
 9. Best-effort system tools use fixed executable paths, fixed arguments, no shell/user argument injection, bounded output and timeouts.
 
-See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-model.md`, `knowledge-base/12-reference/background-concurrency-registry.md`, `knowledge-base/12-reference/resource-budget-registry.md`, `knowledge-base/13-qa/behavioral-qa-matrix.md`, `knowledge-base/13-qa/release-evidence/README.md`, `docs/APPLE_DEVICE_BATTERY_SUPPORT.md` and the relevant tests before changing this area.
+See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-model.md`, `knowledge-base/12-reference/background-concurrency-registry.md`, `knowledge-base/12-reference/resource-budget-registry.md`, `knowledge-base/13-qa/behavioral-qa-matrix.md`, `knowledge-base/13-qa/change-impact-traceability.md`, `knowledge-base/13-qa/release-evidence/README.md`, `docs/APPLE_DEVICE_BATTERY_SUPPORT.md` and the relevant tests before changing this area.
 
 ## Layout
 
@@ -113,24 +115,25 @@ Before adding or changing a repeating timer, poller, debounce, delayed retry, lo
 
 Before raising/removing a size, count, cadence, timeout or backpressure limit, read `knowledge-base/12-reference/resource-budget-registry.md`. Prefer bounded/lazy/streaming designs over removing a limit.
 
-The semantic `Documentation Guardian` checks sensitive changed lines during PR CI. The historical freshness guard separately checks whether curated canonical docs are newer than their tracked source. Do not bypass either with meaningless Markdown edits or a fake `last_reviewed`: establish the real code/test contract and make the smallest truthful documentation update.
+The semantic `Documentation Guardian` checks sensitive changed lines during PR CI. The historical freshness guard checks whether curated canonical docs are newer than their tracked source. The QA impact checker maps changed behavioral source/tests to Behavioral QA IDs and fails unmapped tracked product ownership. Do not bypass any of these with meaningless Markdown edits, broad exemptions or a fake `last_reviewed`: establish the real code/test/QA contract and make the smallest truthful update.
 
 ## Release flow
 
 1. Bump `VERSION` in `Scripts/version`.
 2. Write `docs/releases/<version>.md` with a Russian section, then `---`, then a short English summary.
 3. Copy `knowledge-base/13-qa/release-evidence/TEMPLATE.md` to `knowledge-base/13-qa/release-evidence/<version>.md` and record the exact candidate/release commit, real test environments and one result for every manual/mixed QA row.
-4. Add/update a security audit if networking, permissions, updates or stored data changed.
-5. Update the relevant files under `knowledge-base/` when architecture/current state changed.
-6. Update Behavioral QA when a change introduces a new platform/hardware/TCC/lifecycle verification scenario; then update the candidate release evidence so the new manual obligation is explicit.
-7. Choose the truthful release decision: `certified`, `ship-with-known-gaps` or `blocked`. Do not invent passes to remove a gap.
-8. Run `python3 Scripts/check-release-qa-evidence.py --release-gate` together with the normal repository checks.
-9. Open a pull request and let CI pass.
-10. Merge to `main`; the release workflow performs the normal tag/build/appcast/release process.
+4. Run `python3 Scripts/check-qa-impact.py --base <base-sha>` against the real release PR base; review every impacted QA ID and ensure impacted manual/mixed IDs are represented truthfully in the candidate evidence.
+5. Add/update a security audit if networking, permissions, updates or stored data changed.
+6. Update the relevant files under `knowledge-base/` when architecture/current state changed.
+7. Update Behavioral QA when a change introduces a new platform/hardware/TCC/lifecycle verification scenario; add the new ID to the correct source/test rule in `Scripts/qa-impact-rules.json`, then update the candidate release evidence so the new manual obligation is explicit.
+8. Choose the truthful release decision: `certified`, `ship-with-known-gaps` or `blocked`. Do not invent passes to remove a gap.
+9. Run `python3 Scripts/check-release-qa-evidence.py --release-gate` together with the normal repository checks.
+10. Open a pull request and let CI pass.
+11. Merge to `main`; the release workflow performs the normal tag/build/appcast/release process.
 
 Do not create production tags/releases manually during the normal flow, and never commit signing keys, secrets or raw device identifiers to QA evidence.
 
-See `knowledge-base/05-release/release-process.md` and `knowledge-base/13-qa/release-evidence/README.md` for the current release documentation.
+See `knowledge-base/05-release/release-process.md`, `knowledge-base/13-qa/change-impact-traceability.md` and `knowledge-base/13-qa/release-evidence/README.md` for the current release documentation.
 
 ## Documentation rule
 
@@ -140,7 +143,9 @@ If a change alters stable project topology — shipped modules, canonical owners
 
 If a change alters architecture, module ownership, networking, permissions, persistence, device identity, background work/concurrency, resource budgets, release semantics or the current shipped baseline, update the corresponding document under `knowledge-base/` in the same change. Long-lived architectural decisions require an ADR under `knowledge-base/08-decisions/`.
 
-If a change introduces a new user-visible platform/hardware/TCC/lifecycle edge, update `knowledge-base/13-qa/behavioral-qa-matrix.md` even when part of the deterministic core is unit-tested. If a release is being prepared, the version-specific evidence file must classify that row too.
+If a change introduces a new user-visible platform/hardware/TCC/lifecycle edge, update `knowledge-base/13-qa/behavioral-qa-matrix.md` even when part of the deterministic core is unit-tested. Give the new ID a source/test route in `Scripts/qa-impact-rules.json`. If a release is being prepared, the version-specific evidence file must classify that row too.
+
+If a behaviorally important source owner changes or a new tracked source file appears, review `Scripts/qa-impact-rules.json`. An `unmapped behavioral source change` is a design-review signal, not a CI nuisance.
 
 If a new canonical architecture/reference owner is introduced, consider adding it to `Scripts/documentation-freshness.json` so historical drift is machine-detectable.
 
