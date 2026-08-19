@@ -4,7 +4,7 @@
 
 The shared instructions above apply.
 
-Before planning or editing, inspect `PROJECT-MANIFEST.json` for a fast machine-readable topology, then read `knowledge-base/10-ai/AI-INDEX.md`. The manifest is routing-only: it points to current ownership and canonical docs but never overrides code, tests or the linked reference documents. Historical files under `docs/` remain useful evidence, but they are not automatically current state.
+Before planning or editing, inspect `PROJECT-MANIFEST.json` for a fast machine-readable topology, then read `knowledge-base/10-ai/AI-INDEX.md`. For a whole-repository security/performance audit, also read `knowledge-base/00-project/pre-audit-baseline-1.4.12.md` and use `main` as the only current source branch. The manifest is routing-only: it points to current ownership and canonical docs but never overrides code, tests or the linked reference documents. Historical files under `docs/` remain useful evidence, but they are not automatically current state.
 
 A few things specific to this setup:
 
