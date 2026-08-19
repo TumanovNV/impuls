@@ -3,7 +3,7 @@ title: Schema & Migration Registry
 type: reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, schemas, migrations, persistence, compatibility]
 ---
@@ -57,7 +57,7 @@ The registry records **ownership and compatibility policy**, not secret values.
 | Onboarding seen version | `impuls.onboarding.v2.seenVersion` | `OnboardingWindowController` | `UserDefaults` | Excluded | Determines What's New vs no presentation; closing an automatic presentation records the current version. |
 | Telemetry onboarding offer | `impuls.onboarding.1.4.11.telemetryOfferShown` | onboarding flow | `UserDefaults` | Excluded | Prevents repeatedly presenting an undecided optional statistics offer on ordinary upgrades. |
 | Version-statistics consent | `versionStatistics.consent.v1` | `VersionTelemetryService` | `UserDefaults` | Excluded | Separate explicit consent from update networking. Unknown means no heartbeat. |
-| Version-statistics cadence/state | `versionStatistics.lastAttempt.v1`, `lastObservedVersion.v1`, `pendingPreviousVersion.v1` | `VersionTelemetryService` | `UserDefaults` | Excluded | Attempt is recorded before suspension/network work; previous-version transition is cleared only after successful server acceptance. |
+| Version-statistics cadence/state | `versionStatistics.lastAttempt.v1`, `lastObservedVersion.v1`, `pendingPreviousVersion.v1` | `VersionTelemetryService` | `UserDefaults` | Excluded | One-hour attempt throttle is recorded before suspension/network work, including failures; previous-version transition is cleared only after successful server acceptance. |
 | Version-statistics installation ID | Keychain account `installation-id.v1` | `KeychainInstallationIDStore` | macOS Keychain | Excluded | Random UUID v4, device-local. Raw value is sent only after explicit opt-in; collector persists only an HMAC digest. |
 | Version heartbeat | JSON `schema: 1` | `VersionTelemetryService` + collector | `POST /v1/heartbeat` | n/a | Exact allow-listed fields, canonical UUID v4, bounded version strings, max request body enforced by collector. Changing payload requires coordinated client/collector/tests/docs change. |
 | Collector database | SQLite schema `1` via `PRAGMA user_version = 1`; tables `installations` + `transitions` | `Collector/version-statistics/collector.py` | SQLite/WAL | operational backup, not app backup | Historical unversioned schema is treated as v0 and adopted only after exact table-column validation. Existing rows are preserved. Future schema versions are rejected by older collectors. Every future version bump requires an ordered migration and tests from every supported prior schema. |

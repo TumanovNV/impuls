@@ -1,7 +1,9 @@
 import contextlib
 import http.client
 import ipaddress
+import json
 import sqlite3
+import stat
 import sys
 import tempfile
 import threading
@@ -132,6 +134,90 @@ class DashboardTests(unittest.TestCase):
         self.assertNotIn("http://", page)
         self.assertNotIn("https://", page)
         self.assertNotIn("<script", page)
+
+    def test_latest_version_refresh_uses_validated_published_release_and_durable_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache_path = Path(directory) / "latest-version.json"
+            def fetch_latest_version() -> str:
+                return "1.4.11"
+
+            resolver = dashboard.LatestVersionResolver(
+                "1.4.10", cache_path, fetch_latest_version
+            )
+            self.assertEqual(resolver.latest_version, "1.4.10")
+            self.assertTrue(resolver.refresh())
+            self.assertEqual(resolver.latest_version, "1.4.11")
+            self.assertEqual(stat.S_IMODE(cache_path.stat().st_mode), 0o600)
+            self.assertEqual(
+                json.loads(cache_path.read_text(encoding="utf-8"))["latest_version"], "1.4.11"
+            )
+
+            recovered = dashboard.LatestVersionResolver(
+                "1.4.10", cache_path, lambda: (_ for _ in ()).throw(ValueError("unavailable"))
+            )
+            self.assertEqual(recovered.latest_version, "1.4.11")
+            with self.assertLogs(level="WARNING"):
+                self.assertFalse(recovered.refresh())
+            self.assertEqual(recovered.latest_version, "1.4.11")
+
+    def test_latest_version_refresh_keeps_bootstrap_value_without_a_valid_cache(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache_path = Path(directory) / "latest-version.json"
+            cache_path.write_text('{"latest_version":"unsafe"}', encoding="utf-8")
+            resolver = dashboard.LatestVersionResolver(
+                "1.4.10", cache_path, lambda: (_ for _ in ()).throw(ValueError("unavailable"))
+            )
+            self.assertEqual(resolver.latest_version, "1.4.10")
+            with self.assertLogs(level="WARNING"):
+                self.assertFalse(resolver.refresh())
+            self.assertEqual(resolver.latest_version, "1.4.10")
+
+    def test_github_latest_release_parser_accepts_only_a_stable_v_prefixed_release_tag(self):
+        payload = json.dumps(
+            {"draft": False, "prerelease": False, "tag_name": "v1.4.11"}
+        ).encode("utf-8")
+        self.assertEqual(dashboard.parse_github_latest_release(payload), "1.4.11")
+
+        for invalid_payload in (
+            {"draft": True, "prerelease": False, "tag_name": "v1.4.11"},
+            {"draft": False, "prerelease": True, "tag_name": "v1.4.11"},
+            {"draft": False, "prerelease": False, "tag_name": "1.4.11"},
+            {"draft": False, "prerelease": False, "tag_name": "vnot-a-version"},
+        ):
+            with self.assertRaises(ValueError):
+                dashboard.parse_github_latest_release(json.dumps(invalid_payload).encode("utf-8"))
+
+    def test_dashboard_refreshes_latest_version_without_a_browser_network_dependency(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = self.create_database(directory)
+            refreshed = threading.Event()
+
+            def fetch_latest_version() -> str:
+                refreshed.set()
+                return "1.4.11"
+
+            server = dashboard.DashboardServer(
+                ("127.0.0.1", 0),
+                database,
+                "1.4.10",
+                ipaddress.ip_network("127.0.0.0/8"),
+                cache_path=Path(directory) / "latest-version.json",
+                github_refresh_interval_seconds=300,
+                latest_version_fetcher=fetch_latest_version,
+                start_latest_version_refresh=True,
+            )
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            self.addCleanup(thread.join, 2)
+            self.addCleanup(server.server_close)
+            self.addCleanup(server.shutdown)
+            self.assertTrue(refreshed.wait(timeout=2))
+            for _ in range(100):
+                if server.latest_version == "1.4.11":
+                    break
+                threading.Event().wait(timeout=0.01)
+            self.assertEqual(server.latest_version, "1.4.11")
+            self.assertIn("1.4.11 — 0%", self.request(server, "GET", "/")[2].decode("utf-8"))
 
     def test_http_surface_health_headers_and_methods(self):
         with tempfile.TemporaryDirectory() as directory:

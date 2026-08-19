@@ -3,7 +3,7 @@ title: Project Status
 type: status
 status: active
 documentation_version: 1.3
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, status, current]
 ---
@@ -12,7 +12,7 @@ tags: [impuls, status, current]
 
 ## Baseline
 
-**Current `main` product baseline: 1.4.11.** Источник версии — `Scripts/version`.
+**Current `main` product baseline: 1.4.12.** Источник версии — `Scripts/version`.
 
 **Current documentation baseline: 1.3.**
 

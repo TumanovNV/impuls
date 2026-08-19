@@ -3,7 +3,7 @@ title: Input & Resource Budget Registry
 type: reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
@@ -59,7 +59,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Translation debounce | 320 ms | pending task cancels on new input |
 | Notes save debounce | 800 ms | disk work on utility queue |
 | Clipboard archive save | 750 ms | encryption/disk work on utility queue |
-| Version telemetry | max one attempt per 24 h | 10 s request/resource timeout |
+| Version telemetry | max one attempt per 1 h | timestamp is recorded before request, including failures; 10 s request/resource timeout |
 | Sparkle scheduled check | 86,400 s | only after user enables automatic checks |
 
 ## Budget change rules

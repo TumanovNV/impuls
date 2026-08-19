@@ -119,6 +119,43 @@ class CollectorTests(unittest.TestCase):
             self.assertEqual(installations, [(active_digest,)])
             self.assertEqual(transitions, [(active_digest,)])
 
+    def test_observed_upgrade_from_1_4_10_to_1_4_11_creates_one_transition(self):
+        secret = b"a production secret with more than thirty two bytes"
+        installation_id = str(uuid.uuid4())
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "statistics.sqlite3"
+            collector.initialize_database(database)
+            collector.record_heartbeat(
+                database,
+                secret,
+                {
+                    "schema": 1,
+                    "installation_id": installation_id,
+                    "app_version": "1.4.10",
+                },
+                datetime(2026, 8, 18, 12, tzinfo=timezone.utc),
+            )
+            collector.record_heartbeat(
+                database,
+                secret,
+                {
+                    "schema": 1,
+                    "installation_id": installation_id,
+                    "app_version": "1.4.11",
+                    "previous_version": "1.4.10",
+                },
+                datetime(2026, 8, 18, 13, tzinfo=timezone.utc),
+            )
+
+            summary = reporter.build_report(
+                database, "1.4.11", datetime(2026, 8, 18, 14, tzinfo=timezone.utc)
+            )
+            self.assertEqual(summary["installations_by_app_version_30_day"], {"1.4.11": 1})
+            self.assertEqual(
+                summary["transitions"],
+                [{"from_version": "1.4.10", "to_version": "1.4.11", "installations": 1}],
+            )
+
     def test_http_contract_returns_204_and_rejects_extra_fields(self):
         secret = b"a production secret with more than thirty two bytes"
         with tempfile.TemporaryDirectory() as directory:

@@ -3,7 +3,7 @@ title: Networking Architecture
 type: architecture
 status: active
 documentation_version: 1.1
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, networking, security]
 ---
@@ -38,7 +38,7 @@ WebKit создаётся только после явного `Open Web Player`
 
 ## 3. VersionTelemetryService
 
-Отдельный consent. Endpoint отсутствует в source code и приходит из build config/Info.plist. Разрешён только HTTPS endpoint с точным `/v1/heartbeat`, redirects запрещены. Payload allow-list: schema, random installation UUID, app version, optional actually-observed previous version. Не чаще одного attempt в 24 h.
+Отдельный consent. Endpoint отсутствует в source code и приходит из build config/Info.plist. Разрешён только HTTPS endpoint с точным `/v1/heartbeat`, redirects запрещены. Payload allow-list: schema, random installation UUID, app version, optional actually-observed previous version. Не чаще одной попытки в час; timestamp записывается до request, поэтому и неуспешный collector не может превратить relaunch в обход этого лимита.
 
 ## CI enforcement
 

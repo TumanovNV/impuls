@@ -90,7 +90,7 @@ not as a public HTTP endpoint:
 ```bash
 python3 report.py \
   --database /var/lib/impuls-statistics/version-statistics.sqlite3 \
-  --latest-version 1.4.10
+  --latest-version 1.4.11
 ```
 
 Add `--json` for automation. Every output includes the scope warning that the
@@ -111,16 +111,36 @@ public telemetry reverse proxy:
 export IMPULS_DASHBOARD_HOST=10.0.0.21
 export IMPULS_DASHBOARD_PORT=8090
 export IMPULS_DASHBOARD_DATABASE=/var/lib/impuls-statistics/version-statistics.sqlite3
-export IMPULS_DASHBOARD_LATEST_VERSION=1.4.10
+export IMPULS_DASHBOARD_LATEST_VERSION=1.4.11
+export IMPULS_DASHBOARD_LATEST_VERSION_CACHE=/var/lib/impuls-statistics/latest-version.json
+export IMPULS_DASHBOARD_GITHUB_REFRESH_INTERVAL=3600
 export IMPULS_DASHBOARD_ALLOWED_CIDR=10.0.0.0/24
 python3 dashboard.py
 ```
 
 The host defaults to `127.0.0.1`, the port to `8090`, and the allowed network
-to `127.0.0.0/8`. Database and latest-version values are required. In
-production, bind to the WireGuard address only and set the CIDR to the VPN peer
-network. The handler checks the socket peer address directly and deliberately
-ignores proxy headers.
+to `127.0.0.0/8`. Database and bootstrap latest-version values are required.
+The cache path defaults to `latest-version.json` alongside the database, and the
+refresh interval defaults to 3600 seconds; it is constrained to 300 through
+86400 seconds. In production, bind to the WireGuard address only and set the
+CIDR to the VPN peer network. The handler checks the socket peer address directly
+and deliberately ignores proxy headers.
+
+The dashboard is the owner-controlled release-version synchronizer. On its
+private server, and never from an Impuls client or the rendered page, it requests
+only the fixed unauthenticated endpoint
+`https://api.github.com/repos/TumanovNV/impuls/releases/latest`. It accepts only
+a `200` response at that exact URL with no redirect, limits the response to
+32 KiB, and accepts only a stable, non-draft `vX.Y.Z` release tag. No GitHub
+token, collector secret, installation identifier, client IP, or telemetry data
+is sent. GitHub sees only the dashboard server's ordinary HTTPS request.
+
+After a valid result, the dashboard atomically writes a mode-`0600` local JSON
+cache containing only the version, schema and fetch time. At startup and during
+a GitHub outage, it uses the last valid cache value. If no valid cache exists
+yet, `IMPULS_DASHBOARD_LATEST_VERSION` is the conservative bootstrap fallback;
+set it to the release known at deployment time. A failed, redirected, oversized
+or malformed response never replaces the current or cached version.
 
 The HTTP surface is limited to `GET` and `HEAD` for `/` and `/healthz`.
 Mutating methods return `405`; other paths return `404`. `/healthz` performs a

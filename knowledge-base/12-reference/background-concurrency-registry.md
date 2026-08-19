@@ -3,7 +3,7 @@ title: Background Work & Concurrency Registry
 type: reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, performance, concurrency, timers, background-work, ai]
 ---
@@ -42,7 +42,7 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 | `NoteStore` | Notes persistence debounce | `800 ms` | delay on main, encode/write on serial utility queue `io.tumanov.impuls.notes.writer` | generation discards stale delayed saves; synchronous flush only during shutdown |
 | `ClipboardHistoryPersistence` | Encrypted history persistence debounce | `750 ms` | serial utility writer queue protected by `NSLock`; AES-GCM and disk I/O off main | generation drops stale writes; `flush()` sync is shutdown durability path; disable/delete drains queue |
 | `ScreenshotVault` | Screenshot save / usage / clear | event driven; at most 2 pending saves | serial utility queue `io.tumanov.impuls.screenshot-vault`; completions hop to MainActor | bounded pending counter supplies backpressure; no repeating work |
-| `VersionTelemetryService` | Version heartbeat | no repeating app timer; send attempt throttled to once per `24 h` | async ephemeral `URLSession`; response bounded; service is not UI actor | no request without consent/endpoint; attempt time is persisted before suspension; request/resource timeout `10 s` |
+| `VersionTelemetryService` | Version heartbeat | no repeating app timer; send attempt throttled to once per `1 h` | async ephemeral `URLSession`; response bounded; service is not UI actor | no request without consent/endpoint; attempt time is persisted before suspension even for failure; request/resource timeout `10 s` |
 | Sparkle updater | Update check scheduling | when user enables automatic checks, bundle schedule is `86400 s` | Sparkle-owned scheduler; `UpdateService` owns policy | default automatic checks/install remain off; user controls update setting |
 
 ## Provider cadence model

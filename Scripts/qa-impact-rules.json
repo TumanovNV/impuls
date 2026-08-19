@@ -169,15 +169,17 @@
       "description": "Panel/Menu Bar presentation, adaptive appearance or motion behavior changed",
       "source_globs": [
         "Sources/Impuls/UI/*.swift",
+        "Sources/Impuls/App/MenuBarStatusItemPresentation.swift",
         "Sources/Impuls/App/MenuBarWorkspaceController.swift",
         "Sources/Impuls/Services/MenuBarWorkspace.swift",
         "Sources/Impuls/Settings/*.swift"
       ],
       "test_globs": [
+        "Tests/ImpulsTests/MenuBarStatusItemPresentationTests.swift",
         "Tests/ImpulsTests/MenuBarWorkspaceTests.swift",
         "Tests/ImpulsTests/PanelTransitionTests.swift"
       ],
-      "qa_ids": ["UI-01", "UI-02", "UI-03", "UI-04"]
+      "qa_ids": ["UI-01", "UI-02", "UI-03", "UI-04", "UI-06"]
     },
     {
       "id": "release-update",
