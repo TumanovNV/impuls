@@ -52,7 +52,8 @@ The knowledge base contains:
 - behavioral QA matrix for automated, real-macOS, hardware and service-dependent scenarios;
 - semantic Documentation Guardian that detects contract-sensitive source diffs without canonical documentation review;
 - Git-history freshness guard that detects canonical docs whose mapped source evolved after their latest review commit/date;
-- weekly periodic review-age enforcement for curated high-risk docs.
+- weekly periodic review-age enforcement for curated high-risk docs;
+- explicit collector SQLite schema versioning and ordered migration boundary using `PRAGMA user_version`.
 
 ## Current architectural anchors
 
@@ -67,7 +68,8 @@ The knowledge base contains:
 9. public app/software facts and private production runtime facts have separate canonical owners;
 10. presentation surfaces must not multiply timers/providers/services;
 11. slow disk/process/device I/O stays off the main actor;
-12. performance limits and wake-up cadences are documented review contracts, not anonymous magic numbers.
+12. performance limits and wake-up cadences are documented review contracts, not anonymous magic numbers;
+13. collector database versions are explicit, ordered and fail closed on unknown future or malformed legacy schemas.
 
 ## Documentation automation
 
@@ -86,9 +88,9 @@ The weekly scheduled knowledge-base workflow additionally enables freshness revi
 
 These guards are intentionally conservative: they do not pretend automation can understand architecture. Their job is to make high-risk changes and stale ownership impossible to overlook during an AI/PR workflow.
 
-## Current known schema debt
+## Collector schema state
 
-Collector SQLite DDL is currently idempotent but does not yet have an explicit database schema version. No incompatible collector DB change should ship until a formal migration/version mechanism is introduced and tested. See [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
+Collector SQLite schema is now explicitly versioned as schema `1` with `PRAGMA user_version`. The historical unversioned database is treated as schema `0` and is adopted only after exact supported table-column validation; existing telemetry rows are preserved. Unknown future versions and malformed legacy shapes fail closed. Future schema changes must add ordered migrations and deterministic tests before deployment. See [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
 
 ## Operational documentation
 
@@ -96,4 +98,4 @@ Production telemetry runtime/topology is intentionally not duplicated here. The 
 
 ## Next documentation work
 
-The broad documentation foundation is now in place. Future work should primarily happen as part of product changes. Useful next improvements are expanding the curated type/test and freshness mappings where new core owners appear, adding release-specific evidence for manual hardware/TCC rows, and implementing the already-documented formal collector DB migration mechanism before any incompatible telemetry database change.
+The broad documentation foundation is now in place. Future work should primarily happen as part of product changes. Useful next improvements are expanding the curated type/test and freshness mappings where new core owners appear, attaching release-specific evidence to manual hardware/TCC QA rows, and continuing to tighten automated semantic drift detection as new contract families appear.

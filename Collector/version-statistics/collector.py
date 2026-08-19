@@ -20,6 +20,7 @@ from pathlib import Path
 
 MAXIMUM_BODY_BYTES = 2_048
 RETENTION_DAYS = 365
+DATABASE_SCHEMA_VERSION = 1
 VERSION_PATTERN = re.compile(r"^[0-9]+(?:\.[0-9]+){2}(?:[-.][0-9A-Za-z]+)*$")
 REQUIRED_FIELDS = {"schema", "installation_id", "app_version"}
 ALLOWED_FIELDS = REQUIRED_FIELDS | {"previous_version"}
@@ -27,6 +28,50 @@ ALLOWED_FIELDS = REQUIRED_FIELDS | {"previous_version"}
 
 class ValidationError(ValueError):
     pass
+
+
+class DatabaseMigrationError(sqlite3.DatabaseError):
+    """Raised when an on-disk collector database cannot be upgraded safely."""
+
+
+SCHEMA_V1_COLUMNS = {
+    "installations": {
+        "installation_hash",
+        "first_seen",
+        "last_seen",
+        "current_version",
+        "previous_version",
+    },
+    "transitions": {
+        "installation_hash",
+        "from_version",
+        "to_version",
+        "first_seen",
+    },
+}
+
+SCHEMA_V1_STATEMENTS = (
+    """
+    CREATE TABLE IF NOT EXISTS installations (
+        installation_hash TEXT PRIMARY KEY CHECK(length(installation_hash) = 64),
+        first_seen TEXT NOT NULL,
+        last_seen TEXT NOT NULL,
+        current_version TEXT NOT NULL,
+        previous_version TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS transitions (
+        installation_hash TEXT NOT NULL,
+        from_version TEXT NOT NULL,
+        to_version TEXT NOT NULL,
+        first_seen TEXT NOT NULL,
+        PRIMARY KEY (installation_hash, from_version, to_version)
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS installations_last_seen ON installations(last_seen)",
+    "CREATE INDEX IF NOT EXISTS installations_first_seen ON installations(first_seen)",
+)
 
 
 def utc_now() -> datetime:
@@ -79,30 +124,71 @@ def installation_digest(secret: bytes, installation_id: str) -> str:
     return hmac.new(secret, installation_id.encode("ascii"), hashlib.sha256).hexdigest()
 
 
+def database_schema_version(database: sqlite3.Connection) -> int:
+    row = database.execute("PRAGMA user_version").fetchone()
+    if row is None or type(row[0]) is not int or row[0] < 0:
+        raise DatabaseMigrationError("invalid SQLite user_version")
+    return row[0]
+
+
+def _table_columns(database: sqlite3.Connection, table: str) -> set[str]:
+    return {row[1] for row in database.execute(f'PRAGMA table_info("{table}")')}
+
+
+def validate_database_schema_v1(database: sqlite3.Connection) -> None:
+    for table, expected_columns in SCHEMA_V1_COLUMNS.items():
+        actual_columns = _table_columns(database, table)
+        if actual_columns != expected_columns:
+            raise DatabaseMigrationError(
+                f"collector schema v1 table {table!r} has unexpected columns: "
+                f"expected {sorted(expected_columns)}, got {sorted(actual_columns)}"
+            )
+
+
+def migrate_database(database: sqlite3.Connection) -> None:
+    """Upgrade the collector database in ordered, transactionally verified steps.
+
+    Schema version 0 means either a new empty database or the historical
+    unversioned Impuls collector schema. The v0 -> v1 migration is deliberately
+    shape-preserving: it creates missing objects on a new database, verifies
+    that legacy tables have the exact supported column set, then records
+    ``PRAGMA user_version = 1``. Existing rows are never rewritten.
+    """
+
+    version = database_schema_version(database)
+    if version > DATABASE_SCHEMA_VERSION:
+        raise DatabaseMigrationError(
+            f"database schema {version} is newer than supported {DATABASE_SCHEMA_VERSION}"
+        )
+
+    if version == DATABASE_SCHEMA_VERSION:
+        validate_database_schema_v1(database)
+        return
+
+    while version < DATABASE_SCHEMA_VERSION:
+        if version != 0:
+            raise DatabaseMigrationError(f"no migration path from database schema {version}")
+
+        database.execute("BEGIN IMMEDIATE")
+        try:
+            for statement in SCHEMA_V1_STATEMENTS:
+                database.execute(statement)
+            validate_database_schema_v1(database)
+            database.execute("PRAGMA user_version = 1")
+            if database_schema_version(database) != 1:
+                raise DatabaseMigrationError("failed to persist database schema version 1")
+            database.commit()
+        except Exception:
+            database.rollback()
+            raise
+        version = 1
+
+
 def initialize_database(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with contextlib.closing(sqlite3.connect(path)) as database:
         database.execute("PRAGMA journal_mode=WAL")
-        database.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS installations (
-                installation_hash TEXT PRIMARY KEY CHECK(length(installation_hash) = 64),
-                first_seen TEXT NOT NULL,
-                last_seen TEXT NOT NULL,
-                current_version TEXT NOT NULL,
-                previous_version TEXT
-            );
-            CREATE TABLE IF NOT EXISTS transitions (
-                installation_hash TEXT NOT NULL,
-                from_version TEXT NOT NULL,
-                to_version TEXT NOT NULL,
-                first_seen TEXT NOT NULL,
-                PRIMARY KEY (installation_hash, from_version, to_version)
-            );
-            CREATE INDEX IF NOT EXISTS installations_last_seen ON installations(last_seen);
-            CREATE INDEX IF NOT EXISTS installations_first_seen ON installations(first_seen);
-            """
-        )
+        migrate_database(database)
 
 
 def record_heartbeat(path: Path, secret: bytes, payload: dict, now: datetime | None = None) -> None:

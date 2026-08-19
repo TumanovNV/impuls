@@ -2,7 +2,7 @@
 title: Schema & Migration Registry
 type: reference
 status: active
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.11
 last_reviewed: 2026-08-19
 tags: [impuls, schemas, migrations, persistence, compatibility]
@@ -60,7 +60,7 @@ The registry records **ownership and compatibility policy**, not secret values.
 | Version-statistics cadence/state | `versionStatistics.lastAttempt.v1`, `lastObservedVersion.v1`, `pendingPreviousVersion.v1` | `VersionTelemetryService` | `UserDefaults` | Excluded | Attempt is recorded before suspension/network work; previous-version transition is cleared only after successful server acceptance. |
 | Version-statistics installation ID | Keychain account `installation-id.v1` | `KeychainInstallationIDStore` | macOS Keychain | Excluded | Random UUID v4, device-local. Raw value is sent only after explicit opt-in; collector persists only an HMAC digest. |
 | Version heartbeat | JSON `schema: 1` | `VersionTelemetryService` + collector | `POST /v1/heartbeat` | n/a | Exact allow-listed fields, canonical UUID v4, bounded version strings, max request body enforced by collector. Changing payload requires coordinated client/collector/tests/docs change. |
-| Collector database | current DDL: `installations` + `transitions` | `Collector/version-statistics/collector.py` | SQLite/WAL | operational backup, not app backup | DDL is currently idempotent but **not explicitly version-numbered**. Before a breaking column/table change, introduce an explicit DB migration/version mechanism rather than silently changing `CREATE TABLE IF NOT EXISTS`. |
+| Collector database | SQLite schema `1` via `PRAGMA user_version = 1`; tables `installations` + `transitions` | `Collector/version-statistics/collector.py` | SQLite/WAL | operational backup, not app backup | Historical unversioned schema is treated as v0 and adopted only after exact table-column validation. Existing rows are preserved. Future schema versions are rejected by older collectors. Every future version bump requires an ordered migration and tests from every supported prior schema. |
 | Cyclop → Impuls migration marker | `migration.cyclop.completed` | `LegacyMigration` | `UserDefaults` | Excluded | One-time migration copies supported files/preferences only when destination values are absent, then records completion. |
 
 ## Main settings compatibility
@@ -136,17 +136,27 @@ It currently handles:
 
 Do not overload this migration with unrelated future schema upgrades. New migration families should get their own version/marker and tests.
 
-## Collector database warning
+## Collector database migration policy
 
-The collector currently creates its tables idempotently but has no explicit integer schema version. That is safe only while changes are additive and compatible with existing rows.
+The collector now has a formal database migration boundary. `DATABASE_SCHEMA_VERSION` is the code-level current version and SQLite `PRAGMA user_version` is the on-disk version marker.
 
-Before the first incompatible collector database change, introduce a transactionally tested mechanism such as `PRAGMA user_version` or an explicit migrations table, with:
+### v0 → v1
 
-1. current-version detection;
-2. ordered migrations;
-3. rollback/backup expectations;
-4. tests starting from every supported prior schema;
-5. private operational runbook update in the infrastructure documentation.
+Schema `0` represents either a brand-new SQLite file or the historical Impuls database created before explicit versioning. The migration:
+
+1. starts an immediate transaction;
+2. creates the known v1 tables/indexes only if absent;
+3. verifies that `installations` and `transitions` have exactly the supported column sets;
+4. writes `PRAGMA user_version = 1` only after validation succeeds;
+5. commits without rewriting existing telemetry rows.
+
+If the legacy shape is unexpected, the transaction rolls back and startup fails with `DatabaseMigrationError`. If the file advertises a schema version greater than the running collector supports, startup also fails. An old binary must never silently operate on a future database.
+
+### Future versions
+
+A schema `N -> N+1` change must add an explicit ordered migration in `collector.py`, deterministic tests that begin from schema `N`, and public schema documentation. Before production deployment, the private infrastructure runbook must define a SQLite-safe pre-migration backup, service stop/start sequence, validation, and rollback conditions.
+
+Tests: [`test_collector_database_migrations.py`](../../Tests/PythonTests/test_collector_database_migrations.py) and [`test_version_statistics.py`](../../Tests/PythonTests/test_version_statistics.py).
 
 ## Change checklist
 
@@ -182,4 +192,5 @@ For any schema change:
 - [`BackupDocumentTests.swift`](../../Tests/ImpulsTests/BackupDocumentTests.swift)
 - [`ClipboardHistoryPersistenceTests.swift`](../../Tests/ImpulsTests/ClipboardHistoryPersistenceTests.swift)
 - [`VersionTelemetryServiceTests.swift`](../../Tests/ImpulsTests/VersionTelemetryServiceTests.swift)
+- [`test_collector_database_migrations.py`](../../Tests/PythonTests/test_collector_database_migrations.py)
 - [`test_version_statistics.py`](../../Tests/PythonTests/test_version_statistics.py)

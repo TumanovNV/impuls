@@ -46,6 +46,42 @@ the proxy. Back up the SQLite file and protect both it and the HMAC secret as
 production credentials; rotating the HMAC secret starts a new installation
 population because old and new digests cannot be linked.
 
+## SQLite schema and migrations
+
+The collector database has an explicit integer schema version stored in SQLite
+`PRAGMA user_version`.
+
+Current database schema: **1**.
+
+Schema 1 contains the existing `installations` and `transitions` tables and the
+`installations_last_seen` / `installations_first_seen` indexes. Introducing
+schema versioning does not rewrite existing telemetry rows.
+
+A database with `user_version = 0` is treated as either a new database or the
+historical unversioned Impuls schema. On startup the collector:
+
+1. starts an immediate migration transaction;
+2. creates the schema-1 objects only when they are absent;
+3. verifies the exact supported column set of both tables;
+4. sets `PRAGMA user_version = 1` only after validation succeeds;
+5. rolls the migration back if validation or version persistence fails.
+
+A database whose `user_version` is newer than the collector understands is
+rejected. An unversioned database with an unexpected table shape is also
+rejected rather than silently altered. This prevents an older collector binary
+from opening a future database and prevents malformed legacy storage from being
+mistaken for the supported production schema.
+
+Before any future schema-2 deployment, add an ordered `1 -> 2` migration and a
+deterministic test that starts from a real schema-1 fixture. Production rollout
+must take a SQLite-safe backup before the first process using the new schema is
+started. The private infrastructure documentation owns the concrete backup,
+service and rollback procedure; this public repository owns the schema contract.
+
+Migration tests live in
+`Tests/PythonTests/test_collector_database_migrations.py` and run in the normal
+GitHub Actions Python test suite.
+
 ## Owner-only report
 
 Run the report through a protected administration channel (SSH or a private job),
