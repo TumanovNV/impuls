@@ -62,7 +62,7 @@ release build also needs an owner-configured HTTPS collector endpoint; the
 repository does not contain or invent a production URL, and a build without the
 endpoint cannot make the request even after consent.
 
-The public 1.4.11 build is configured for the first-party endpoint
+The public 1.4.12 build is configured for the first-party endpoint
 `https://stats.tumanov.space/v1/heartbeat`. The endpoint is visible in the
 application's `Info.plist`; it is not a hidden or remotely changed destination.
 
@@ -74,8 +74,8 @@ exact allow-list:
 {
   "schema": 1,
   "installation_id": "random-uuid",
-  "app_version": "1.4.11",
-  "previous_version": "1.4.10"
+  "app_version": "1.4.12",
+  "previous_version": "1.4.11"
 }
 ```
 
