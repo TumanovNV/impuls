@@ -85,6 +85,7 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.11**.
 
 ## 11 — History
 - [Architecture Timeline](11-history/architecture-timeline.md)
+- [Release Architecture Ledger](11-history/release-architecture-ledger.md)
 
 ## 12 — Reference
 - [Reference Layer Index](12-reference/README.md)
@@ -116,7 +117,7 @@ flowchart LR
     CI -->|green| PR[PR may merge]
 ```
 
-v1.3 now combines explicit performance/concurrency and resource-budget registries, behavioral QA, semantic diff protection, historical freshness, a routing-only project manifest and dependency supply-chain policy.
+v1.3 combines performance/concurrency and resource-budget registries, behavioral QA, semantic diff protection, historical freshness, a routing-only project manifest, dependency supply-chain policy and a generated release→architecture evidence ledger.
 
 The lightweight knowledge-base workflow also runs weekly. On the scheduled run, freshness additionally enforces periodic review-age budgets; normal PRs enforce only real source→doc drift.
 
