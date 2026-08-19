@@ -49,7 +49,7 @@ Each release evidence record therefore keeps four facts separate:
 - `blocked` — release must not ship until the blocking evidence changes.
 - `retrospective` — historical record only; forbidden for newly enforced releases.
 
-The policy is machine-readable in [`../../../Scripts/release-qa-policy.json`](../../../Scripts/release-qa-policy.json). Structural validation is performed by [`../../../Scripts/check-release-qa-evidence.py`](../../../Scripts/check-release-qa-evidence.py).
+The policy is machine-readable in [`../../../Scripts/release-qa-policy.json`](../../../Scripts/release-qa-policy.json). Validation is performed by [`../../../Scripts/check-release-qa-evidence.py`](../../../Scripts/check-release-qa-evidence.py).
 
 ## Enforcement
 
@@ -57,10 +57,25 @@ The first enforced version is **1.4.12**. From that version onward:
 
 - `knowledge-base/13-qa/release-evidence/<version>.md` must exist whenever `Scripts/version` changes;
 - `not-recorded` is forbidden;
-- a release record may be `certified`, `ship-with-known-gaps` or `blocked`, but a shipping gate must reject `blocked`;
-- every non-automated matrix scenario must appear exactly once.
+- every non-automated matrix scenario must appear exactly once;
+- a candidate may be `certified`, `ship-with-known-gaps` or `blocked` in the document, but the CI shipping gate rejects `blocked`;
+- `retrospective` cannot be used for a new enforced release.
 
-The current CI integration validates structure and the evidence file for the version in `Scripts/version`. It intentionally does **not fabricate hardware results** from hosted CI.
+The `knowledge-base` workflow runs:
+
+```bash
+python3 Scripts/check-release-qa-evidence.py --release-gate
+```
+
+Because that workflow already triggers on `Scripts/version`, a version-bump PR cannot become green without a matching evidence record and a shippable decision. This deliberately avoids editing `release.yml`, whose own path trigger could otherwise reissue the current GitHub Release.
+
+Hosted CI validates the evidence **contract**; it does not pretend to execute MagSafe, external-display, TCC or iPhone hardware tests.
+
+For a structural audit without the shipping-decision check:
+
+```bash
+python3 Scripts/check-release-qa-evidence.py --all
+```
 
 ## Test environment privacy
 
@@ -98,7 +113,7 @@ When bumping `Scripts/version`:
 3. enumerate test environments without sensitive device identifiers;
 4. exercise or explicitly classify every manual/mixed matrix row;
 5. choose the truthful release decision;
-6. run `python3 Scripts/check-release-qa-evidence.py --all`;
+6. run `python3 Scripts/check-release-qa-evidence.py --release-gate`;
 7. only call the release certified when the checker permits that decision.
 
 Do not convert `not-run` to `pass` merely to satisfy CI. A visible known gap is safer than fictitious release evidence.
