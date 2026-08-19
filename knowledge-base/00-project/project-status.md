@@ -2,7 +2,7 @@
 title: Project Status
 type: status
 status: active
-documentation_version: 1.1
+documentation_version: 1.2
 app_version: 1.4.11
 last_reviewed: 2026-08-19
 tags: [impuls, status, current]
@@ -12,7 +12,9 @@ tags: [impuls, status, current]
 
 ## Baseline
 
-**Current `main` product baseline: 1.4.11.** Источник версии — `Scripts/version`. Documentation baseline: **1.1**.
+**Current `main` product baseline: 1.4.11.** Источник версии — `Scripts/version`.
+
+**Current documentation baseline: 1.2.**
 
 ## Current product surface
 
@@ -27,9 +29,24 @@ tags: [impuls, status, current]
 - Power/Battery center with explicitly enabled external Apple devices;
 - RU/EN localization.
 
-## Documentation coverage 1.1
+## Documentation coverage 1.2
 
-Current knowledge base now contains application lifecycle, state ownership, multi-display, persistence, permissions, networking, system diagrams, detailed pages for every module, Menu Bar, macOS TCC, testing/SOPs, update/release pipeline, threat model, data classification, privacy boundaries, ADR-001…005 and AI impact routing.
+The knowledge base contains:
+
+- application lifecycle, state ownership and multi-display architecture;
+- storage/persistence, permissions and networking boundaries;
+- Mermaid system/data/release/security diagrams;
+- detailed pages for all 9 modules plus Menu Bar;
+- macOS TCC and signing/distribution;
+- build/test/module-development SOPs;
+- update/release pipeline;
+- threat model, data classification and privacy boundaries;
+- ADR-001…005;
+- AI routing and change-impact matrix;
+- formal schema/migration registry;
+- core type ownership reference;
+- CI-checked generated Type → Tests → Docs map;
+- formal split between public software documentation and private production operations documentation.
 
 ## Current architectural anchors
 
@@ -39,8 +56,29 @@ Current knowledge base now contains application lifecycle, state ownership, mult
 4. sensitive permission prompts only after explicit user action;
 5. local-first content and bounded reads;
 6. raw device identities never cross presentation/privacy boundary;
-7. signed update verification independent of Apple Developer ID availability.
+7. signed update verification independent of Apple Developer ID availability;
+8. persisted-format changes require explicit compatibility/migration review;
+9. public app/software facts and private production runtime facts have separate canonical owners.
+
+## Documentation automation
+
+Two checks now protect documentation drift:
+
+```text
+Scripts/check-knowledge-base.py
+Scripts/generate-knowledge-map.py --check
+```
+
+The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files.
+
+## Current known schema debt
+
+Collector SQLite DDL is currently idempotent but does not yet have an explicit database schema version. No incompatible collector DB change should ship until a formal migration/version mechanism is introduced and tested. See [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
+
+## Operational documentation
+
+Production telemetry runtime/topology is intentionally not duplicated here. The private infrastructure vault owns current host/network/service/backup/dashboard operational facts; this repository owns the software contract. See [Public / Private Operations Boundary](../12-reference/operations-boundary.md).
 
 ## Next documentation work
 
-Documentation 1.2 should focus on API/type-level reference where useful, generated cross-link validation, per-subsystem test matrix, operational collector/dashboard runbooks and formal migration/schema registry as those areas evolve.
+Future documentation work should be driven by product changes rather than another broad rewrite. The v1.2 baseline is designed to make drift visible: new core ownership, persisted schemas and production-runtime changes now have explicit update paths and CI/reference checks.
