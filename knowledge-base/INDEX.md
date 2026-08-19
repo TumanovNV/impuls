@@ -3,7 +3,7 @@ title: IMPULS Knowledge Base Index
 type: index
 status: active
 documentation_version: 1.3
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, documentation, index]
 ---
@@ -12,7 +12,7 @@ tags: [impuls, documentation, index]
 
 Current engineering knowledge base for humans, Obsidian and AI agents.
 
-Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.11**.
+Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.12**.
 
 ## 00 — Project
 - [Project Overview](00-project/project-overview.md)
