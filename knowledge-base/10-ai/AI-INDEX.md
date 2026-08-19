@@ -47,7 +47,7 @@ tags: [impuls, ai, agents, index]
 - [Public / Private Operations Boundary](../12-reference/operations-boundary.md)
 - [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md)
 
-The generated map is the fastest path from an important production type to source, mapped tests and canonical docs. The v1.3 registries are the fastest path for persisted formats, background work and explicit performance budgets. Documentation Guardian checks contract-sensitive diffs against those routes in CI.
+The generated map is the fastest path from an important production type to source, mapped tests and canonical docs. The v1.3 registries are the fastest path for persisted formats, background work and explicit performance budgets. Documentation Guardian checks contract-sensitive diffs, while the freshness guard checks historical source→doc ordering so older drift cannot remain silently trusted.
 
 ## Routing
 
@@ -122,6 +122,10 @@ Read power page + ADR-004 + Background Work Registry + Resource Budget Registry 
 3. Run `python3 Scripts/generate-knowledge-map.py`.
 4. Commit the generated map.
 5. Run `python3 Scripts/generate-knowledge-map.py --check` plus normal tests/CI.
+
+### Canonical documentation mapping change
+
+If a new high-risk canonical document or implementation owner is introduced, consider whether `Scripts/documentation-freshness.json` must track it. The freshness manifest is curated just like the type map: it should cover architectural contracts, not every Markdown file.
 
 ### New behavioral edge
 

@@ -14,7 +14,10 @@ on:
       - 'Scripts/knowledge-map-manifest.json'
       - 'Scripts/check-documentation-guardian.py'
       - 'Scripts/documentation-guardian-rules.json'
+      - 'Scripts/check-documentation-freshness.py'
+      - 'Scripts/documentation-freshness.json'
       - 'Tests/PythonTests/test_documentation_guardian.py'
+      - 'Tests/PythonTests/test_documentation_freshness.py'
       - '.github/workflows/knowledge-base.yml'
   push:
     branches: [main]
@@ -30,8 +33,13 @@ on:
       - 'Scripts/knowledge-map-manifest.json'
       - 'Scripts/check-documentation-guardian.py'
       - 'Scripts/documentation-guardian-rules.json'
+      - 'Scripts/check-documentation-freshness.py'
+      - 'Scripts/documentation-freshness.json'
       - 'Tests/PythonTests/test_documentation_guardian.py'
+      - 'Tests/PythonTests/test_documentation_freshness.py'
       - '.github/workflows/knowledge-base.yml'
+  schedule:
+    - cron: '17 5 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -52,6 +60,8 @@ jobs:
         run: python3 Scripts/generate-knowledge-map.py --check
       - name: Test Documentation Guardian matcher
         run: python3 -m unittest discover -s Tests/PythonTests -p 'test_documentation_guardian.py'
+      - name: Test documentation freshness logic
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_documentation_freshness.py'
       - name: Verify semantic documentation contracts
         env:
           GUARD_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -62,4 +72,13 @@ jobs:
             python3 Scripts/check-documentation-guardian.py --base "$GUARD_BASE"
           else
             python3 Scripts/check-documentation-guardian.py
+          fi
+      - name: Verify canonical documentation freshness
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            python3 Scripts/check-documentation-freshness.py --enforce-review-age
+          else
+            python3 Scripts/check-documentation-freshness.py
           fi

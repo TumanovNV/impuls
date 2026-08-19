@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "doc": "knowledge-base/01-architecture/multi-display.md",
+      "tracked_paths": ["Sources/Impuls/Notch"],
+      "max_review_age_days": 180
+    },
+    {
+      "doc": "knowledge-base/01-architecture/storage-persistence.md",
+      "tracked_paths": [
+        "Sources/Impuls/Settings",
+        "Sources/Impuls/Services/StorageEnvironment.swift",
+        "Sources/Impuls/Services/BackupService.swift",
+        "Sources/Impuls/Services/ClipboardHistoryPersistence.swift",
+        "Sources/Impuls/Services/NoteStore.swift",
+        "Sources/Impuls/Services/SnippetStore.swift"
+      ],
+      "max_review_age_days": 180
+    },
+    {
+      "doc": "knowledge-base/01-architecture/permissions.md",
+      "tracked_paths": [
+        "Resources/Impuls.entitlements",
+        "Resources/Impuls.AdHoc.entitlements",
+        "Scripts/bundle.sh",
+        "Sources/Impuls/Services/CalendarStore.swift",
+        "Sources/Impuls/Services/PlayerBridge.swift"
+      ],
+      "max_review_age_days": 180
+    },
+    {
+      "doc": "knowledge-base/03-macos/permissions-and-tcc.md",
+      "tracked_paths": [
+        "Resources/Impuls.entitlements",
+        "Resources/Impuls.AdHoc.entitlements",
+        "Scripts/bundle.sh",
+        "Sources/Impuls/Services/CalendarStore.swift",
+        "Sources/Impuls/Services/PlayerBridge.swift"
+      ],
+      "max_review_age_days": 180
+    },
+    {
+      "doc": "knowledge-base/01-architecture/networking.md",
+      "tracked_paths": [
+        "Sources/Impuls/Services/UpdateService.swift",
+        "Sources/Impuls/Services/WebMusicPlayer.swift",
+        "Sources/Impuls/Services/VersionTelemetryService.swift",
+        "Scripts/bundle.sh"
+      ],
+      "max_review_age_days": 180
+    },
+    {
+      "doc": "knowledge-base/05-release/update-system.md",
+      "tracked_paths": [
+        "Sources/Impuls/Services/UpdateService.swift",
+        "Scripts/bundle.sh",
+        "Scripts/dmg.sh",
+        ".github/workflows/release.yml"
+      ],
+      "max_review_age_days": 180
+    },
+    {
+      "doc": "knowledge-base/07-web/version-statistics-collector.md",
+      "tracked_paths": [
+        "Sources/Impuls/Services/VersionTelemetryService.swift",
+        "Collector/version-statistics"
+      ],
+      "max_review_age_days": 180
+    },
+    {
+      "doc": "knowledge-base/02-modules/clipboard.md",
+      "tracked_paths": [
+        "Sources/Impuls/Services/ClipboardStore.swift",
+        "Sources/Impuls/Services/ClipboardHistoryPersistence.swift"
+      ],
+      "max_review_age_days": 365
+    },
+    {
+      "doc": "knowledge-base/02-modules/music.md",
+      "tracked_paths": [
+        "Sources/Impuls/Services/MediaController.swift",
+        "Sources/Impuls/Services/PlayerBridge.swift",
+        "Sources/Impuls/Services/WebMusicPlayer.swift",
+        "Sources/Impuls/Services/MusicSource.swift"
+      ],
+      "max_review_age_days": 365
+    },
+    {
+      "doc": "knowledge-base/02-modules/power.md",
+      "tracked_paths": [
+        "Sources/Impuls/Services/DevicePowerCenter.swift",
+        "Sources/Impuls/Services/DeviceRefreshScheduler.swift",
+        "Sources/Impuls/Services/AppleAccessoryBatteryProvider.swift",
+        "Sources/Impuls/Services/MobileDeviceBatteryProvider.swift",
+        "Sources/Impuls/Services/PowerMonitor.swift"
+      ],
+      "max_review_age_days": 365
+    },
+    {
+      "doc": "knowledge-base/02-modules/translate.md",
+      "tracked_paths": [
+        "Sources/Impuls/Services/Translator.swift",
+        "Sources/Impuls/UI/TranslatePane.swift"
+      ],
+      "max_review_age_days": 365
+    },
+    {
+      "doc": "knowledge-base/12-reference/schema-migration-registry.md",
+      "tracked_paths": [
+        "Sources/Impuls/Settings",
+        "Sources/Impuls/Services/BackupService.swift",
+        "Sources/Impuls/Services/ClipboardHistoryPersistence.swift",
+        "Sources/Impuls/Services/NoteStore.swift",
+        "Sources/Impuls/Services/SnippetStore.swift",
+        "Sources/Impuls/Services/VersionTelemetryService.swift",
+        "Collector/version-statistics"
+      ],
+      "max_review_age_days": 180
+    },
+    {
+      "doc": "knowledge-base/12-reference/background-concurrency-registry.md",
+      "tracked_paths": [
+        "Sources/Impuls/Notch/PointerWatcher.swift",
+        "Sources/Impuls/Services/ClipboardStore.swift",
+        "Sources/Impuls/Services/MediaController.swift",
+        "Sources/Impuls/Services/PlayerBridge.swift",
+        "Sources/Impuls/Services/CalendarStore.swift",
+        "Sources/Impuls/Services/PowerMonitor.swift",
+        "Sources/Impuls/Services/DeviceRefreshScheduler.swift",
+        "Sources/Impuls/Services/AppleAccessoryBatteryProvider.swift",
+        "Sources/Impuls/Services/MobileDeviceBatteryProvider.swift",
+        "Sources/Impuls/UI/TranslatePane.swift",
+        "Sources/Impuls/Services/NoteStore.swift",
+        "Sources/Impuls/Services/ClipboardHistoryPersistence.swift",
+        "Sources/Impuls/Services/ScreenshotVault.swift",
+        "Sources/Impuls/Services/VersionTelemetryService.swift"
+      ],
+      "max_review_age_days": 180
+    },
+    {
+      "doc": "knowledge-base/12-reference/resource-budget-registry.md",
+      "tracked_paths": [
+        "Sources/Impuls/Services/ImpulsActionsStore.swift",
+        "Sources/Impuls/Services/ClipboardStore.swift",
+        "Sources/Impuls/Services/ClipboardHistoryPersistence.swift",
+        "Sources/Impuls/Services/NoteStore.swift",
+        "Sources/Impuls/Services/SnippetStore.swift",
+        "Sources/Impuls/Services/BackupService.swift",
+        "Sources/Impuls/Services/CalendarStore.swift",
+        "Sources/Impuls/Services/Translator.swift",
+        "Sources/Impuls/Services/PlayerBridge.swift",
+        "Sources/Impuls/Services/ScreenshotVault.swift",
+        "Sources/Impuls/Services/VersionTelemetryService.swift",
+        "Sources/Impuls/Services/DeviceRefreshScheduler.swift"
+      ],
+      "max_review_age_days": 180
+    }
+  ]
+}

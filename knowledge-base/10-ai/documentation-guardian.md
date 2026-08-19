@@ -12,7 +12,7 @@ tags: [impuls, ai, documentation, ci, drift, guardian]
 
 Documentation Guardian is the anti-drift layer between implementation changes and the engineering knowledge base. It does **not** generate prose from source. It makes contract-sensitive changes visible and requires the agent/engineer to review the canonical document in the same change set.
 
-## Four protection layers
+## Five protection layers
 
 1. **Structural validation** — `Scripts/check-knowledge-base.py`
    - required frontmatter;
@@ -27,7 +27,12 @@ Documentation Guardian is the anti-drift layer between implementation changes an
    - inspects changed source lines;
    - matches high-risk contract patterns from `Scripts/documentation-guardian-rules.json`;
    - fails when the corresponding canonical documentation was not reviewed in the same diff.
-4. **Product CI** — normal Swift/Python/build/security checks prove executable behavior rather than documentation shape.
+4. **Historical freshness guard** — `Scripts/check-documentation-freshness.py`
+   - maps canonical docs to tracked implementation paths via `Scripts/documentation-freshness.json`;
+   - compares real Git commit ancestry, not file timestamps;
+   - fails when tracked source is newer than the latest document commit or newer than its `last_reviewed` date;
+   - weekly scheduled CI additionally enforces periodic 180/365-day review-age policies.
+5. **Product CI** — normal Swift/Python/build/security checks prove executable behavior rather than documentation shape.
 
 ## Guarded contract families
 
@@ -46,11 +51,27 @@ The JSON rule set contains source globs, contract-sensitive regular expressions 
 
 This intentionally catches **review obligation**, not semantic truth. Regex cannot know whether a new timer is a good idea or whether a changed limit is safe. The agent still has to establish the real contract from source/tests and document the rationale.
 
+## How freshness works
+
+The freshness manifest is intentionally curated. Each entry names one canonical document and the source paths whose evolution should force that document to be revisited.
+
+For each mapping, CI finds:
+
+1. the latest Git commit touching any tracked source path;
+2. the latest Git commit touching the canonical document;
+3. the document's `last_reviewed` date.
+
+The source commit must be an ancestor of the document commit. This ancestry check catches same-day drift that a date-only check cannot see. `last_reviewed` must also be at least the date of the latest tracked source change and may never be in the future.
+
+Normal PR/push CI enforces source drift only. The lightweight scheduled knowledge-base workflow runs every Monday and additionally applies each entry's periodic review-age budget. This keeps old but unchanged high-risk documentation from becoming permanently trusted merely because nobody touched its source recently.
+
 ## Do not game the guard
 
 A meaningless whitespace touch to a Markdown file is not a valid documentation update. If the source change is semantically neutral but hits a guarded pattern, review the canonical contract and make the smallest truthful update — for example clarifying ownership or confirming why the documented behavior is unchanged.
 
-Conversely, a source change may alter behavior without matching a regex. `AGENTS.md`, the change-impact matrix and human/agent review still apply. The Guardian is a safety net, not a substitute for architectural judgment.
+`last_reviewed` has the same rule: change it only after actually checking the mapped source/tests/CI. The freshness checker deliberately uses both Git ancestry and the metadata date so rewriting one field cannot hide that source changed after the document commit.
+
+Conversely, a source change may alter behavior without matching a regex or a curated freshness mapping. `AGENTS.md`, the change-impact matrix and human/agent review still apply. Guardian is a safety net, not a substitute for architectural judgment.
 
 ## Public / private boundary
 
@@ -72,6 +93,7 @@ Before reporting completion:
 python3 Scripts/check-knowledge-base.py
 python3 Scripts/generate-knowledge-map.py --check
 python3 Scripts/check-documentation-guardian.py --base <base-sha>
+python3 Scripts/check-documentation-freshness.py
 ```
 
 Then run the repository's normal tests/build checks appropriate to the change.
