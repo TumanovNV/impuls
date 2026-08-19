@@ -41,6 +41,7 @@ tags: [impuls, ai, agents, index]
 - [Input & Resource Budget Registry](../12-reference/resource-budget-registry.md)
 - [Public / Private Operations Boundary](../12-reference/operations-boundary.md)
 - [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md)
+- [Release QA Evidence](../13-qa/release-evidence/README.md)
 
 ## Routing
 
@@ -57,16 +58,18 @@ Read Schema & Migration Registry first. Compatibility/migration, backup inclusio
 Read Supply-Chain Policy + `Scripts/dependency-policy.json` + package files. Every resolved remote Swift package must be approved; direct dependencies use exact versions. Run `python3 Scripts/check-dependency-policy.py`.
 
 ### Permission
-Read permissions + TCC + Behavioral QA + public privacy/security docs. Prompts remain explicit/user-contextual.
+Read permissions + TCC + Behavioral QA + public privacy/security docs. Prompts remain explicit/user-contextual. If the task prepares or certifies a release, record the actual TCC result in that version's Release QA Evidence file; the matrix alone is never pass evidence.
 
 ### Network
 Read networking + ADR-003 + threat model. Exactly three Internet network owners are established. A fourth is an architecture/security change.
 
 ### Release/signing
-Read signing/distribution + release pipeline + update system + ADR-005 + supply chain + Behavioral QA. If the release changes a durable architecture/privacy/security/performance/ownership contract, add an entry to `Scripts/architecture-milestones.json`, regenerate the Release Architecture Ledger and create/update an ADR when warranted.
+Read signing/distribution + release pipeline + update system + ADR-005 + supply chain + Behavioral QA + Release QA Evidence. A version bump must travel with `docs/releases/<version>.md` **and** `knowledge-base/13-qa/release-evidence/<version>.md`. Starting with 1.4.12, historical `not-recorded` is forbidden: every manual/mixed scenario must have a truthful result and environment/gap classification. Run `python3 Scripts/check-release-qa-evidence.py --all` before calling the candidate ready.
+
+If the release changes a durable architecture/privacy/security/performance/ownership contract, also add an entry to `Scripts/architecture-milestones.json`, regenerate the Release Architecture Ledger and create/update an ADR when warranted.
 
 ### Version comparison / historical reason
-Use [Release Architecture Ledger](../11-history/release-architecture-ledger.md) for the evidence chain release → durable impact → canonical current docs → ADR → release note. Use release notes for user-facing detail, not as current architecture truth.
+Use [Release Architecture Ledger](../11-history/release-architecture-ledger.md) for the evidence chain release → durable impact → canonical current docs → ADR → release note. Use Release QA Evidence for the independent chain release → real environment → manual result → known gap/decision. Release notes remain user-facing detail, not current architecture or test truth.
 
 ### Version statistics production runtime
 Current production runtime belongs to the private infrastructure vault. If connected and current-state is required, start from `office-it-docs: Проекты/Impuls.md`; otherwise mark runtime facts unverified.
@@ -78,8 +81,8 @@ Update `Scripts/knowledge-map-manifest.json`, regenerate the type map and run `-
 Consider whether `Scripts/documentation-freshness.json` must track a new high-risk owner.
 
 ### New behavioral edge
-Add/update a Behavioral QA row when deterministic unit tests cannot fully prove a new platform/hardware/TCC/lifecycle path. Documentation is not pass evidence.
+Add/update a Behavioral QA row when deterministic unit tests cannot fully prove a new platform/hardware/TCC/lifecycle path. Then review the current release evidence candidate: adding a manual/mixed row creates a new evidence obligation. Documentation is not pass evidence.
 
 ## Trust rule
 
-При конфликте сначала code + tests + CI. Затем исправь knowledge base. For historical architecture questions use the generated ledger as routing evidence, then verify the linked release/canonical sources.
+При конфликте сначала code + tests + CI. Затем исправь knowledge base. For historical architecture questions use the generated ledger as routing evidence, then verify the linked release/canonical sources. For release certification claims, require the version-specific QA evidence record rather than inferring a pass from tests, screenshots or the scenario inventory.
