@@ -1,57 +1,48 @@
 ---
-title: Module Catalog
-type: modules
+title: IMPULS Module Catalog
+type: module-index
 status: active
-documentation_version: 1.0
+documentation_version: 1.1
 app_version: 1.4.11
 last_reviewed: 2026-08-19
-tags: [impuls, modules, features]
+tags: [impuls, modules, index]
 ---
 
-# Каталог модулей ИМПУЛЬС
+# Module Catalog
 
-Источник фактического списка shipped-модулей: [`Sources/Impuls/Services/AppFeatureCatalog.swift`](../../Sources/Impuls/Services/AppFeatureCatalog.swift).
+ИМПУЛЬС 1.4.11 содержит девять основных panel modules. Menu Bar workspace документируется рядом как отдельная presentation surface.
 
-| Модуль | Назначение | Ключевая логика / источники |
-| --- | --- | --- |
-| Actions | Единый локальный поиск и действия | `ImpulsActionsStore.swift`, UI Actions pane |
-| Music | Управление явно выбранным музыкальным источником | `MediaController.swift`, `PlayerBridge.swift`, `MusicSource.swift`, `WebMusicPlayer.swift` |
-| Shelf | Временная полка файлов и файловые инструменты | `ShelfStore.swift`, `FileToolsCoordinator.swift`, `FileToolsService.swift` |
-| Clipboard | История буфера обмена | `ClipboardStore.swift`, `ClipboardContent.swift`, `ClipboardHistoryPersistence.swift` |
-| Snippets | Повторно используемые текстовые заготовки | `SnippetStore.swift` |
-| Calendar | Ближайшие события после системного разрешения | `CalendarStore.swift` |
-| Translate | Явно запускаемый перевод текста | `Translator.swift`, `TranslationScript.swift` |
-| Notes | Локальные быстрые заметки | `NoteStore.swift` |
-| Power / Battery | Питание Mac и явно включённые Apple devices | `PowerMonitor.swift`, `DevicePowerCenter.swift`, device providers |
+| ID | Пользовательское имя | Документ | Основной state owner |
+| --- | --- | --- | --- |
+| `actions` | Actions | [actions.md](actions.md) | `ImpulsActionsStore` + existing stores |
+| `media` | Music | [music.md](music.md) | `MediaController` |
+| `shelf` | Shelf | [shelf.md](shelf.md) | `ShelfStore` + `FileToolsCoordinator` |
+| `clipboard` | Clipboard | [clipboard.md](clipboard.md) | `ClipboardStore` |
+| `snippets` | Snippets | [snippets.md](snippets.md) | `SnippetStore` |
+| `calendar` | Calendar | [calendar.md](calendar.md) | `CalendarStore` |
+| `translate` | Translate | [translate.md](translate.md) | `Translator` |
+| `notes` | Notes | [notes.md](notes.md) | `NoteStore` |
+| `power` | Battery / Power | [power.md](power.md) | `PowerMonitor` + `DevicePowerCenter` |
 
-## Общие правила модулей
+Дополнительно: [Menu Bar Workspace](menu-bar.md).
 
-- store/service не должен импортировать SwiftUI;
-- pane не должен выполнять прямой файловый I/O;
-- отсутствующие данные не подменяются придуманными значениями;
-- новая сеть не появляется как скрытая деталь реализации модуля;
-- новый системный permission должен иметь понятную пользовательскую причину и явный lifecycle;
-- настройки и persisted identifiers должны сохранять обратную совместимость либо иметь миграцию;
-- все пользовательские строки должны существовать и в RU, и в EN;
-- новый shipped-модуль добавляется в `AppFeatureCatalog`, только когда его destination реально существует.
+## Общая архитектура модуля
 
-## Power / Battery — особые инварианты
+```mermaid
+flowchart LR
+    SET[SettingsStore.modules] --> VM[NotchViewModel.Tab]
+    VM --> STORE[Domain store/service]
+    STORE --> PANE[*Pane.swift]
+    PANE --> SURF[Active NotchDisplaySurface]
+    STORE --> TEST[Tests]
+```
 
-Внутренний идентификатор `.power` не переименовывать: настройки, backup и migration зависят от него. Raw UDID, serial, Bluetooth address и pairing material не должны попадать в UI, feedback, backup или обычные логи. Discovery внешних устройств начинается только после явного opt-in пользователя. Отсутствующее значение остаётся отсутствующим.
+## Общие правила
 
-См. также:
-
-- [`docs/APPLE_DEVICE_BATTERY_SUPPORT.md`](../../docs/APPLE_DEVICE_BATTERY_SUPPORT.md)
-- [`docs/IMPULS_1_4_6_CODEMAP.md`](../../docs/IMPULS_1_4_6_CODEMAP.md)
-
-## Music — особая граница
-
-Нативный Apple Music adapter использует разрешённые системные механизмы. Web player может открывать официальный HTTPS-сайт только после явного действия пользователя. Запуск приложения или простой выбор источника не должен создавать `WKWebView` или сетевое соединение.
-
-## Menu Bar
-
-Menu Bar — не десятый независимый модуль, а отдельная presentation/workspace поверхность над уже существующим локальным состоянием и quick actions. Он не должен запускать новый provider, polling loop или сетевой запрос только ради отображения виджета.
-
-## Расширение каталога
-
-При добавлении нового модуля создать отдельный документ `02-modules/<module>.md`, если его архитектура выходит за рамки простого store + pane либо у него есть собственные permissions, persistence, networking или критические ограничения.
+- module ID стабилен и участвует в settings/backup compatibility;
+- один store/service на process, не на display;
+- pane не владеет filesystem/network;
+- sensitive permission не запрашивается автоматически;
+- отсутствующие hardware/data values не угадываются;
+- новая network boundary требует ADR/security review;
+- module contract меняется вместе с этим каталогом и конкретной page.
