@@ -16,12 +16,15 @@ tags: [impuls, status, current]
 
 **Current documentation baseline: 1.3.**
 
+Release `1.4.12` is the current published product baseline. Its release-specific QA decision is `ship-with-known-gaps`: the real-Mac Menu Bar battery visual acceptance (`UI-06`) passed, while other manual/mixed scenarios that were not exercised remain explicit `not-run` rather than being inferred from green CI.
+
 ## Current product surface
 
 - native macOS 15+ Swift/SwiftUI-on-AppKit application;
 - 9 panel modules;
 - one shared service graph + per-display presentation surfaces;
 - configurable Menu Bar workspace;
+- native Menu Bar battery status presentation for resolved Mac/compatible Apple-device state;
 - onboarding / What's New;
 - local backup/restore for portable settings + snippets + notes;
 - opt-in signed Sparkle updates;
@@ -45,7 +48,7 @@ The knowledge base contains:
 - AI routing and change-impact matrix;
 - formal schema/migration registry;
 - core type ownership reference;
-- CI-checked generated Type → Tests → Docs map;
+- CI-checked generated Type → Tests → Docs map with **34 curated core owners**, including the 1.4.12 `MenuBarStatusItemPresentation` → deterministic tests → Menu Bar canonical-doc route;
 - formal split between public software documentation and private production operations documentation;
 - background work / concurrency registry with cadence, cancellation and MainActor boundaries;
 - centralized input/resource/cadence budgets;
@@ -55,7 +58,7 @@ The knowledge base contains:
 - per-release QA evidence records that bind manual/mixed scenarios to real environments, outcomes and known gaps;
 - a machine-checked release QA policy that requires an evidence file whenever the version baseline changes and forbids historical `not-recorded` results from 1.4.12 onward;
 - Documentation Guardian v2 with 11 semantic contract families, including privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and module topology in addition to the original background/resource/persistence/network/permission/dependency rules;
-- Git-history freshness guard that detects canonical docs whose mapped source evolved after their latest review commit/date;
+- Git-history freshness guard with **20 curated canonical mappings**, including Menu Bar, Privacy Boundaries, Signing & Distribution, State & Ownership and the Core Type Reference;
 - weekly periodic review-age enforcement for curated high-risk docs;
 - explicit collector SQLite schema versioning and ordered migration boundary using `PRAGMA user_version`.
 
@@ -76,7 +79,8 @@ The knowledge base contains:
 13. collector database versions are explicit, ordered and fail closed on unknown future or malformed legacy schemas;
 14. a QA scenario inventory never implies a release passed it; manual/hardware/TCC pass claims require per-release evidence tied to an explicit environment;
 15. behavioral source/test ownership is machine-routed to Behavioral QA IDs; a newly changed tracked behavioral source must have a QA route or a narrow documented exemption;
-16. privacy identity, telemetry payload, update-signing integrity, actor ownership and shipped module topology changes create machine-enforced canonical documentation review obligations.
+16. privacy identity, telemetry payload, update-signing integrity, actor ownership and shipped module topology changes create machine-enforced canonical documentation review obligations;
+17. Menu Bar status rendering is a pure presentation boundary over already-resolved shared state; `MenuBarStatusItemPresentation` must not become a provider/network/polling owner.
 
 ## Documentation automation
 
@@ -91,13 +95,13 @@ Scripts/check-qa-impact.py --base <base-sha>
 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files. The third is Documentation Guardian v2: it inspects added and removed source lines across 11 narrow semantic contract families and requires the appropriate canonical owner in the same diff. The protected families now include background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and shipped module topology. The fourth uses full Git history to prove that curated canonical docs are not older than their tracked implementation.
+The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files; the current map contains 34 verified owners. The third is Documentation Guardian v2: it inspects added and removed source lines across 11 narrow semantic contract families and requires the appropriate canonical owner in the same diff. The protected families include background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and shipped module topology. The fourth uses full Git history to prove that 20 curated canonical mappings are not older than their tracked implementation.
 
 The fifth maps the actual Git diff through `Scripts/qa-impact-rules.json`, reports impacted Behavioral QA IDs, fails when a changed tracked behavioral source has no route, requires every matrix scenario to be covered by the map, requires automated QA IDs to have a mapped test route, and on version-bump diffs verifies that impacted non-automated IDs exist in that version's Release QA Evidence. The sixth validates the full release evidence contract and rejects a release candidate whose decision is `blocked`.
 
 The weekly scheduled knowledge-base workflow additionally enables freshness review-age policy. It does not make ordinary PRs fail merely because calendar time passed. QA impact validation runs configuration-only when no meaningful diff base exists.
 
-These guards are intentionally conservative: they do not pretend automation can understand architecture or simulate real hardware/TCC. Their job is to make high-risk changes, stale ownership, unmapped behavioral code and missing manual evidence impossible to overlook during an AI/PR workflow. Guardian v2 deliberately uses narrow file scopes and identifiers instead of broad keywords so ordinary implementation edits remain quiet.
+These guards are intentionally conservative: they do not pretend automation can understand architecture or simulate real hardware/TCC. Their job is to make high-risk changes, stale ownership, unmapped behavioral code and missing manual evidence impossible to overlook during an AI/PR workflow. Guardian and freshness routes deliberately use curated owners rather than repository-wide heuristics so ordinary implementation edits remain quiet.
 
 ## Collector schema state
 
@@ -109,6 +113,8 @@ Release `1.4.11` has a truthful retrospective evidence record because the struct
 
 Starting with `1.4.12`, every version baseline must include `knowledge-base/13-qa/release-evidence/<version>.md`. Every `mixed`, `manual-macos`, `manual-hardware` and `manual-service` matrix scenario must be classified explicitly. A release may be `certified`, `ship-with-known-gaps` or `blocked`, but certification requires all manual/mixed rows to be `pass` or justified `not-applicable` and at least one real Mac environment. The CI shipping gate rejects `blocked` candidates.
 
+The published 1.4.12 record intentionally uses `ship-with-known-gaps`: `UI-06` passed its real-Mac light/dark Retina acceptance, while unperformed manual/mixed rows remain visible as `not-run`.
+
 The QA impact layer sits before that gate: it tells reviewers and agents which scenario IDs the candidate's changed source/tests may have affected and verifies that impacted manual/mixed IDs are represented in the candidate evidence. It does not change their result or claim they passed.
 
 See [Behavioral QA Change Impact Traceability](../13-qa/change-impact-traceability.md) and [Release QA Evidence](../13-qa/release-evidence/README.md).
@@ -119,4 +125,6 @@ Production telemetry runtime/topology is intentionally not duplicated here. The 
 
 ## Next documentation work
 
-The broad documentation foundation, source/test→QA traceability and Guardian v2 semantic protection are now in place. Future work should primarily happen as part of product changes. The next useful maintenance layer is expanding curated Type → Tests → Docs and historical freshness mappings when new core owners appear, while preserving concrete release evidence on real macOS hardware and refining Guardian/QA rules only when actual product changes expose an ownership gap or overly broad matcher.
+The broad documentation foundation, release evidence, source/test→QA traceability, Guardian v2, 34-owner Type→Tests→Docs map and 20 high-risk freshness mappings are now in place. There is no value in expanding these registries by file count alone.
+
+Future documentation work should primarily travel with product changes. Add a new curated type/freshness owner only when a new subsystem gains durable architectural responsibility or an actual drift incident exposes a missing route. Preserve concrete real-Mac release evidence for future versions and refine Guardian/QA matchers only when a real product change exposes a gap or false-positive pattern.

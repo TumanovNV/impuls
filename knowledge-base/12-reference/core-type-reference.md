@@ -2,8 +2,8 @@
 title: Core Type Reference
 type: reference
 status: active
-documentation_version: 1.2
-app_version: 1.4.11
+documentation_version: 1.3
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, reference, swift, ownership, ai]
 ---
@@ -21,10 +21,12 @@ For direct source/test links use the CI-checked [Generated Type → Tests → Do
 ```mermaid
 flowchart TD
     APP[AppDelegate] --> CTRL[NotchController]
+    APP --> MB[MenuBarWorkspaceController]
     CTRL --> VM[NotchViewModel]
     CTRL --> DISP[DisplayCoordinator]
     VM --> MOD[Module stores/services]
     VM --> SETTINGS[SettingsStore]
+    VM -.existing state.-> MB
 
     MOD --> LOCAL[Local persistence / macOS APIs]
     MOD --> NET[Three explicit Internet owners]
@@ -33,7 +35,7 @@ flowchart TD
     LOCAL --> ENV[StorageEnvironment]
 ```
 
-The important distinction is **owner vs client**. A UI pane renders state and sends intent; it should not quietly become a second owner of storage, network access, timers or hardware discovery.
+The important distinction is **owner vs client**. A UI pane or Menu Bar surface renders state and sends intent; it should not quietly become a second owner of storage, network access, timers or hardware discovery.
 
 ## Application and presentation
 
@@ -243,7 +245,7 @@ Canonical docs: [Power / Battery](../02-modules/power.md), [ADR-004](../08-decis
 
 ### `MobileDeviceBatteryProvider`
 
-**Role:** isolated iPhone/iPad provider over Apple's undocumented device protocol path.
+**Role:** isolated iPhone/iPad provider over Apple's device transport path.
 
 It is quarantined behind the common provider protocol so protocol failure cannot take down local Mac/accessory power reporting. Blocking socket work stays off the MainActor.
 
@@ -263,7 +265,7 @@ Canonical docs: [Power / Battery](../02-modules/power.md).
 
 It uses a device-local Keychain HMAC key and returns a non-Codable, redacted `AppleDeviceIdentity`. Raw identifiers are not stored or exported.
 
-Canonical docs: [ADR-004](../08-decisions/ADR-004-local-only-device-identity.md), [Data Classification](../06-security/data-classification.md).
+Canonical docs: [ADR-004](../08-decisions/ADR-004-local-only-device-identity.md), [Privacy Boundaries](../06-security/privacy-boundaries.md), [Data Classification](../06-security/data-classification.md).
 
 ## Actions and files
 
@@ -300,6 +302,16 @@ Physical-device selection is deliberately stored outside this portable configura
 
 Canonical docs: [Menu Bar Workspace](../02-modules/menu-bar.md).
 
+### `MenuBarStatusItemPresentation`
+
+**Role:** pure status-item formatting boundary introduced into the curated map for 1.4.12.
+
+It converts an already-resolved `MenuBarWorkspaceContent` into logo/player/battery presentation without starting providers or deciding which device/player is authoritative. Battery rendering uses native SF Symbols, system-colour percentage text and `bolt.fill` only for confirmed charging. Deterministic symbol/colour/bolt boundaries are covered by `MenuBarStatusItemPresentationTests`; real light/dark Retina acceptance lives in release-specific Behavioral QA `UI-06`.
+
+**Must not:** become a network, polling, device-discovery or permission owner.
+
+Canonical docs: [Menu Bar Workspace](../02-modules/menu-bar.md).
+
 ## Update and telemetry boundaries
 
 ### `UpdateService`
@@ -308,9 +320,9 @@ Canonical docs: [Menu Bar Workspace](../02-modules/menu-bar.md).
 
 It does not implement download/replacement itself; Sparkle owns authenticated update transport/install flow. Impuls owns whether network checks are allowed and whether automatic download/install is enabled.
 
-The feed URL is exact and allow-listed.
+The feed URL is exact and allow-listed. Signed-feed and verify-before-extraction protections remain enabled independently of Apple Developer ID availability.
 
-Canonical docs: [Update System](../05-release/update-system.md), [ADR-005](../08-decisions/ADR-005-signed-update-trust-chain.md).
+Canonical docs: [Update System](../05-release/update-system.md), [Signing and Distribution](../03-macos/signing-distribution.md), [ADR-005](../08-decisions/ADR-005-signed-update-trust-chain.md).
 
 ### `VersionTelemetryService`
 
@@ -320,7 +332,7 @@ Owns:
 
 - independent consent;
 - endpoint validation;
-- once-per-day attempt cadence;
+- **once-per-hour maximum attempt cadence** in 1.4.12;
 - version transition state;
 - device-local installation UUID in Keychain;
 - exact JSON payload schema;
@@ -328,7 +340,9 @@ Owns:
 - redirect rejection;
 - best-effort failure isolation from app behavior.
 
-Canonical docs: [Version Statistics Collector](../07-web/version-statistics-collector.md), [Networking](../01-architecture/networking.md), [Operations Boundary](operations-boundary.md).
+The installation UUID is not an Apple-device identifier and the collector stores an HMAC digest rather than the raw value.
+
+Canonical docs: [Version Statistics Collector](../07-web/version-statistics-collector.md), [Networking](../01-architecture/networking.md), [Privacy Boundaries](../06-security/privacy-boundaries.md), [Operations Boundary](operations-boundary.md).
 
 ## Feedback
 
@@ -338,7 +352,7 @@ Canonical docs: [Version Statistics Collector](../07-web/version-statistics-coll
 
 It is intentionally **not** an HTTP/API client. Optional diagnostics are limited to app version, macOS version and architecture; clipboard, notes, file paths, calendars, device identifiers and logs are not added automatically.
 
-Canonical docs: [Settings, Onboarding and Feedback](../01-architecture/settings-onboarding-feedback.md).
+Canonical docs: [Settings, Onboarding and Feedback](../01-architecture/settings-onboarding-feedback.md), [Privacy Boundaries](../06-security/privacy-boundaries.md).
 
 ## How to use this reference during a change
 

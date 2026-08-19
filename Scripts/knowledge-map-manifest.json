@@ -173,6 +173,15 @@
       ]
     },
     {
+      "area": "Menu Bar",
+      "symbol": "MenuBarStatusItemPresentation",
+      "source": "Sources/Impuls/App/MenuBarStatusItemPresentation.swift",
+      "doc": "knowledge-base/02-modules/menu-bar.md",
+      "tests": [
+        "Tests/ImpulsTests/MenuBarStatusItemPresentationTests.swift"
+      ]
+    },
+    {
       "area": "Backup / data",
       "symbol": "ImpulsBackupDocument",
       "source": "Sources/Impuls/Services/BackupService.swift",
