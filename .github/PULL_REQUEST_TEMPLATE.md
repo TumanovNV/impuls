@@ -9,12 +9,13 @@
 
 - [ ] `swift test -c release` passes locally
 - [ ] `./Scripts/bundle.sh release` produces a launchable `build/Impuls.app`
-- [ ] Network is confined to `UpdateService.swift` and the user-opened
-      `WebMusicPlayer.swift`; launch still opens no socket
+- [ ] Internet access is confined to the three explicit owners: `UpdateService.swift`,
+      user-opened `WebMusicPlayer.swift`, and separately consented
+      `VersionTelemetryService.swift`; launch still performs no unsolicited request
 - [ ] No `Color.white`, `foregroundStyle(.white)` or `darkAqua` in `UI/` or `Notch/`
 - [ ] Panel checked in **both** light and dark system appearance
 - [ ] New `localized("…")` keys added to `en.lproj` **and** `ru.lproj`
-- [ ] No new dependency; Sparkle still pinned to `exact: "2.9.5"`
+- [ ] No new dependency; Sparkle still matches `Scripts/dependency-policy.json`
 
 ### If this is a release
 
@@ -22,6 +23,8 @@
 - [ ] `docs/releases/<version>.md` written (Russian section, `---`, English summary)
 - [ ] Security note added to `docs/audits/` if the change touches updates, network
       access, permissions or stored data
+- [ ] If a durable architecture/privacy/security/performance/ownership contract changed,
+      `Scripts/architecture-milestones.json` and the generated Release Architecture Ledger are updated
 
 ### If this touches `docs/`
 

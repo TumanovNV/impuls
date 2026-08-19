@@ -2,23 +2,8 @@
   "schema_version": 1,
   "manifest_role": "routing-only",
   "source_of_truth_rule": "Use this file to locate canonical owners. Implementation details, limits, persisted keys, endpoints and runtime state remain owned by code, tests and the linked canonical documentation.",
-  "product": {
-    "name": "Impuls",
-    "platform": "macOS",
-    "minimum_os_major": 15,
-    "version_source": "Scripts/version",
-    "package_manifest": "Package.swift",
-    "feature_catalog": "Sources/Impuls/Services/AppFeatureCatalog.swift"
-  },
-  "knowledge_entrypoints": {
-    "human_index": "knowledge-base/INDEX.md",
-    "ai_index": "knowledge-base/10-ai/AI-INDEX.md",
-    "project_status": "knowledge-base/00-project/project-status.md",
-    "invariants": "knowledge-base/10-ai/invariants.md",
-    "reference_index": "knowledge-base/12-reference/README.md",
-    "qa_index": "knowledge-base/13-qa/README.md",
-    "operations_boundary": "knowledge-base/12-reference/operations-boundary.md"
-  },
+  "product": {"name":"Impuls","platform":"macOS","minimum_os_major":15,"version_source":"Scripts/version","package_manifest":"Package.swift","feature_catalog":"Sources/Impuls/Services/AppFeatureCatalog.swift"},
+  "knowledge_entrypoints": {"human_index":"knowledge-base/INDEX.md","ai_index":"knowledge-base/10-ai/AI-INDEX.md","project_status":"knowledge-base/00-project/project-status.md","invariants":"knowledge-base/10-ai/invariants.md","reference_index":"knowledge-base/12-reference/README.md","qa_index":"knowledge-base/13-qa/README.md","operations_boundary":"knowledge-base/12-reference/operations-boundary.md"},
   "modules": [
     {"id":"actions","name":"Actions","canonical_doc":"knowledge-base/02-modules/actions.md","core_sources":["Sources/Impuls/Services/ImpulsActionsStore.swift","Sources/Impuls/Services/FileToolsService.swift"]},
     {"id":"media","name":"Music","canonical_doc":"knowledge-base/02-modules/music.md","core_sources":["Sources/Impuls/Services/MediaController.swift","Sources/Impuls/Services/PlayerBridge.swift","Sources/Impuls/Services/WebMusicPlayer.swift","Sources/Impuls/Services/MusicSource.swift"]},
@@ -49,10 +34,11 @@
   "security": {"canonical_docs":["knowledge-base/06-security/security-model.md","knowledge-base/06-security/threat-model.md","knowledge-base/06-security/data-classification.md","knowledge-base/06-security/privacy-boundaries.md","knowledge-base/06-security/supply-chain.md"],"public_privacy_document":"PRIVACY.md"},
   "dependencies": {"canonical_doc":"knowledge-base/06-security/supply-chain.md","policy":"Scripts/dependency-policy.json","lockfile":"Package.resolved","package_manifest":"Package.swift"},
   "release": {"canonical_docs":["knowledge-base/05-release/release-process.md","knowledge-base/05-release/release-pipeline.md","knowledge-base/05-release/update-system.md"],"workflows":[".github/workflows/build.yml",".github/workflows/release.yml"]},
+  "history": {"architecture_timeline":"knowledge-base/11-history/architecture-timeline.md","release_architecture_ledger":"knowledge-base/11-history/release-architecture-ledger.md","milestone_source":"Scripts/architecture-milestones.json"},
   "web_and_collector": {"website_doc":"knowledge-base/07-web/website.md","website_root":"docs/index.html","collector_doc":"knowledge-base/07-web/version-statistics-collector.md","collector_root":"Collector/version-statistics"},
   "operations_boundary": {"public_software_repo":"TumanovNV/impuls","private_operations_repo":"TumanovNV/office-it-docs","private_entrypoint":"Проекты/Impuls.md","rule":"Production host, network, VPN, reverse-proxy, backup, access and live service state belong to the private operational repository and must not be copied into this public manifest."},
   "validation": {
-    "repository_paths": ["Scripts/check-project-manifest.py","Scripts/check-dependency-policy.py","Scripts/check-knowledge-base.py","Scripts/generate-knowledge-map.py","Scripts/check-documentation-guardian.py","Scripts/check-documentation-freshness.py"],
-    "commands": ["python3 Scripts/check-project-manifest.py","python3 Scripts/check-dependency-policy.py","python3 Scripts/check-knowledge-base.py","python3 Scripts/generate-knowledge-map.py --check","python3 Scripts/check-documentation-guardian.py --base <base-sha>","python3 Scripts/check-documentation-freshness.py"]
+    "repository_paths": ["Scripts/check-project-manifest.py","Scripts/check-dependency-policy.py","Scripts/generate-architecture-ledger.py","Scripts/check-knowledge-base.py","Scripts/generate-knowledge-map.py","Scripts/check-documentation-guardian.py","Scripts/check-documentation-freshness.py"],
+    "commands": ["python3 Scripts/check-project-manifest.py","python3 Scripts/check-dependency-policy.py","python3 Scripts/generate-architecture-ledger.py --check","python3 Scripts/check-knowledge-base.py","python3 Scripts/generate-knowledge-map.py --check","python3 Scripts/check-documentation-guardian.py --base <base-sha>","python3 Scripts/check-documentation-freshness.py"]
   }
 }

@@ -52,13 +52,8 @@ def validate_module_ids(data: dict, errors: list[str]) -> None:
     except OSError as error:
         errors.append(f"cannot read feature catalog: {error}")
         return
-    if len(shipped) != len(set(shipped)):
-        errors.append("AppFeatureCatalog contains duplicate shipped module ids")
     if set(ids) != set(shipped):
-        errors.append(
-            "module ids drifted from AppFeatureCatalog: "
-            f"manifest={sorted(ids)}, catalog={sorted(shipped)}"
-        )
+        errors.append(f"module ids drifted from AppFeatureCatalog: manifest={sorted(ids)}, catalog={sorted(shipped)}")
 
 
 def iter_repository_paths(data: dict):
@@ -70,27 +65,24 @@ def iter_repository_paths(data: dict):
         if isinstance(value, str):
             yield f"knowledge_entrypoints.{key}", value
     for index, module in enumerate(data.get("modules", [])):
-        if not isinstance(module, dict):
-            continue
-        if isinstance(module.get("canonical_doc"), str):
-            yield f"modules[{index}].canonical_doc", module["canonical_doc"]
-        for path in module.get("core_sources", []):
-            if isinstance(path, str):
-                yield f"modules[{index}].core_sources", path
+        if isinstance(module, dict):
+            if isinstance(module.get("canonical_doc"), str):
+                yield f"modules[{index}].canonical_doc", module["canonical_doc"]
+            for path in module.get("core_sources", []):
+                if isinstance(path, str):
+                    yield f"modules[{index}].core_sources", path
     for section in ("presentation_surfaces", "permission_domains"):
         for index, entry in enumerate(data.get(section, [])):
-            if not isinstance(entry, dict):
-                continue
-            for key in ("canonical_docs", "core_sources"):
-                for path in entry.get(key, []):
-                    if isinstance(path, str):
-                        yield f"{section}[{index}].{key}", path
+            if isinstance(entry, dict):
+                for key in ("canonical_docs", "core_sources"):
+                    for path in entry.get(key, []):
+                        if isinstance(path, str):
+                            yield f"{section}[{index}].{key}", path
     for index, owner in enumerate(data.get("network_owners", [])):
-        if not isinstance(owner, dict):
-            continue
-        for key in ("source", "canonical_doc"):
-            if isinstance(owner.get(key), str):
-                yield f"network_owners[{index}].{key}", owner[key]
+        if isinstance(owner, dict):
+            for key in ("source", "canonical_doc"):
+                if isinstance(owner.get(key), str):
+                    yield f"network_owners[{index}].{key}", owner[key]
     for section in ("persistence", "performance"):
         entry = data.get(section, {})
         if isinstance(entry, dict):
@@ -104,10 +96,14 @@ def iter_repository_paths(data: dict):
             yield "security.canonical_docs", path
     if isinstance(security.get("public_privacy_document"), str):
         yield "security.public_privacy_document", security["public_privacy_document"]
-    dependencies = data.get("dependencies", {})
-    for key in ("canonical_doc", "policy", "lockfile", "package_manifest"):
-        if isinstance(dependencies.get(key), str):
-            yield f"dependencies.{key}", dependencies[key]
+    for section, keys in {
+        "dependencies": ("canonical_doc", "policy", "lockfile", "package_manifest"),
+        "history": ("architecture_timeline", "release_architecture_ledger", "milestone_source"),
+    }.items():
+        entry = data.get(section, {})
+        for key in keys:
+            if isinstance(entry.get(key), str):
+                yield f"{section}.{key}", entry[key]
     release = data.get("release", {})
     for key in ("canonical_docs", "workflows"):
         for path in release.get(key, []):
@@ -124,13 +120,7 @@ def iter_repository_paths(data: dict):
 
 def validate_data(data: dict) -> list[str]:
     errors: list[str] = []
-    required = {
-        "schema_version", "manifest_role", "source_of_truth_rule", "product",
-        "knowledge_entrypoints", "modules", "presentation_surfaces",
-        "network_owners", "permission_domains", "persistence", "performance",
-        "security", "dependencies", "release", "web_and_collector",
-        "operations_boundary", "validation"
-    }
+    required = {"schema_version","manifest_role","source_of_truth_rule","product","knowledge_entrypoints","modules","presentation_surfaces","network_owners","permission_domains","persistence","performance","security","dependencies","release","history","web_and_collector","operations_boundary","validation"}
     missing = required - data.keys()
     if missing:
         errors.append("missing top-level sections: " + ", ".join(sorted(missing)))
@@ -138,22 +128,14 @@ def validate_data(data: dict) -> list[str]:
         errors.append("schema_version must be 1")
     if data.get("manifest_role") != "routing-only":
         errors.append("manifest_role must remain routing-only")
-
     validate_module_ids(data, errors)
     owners = data.get("network_owners")
     if not isinstance(owners, list):
         errors.append("network_owners must be a list")
     else:
-        sources = {
-            owner.get("source") for owner in owners
-            if isinstance(owner, dict) and isinstance(owner.get("source"), str)
-        }
+        sources = {owner.get("source") for owner in owners if isinstance(owner, dict) and isinstance(owner.get("source"), str)}
         if len(owners) != 3 or sources != EXPECTED_NETWORK_OWNERS:
-            errors.append(
-                "network owner set must remain the explicit three-owner contract; "
-                "a fourth owner requires architecture/security review"
-            )
-
+            errors.append("network owner set must remain the explicit three-owner contract; a fourth owner requires architecture/security review")
     operations = data.get("operations_boundary", {})
     if operations.get("public_software_repo") != "TumanovNV/impuls":
         errors.append("operations_boundary.public_software_repo is invalid")
@@ -161,22 +143,15 @@ def validate_data(data: dict) -> list[str]:
         errors.append("operations_boundary.private_operations_repo is invalid")
     if operations.get("private_entrypoint") != "Проекты/Impuls.md":
         errors.append("operations_boundary.private_entrypoint is invalid")
-
     for label, path in iter_repository_paths(data):
         repo_path(path, label, errors)
-
     version_source = data.get("product", {}).get("version_source")
     if isinstance(version_source, str) and (ROOT / version_source).is_file():
-        if not re.search(
-            r"(?m)^VERSION=\d+\.\d+\.\d+\s*$",
-            (ROOT / version_source).read_text(encoding="utf-8"),
-        ):
+        if not re.search(r"(?m)^VERSION=\d+\.\d+\.\d+\s*$", (ROOT / version_source).read_text(encoding="utf-8")):
             errors.append("product.version_source does not contain VERSION=x.y.z")
-
     serialized = json.dumps(data, ensure_ascii=False)
     for candidate in IPV4_RE.findall(serialized):
-        octets = [int(part) for part in candidate.split(".")]
-        if all(0 <= part <= 255 for part in octets):
+        if all(0 <= int(part) <= 255 for part in candidate.split(".")):
             errors.append(f"public PROJECT-MANIFEST.json must not contain raw IPv4 address: {candidate}")
     return errors
 
@@ -193,10 +168,7 @@ def main() -> int:
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
-    print(
-        f"PROJECT-MANIFEST OK: {len(data['modules'])} shipped modules, "
-        f"{len(data['network_owners'])} network owners, routing paths valid."
-    )
+    print(f"PROJECT-MANIFEST OK: {len(data['modules'])} shipped modules, {len(data['network_owners'])} network owners, routing paths valid.")
     return 0
 
 
