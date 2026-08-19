@@ -1,0 +1,56 @@
+---
+title: Networking Architecture
+type: architecture
+status: active
+documentation_version: 1.1
+app_version: 1.4.11
+last_reviewed: 2026-08-19
+tags: [impuls, networking, security]
+---
+
+# Networking Architecture
+
+## Три владельца сети
+
+CI разрешает сетевые API только в трёх Swift-файлах.
+
+```mermaid
+flowchart TD
+    APP[Impuls] --> U{User consent/action}
+    U -->|Update consent| UP[UpdateService + Sparkle]
+    U -->|Open Web Player| WM[WebMusicPlayer]
+    U -->|Version statistics opt-in| VT[VersionTelemetryService]
+
+    UP --> GH[github.com\nfixed appcast/release assets]
+    WM --> Y[Yandex Music domains]
+    WM --> VK[VK domains]
+    WM --> YT[YouTube/Google domains]
+    VT --> ST[build-configured HTTPS\n/v1/heartbeat]
+```
+
+## 1. UpdateService
+
+Fixed feed: `https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml`. Sparkle владеет authenticated download/replacement/relaunch. Automatic checks и downloads opt-in; system profiling выключен.
+
+## 2. WebMusicPlayer
+
+WebKit создаётся только после явного `Open Web Player`. Выбор web source сам по себе не создаёт `WKWebView` и не выполняет request. Main-frame navigation ограничена allow-list доменами выбранного provider; unrelated links уходят в default browser.
+
+## 3. VersionTelemetryService
+
+Отдельный consent. Endpoint отсутствует в source code и приходит из build config/Info.plist. Разрешён только HTTPS endpoint с точным `/v1/heartbeat`, redirects запрещены. Payload allow-list: schema, random installation UUID, app version, optional actually-observed previous version. Не чаще одного attempt в 24 h.
+
+## CI enforcement
+
+`build.yml` и `release.yml` ищут `URLSession`, `URLRequest`, Network.framework/socket helpers и запрещают их во всех остальных Swift-файлах. Добавление четвёртого владельца сети должно быть ADR-level решением.
+
+## Не путать с локальным device I/O
+
+iPhone/iPad provider использует локальные macOS/device transport mechanisms, а не Internet product networking. Его privacy boundary — explicit external-device switch; hardware I/O также документируется и тестируется отдельно.
+
+## Связано
+
+- [ADR-003](../08-decisions/ADR-003-three-network-owners.md)
+- [Security Model](../06-security/security-model.md)
+- [Update System](../05-release/update-system.md)
+- [Music](../02-modules/music.md)

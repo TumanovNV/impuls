@@ -1,48 +1,34 @@
----
-title: IMPULS Knowledge Base
-type: index
-status: active
-documentation_version: 1.0
-app_version: 1.4.11
-last_reviewed: 2026-08-19
-tags: [impuls, documentation, knowledge-base, obsidian]
----
+# IMPULS Engineering Knowledge Base
 
-# IMPULS Knowledge Base v1.0
+Documentation version **1.1**, product baseline **1.4.11**.
 
-Эта папка — единая база знаний проекта ИМПУЛЬС. Она хранится рядом с кодом, версионируется Git и открывается в Obsidian как обычный Markdown-vault.
+Эта папка — Markdown-first база знаний проекта. Её можно открыть как отдельный Obsidian vault, читать на GitHub или давать Claude/Codex как structured project context.
 
-## Зачем она нужна
+Начало: [INDEX.md](INDEX.md). Для coding agents: [10-ai/AI-INDEX.md](10-ai/AI-INDEX.md).
 
-- единый источник истины для архитектуры, релизов, безопасности и продуктовых решений;
-- быстрый вход в проект для ChatGPT, Claude Code, Codex и разработчиков;
-- фиксация причин архитектурных решений через ADR;
-- снижение риска, что код, README, релизные заметки и агентские инструкции разойдутся;
-- сохранение истории проекта без смешивания с публичным сайтом в `docs/`.
+## Почему здесь, а не в `docs/`
 
-## Где находится источник истины
+`docs/` — production GitHub Pages, release notes и security audits. `knowledge-base/` — engineering source of truth. Причина зафиксирована в [ADR-001](08-decisions/ADR-001-knowledge-base-location.md).
 
-- код: `Sources/`, `Tests/`, `Scripts/`, `.github/`;
-- публичный сайт и исторические релизные материалы: `docs/`;
-- база знаний проекта: `knowledge-base/`;
-- обязательные правила для coding agents: `AGENTS.md` и `CLAUDE.md`;
-- юридические и публичные обещания: `PRIVACY.md`, `SECURITY.md`.
+## Что покрывает v1.1
 
-## Начать здесь
+- product/current status;
+- lifecycle, state ownership, multi-display;
+- storage/persistence, permissions, networking;
+- Mermaid system diagrams;
+- подробные contracts всех 9 modules + Menu Bar;
+- macOS TCC;
+- testing и SOP добавления module;
+- update/release trust pipeline;
+- data classification, threat model, privacy boundaries;
+- ADR-001…005;
+- AI routing and change-impact matrix;
+- architecture timeline.
 
-1. [Главный индекс](INDEX.md)
-2. [Текущее состояние проекта](00-project/project-status.md)
-3. [Архитектура](01-architecture/architecture-overview.md)
-4. [Модули](02-modules/README.md)
-5. [Безопасность](06-security/security-model.md)
-6. [Релизный процесс](05-release/release-process.md)
-7. [Архитектурные решения](08-decisions/README.md)
-8. [AI Index](10-ai/AI-INDEX.md)
+## Работа в Obsidian
 
-## Правило актуальности
+Open folder as vault → выбрать `knowledge-base`. Плагины не обязательны. Mermaid рендерится нативно. Relative Markdown links сохраняют совместимость с GitHub и AI tools.
 
-Любое изменение, которое меняет архитектуру, сетевые границы, разрешения, хранение данных, release flow или контракт модуля, должно сопровождаться обновлением соответствующего документа в `knowledge-base/`. Для нового принципиального решения создаётся ADR.
+## Правило поддержки
 
-## Obsidian
-
-В Obsidian можно открыть корень `knowledge-base/` как отдельный vault. Специальные плагины не обязательны: документация использует стандартный Markdown и относительные ссылки, поэтому остаётся совместимой с GitHub и AI-инструментами.
+Если change меняет documented architecture/module/data/security/release contract, documentation update входит в тот же change set. `last_reviewed` меняется только после фактической сверки с code/tests/CI.

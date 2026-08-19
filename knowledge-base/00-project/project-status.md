@@ -2,7 +2,7 @@
 title: Project Status
 type: status
 status: active
-documentation_version: 1.0
+documentation_version: 1.1
 app_version: 1.4.11
 last_reviewed: 2026-08-19
 tags: [impuls, status, current]
@@ -10,50 +10,37 @@ tags: [impuls, status, current]
 
 # Текущее состояние проекта
 
-## Базовая версия
+## Baseline
 
-**Текущая версия в `main`: 1.4.11.**
+**Current `main` product baseline: 1.4.11.** Источник версии — `Scripts/version`. Documentation baseline: **1.1**.
 
-Источник версии: [`Scripts/version`](../../Scripts/version).
+## Current product surface
 
-## Что входит в текущий продукт
+- native macOS 15+ Swift/SwiftUI-on-AppKit application;
+- 9 panel modules;
+- one shared service graph + per-display presentation surfaces;
+- configurable Menu Bar workspace;
+- onboarding / What's New;
+- local backup/restore for portable settings + snippets + notes;
+- opt-in signed Sparkle updates;
+- separate opt-in version statistics;
+- Power/Battery center with explicitly enabled external Apple devices;
+- RU/EN localization.
 
-- девять основных модулей;
-- локальный Actions-поиск;
-- multi-display presentation с общими сервисами;
-- настраиваемый Menu Bar workspace;
-- onboarding для чистой установки и краткий What's New для обновлений;
-- локальные backup/restore пользовательских настроек и поддерживаемых данных;
-- opt-in Sparkle updates;
-- отдельная opt-in статистика версии при наличии production endpoint;
-- battery/power центр для Mac и явно включённых Apple devices;
-- RU/EN локализация.
+## Documentation coverage 1.1
 
-## Релиз 1.4.11
+Current knowledge base now contains application lifecycle, state ownership, multi-display, persistence, permissions, networking, system diagrams, detailed pages for every module, Menu Bar, macOS TCC, testing/SOPs, update/release pipeline, threat model, data classification, privacy boundaries, ADR-001…005 and AI impact routing.
 
-Основные изменения 1.4.11:
+## Current architectural anchors
 
-- нативный onboarding;
-- конфигурируемое рабочее пространство Menu Bar;
-- статусный элемент, primary/secondary widgets, Smart priorities и quick actions;
-- использование только уже опубликованного локального состояния батареи/плеера;
-- отсутствие нового сетевого владельца, нового polling loop и новых permission prompts только из-за Menu Bar.
+1. one `NotchViewModel` per process;
+2. exactly one active display surface;
+3. three Internet network owners;
+4. sensitive permission prompts only after explicit user action;
+5. local-first content and bounded reads;
+6. raw device identities never cross presentation/privacy boundary;
+7. signed update verification independent of Apple Developer ID availability.
 
-Источник: [`docs/releases/1.4.11.md`](../../docs/releases/1.4.11.md).
+## Next documentation work
 
-## Известный documentation debt на момент создания v1.0
-
-`AGENTS.md` содержит исторический заголовок об active development 1.4.7, хотя `main` уже находится на 1.4.11. Сами hard invariants остаются ценными, но секция текущего статуса должна быть синхронизирована с базой знаний.
-
-Это один из первых случаев, ради которых вводится правило: **current status хранится здесь, а agent entrypoints ссылаются сюда вместо самостоятельного ведения версии проекта.**
-
-## Следующий контрольный рубеж
-
-Перед разработкой 1.5.x базу знаний следует считать обязательным контекстом проекта. При первом существенном изменении после Documentation v1.0 необходимо проверить и обновить:
-
-- этот файл;
-- карту модулей;
-- repository map;
-- релизный процесс, если он менялся;
-- security model, если затронуты сеть, разрешения или хранение;
-- ADR, если принято новое архитектурное решение.
+Documentation 1.2 should focus on API/type-level reference where useful, generated cross-link validation, per-subsystem test matrix, operational collector/dashboard runbooks and formal migration/schema registry as those areas evolve.
