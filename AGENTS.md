@@ -13,18 +13,24 @@ Start with:
 1. `knowledge-base/10-ai/AI-INDEX.md` — task-oriented documentation entrypoint.
 2. `knowledge-base/00-project/project-status.md` — current shipped baseline.
 3. `knowledge-base/10-ai/invariants.md` — concise project invariants.
-4. The implementation and tests for the area you are changing.
+4. `knowledge-base/12-reference/README.md` — schema/type/performance reference routes.
+5. `knowledge-base/13-qa/README.md` — behavioral verification routes when platform/hardware behavior matters.
+6. The implementation and tests for the area you are changing.
 
-At Documentation v1.0 the baseline in `main` is Impuls 1.4.11. Always verify `Scripts/version` when the exact version matters.
+At Documentation v1.3 the baseline in `main` is Impuls 1.4.11. Always verify `Scripts/version` when the exact version matters.
 
 Historical technical documents under `docs/` remain valuable evidence, especially the 1.4.6 device-battery and 1.4.7 multi-display documents, but they are not automatically current state.
 
 ## Commands
 
 ```bash
-swift test -c release        # full Swift test suite
-./Scripts/bundle.sh release  # produces build/Impuls.app
-./Scripts/dmg.sh             # produces build/Impuls-<version>.dmg
+swift test -c release
+./Scripts/bundle.sh release
+./Scripts/dmg.sh
+python3 Scripts/check-knowledge-base.py
+python3 Scripts/generate-knowledge-map.py --check
+# PR/diff-aware documentation check:
+python3 Scripts/check-documentation-guardian.py --base <base-sha>
 open build/Impuls.app
 ```
 
@@ -45,6 +51,9 @@ open build/Impuls.app
 9. **Feedback collects nothing automatically.** `FeedbackService.swift` must not grow hidden networking, hardware identifiers or user-content collection. Feedback is explicit and user-visible.
 10. **Sparkle is opt-in and verified.** Automatic checks and automatic installation default to false; system profiling stays false. Automatic installation requires update-check consent. Signed feed and verify-before-extraction remain enabled.
 11. **Bounded reads everywhere.** Files, pasteboard payloads and other potentially large inputs go through the project's bounded abstractions and explicit limits.
+12. **Background work is owned and bounded.** New timers/pollers/tasks/queues require lifecycle, cadence/tolerance, cancellation and documentation review. Presentation surfaces never create duplicate shared work.
+13. **Slow I/O stays off the main actor.** Disk, process, socket and device reads must not freeze observable/UI state.
+14. **Resource budgets are contracts.** Raising/removing size/count/cadence/timeout/backpressure limits requires explicit review and tests, not a magic-number edit.
 
 ## Device and power invariants
 
@@ -60,7 +69,7 @@ These are standing rules for anything touching Apple-device discovery or power d
 8. iPhone/iPad discovery is controlled by the user-facing device-discovery setting. With discovery off there must be no topology socket, usbmuxd traffic or read.
 9. Best-effort system tools use fixed executable paths, fixed arguments, no shell/user argument injection, bounded output and timeouts.
 
-See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-model.md`, `docs/APPLE_DEVICE_BATTERY_SUPPORT.md` and the relevant tests before changing this area.
+See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-model.md`, `knowledge-base/12-reference/background-concurrency-registry.md`, `knowledge-base/12-reference/resource-budget-registry.md`, `knowledge-base/13-qa/behavioral-qa-matrix.md`, `docs/APPLE_DEVICE_BATTERY_SUPPORT.md` and the relevant tests before changing this area.
 
 ## Layout
 
@@ -90,14 +99,23 @@ See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-
 - `PointerWatcher` is a shared sampler with per-display zones; do not add a timer per display.
 - Menu Bar is a presentation/workspace surface over existing state, not a reason to start providers, permissions, polling or networking.
 
+## Performance / concurrency documentation rule
+
+Before adding or changing a repeating timer, poller, debounce, delayed retry, long-lived `Task`, observer/socket, queue or actor boundary, read `knowledge-base/12-reference/background-concurrency-registry.md` and update it when the contract changes.
+
+Before raising/removing a size, count, cadence, timeout or backpressure limit, read `knowledge-base/12-reference/resource-budget-registry.md`. Prefer bounded/lazy/streaming designs over removing a limit.
+
+The semantic `Documentation Guardian` checks sensitive changed lines during PR CI. Do not bypass it with meaningless Markdown edits: establish the real code/test contract and make the smallest truthful documentation update.
+
 ## Release flow
 
 1. Bump `VERSION` in `Scripts/version`.
 2. Write `docs/releases/<version>.md` with a Russian section, then `---`, then a short English summary.
 3. Add/update a security audit if networking, permissions, updates or stored data changed.
 4. Update the relevant files under `knowledge-base/` when architecture/current state changed.
-5. Open a pull request and let CI pass.
-6. Merge to `main`; the release workflow performs the normal tag/build/appcast/release process.
+5. Update Behavioral QA when a change introduces a new platform/hardware/TCC/lifecycle verification scenario.
+6. Open a pull request and let CI pass.
+7. Merge to `main`; the release workflow performs the normal tag/build/appcast/release process.
 
 Do not create production tags/releases manually during the normal flow, and never commit signing keys or secrets.
 
@@ -107,6 +125,8 @@ See `knowledge-base/05-release/release-process.md` for the current release docum
 
 **Code changes and project knowledge travel together.**
 
-If a change alters architecture, module ownership, networking, permissions, persistence, device identity, release semantics or the current shipped baseline, update the corresponding document under `knowledge-base/` in the same change. Long-lived architectural decisions require an ADR under `knowledge-base/08-decisions/`.
+If a change alters architecture, module ownership, networking, permissions, persistence, device identity, background work/concurrency, resource budgets, release semantics or the current shipped baseline, update the corresponding document under `knowledge-base/` in the same change. Long-lived architectural decisions require an ADR under `knowledge-base/08-decisions/`.
+
+If a change introduces a new user-visible platform/hardware/TCC/lifecycle edge, update `knowledge-base/13-qa/behavioral-qa-matrix.md` even when part of the deterministic core is unit-tested.
 
 If documentation conflicts with code/tests/CI, establish the actual contract first and then fix the stale document. Never preserve an obsolete statement just because it is written down.

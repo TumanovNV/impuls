@@ -15,6 +15,7 @@ from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 KNOWLEDGE_BASE = ROOT / "knowledge-base"
+DOCUMENTATION_BASELINE = "1.3"
 REQUIRED_FRONTMATTER = {
     "title",
     "type",
@@ -28,6 +29,8 @@ BASELINE_DOCUMENTS = {
     Path("knowledge-base/INDEX.md"),
     Path("knowledge-base/00-project/project-status.md"),
     Path("knowledge-base/10-ai/AI-INDEX.md"),
+    Path("knowledge-base/12-reference/README.md"),
+    Path("knowledge-base/13-qa/README.md"),
 }
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -91,8 +94,6 @@ def normalize_link_target(raw: str) -> str:
     if target.startswith("<") and ">" in target:
         target = target[1 : target.index(">")]
     else:
-        # Optional Markdown link title follows whitespace. Local repository
-        # paths in this vault never intentionally contain spaces.
         target = target.split(maxsplit=1)[0]
     return unquote(target)
 
@@ -162,11 +163,18 @@ def main() -> int:
                     errors.append(f"{relative}: documentation_version must be N.N")
                 if metadata.get("last_reviewed") and not DATE_RE.fullmatch(metadata["last_reviewed"]):
                     errors.append(f"{relative}: last_reviewed must be YYYY-MM-DD")
-                if relative in BASELINE_DOCUMENTS and metadata.get("app_version") != app_version:
-                    errors.append(
-                        f"{relative}: baseline app_version {metadata.get('app_version')!r} "
-                        f"does not match Scripts/version {app_version!r}"
-                    )
+                if relative in BASELINE_DOCUMENTS:
+                    if metadata.get("app_version") != app_version:
+                        errors.append(
+                            f"{relative}: baseline app_version {metadata.get('app_version')!r} "
+                            f"does not match Scripts/version {app_version!r}"
+                        )
+                    if metadata.get("documentation_version") != DOCUMENTATION_BASELINE:
+                        errors.append(
+                            f"{relative}: baseline documentation_version "
+                            f"{metadata.get('documentation_version')!r} does not match "
+                            f"{DOCUMENTATION_BASELINE!r}"
+                        )
 
         try:
             lines = visible_markdown_lines(path, text)
@@ -186,7 +194,8 @@ def main() -> int:
 
     print(
         f"Knowledge base OK: {len(documents)} Markdown files, "
-        f"baseline Impuls {app_version}, local links and fenced diagrams valid."
+        f"documentation {DOCUMENTATION_BASELINE}, baseline Impuls {app_version}, "
+        "local links and fenced diagrams valid."
     )
     return 0
 

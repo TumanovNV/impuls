@@ -2,7 +2,7 @@
 title: Project Status
 type: status
 status: active
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.11
 last_reviewed: 2026-08-19
 tags: [impuls, status, current]
@@ -14,7 +14,7 @@ tags: [impuls, status, current]
 
 **Current `main` product baseline: 1.4.11.** Источник версии — `Scripts/version`.
 
-**Current documentation baseline: 1.2.**
+**Current documentation baseline: 1.3.**
 
 ## Current product surface
 
@@ -29,7 +29,7 @@ tags: [impuls, status, current]
 - Power/Battery center with explicitly enabled external Apple devices;
 - RU/EN localization.
 
-## Documentation coverage 1.2
+## Documentation coverage 1.3
 
 The knowledge base contains:
 
@@ -46,7 +46,11 @@ The knowledge base contains:
 - formal schema/migration registry;
 - core type ownership reference;
 - CI-checked generated Type → Tests → Docs map;
-- formal split between public software documentation and private production operations documentation.
+- formal split between public software documentation and private production operations documentation;
+- background work / concurrency registry with cadence, cancellation and MainActor boundaries;
+- centralized input/resource/cadence budgets;
+- behavioral QA matrix for automated, real-macOS, hardware and service-dependent scenarios;
+- semantic Documentation Guardian that detects contract-sensitive source diffs without canonical documentation review.
 
 ## Current architectural anchors
 
@@ -58,18 +62,24 @@ The knowledge base contains:
 6. raw device identities never cross presentation/privacy boundary;
 7. signed update verification independent of Apple Developer ID availability;
 8. persisted-format changes require explicit compatibility/migration review;
-9. public app/software facts and private production runtime facts have separate canonical owners.
+9. public app/software facts and private production runtime facts have separate canonical owners;
+10. presentation surfaces must not multiply timers/providers/services;
+11. slow disk/process/device I/O stays off the main actor;
+12. performance limits and wake-up cadences are documented review contracts, not anonymous magic numbers.
 
 ## Documentation automation
 
-Two checks now protect documentation drift:
+Three checks protect documentation drift:
 
 ```text
 Scripts/check-knowledge-base.py
 Scripts/generate-knowledge-map.py --check
+Scripts/check-documentation-guardian.py --base <base-sha>
 ```
 
-The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files.
+The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files. The third inspects changed source lines for background/concurrency, resource-budget, persistence, networking and permission contracts and requires a matching canonical documentation review in the same diff.
+
+The semantic Guardian is intentionally conservative: it does not pretend regex can understand architecture. Its job is to make high-risk changes impossible to overlook during an AI/PR workflow.
 
 ## Current known schema debt
 
@@ -81,4 +91,4 @@ Production telemetry runtime/topology is intentionally not duplicated here. The 
 
 ## Next documentation work
 
-Future documentation work should be driven by product changes rather than another broad rewrite. The v1.2 baseline is designed to make drift visible: new core ownership, persisted schemas and production-runtime changes now have explicit update paths and CI/reference checks.
+The broad documentation foundation is now in place. Future work should primarily happen as part of product changes. Useful next improvements are expanding the curated type/test map where new core owners appear, adding release-specific evidence for manual hardware/TCC rows, and implementing the already-documented formal collector DB migration mechanism before any incompatible telemetry database change.
