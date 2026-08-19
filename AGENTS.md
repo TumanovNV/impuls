@@ -2,191 +2,111 @@
 
 Instructions for coding agents working on Impuls. Read this before changing anything.
 
-Impuls is a native macOS utility that turns the area around the MacBook notch into a
-local panel: Actions search, music, file shelf, clipboard history, snippets, calendar,
-translator and notes. Swift 6 toolchain, SwiftUI on top of AppKit, macOS 15 or newer.
-Everything runs on the device.
+Impuls is a native macOS utility that turns the area around the MacBook notch, or the top edge of another Mac/display, into a local workspace for Actions search, music, file shelf, clipboard history, snippets, calendar, translator, notes and power/device status. Swift 6 toolchain, SwiftUI on top of AppKit, macOS 15 or newer. The product is local-first.
 
-## Active development: Impuls 1.4.7 — Multi-Display
+## Current project context
 
-Working branch `agent/multi-display-1.4.7`, based on `main` at 1.4.6. Impuls is
-present on every connected display, opens where the user is working, and keeps
-one expanded panel and one set of services however many monitors are attached.
-Closes issue #34.
+Do not use a historical release handoff as the current project state.
 
-Read before editing anything under `Sources/Impuls/Notch`:
+Start with:
 
-- `docs/IMPULS_1_4_7_MULTI_DISPLAY.md` — audit, architecture, the reasoning
-  behind the panel's minimum size
-- `docs/QA_MULTI_DISPLAY_1.4.7.md` — what still needs real displays
+1. `knowledge-base/10-ai/AI-INDEX.md` — task-oriented documentation entrypoint.
+2. `knowledge-base/00-project/project-status.md` — current shipped baseline.
+3. `knowledge-base/10-ai/invariants.md` — concise project invariants.
+4. The implementation and tests for the area you are changing.
 
-## Shipped: Impuls 1.4.6 — Apple Device Battery Center
+At Documentation v1.0 the baseline in `main` is Impuls 1.4.11. Always verify `Scripts/version` when the exact version matters.
 
-Released; the branch is merged. The invariants below are standing rules, not
-history — they still bind anything that touches the power or device layer.
-
-Read before editing anything in that area:
-
-- `docs/IMPULS_1_4_6_HANDOFF.md` — state, decisions, what hardware proved
-- `docs/IMPULS_1_4_6_CODEMAP.md` — which file does what
-- `docs/APPLE_DEVICE_BATTERY_SUPPORT.md` — capability matrix, per data point
-- `docs/QA_APPLE_DEVICES_1.4.6.md` — what is verified on hardware and what is not
-- `PRIVACY.md`, `SECURITY.md` — the promises the code has to keep
-
-Invariants specific to this work, on top of the hard invariants below:
-
-1. `.power` stays the module's internal identifier — settings, backup and
-   migrations depend on it.
-2. `PowerMonitor` and the rest of the 1.4.5 power path are not rewritten.
-   `LocalMacDeviceProvider` adapts them.
-3. No private Apple frameworks. Secure Transport is legacy but public, and it
-   lives only in `LockdownTLSChannel.swift`.
-4. Raw device identifiers — UDID, serial, Bluetooth address, pairing material —
-   never reach the UI, logs, feedback or backups. `AppleDeviceIdentity` is the
-   boundary and is deliberately not `Codable`.
-5. External device discovery is off until the user turns it on. An update must
-   never produce a new prompt or connection by itself.
-6. I/O never runs on the main actor. `DeviceBatterySource` is not `@MainActor`
-   on purpose, and a test enforces it.
-7. Missing data stays missing. Never a fabricated 0%, never a guessed charging
-   state, never a category rendered as a number.
-8. The iPhone/iPad provider is Beta, and *Show Connected Apple Devices* is its
-   only switch. It used to sit behind `IMPULS_MOBILE_DEVICE_BATTERY` as well,
-   which meant no shipped build ever looked for a phone; that gate is gone.
-   Discovery still starts only after the user opts in — module on, discovery on
-   — and with discovery off there is no topology socket, no usbmuxd traffic and
-   no read.
-9. The AirPods `system_profiler` source is best-effort: fixed absolute path,
-   fixed arguments, no shell, no user input in the argument list, bounded
-   output, timeout.
-10. `backup/1.4.5-local-handoff` holds 1.4.5 material that exists nowhere else.
-    It belongs to whoever finishes that work; do not merge it into a release
-    branch.
+Historical technical documents under `docs/` remain valuable evidence, especially the 1.4.6 device-battery and 1.4.7 multi-display documents, but they are not automatically current state.
 
 ## Commands
 
 ```bash
-swift test -c release        # the full test suite; run it before every commit
+swift test -c release        # full Swift test suite
 ./Scripts/bundle.sh release  # produces build/Impuls.app
 ./Scripts/dmg.sh             # produces build/Impuls-<version>.dmg
 open build/Impuls.app
 ```
 
-`Scripts/bundle.sh` signs with Developer ID when `IMPULS_DEVELOPER_ID_APPLICATION`
-is set and falls back to an ad-hoc signature otherwise.
+`Scripts/bundle.sh` signs with Developer ID when `IMPULS_DEVELOPER_ID_APPLICATION` is set and falls back to an ad-hoc signature otherwise. Never assume the current public signing/notarization state from old notes; verify the current workflow and artifact.
 
 ## Hard invariants
 
-`.github/workflows/build.yml` enforces every item below with a literal `grep`, so
-breaking one turns CI red rather than producing a subtly worse app. Read that
-workflow before arguing with this list.
+`.github/workflows/build.yml` enforces important parts of these rules. If code and this summary disagree, inspect the current CI contract before changing either.
 
-1. **Network access has three explicit owners.** `UpdateService.swift` owns the
-   opt-in Sparkle channel. `WebMusicPlayer.swift` may open only the official HTTPS
-   site selected by the user, and only from the explicit Open Web Player action;
-   merely launching Impuls or selecting a source must not construct `WKWebView`.
-   `VersionTelemetryService.swift` owns the separately consented version-only
-   heartbeat to an optional build-configured HTTPS collector. `URLSession`,
-   `NSURLSession`, `URLRequest`, `NSURLConnection`, `NWConnection`, `NWListener`,
-   `webSocketTask` and `CFStreamCreatePairWithSocketToHost` are banned everywhere
-   else. The PR smoke test must still observe zero sockets at launch when no
-   consent or collector endpoint exists.
-2. **No private media APIs and no injection.** `/usr/bin/perl`, `MediaRemote`,
-   `dl_load_file` and `DynaLoader` must not appear anywhere in `Sources` or `Scripts`.
-   Native Apple Music metadata comes from its scripting interface and bounded
-   player-change notifications, guarded by `AEDeterminePermissionToAutomateTarget`.
-   Web metadata comes only from the selected provider page's bounded Media Session
-   bridge after the user opens that page.
-3. **Sparkle is pinned.** `exact: "2.9.5"` in `Package.swift` and the matching
-   revision in `Package.resolved`. Do not add, bump or replace dependencies.
-4. **The panel follows the system appearance.** `darkAqua`, `Color.white` and
-   `foregroundStyle(.white)` are banned in `Sources/Impuls/UI` and
-   `Sources/Impuls/Notch`. Colours come from `Theme.swift`, which wraps semantic
-   AppKit colours. The collapsed tab is the one deliberate exception: it stays black
-   so it merges with the physical cutout.
-5. **Actions selection never follows the pointer.** Hover is a visual affordance
-   only; `if $0 { select() }` in `ActionsPane.swift` is explicitly rejected by CI.
-6. **Localization is complete.** Every `localized("…")` key must exist in both
-   `Resources/en.lproj/Localizable.strings` and `Resources/ru.lproj/Localizable.strings`.
-   Keys are the English text itself, so a missing translation degrades to English
-   instead of showing an identifier.
-7. **Version and release notes travel together.** `Scripts/version` holds
-   `VERSION=x.y.z`, and `docs/releases/x.y.z.md` must exist and be non-empty.
-8. **`docs/index.html` keeps three literal strings** that CI greps for:
-   `const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';`,
-   `function releaseHash(asset,body)` and `data-conversion="feedback"`.
-9. **Feedback collects nothing.** `FeedbackService.swift` may not reference
-   `URLSession`, `URLRequest`, `IOKit`, `IOPlatformSerialNumber`, `hostName` or
-   `machineIdentifier`. It opens a prefilled GitHub issue in the browser.
-10. **Sparkle is opt-in and verified.** Automatic checks and automatic installation
-    both default to `false`; system profiling is always `false`. A user may enable
-    automatic installation only after opting into update checks in Settings. Signed
-    feed and verify-before-extraction are always `true`.
-11. **Bounded reads everywhere.** Files and pasteboard payloads go through
-    `BoundedFileReader`, `BoundedData` and `BoundedText`. Search input is capped at
-    16 KiB, calendar scanning at 32 KiB, artwork at 16 MiB.
+1. **Network access has three explicit owners.** `UpdateService.swift` owns the opt-in Sparkle channel. `WebMusicPlayer.swift` may open only the official HTTPS site selected by the user, and only from the explicit Open Web Player action; launching Impuls or merely selecting a source must not construct `WKWebView`. `VersionTelemetryService.swift` owns the separately consented version-only heartbeat to an optional build-configured HTTPS collector. Network APIs are banned elsewhere unless the architecture is deliberately changed and reviewed.
+2. **No private media APIs and no injection.** `/usr/bin/perl`, `MediaRemote`, `dl_load_file` and `DynaLoader` must not appear in `Sources` or `Scripts`. Native Apple Music metadata uses permitted scripting/notification mechanisms; web metadata comes only from the selected provider page after explicit user action.
+3. **Sparkle is pinned.** `exact: "2.9.5"` in `Package.swift` and the matching revision in `Package.resolved`. Adding, bumping or replacing a dependency is a reviewed architecture/security change.
+4. **The panel follows system appearance.** Semantic colours come from the project's theme system. The collapsed tab is the deliberate black exception so it visually merges with the physical cutout.
+5. **Actions selection never follows the pointer.** Hover is visual affordance only; it must not silently replace explicit selection.
+6. **Localization is complete.** Every `localized("…")` key must exist in both `Resources/en.lproj/Localizable.strings` and `Resources/ru.lproj/Localizable.strings`.
+7. **Version and release notes travel together.** `Scripts/version` holds `VERSION=x.y.z`, and `docs/releases/x.y.z.md` must exist and be non-empty.
+8. **The website has CI-sensitive literals.** `docs/index.html` is part of the GitHub Pages production contract. Read `.claude/rules/website.md` and current CI before editing it.
+9. **Feedback collects nothing automatically.** `FeedbackService.swift` must not grow hidden networking, hardware identifiers or user-content collection. Feedback is explicit and user-visible.
+10. **Sparkle is opt-in and verified.** Automatic checks and automatic installation default to false; system profiling stays false. Automatic installation requires update-check consent. Signed feed and verify-before-extraction remain enabled.
+11. **Bounded reads everywhere.** Files, pasteboard payloads and other potentially large inputs go through the project's bounded abstractions and explicit limits.
+
+## Device and power invariants
+
+These are standing rules for anything touching Apple-device discovery or power data:
+
+1. `.power` stays the module's internal identifier because settings, backup and migrations depend on it.
+2. `PowerMonitor` is the established local-Mac power path; external-device support adapts around it rather than duplicating it.
+3. No private Apple frameworks. Secure Transport, where used, remains isolated to its public/legacy boundary.
+4. Raw device identifiers — UDID, serial, Bluetooth address, pairing material — never reach UI, ordinary logs, feedback or backups. `AppleDeviceIdentity` is an intentional boundary.
+5. External-device discovery is off until the user enables it. An update or presentation surface must never create a new prompt or connection by itself.
+6. Device I/O must not run on the main actor.
+7. Missing data stays missing. Never fabricate 0%, a guessed charging state or a category rendered as a number.
+8. iPhone/iPad discovery is controlled by the user-facing device-discovery setting. With discovery off there must be no topology socket, usbmuxd traffic or read.
+9. Best-effort system tools use fixed executable paths, fixed arguments, no shell/user argument injection, bounded output and timeouts.
+
+See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-model.md`, `docs/APPLE_DEVICE_BATTERY_SUPPORT.md` and the relevant tests before changing this area.
 
 ## Layout
 
 | Path | What lives there |
 | --- | --- |
-| `Sources/Impuls/App` | `AppDelegate`, launcher glue, `localized()` |
-| `Sources/Impuls/Model` | `NotchViewModel` — tabs, stores, panel state |
+| `Sources/Impuls/App` | lifecycle, app glue, Menu Bar controller, localization |
+| `Sources/Impuls/Model` | shared application/panel state |
 | `Sources/Impuls/Notch` | display topology, per-display windows, geometry, pointer tracking |
-| `Sources/Impuls/Services` | one store or service per file, no UI |
-| `Sources/Impuls/Settings` | native settings and feedback windows |
-| `Sources/Impuls/UI` | one `*Pane.swift` per module, plus `Theme.swift` |
-| `Sources/ImpulsLauncher` | three-line executable target |
-| `Tests/ImpulsTests` | one test file per service |
-| `Resources` | `*.lproj` string tables, entitlements |
-| `Scripts` | `bundle.sh`, `dmg.sh`, `version`, `make-icon.swift` |
-| `docs` | the public website, release notes, security audits |
+| `Sources/Impuls/Services` | stores, system adapters and business logic; no UI |
+| `Sources/Impuls/Settings` | native settings and related windows |
+| `Sources/Impuls/UI` | module panes and `Theme.swift` |
+| `Sources/ImpulsLauncher` | executable target |
+| `Tests/ImpulsTests` | Swift tests |
+| `Resources` | localization and entitlements/resources |
+| `Scripts` | build, packaging, versioning and maintenance scripts |
+| `docs` | public website, release notes, audits and historical technical material |
+| `knowledge-base` | current structured project knowledge for humans and AI |
 
-## Conventions
+## Architecture conventions
 
-- **Comments are in English** and explain *why*, not *what*. The existing comments
-  are unusually detailed about trade-offs — match that, and say what was tried and
-  rejected when the reason is not obvious from the code.
-- **UI numbers come from the code, not from taste.** Sizes and radii live in
-  `Theme.swift` and the panes; the expanded panel is `620 × 208` pt by default
-  (`AdaptivePanelLayout.standard`, clamped to the display by
-  `NotchGeometry.expandedSize`), corner radii are 12 pt on top and 22 pt at the
-  bottom when open.
-- **The rail has two sides.** Enabled modules are split evenly between them, the
-  left rail taking the extra one when the count is odd, so nine modules go 5/4
-  (`NotchViewModel.leftRailTabs` / `rightRailTabs`). Icon height is fitted to the
-  panel by `NotchContentView.railButtonHeight`, not fixed.
-- **Stores never import SwiftUI**; panes never touch the filesystem directly.
-- **One responsibility per file.** A new module means a new `*Pane.swift`, a new
-  store, a `Tab` case, and string-table entries in both languages.
-- **Shared services, per-display presentation.** Since 1.4.7 Impuls presents
-  itself on every display. `NotchViewModel` is built once and holds every store;
-  a `NotchDisplaySurface` is built per display and holds only a window, a view
-  and a `NotchGeometry`. Never give a surface a store, a timer or a monitor, and
-  never rebuild the view model — a second one is a second `ClipboardStore` and a
-  second `PowerMonitor`. Exactly one surface is active, which is why two
-  expanded panels cannot exist. `PointerWatcher` is one sampler with one zone
-  per display; do not add a timer per display. `DisplayDescriptor` keeps the
-  layer testable, so `NSScreen` and CoreGraphics are read only in
-  `ScreenDisplaySource`. See `docs/IMPULS_1_4_7_MULTI_DISPLAY.md`.
+- Comments are in English and explain why, especially trade-offs and rejected approaches.
+- UI numbers come from the existing theme/geometry system, not taste.
+- Stores/services do not import SwiftUI; panes do not touch the filesystem directly.
+- One responsibility per file where practical.
+- A new shipped module requires a new tab/destination, store/service, pane, RU/EN strings, tests and an update to the module catalog.
+- **Shared services, per-display presentation.** `NotchViewModel` and stores are shared. Each display owns only presentation state/window/view/geometry. Do not create a store, timer or monitor per display. Exactly one surface is active.
+- `PointerWatcher` is a shared sampler with per-display zones; do not add a timer per display.
+- Menu Bar is a presentation/workspace surface over existing state, not a reason to start providers, permissions, polling or networking.
 
 ## Release flow
 
 1. Bump `VERSION` in `Scripts/version`.
-2. Write `docs/releases/<version>.md` with a Russian section, then `---`, then a
-   short English summary. Follow the existing files.
-3. Open a pull request and let `build.yml` pass.
-4. Merging to `main` runs `release.yml`: it tags `v<version>`, builds, signs the
-   appcast with the Sparkle key from repository secrets, and creates the release
-   with the DMG, ZIP, both checksums and `appcast.xml`.
+2. Write `docs/releases/<version>.md` with a Russian section, then `---`, then a short English summary.
+3. Add/update a security audit if networking, permissions, updates or stored data changed.
+4. Update the relevant files under `knowledge-base/` when architecture/current state changed.
+5. Open a pull request and let CI pass.
+6. Merge to `main`; the release workflow performs the normal tag/build/appcast/release process.
 
-Never create tags or releases by hand, and never commit signing keys.
+Do not create production tags/releases manually during the normal flow, and never commit signing keys or secrets.
 
-## Website
+See `knowledge-base/05-release/release-process.md` for the current release documentation.
 
-`docs/` is served by GitHub Pages. `docs/index.html` is a single self-contained file:
-no build step, no external CSS or JS. Version, download link and SHA-256 are fetched
-from the GitHub Releases API at runtime, so **do not hardcode a version** — the one
-in the markup is only a fallback for when the API is unreachable.
+## Documentation rule
 
-See `.claude/rules/website.md` for the CSS pitfalls that have already bitten once.
+**Code changes and project knowledge travel together.**
+
+If a change alters architecture, module ownership, networking, permissions, persistence, device identity, release semantics or the current shipped baseline, update the corresponding document under `knowledge-base/` in the same change. Long-lived architectural decisions require an ADR under `knowledge-base/08-decisions/`.
+
+If documentation conflicts with code/tests/CI, establish the actual contract first and then fix the stale document. Never preserve an obsolete statement just because it is written down.
