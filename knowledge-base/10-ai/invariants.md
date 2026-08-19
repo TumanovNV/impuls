@@ -3,7 +3,7 @@ title: Project Invariants
 type: ai-rules
 status: active
 documentation_version: 1.0
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, invariants, ai, architecture, security]
 ---
@@ -22,7 +22,7 @@ tags: [impuls, invariants, ai, architecture, security]
 
 ## Безопасность и приватность
 
-6. Network access имеет только явно утверждённых владельцев. На baseline 1.4.11 их три: updates, explicit web music, opt-in version statistics.
+6. Network access имеет только явно утверждённых владельцев. На baseline 1.4.12 их три: updates, explicit web music, opt-in version statistics.
 7. Новая функция не получает сетевой доступ, telemetry или device discovery «по умолчанию».
 8. Не использовать private Apple frameworks, MediaRemote или injection.
 9. Raw UDID, serial, Bluetooth address, pairing material и аналогичные идентификаторы не попадают в UI, feedback, backup или обычные логи.
