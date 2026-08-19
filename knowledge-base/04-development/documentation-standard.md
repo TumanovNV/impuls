@@ -12,15 +12,17 @@ tags: [impuls, documentation, obsidian, ai]
 
 ## Формат
 
-Knowledge base — Markdown-first Obsidian-compatible vault. Используются стандартные relative Markdown links и YAML frontmatter.
+Knowledge base — Markdown-first Obsidian-compatible vault. Используются стандартные relative Markdown links, YAML frontmatter и Mermaid source прямо в Markdown.
 
 ## Обязательный frontmatter
+
+Кроме корневого `README.md`, каждый knowledge-base Markdown document содержит:
 
 ```yaml
 ---
 title: Human readable title
 type: module | architecture | security | decision | development | release
-status: active | historical | draft
+status: active | production | accepted | historical | draft
 documentation_version: 1.1
 app_version: 1.4.11
 last_reviewed: 2026-08-19
@@ -28,22 +30,40 @@ tags: [impuls, ...]
 ---
 ```
 
-## Для module docs
+`app_version` — версия продукта, на которой документ был фактически сверён. Только baseline entrypoints (`INDEX`, project status, AI index) обязаны всегда совпадать с `Scripts/version`; historical/deep documents обновляют review metadata при реальной сверке, а не механически.
 
-Обязательные секции: назначение; user contract; data flow; source map; state; persistence; permissions; network; lifecycle/performance; invariants; tests; change checklist; related docs.
+## Module docs
+
+Обязательные темы: назначение; user contract; data/control flow; source map; state; persistence; permissions; network; lifecycle/performance; invariants; validation/change checklist.
 
 ## Схемы
 
-Mermaid хранится прямо в Markdown. Diagram должна объяснять ownership/data/control flow, а не дублировать текст декоративно.
+Mermaid diagram должна объяснять ownership/data/control/trust flow. Source хранится в `.md`; не экспортировать параллельный PNG/SVG без отдельной причины, иначе возникает второй источник истины.
+
+## Links
+
+Для repository content используются relative Markdown links. Obsidian-only `[[wikilinks]]` не являются основным форматом, потому что GitHub и coding agents должны разрешать те же references.
+
+## Automated validation
+
+`Scripts/check-knowledge-base.py` без сторонних dependencies проверяет:
+
+- required frontmatter;
+- baseline version metadata;
+- local Markdown links;
+- выход ссылок за repository boundary;
+- закрытие fenced code/Mermaid blocks.
+
+`.github/workflows/knowledge-base.yml` запускает checker при изменениях knowledge base, checker/workflow или `Scripts/version`.
 
 ## Актуальность
 
-`app_version` показывает baseline, на котором документ проверен. Историческая release note не превращается в current documentation. При конфликте: сначала code + tests + CI, затем обновление knowledge base.
+При конфликте сначала устанавливается фактический contract по code + tests + CI, затем исправляется knowledge base. Historical release note не становится current documentation только потому, что она детальнее.
 
 ## ADR
 
-Долгоживущие решения фиксируются ADR, если изменение затрагивает ownership, networking, persistence/security boundary, release trust chain или platform-level policy.
+ADR требуется для долгоживущих изменений ownership, networking, persistence/security boundary, release trust chain или platform-level policy.
 
 ## Change rule
 
-Code changes → docs changes, если изменён documented contract. Не обновлять `last_reviewed` механически, если содержимое не было фактически сверено.
+Code changes → docs changes, если изменён documented contract. `last_reviewed` нельзя обновлять автоматически без фактической сверки содержимого.
