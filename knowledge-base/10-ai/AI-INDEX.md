@@ -14,54 +14,59 @@ tags: [impuls, ai, agents, index]
 
 Перед изменением проекта: `AGENTS.md` → этот индекс → relevant subsystem docs → code/tests/CI. Старые handoff/release docs используются как history, не как current source of truth.
 
-## Core
+## Core map
 
-- [Current Project Status](../00-project/project-status.md)
-- [Project Overview](../00-project/project-overview.md)
-- [Architecture Overview](../01-architecture/architecture-overview.md)
+- [Current Status](../00-project/project-status.md)
+- [Architecture](../01-architecture/architecture-overview.md)
 - [Application Lifecycle](../01-architecture/application-lifecycle.md)
 - [State and Ownership](../01-architecture/state-and-ownership.md)
 - [System Diagrams](../01-architecture/system-diagrams.md)
 - [Module Catalog](../02-modules/README.md)
+- [Settings/Onboarding/Feedback](../01-architecture/settings-onboarding-feedback.md)
 - [Security Model](../06-security/security-model.md)
 - [Threat Model](../06-security/threat-model.md)
 - [Release Pipeline](../05-release/release-pipeline.md)
+- [Website](../07-web/website.md)
+- [Collector](../07-web/version-statistics-collector.md)
+- [Current Limitations](../09-known-issues/current-limitations.md)
 - [ADRs](../08-decisions/README.md)
 - [Repository Map](repository-map.md)
 - [Project Invariants](invariants.md)
 - [Change Impact Matrix](change-impact-matrix.md)
 - [Agent Rules](agent-rules.md)
 
-## По типу задачи
+## Routing
 
 ### UI / panel / display
-
-Read: state ownership → multi-display → Theme.swift → relevant Notch/UI files → tests.
+Read state ownership → multi-display → `Theme.swift` → relevant Notch/UI code → tests.
 
 ### Module
+Read exact page in `02-modules/` → store/service + pane + tests. If data/permission/network changes, include security/threat docs.
 
-Read exact page in `02-modules/`, then store/service + pane + tests. If data/permission/network changes, also read security/threat docs.
+### Settings / onboarding / feedback
+Read subsystem page + SettingsStore/Onboarding/Feedback implementation. Do not turn Feedback into an implicit network client.
 
 ### Persistence
-
-Read storage-persistence + data-classification + affected module. Verify test environment cannot touch live user storage.
+Read storage-persistence + data-classification + affected module. Prove tests cannot touch live user storage.
 
 ### Permission
-
-Read permission architecture + macOS TCC page + public privacy/security docs.
+Read permission architecture + macOS TCC + public privacy/security docs.
 
 ### Network
-
 Read networking + ADR-003 + threat model. Current model has exactly three Internet network owners.
 
-### Release/update
+### Release/signing
+Read signing/distribution + release pipeline + update system + ADR-005 + workflows.
 
-Read release pipeline + update system + ADR-005 + build/release workflows.
+### Website
+Read website page + `.claude/rules/website.md`; preserve release sync, RU/EN static SEO and theme constraints.
+
+### Version statistics infrastructure
+Read collector page + Collector README/code + privacy boundary. Never commit operational secrets/private topology.
 
 ### Power/devices
-
-Read power page + ADR-004 + historical Apple device support/QA docs where hardware details matter.
+Read power page + ADR-004 + historical Apple device support/QA when hardware detail matters.
 
 ## Trust rule
 
-При конфликте сначала code + tests + CI. Затем исправь knowledge base. Документация описывает фактический контракт и причины, а не заменяет проверку реализации.
+При конфликте сначала code + tests + CI. Затем исправь knowledge base. Documentation describes verified reality and rationale.
