@@ -2,7 +2,7 @@
 title: IMPULS Knowledge Base Index
 type: index
 status: active
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.11
 last_reviewed: 2026-08-19
 tags: [impuls, documentation, index]
@@ -12,7 +12,7 @@ tags: [impuls, documentation, index]
 
 Current engineering knowledge base for humans, Obsidian and AI agents.
 
-Documentation baseline: **1.2**. Product baseline: **Impuls 1.4.11**.
+Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.11**.
 
 ## 00 — Project
 - [Project Overview](00-project/project-overview.md)
@@ -80,6 +80,7 @@ Documentation baseline: **1.2**. Product baseline: **Impuls 1.4.11**.
 - [Invariants](10-ai/invariants.md)
 - [Agent Rules](10-ai/agent-rules.md)
 - [Change Impact Matrix](10-ai/change-impact-matrix.md)
+- [Documentation Guardian](10-ai/documentation-guardian.md)
 
 ## 11 — History
 - [Architecture Timeline](11-history/architecture-timeline.md)
@@ -89,22 +90,31 @@ Documentation baseline: **1.2**. Product baseline: **Impuls 1.4.11**.
 - [Schema & Migration Registry](12-reference/schema-migration-registry.md)
 - [Core Type Reference](12-reference/core-type-reference.md)
 - [Generated Type → Tests → Docs Map](12-reference/generated-type-test-doc-map.md)
+- [Background Work & Concurrency Registry](12-reference/background-concurrency-registry.md)
+- [Input & Resource Budget Registry](12-reference/resource-budget-registry.md)
 - [Public / Private Operations Boundary](12-reference/operations-boundary.md)
 
-## v1.2 machine-checked reference loop
+## 13 — Behavioral QA
+- [Behavioral QA Index](13-qa/README.md)
+- [Behavioral QA Matrix](13-qa/behavioral-qa-matrix.md)
+
+## v1.3 anti-drift loop
 
 ```mermaid
 flowchart LR
-    M[knowledge-map-manifest.json] --> G[generate-knowledge-map.py]
-    G --> MAP[Generated Type → Tests → Docs Map]
-    SRC[Source tree] --> G
-    TEST[Tests tree] --> G
-    DOC[Canonical docs] --> G
+    SRC[Source / workflows / collector] --> G[Documentation Guardian]
+    G -->|contract-sensitive diff| DOC[Canonical KB review]
+    M[knowledge-map-manifest.json] --> GEN[generate-knowledge-map.py]
+    GEN --> MAP[Type → Tests → Docs Map]
+    KB[Markdown + frontmatter + links] --> CHECK[check-knowledge-base.py]
+    DOC --> CHECK
     MAP --> CI[knowledge-base workflow]
-    CI -->|must match| M
+    CHECK --> CI
+    G --> CI
+    CI -->|green| PR[PR may merge]
 ```
 
-The map covers important ownership boundaries rather than every Swift symbol. Architectural ownership remains curated; existence and freshness are machine-checked.
+v1.3 adds explicit performance/concurrency and resource-budget registries, a behavioral QA inventory, and a semantic diff guard. The guard does not write documentation automatically; it prevents contract-sensitive code changes from silently outrunning their canonical docs.
 
 ## Operational source-of-truth boundary
 

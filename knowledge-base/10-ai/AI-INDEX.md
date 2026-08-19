@@ -2,7 +2,7 @@
 title: IMPULS AI Index
 type: ai-index
 status: active
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.11
 last_reviewed: 2026-08-19
 tags: [impuls, ai, agents, index]
@@ -34,6 +34,7 @@ tags: [impuls, ai, agents, index]
 - [Project Invariants](invariants.md)
 - [Change Impact Matrix](change-impact-matrix.md)
 - [Agent Rules](agent-rules.md)
+- [Documentation Guardian](documentation-guardian.md)
 
 ## Precision reference layer — read when applicable
 
@@ -41,19 +42,30 @@ tags: [impuls, ai, agents, index]
 - [Schema & Migration Registry](../12-reference/schema-migration-registry.md)
 - [Core Type Reference](../12-reference/core-type-reference.md)
 - [Generated Type → Tests → Docs Map](../12-reference/generated-type-test-doc-map.md)
+- [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md)
+- [Input & Resource Budget Registry](../12-reference/resource-budget-registry.md)
 - [Public / Private Operations Boundary](../12-reference/operations-boundary.md)
+- [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md)
 
-The generated map is the fastest path from an important production type to source, mapped tests and canonical docs. It is checked by CI against `Scripts/knowledge-map-manifest.json`.
+The generated map is the fastest path from an important production type to source, mapped tests and canonical docs. The v1.3 registries are the fastest path for persisted formats, background work and explicit performance budgets. Documentation Guardian checks contract-sensitive diffs against those routes in CI.
 
 ## Routing
 
 ### UI / panel / display
 
-Read state ownership → multi-display → Core Type Reference → generated map → `Theme.swift` / relevant Notch/UI code → mapped tests.
+Read state ownership → multi-display → Background Work Registry → Behavioral QA Matrix → Core Type Reference → generated map → `Theme.swift` / relevant Notch/UI code → mapped tests.
+
+Do not multiply service work per display. Pointer sampling is shared process-wide.
 
 ### Module
 
-Read exact page in `02-modules/` → generated map for the owning type → store/service + pane + mapped tests. If data/permission/network changes, include schema/security/threat docs.
+Read exact page in `02-modules/` → generated map for the owning type → store/service + pane + mapped tests. If data/permission/network/performance changes, include the corresponding v1.3 reference registry plus security/threat docs.
+
+### Performance / concurrency / background work
+
+**Mandatory:** read [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md) before adding or changing a timer, poller, debounce, retry, `Task`, persistent observer/socket, queue/actor boundary or work that survives while the panel is closed.
+
+If a size/count/cadence/timeout/backpressure constant changes, also read [Input & Resource Budget Registry](../12-reference/resource-budget-registry.md).
 
 ### Settings / onboarding / feedback
 
@@ -67,7 +79,7 @@ A persisted-format change is not complete until compatibility/migration behavior
 
 ### Permission
 
-Read permission architecture + macOS TCC + public privacy/security docs. Permission prompts must remain user-contextual and explicit.
+Read permission architecture + macOS TCC + [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md) + public privacy/security docs. Permission prompts must remain user-contextual and explicit.
 
 ### Network
 
@@ -75,7 +87,7 @@ Read networking + ADR-003 + threat model. Current app model has exactly three In
 
 ### Release/signing
 
-Read signing/distribution + release pipeline + update system + ADR-005 + workflows.
+Read signing/distribution + release pipeline + update system + ADR-005 + workflows + relevant REL rows in the Behavioral QA Matrix.
 
 ### Website
 
@@ -101,7 +113,7 @@ If the private vault is unavailable, mark runtime/topology facts as **unverified
 
 ### Power/devices
 
-Read power page + ADR-004 + generated map + historical Apple-device support/QA when hardware detail matters.
+Read power page + ADR-004 + Background Work Registry + Resource Budget Registry + generated map + PWR rows in Behavioral QA Matrix. Device I/O remains off-main and external providers remain user-enabled.
 
 ### Core type ownership change
 
@@ -110,6 +122,10 @@ Read power page + ADR-004 + generated map + historical Apple-device support/QA w
 3. Run `python3 Scripts/generate-knowledge-map.py`.
 4. Commit the generated map.
 5. Run `python3 Scripts/generate-knowledge-map.py --check` plus normal tests/CI.
+
+### New behavioral edge
+
+When a change creates a new user-visible failure/lifecycle/topology/TCC/hardware/update path that is not adequately represented by a unit test, add or update a row in [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md). Do not mark it passed merely by documenting it.
 
 ## Trust rule
 
