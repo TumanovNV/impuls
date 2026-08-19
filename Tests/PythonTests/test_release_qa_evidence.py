@@ -1,4 +1,6 @@
 import importlib.util
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -10,6 +12,7 @@ def load_module():
     path = ROOT / "Scripts/check-release-qa-evidence.py"
     spec = importlib.util.spec_from_file_location("release_qa_evidence", path)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -97,6 +100,7 @@ release_decision: {decision}
     def test_repository_evidence_is_current_and_valid(self):
         policy = qa.load_policy()
         self.assertEqual(qa.validate_repository(policy), [])
+        self.assertEqual(qa.release_gate_errors(policy, qa.current_app_version()), [])
 
     def test_matrix_selects_only_manual_or_mixed_rows(self):
         self.assertEqual(
@@ -154,6 +158,41 @@ release_decision: {decision}
             self.policy,
         )
         self.assertTrue(any("non-empty ## Known gaps" in error for error in errors))
+
+    def test_release_gate_rejects_blocked_current_release(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evidence = root / "release-evidence"
+            evidence.mkdir()
+            matrix = root / "matrix.md"
+            matrix.write_text(
+                "| ID | Scenario | Mode | Expected contract |\n"
+                "| --- | --- | --- | --- |\n"
+                "| PERM-01 | Fresh launch | manual-macos | no prompt |\n",
+                encoding="utf-8",
+            )
+            (evidence / "1.4.12.md").write_text(
+                self.document(
+                    version="1.4.12",
+                    decision="blocked",
+                    rows={
+                        "PERM-01": ("blocked", "MAC-01", "manual test", "Prompt regression."),
+                    },
+                    known_gaps="- PERM-01 blocks release.",
+                ),
+                encoding="utf-8",
+            )
+            policy = qa.Policy(
+                enforce_from_version=(1, 4, 12),
+                matrix_path=matrix,
+                evidence_directory=evidence,
+                manual_modes=self.policy.manual_modes,
+                result_values=self.policy.result_values,
+                release_decisions=self.policy.release_decisions,
+                environment_kinds=self.policy.environment_kinds,
+            )
+            errors = qa.release_gate_errors(policy, "1.4.12")
+            self.assertTrue(any("explicitly blocked" in error for error in errors))
 
 
 if __name__ == "__main__":
