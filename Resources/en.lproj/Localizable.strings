@@ -522,7 +522,7 @@
 "Choose what helps today" = "Choose what helps today";
 "Choose zero to four actions. The fixed footer always contains Open Panel, Settings, Check for Updates, Feedback and Quit." = "Choose zero to four actions. The fixed footer always contains Open Panel, Settings, Check for Updates, Feedback and Quit.";
 "Continue" = "Continue";
-"Control the source you explicitly selected." = "Control the source you explicitly selected.";
+"Control the music source you explicitly selected." = "Control the music source you explicitly selected.";
 "Custom" = "Custom";
 "Find recent copies locally on this Mac." = "Find recent copies locally on this Mac.";
 "Getting Started" = "Getting Started";
@@ -559,7 +559,7 @@
 "Primary Widget" = "Primary Widget";
 "Quick Actions" = "Quick Actions";
 "Read the Privacy Policy" = "Read the Privacy Policy";
-"Search clipboard items, snippets and practical conversions." = "Search clipboard items, snippets and practical conversions.";
+"Search local snippets, clipboard items and practical conversions." = "Search local snippets, clipboard items and practical conversions.";
 "Secondary Widget" = "Secondary Widget";
 "See honest Mac and opted-in device battery data." = "See honest Mac and opted-in device battery data.";
 "See upcoming events after you grant access." = "See upcoming events after you grant access.";

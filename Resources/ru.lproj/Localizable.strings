@@ -521,7 +521,7 @@
 "Choose what helps today" = "Выберите то, что поможет сегодня";
 "Choose zero to four actions. The fixed footer always contains Open Panel, Settings, Check for Updates, Feedback and Quit." = "Выберите от нуля до четырёх действий. В фиксированном подвале всегда есть «Открыть панель», «Настройки», «Проверить обновления», «Обратная связь» и «Выйти».";
 "Continue" = "Продолжить";
-"Control the source you explicitly selected." = "Управляйте источником, который выбрали сами.";
+"Control the music source you explicitly selected." = "Управляйте музыкальным источником, который выбрали сами.";
 "Custom" = "Свой";
 "Find recent copies locally on this Mac." = "Находите недавние копии локально на этом Mac.";
 "Getting Started" = "Начало работы";
@@ -558,7 +558,7 @@
 "Primary Widget" = "Основной виджет";
 "Quick Actions" = "Быстрые действия";
 "Read the Privacy Policy" = "Прочитать политику конфиденциальности";
-"Search clipboard items, snippets and practical conversions." = "Ищите элементы буфера, заготовки и практические преобразования.";
+"Search local snippets, clipboard items and practical conversions." = "Ищите локальные заготовки, элементы буфера и практические преобразования.";
 "Secondary Widget" = "Второй виджет";
 "See honest Mac and opted-in device battery data." = "Смотрите честные данные о заряде Mac и устройств, которые вы включили.";
 "See upcoming events after you grant access." = "Смотрите ближайшие события после предоставления доступа.";
