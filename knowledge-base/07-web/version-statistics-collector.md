@@ -2,7 +2,7 @@
 title: Version Statistics Collector
 type: operations
 status: active
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.11
 last_reviewed: 2026-08-19
 tags: [impuls, telemetry, collector, dashboard, sqlite]
@@ -29,7 +29,7 @@ flowchart LR
     APP[VersionTelemetryService] -->|HTTPS POST /v1/heartbeat| RP[Owner-controlled TLS boundary]
     RP --> COL[collector.py\nprivate backend]
     COL --> H[HMAC-SHA256 installation UUID]
-    H --> DB[(SQLite)]
+    H --> DB[(SQLite schema v1)]
     DB --> REP[report.py\nowner-only read-only]
     DB --> DASH[dashboard.py\nowner-only read-only]
 ```
@@ -83,7 +83,11 @@ Application-side installation identity is a random UUID v4 kept in Keychain and 
 
 ## Database contract
 
-Current tables:
+Current SQLite database schema: **1**.
+
+The version marker is SQLite `PRAGMA user_version`. `DATABASE_SCHEMA_VERSION` in `collector.py` is the code-level source for the currently supported version.
+
+Current schema objects:
 
 - `installations` — HMAC identity, first/last seen, current and previous version;
 - `transitions` — unique installation/from/to transition with first observation;
@@ -91,7 +95,33 @@ Current tables:
 
 SQLite uses WAL mode.
 
-The current DDL is idempotent but is not yet assigned an explicit database schema version. Before an incompatible DB change, introduce a tested migration/version mechanism as required by [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
+### Historical unversioned database
+
+Before schema versioning, the same tables existed with `user_version = 0`. Startup now treats that state as legacy schema 0 and runs an ordered `0 -> 1` migration.
+
+The migration is shape-preserving:
+
+1. begin an immediate transaction;
+2. create missing v1 objects for a genuinely new database;
+3. validate the exact supported column sets of both tables;
+4. set `PRAGMA user_version = 1` only after validation;
+5. commit without rewriting existing telemetry rows.
+
+If a legacy database has an unexpected shape, startup fails with `DatabaseMigrationError` and the version remains unchanged. If the file advertises a version newer than the running collector supports, startup also fails. This prevents silent downgrade use of a future database.
+
+### Future database changes
+
+Every future `N -> N+1` schema change requires:
+
+- an explicit ordered migration in `collector.py`;
+- deterministic tests starting from schema `N`;
+- schema registry and collector documentation updates;
+- a SQLite-safe production backup before the first process using the new schema starts;
+- private operational validation/rollback procedure in `office-it-docs`.
+
+Canonical migration policy: [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
+
+Tests: [`test_collector_database_migrations.py`](../../Tests/PythonTests/test_collector_database_migrations.py).
 
 ## Retention
 
@@ -150,6 +180,7 @@ For tasks that require current production runtime, use the private operational h
 ## Verification map
 
 - [`VersionTelemetryServiceTests.swift`](../../Tests/ImpulsTests/VersionTelemetryServiceTests.swift)
+- [`test_collector_database_migrations.py`](../../Tests/PythonTests/test_collector_database_migrations.py)
 - [`test_version_statistics.py`](../../Tests/PythonTests/test_version_statistics.py)
 - [`test_version_statistics_dashboard.py`](../../Tests/PythonTests/test_version_statistics_dashboard.py)
 - [Generated Type → Tests → Docs Map](../12-reference/generated-type-test-doc-map.md)
