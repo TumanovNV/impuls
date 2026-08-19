@@ -10,12 +10,15 @@ Do not use a historical release handoff as the current project state.
 
 Start with:
 
-1. `knowledge-base/10-ai/AI-INDEX.md` — task-oriented documentation entrypoint.
-2. `knowledge-base/00-project/project-status.md` — current shipped baseline.
-3. `knowledge-base/10-ai/invariants.md` — concise project invariants.
-4. `knowledge-base/12-reference/README.md` — schema/type/performance reference routes.
-5. `knowledge-base/13-qa/README.md` — behavioral verification routes when platform/hardware behavior matters.
-6. The implementation and tests for the area you are changing.
+1. `PROJECT-MANIFEST.json` — routing-only machine-readable map of stable project topology and canonical owners.
+2. `knowledge-base/10-ai/AI-INDEX.md` — task-oriented documentation entrypoint.
+3. `knowledge-base/00-project/project-status.md` — current shipped baseline.
+4. `knowledge-base/10-ai/invariants.md` — concise project invariants.
+5. `knowledge-base/12-reference/README.md` — schema/type/performance reference routes.
+6. `knowledge-base/13-qa/README.md` — behavioral verification routes when platform/hardware behavior matters.
+7. The implementation and tests for the area you are changing.
+
+The root manifest is a routing aid, not a duplicate implementation database. Do not put persisted keys, performance constants, live endpoints, production topology, addresses or secrets into it.
 
 At Documentation v1.3 the baseline in `main` is Impuls 1.4.11. Always verify `Scripts/version` when the exact version matters.
 
@@ -27,6 +30,7 @@ Historical technical documents under `docs/` remain valuable evidence, especiall
 swift test -c release
 ./Scripts/bundle.sh release
 ./Scripts/dmg.sh
+python3 Scripts/check-project-manifest.py
 python3 Scripts/check-knowledge-base.py
 python3 Scripts/generate-knowledge-map.py --check
 python3 Scripts/check-documentation-freshness.py
@@ -76,6 +80,7 @@ See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-
 
 | Path | What lives there |
 | --- | --- |
+| `PROJECT-MANIFEST.json` | routing-only machine-readable map for cold-start agents |
 | `Sources/Impuls/App` | lifecycle, app glue, Menu Bar controller, localization |
 | `Sources/Impuls/Model` | shared application/panel state |
 | `Sources/Impuls/Notch` | display topology, per-display windows, geometry, pointer tracking |
@@ -95,7 +100,7 @@ See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-
 - UI numbers come from the existing theme/geometry system, not taste.
 - Stores/services do not import SwiftUI; panes do not touch the filesystem directly.
 - One responsibility per file where practical.
-- A new shipped module requires a new tab/destination, store/service, pane, RU/EN strings, tests and an update to the module catalog.
+- A new shipped module requires a new tab/destination, store/service, pane, RU/EN strings, tests and an update to the module catalog **and `PROJECT-MANIFEST.json`**.
 - **Shared services, per-display presentation.** `NotchViewModel` and stores are shared. Each display owns only presentation state/window/view/geometry. Do not create a store, timer or monitor per display. Exactly one surface is active.
 - `PointerWatcher` is a shared sampler with per-display zones; do not add a timer per display.
 - Menu Bar is a presentation/workspace surface over existing state, not a reason to start providers, permissions, polling or networking.
@@ -125,6 +130,8 @@ See `knowledge-base/05-release/release-process.md` for the current release docum
 ## Documentation rule
 
 **Code changes and project knowledge travel together.**
+
+If a change alters stable project topology — shipped modules, canonical owners, network owners, permission domains or major repository routes — update `PROJECT-MANIFEST.json` in the same change. Keep it routing-only.
 
 If a change alters architecture, module ownership, networking, permissions, persistence, device identity, background work/concurrency, resource budgets, release semantics or the current shipped baseline, update the corresponding document under `knowledge-base/` in the same change. Long-lived architectural decisions require an ADR under `knowledge-base/08-decisions/`.
 

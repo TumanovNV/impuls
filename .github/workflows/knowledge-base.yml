@@ -3,12 +3,14 @@ name: knowledge-base
 on:
   pull_request:
     paths:
+      - 'PROJECT-MANIFEST.json'
       - 'knowledge-base/**'
       - 'Sources/**'
       - 'Resources/**'
       - 'Collector/**'
       - 'Scripts/bundle.sh'
       - 'Scripts/version'
+      - 'Scripts/check-project-manifest.py'
       - 'Scripts/check-knowledge-base.py'
       - 'Scripts/generate-knowledge-map.py'
       - 'Scripts/knowledge-map-manifest.json'
@@ -16,18 +18,21 @@ on:
       - 'Scripts/documentation-guardian-rules.json'
       - 'Scripts/check-documentation-freshness.py'
       - 'Scripts/documentation-freshness.json'
+      - 'Tests/PythonTests/test_project_manifest.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
       - 'Tests/PythonTests/test_documentation_freshness.py'
       - '.github/workflows/knowledge-base.yml'
   push:
     branches: [main]
     paths:
+      - 'PROJECT-MANIFEST.json'
       - 'knowledge-base/**'
       - 'Sources/**'
       - 'Resources/**'
       - 'Collector/**'
       - 'Scripts/bundle.sh'
       - 'Scripts/version'
+      - 'Scripts/check-project-manifest.py'
       - 'Scripts/check-knowledge-base.py'
       - 'Scripts/generate-knowledge-map.py'
       - 'Scripts/knowledge-map-manifest.json'
@@ -35,6 +40,7 @@ on:
       - 'Scripts/documentation-guardian-rules.json'
       - 'Scripts/check-documentation-freshness.py'
       - 'Scripts/documentation-freshness.json'
+      - 'Tests/PythonTests/test_project_manifest.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
       - 'Tests/PythonTests/test_documentation_freshness.py'
       - '.github/workflows/knowledge-base.yml'
@@ -54,6 +60,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Validate machine-readable project manifest
+        run: python3 Scripts/check-project-manifest.py
+      - name: Test project manifest contract
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_project_manifest.py'
       - name: Validate engineering knowledge base
         run: python3 Scripts/check-knowledge-base.py
       - name: Verify generated source-test-doc map

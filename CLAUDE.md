@@ -4,7 +4,7 @@
 
 The shared instructions above apply.
 
-Before planning or editing, read `knowledge-base/10-ai/AI-INDEX.md`. It is the current navigation layer for project status, architecture, modules, security boundaries, release flow, performance/concurrency, QA and repository ownership. Historical files under `docs/` remain useful evidence, but they are not automatically current state.
+Before planning or editing, inspect `PROJECT-MANIFEST.json` for a fast machine-readable topology, then read `knowledge-base/10-ai/AI-INDEX.md`. The manifest is routing-only: it points to current ownership and canonical docs but never overrides code, tests or the linked reference documents. Historical files under `docs/` remain useful evidence, but they are not automatically current state.
 
 A few things specific to this setup:
 
@@ -15,4 +15,5 @@ A few things specific to this setup:
 - **Update Behavioral QA** when work adds a new display/TCC/hardware/service/update/lifecycle scenario that cannot be fully proven by a deterministic unit test.
 - **Run the repository's current test commands yourself** rather than reporting a change as done. Treat a red test as information, not noise.
 - The semantic `Documentation Guardian` checks the current diff; the freshness checker checks historical source→doc ordering. If either fires, establish the real contract from code/tests and update the canonical doc truthfully. Never touch Markdown or `last_reviewed` merely to make CI green.
+- **Keep `PROJECT-MANIFEST.json` routing-only.** Update it when stable module/owner/network/permission/repository topology changes, not for ordinary implementation details. Never copy private runtime addresses or secrets into it.
 - When a change alters architecture, module contracts, networking, permissions, persistence, background work, resource budgets or release flow, update the corresponding file under `knowledge-base/` in the same change. Create an ADR for a new long-lived architectural decision.
