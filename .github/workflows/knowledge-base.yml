@@ -5,6 +5,8 @@ on:
     paths:
       - 'knowledge-base/**'
       - 'Scripts/check-knowledge-base.py'
+      - 'Scripts/generate-knowledge-map.py'
+      - 'Scripts/knowledge-map-manifest.json'
       - '.github/workflows/knowledge-base.yml'
       - 'Scripts/version'
   push:
@@ -12,6 +14,8 @@ on:
     paths:
       - 'knowledge-base/**'
       - 'Scripts/check-knowledge-base.py'
+      - 'Scripts/generate-knowledge-map.py'
+      - 'Scripts/knowledge-map-manifest.json'
       - '.github/workflows/knowledge-base.yml'
       - 'Scripts/version'
   workflow_dispatch:
@@ -29,3 +33,5 @@ jobs:
           persist-credentials: false
       - name: Validate engineering knowledge base
         run: python3 Scripts/check-knowledge-base.py
+      - name: Verify generated source-test-doc map
+        run: python3 Scripts/generate-knowledge-map.py --check

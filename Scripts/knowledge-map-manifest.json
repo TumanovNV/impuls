@@ -1,0 +1,213 @@
+{
+  "documentation_version": "1.2",
+  "last_reviewed": "2026-08-19",
+  "entries": [
+    {
+      "area": "Panel / multi-display",
+      "symbol": "NotchController",
+      "source": "Sources/Impuls/Notch/NotchController.swift",
+      "doc": "knowledge-base/01-architecture/multi-display.md",
+      "tests": [
+        "Tests/ImpulsTests/MultiDisplayControllerTests.swift",
+        "Tests/ImpulsTests/MultiDisplayHoverTests.swift",
+        "Tests/ImpulsTests/PanelTransitionTests.swift"
+      ]
+    },
+    {
+      "area": "Panel / multi-display",
+      "symbol": "DisplayCoordinator",
+      "source": "Sources/Impuls/Notch/DisplayCoordinator.swift",
+      "doc": "knowledge-base/01-architecture/multi-display.md",
+      "tests": [
+        "Tests/ImpulsTests/MultiDisplayControllerTests.swift",
+        "Tests/ImpulsTests/DisplayTopologyTests.swift"
+      ]
+    },
+    {
+      "area": "Panel / multi-display",
+      "symbol": "NotchGeometry",
+      "source": "Sources/Impuls/Notch/NotchGeometry.swift",
+      "doc": "knowledge-base/01-architecture/multi-display.md",
+      "tests": [
+        "Tests/ImpulsTests/NotchGeometryTests.swift",
+        "Tests/ImpulsTests/DisplayTopologyTests.swift"
+      ]
+    },
+    {
+      "area": "Settings / persistence",
+      "symbol": "SettingsStore",
+      "source": "Sources/Impuls/Settings/SettingsStore.swift",
+      "doc": "knowledge-base/01-architecture/settings-onboarding-feedback.md",
+      "tests": [
+        "Tests/ImpulsTests/SettingsStoreTests.swift",
+        "Tests/ImpulsTests/SettingsMigration147Tests.swift",
+        "Tests/ImpulsTests/SettingsMigration1410Tests.swift"
+      ]
+    },
+    {
+      "area": "Settings / persistence",
+      "symbol": "StorageEnvironment",
+      "source": "Sources/Impuls/Services/StorageEnvironment.swift",
+      "doc": "knowledge-base/01-architecture/storage-persistence.md",
+      "tests": [
+        "Tests/ImpulsTests/StorageIsolationTests.swift"
+      ]
+    },
+    {
+      "area": "Clipboard",
+      "symbol": "ClipboardStore",
+      "source": "Sources/Impuls/Services/ClipboardStore.swift",
+      "doc": "knowledge-base/02-modules/clipboard.md",
+      "tests": [
+        "Tests/ImpulsTests/ClipboardStoreTests.swift"
+      ]
+    },
+    {
+      "area": "Clipboard",
+      "symbol": "ClipboardHistoryPersistence",
+      "source": "Sources/Impuls/Services/ClipboardHistoryPersistence.swift",
+      "doc": "knowledge-base/02-modules/clipboard.md",
+      "tests": [
+        "Tests/ImpulsTests/ClipboardHistoryPersistenceTests.swift",
+        "Tests/ImpulsTests/StorageIsolationTests.swift"
+      ]
+    },
+    {
+      "area": "Calendar",
+      "symbol": "CalendarStore",
+      "source": "Sources/Impuls/Services/CalendarStore.swift",
+      "doc": "knowledge-base/02-modules/calendar.md",
+      "tests": [
+        "Tests/ImpulsTests/CalendarStoreTests.swift"
+      ]
+    },
+    {
+      "area": "Translate",
+      "symbol": "Translator",
+      "source": "Sources/Impuls/Services/Translator.swift",
+      "doc": "knowledge-base/02-modules/translate.md",
+      "tests": [
+        "Tests/ImpulsTests/TranslatorTests.swift"
+      ]
+    },
+    {
+      "area": "Music",
+      "symbol": "MusicSource",
+      "source": "Sources/Impuls/Services/MusicSource.swift",
+      "doc": "knowledge-base/02-modules/music.md",
+      "tests": [
+        "Tests/ImpulsTests/MusicSourceTests.swift"
+      ]
+    },
+    {
+      "area": "Music",
+      "symbol": "PlayerBridge",
+      "source": "Sources/Impuls/Services/PlayerBridge.swift",
+      "doc": "knowledge-base/02-modules/music.md",
+      "tests": [
+        "Tests/ImpulsTests/PlayerBridgeTests.swift"
+      ]
+    },
+    {
+      "area": "Power / devices",
+      "symbol": "DevicePowerCenter",
+      "source": "Sources/Impuls/Services/DevicePowerCenter.swift",
+      "doc": "knowledge-base/02-modules/power.md",
+      "tests": [
+        "Tests/ImpulsTests/DevicePowerCenterTests.swift"
+      ]
+    },
+    {
+      "area": "Power / devices",
+      "symbol": "MobileDeviceBatteryProvider",
+      "source": "Sources/Impuls/Services/MobileDeviceBatteryProvider.swift",
+      "doc": "knowledge-base/02-modules/power.md",
+      "tests": [
+        "Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift",
+        "Tests/ImpulsTests/MobileDeviceProtocolTests.swift"
+      ]
+    },
+    {
+      "area": "Power / devices",
+      "symbol": "LowBatteryAlertEngine",
+      "source": "Sources/Impuls/Services/LowBatteryAlertEngine.swift",
+      "doc": "knowledge-base/02-modules/power.md",
+      "tests": [
+        "Tests/ImpulsTests/LowBatteryAlertEngineTests.swift"
+      ]
+    },
+    {
+      "area": "Power / devices",
+      "symbol": "PowerMonitor",
+      "source": "Sources/Impuls/Services/PowerMonitor.swift",
+      "doc": "knowledge-base/02-modules/power.md",
+      "tests": [
+        "Tests/ImpulsTests/PowerMonitorTests.swift"
+      ]
+    },
+    {
+      "area": "Actions / files",
+      "symbol": "ImpulsActionsStore",
+      "source": "Sources/Impuls/Services/ImpulsActionsStore.swift",
+      "doc": "knowledge-base/02-modules/actions.md",
+      "tests": [
+        "Tests/ImpulsTests/ImpulsActionsStoreTests.swift"
+      ]
+    },
+    {
+      "area": "Actions / files",
+      "symbol": "FileToolsService",
+      "source": "Sources/Impuls/Services/FileToolsService.swift",
+      "doc": "knowledge-base/02-modules/actions.md",
+      "tests": [
+        "Tests/ImpulsTests/FileToolsServiceTests.swift"
+      ]
+    },
+    {
+      "area": "Menu Bar",
+      "symbol": "MenuBarWorkspaceConfiguration",
+      "source": "Sources/Impuls/Services/MenuBarWorkspace.swift",
+      "doc": "knowledge-base/02-modules/menu-bar.md",
+      "tests": [
+        "Tests/ImpulsTests/MenuBarWorkspaceTests.swift"
+      ]
+    },
+    {
+      "area": "Backup / data",
+      "symbol": "ImpulsBackupDocument",
+      "source": "Sources/Impuls/Services/BackupService.swift",
+      "doc": "knowledge-base/01-architecture/storage-persistence.md",
+      "tests": [
+        "Tests/ImpulsTests/BackupDocumentTests.swift"
+      ]
+    },
+    {
+      "area": "Feedback",
+      "symbol": "FeedbackService",
+      "source": "Sources/Impuls/Services/FeedbackService.swift",
+      "doc": "knowledge-base/01-architecture/settings-onboarding-feedback.md",
+      "tests": [
+        "Tests/ImpulsTests/FeedbackServiceTests.swift"
+      ]
+    },
+    {
+      "area": "Updates",
+      "symbol": "UpdateService",
+      "source": "Sources/Impuls/Services/UpdateService.swift",
+      "doc": "knowledge-base/05-release/update-system.md",
+      "tests": [
+        "Tests/ImpulsTests/UpdateServiceTests.swift"
+      ]
+    },
+    {
+      "area": "Version statistics",
+      "symbol": "VersionTelemetryService",
+      "source": "Sources/Impuls/Services/VersionTelemetryService.swift",
+      "doc": "knowledge-base/07-web/version-statistics-collector.md",
+      "tests": [
+        "Tests/ImpulsTests/VersionTelemetryServiceTests.swift",
+        "Tests/PythonTests/test_version_statistics.py"
+      ]
+    }
+  ]
+}
