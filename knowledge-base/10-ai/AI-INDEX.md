@@ -2,7 +2,7 @@
 title: IMPULS AI Index
 type: ai-index
 status: active
-documentation_version: 1.0
+documentation_version: 1.1
 app_version: 1.4.11
 last_reviewed: 2026-08-19
 tags: [impuls, ai, agents, index]
@@ -10,61 +10,58 @@ tags: [impuls, ai, agents, index]
 
 # IMPULS AI Documentation Index
 
-## Для AI-агента
+## Обязательный старт
 
-Перед изменением проекта прочитай этот файл, затем обязательные [`AGENTS.md`](../../AGENTS.md) и инструкции конкретного инструмента. Не считай старый release/handoff документ текущим состоянием только потому, что он подробнее нового.
+Перед изменением проекта: `AGENTS.md` → этот индекс → relevant subsystem docs → code/tests/CI. Старые handoff/release docs используются как history, не как current source of truth.
 
-## Быстрый контекст
+## Core
 
-- [Что такое ИМПУЛЬС](../00-project/project-overview.md)
-- [Текущий baseline](../00-project/project-status.md)
-- [Архитектура](../01-architecture/architecture-overview.md)
-- [Каталог shipped-модулей](../02-modules/README.md)
-- [Security boundaries](../06-security/security-model.md)
-- [Release process](../05-release/release-process.md)
-- [ADR](../08-decisions/README.md)
-- [Repository map](repository-map.md)
-- [Hard project invariants](invariants.md)
-- [Agent workflow](agent-rules.md)
+- [Current Project Status](../00-project/project-status.md)
+- [Project Overview](../00-project/project-overview.md)
+- [Architecture Overview](../01-architecture/architecture-overview.md)
+- [Application Lifecycle](../01-architecture/application-lifecycle.md)
+- [State and Ownership](../01-architecture/state-and-ownership.md)
+- [System Diagrams](../01-architecture/system-diagrams.md)
+- [Module Catalog](../02-modules/README.md)
+- [Security Model](../06-security/security-model.md)
+- [Threat Model](../06-security/threat-model.md)
+- [Release Pipeline](../05-release/release-pipeline.md)
+- [ADRs](../08-decisions/README.md)
+- [Repository Map](repository-map.md)
+- [Project Invariants](invariants.md)
+- [Change Impact Matrix](change-impact-matrix.md)
+- [Agent Rules](agent-rules.md)
 
-## Порядок чтения по типу задачи
+## По типу задачи
 
-### UI / panel / multi-display
+### UI / panel / display
 
-1. `AGENTS.md`;
-2. [Architecture Overview](../01-architecture/architecture-overview.md);
-3. [Invariants](invariants.md);
-4. `Sources/Impuls/UI/Theme.swift`;
-5. relevant `Sources/Impuls/Notch/*` and pane;
-6. historical `docs/IMPULS_1_4_7_MULTI_DISPLAY.md`, если нужен контекст multi-display decisions.
+Read: state ownership → multi-display → Theme.swift → relevant Notch/UI files → tests.
 
-### Модуль / service
+### Module
 
-1. [Module Catalog](../02-modules/README.md);
-2. [Repository Map](repository-map.md);
-3. store/service + corresponding pane + tests;
-4. [Security Model](../06-security/security-model.md), если есть data/permission/network impact.
+Read exact page in `02-modules/`, then store/service + pane + tests. If data/permission/network changes, also read security/threat docs.
 
-### Release / updates / dependencies
+### Persistence
 
-1. [Release Process](../05-release/release-process.md);
-2. [Security Model](../06-security/security-model.md);
-3. `AGENTS.md` hard invariants;
-4. `.github/workflows/build.yml` and `release.yml`;
-5. `Scripts/bundle.sh`, `Scripts/dmg.sh`, `UpdateService.swift` as relevant.
+Read storage-persistence + data-classification + affected module. Verify test environment cannot touch live user storage.
 
-### Privacy / telemetry / device identity
+### Permission
 
-1. `PRIVACY.md`;
-2. `SECURITY.md`;
-3. [Security Model](../06-security/security-model.md);
-4. relevant implementation and tests;
-5. latest relevant audit in `docs/audits/`.
+Read permission architecture + macOS TCC page + public privacy/security docs.
 
-## Правило доверия
+### Network
 
-При расхождении между знаниями и кодом не «подгоняй» код под этот документ автоматически. Сначала установи фактический контракт по code + tests + CI, затем исправь устаревший документ. Документация должна описывать реальность, а не создавать её задним числом.
+Read networking + ADR-003 + threat model. Current model has exactly three Internet network owners.
 
-## Definition of done для AI
+### Release/update
 
-Задача не считается полностью завершённой, если она изменила архитектурный контракт, но оставила knowledge base заведомо устаревшей.
+Read release pipeline + update system + ADR-005 + build/release workflows.
+
+### Power/devices
+
+Read power page + ADR-004 + historical Apple device support/QA docs where hardware details matter.
+
+## Trust rule
+
+При конфликте сначала code + tests + CI. Затем исправь knowledge base. Документация описывает фактический контракт и причины, а не заменяет проверку реализации.

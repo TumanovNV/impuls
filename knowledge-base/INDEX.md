@@ -1,61 +1,86 @@
 ---
-title: IMPULS Documentation Index
+title: IMPULS Knowledge Base Index
 type: index
 status: active
-documentation_version: 1.0
+documentation_version: 1.1
 app_version: 1.4.11
 last_reviewed: 2026-08-19
-tags: [impuls, index, documentation]
+tags: [impuls, documentation, index]
 ---
 
-# ИМПУЛЬС — индекс документации
+# IMPULS Knowledge Base
 
-> Главная навигационная точка базы знаний. Для работы AI-агентов используйте также [AI Index](10-ai/AI-INDEX.md).
+Current engineering knowledge base for humans, Obsidian and AI agents.
 
-## 00 — Проект
+## 00 — Project
 
-- [Обзор проекта](00-project/project-overview.md)
-- [Текущее состояние](00-project/project-status.md)
+- [Project Overview](00-project/project-overview.md)
+- [Project Status](00-project/project-status.md)
 
-## 01 — Архитектура
+## 01 — Architecture
 
-- [Обзор архитектуры](01-architecture/architecture-overview.md)
+- [Architecture Overview](01-architecture/architecture-overview.md)
+- [Application Lifecycle](01-architecture/application-lifecycle.md)
+- [State and Ownership](01-architecture/state-and-ownership.md)
+- [Multi-Display](01-architecture/multi-display.md)
+- [Storage and Persistence](01-architecture/storage-persistence.md)
+- [Permissions](01-architecture/permissions.md)
+- [Networking](01-architecture/networking.md)
+- [System Diagrams](01-architecture/system-diagrams.md)
 
-## 02 — Модули
+## 02 — Modules
 
-- [Каталог модулей](02-modules/README.md)
+- [Module Catalog](02-modules/README.md)
+- [Actions](02-modules/actions.md)
+- [Music](02-modules/music.md)
+- [Shelf](02-modules/shelf.md)
+- [Clipboard](02-modules/clipboard.md)
+- [Snippets](02-modules/snippets.md)
+- [Calendar](02-modules/calendar.md)
+- [Translate](02-modules/translate.md)
+- [Notes](02-modules/notes.md)
+- [Power / Battery](02-modules/power.md)
+- [Menu Bar Workspace](02-modules/menu-bar.md)
 
-## 05 — Релизы
+## 03 — macOS
 
-- [Релизный процесс](05-release/release-process.md)
+- [Permissions and TCC](03-macos/permissions-and-tcc.md)
 
-## 06 — Безопасность
+## 04 — Development
 
-- [Модель безопасности](06-security/security-model.md)
+- [Testing Strategy](04-development/testing.md)
+- [Adding a Module](04-development/adding-a-module.md)
+- [Documentation Standard](04-development/documentation-standard.md)
 
-## 08 — Решения
+## 05 — Release
+
+- [Release Process](05-release/release-process.md)
+- [Release Pipeline](05-release/release-pipeline.md)
+- [Update System](05-release/update-system.md)
+
+## 06 — Security
+
+- [Security Model](06-security/security-model.md)
+- [Threat Model](06-security/threat-model.md)
+- [Data Classification](06-security/data-classification.md)
+- [Privacy Boundaries](06-security/privacy-boundaries.md)
+
+## 08 — Decisions
 
 - [ADR Index](08-decisions/README.md)
-- [ADR-001 — Размещение базы знаний](08-decisions/ADR-001-knowledge-base-location.md)
 
-## 10 — Для AI
+## 10 — AI
 
 - [AI Index](10-ai/AI-INDEX.md)
-- [Карта репозитория](10-ai/repository-map.md)
-- [Инварианты](10-ai/invariants.md)
-- [Правила работы агентов](10-ai/agent-rules.md)
+- [Repository Map](10-ai/repository-map.md)
+- [Invariants](10-ai/invariants.md)
+- [Agent Rules](10-ai/agent-rules.md)
+- [Change Impact Matrix](10-ai/change-impact-matrix.md)
 
-## Публичные и нормативные документы вне vault
+## 11 — History
 
-- [`README.ru.md`](../README.ru.md) — публичное описание продукта на русском.
-- [`README.md`](../README.md) — публичное описание на английском.
-- [`PRIVACY.md`](../PRIVACY.md) — технические обещания по приватности.
-- [`SECURITY.md`](../SECURITY.md) — публичная модель безопасности.
-- [`docs/releases/`](../docs/releases/) — релизные заметки.
-- [`docs/audits/`](../docs/audits/) — security-аудиты.
-- [`AGENTS.md`](../AGENTS.md) — обязательные инструкции coding agents.
-- [`CLAUDE.md`](../CLAUDE.md) — дополнительные правила Claude Code.
+- [Architecture Timeline](11-history/architecture-timeline.md)
 
-## Принцип навигации
+## Source-of-truth rule
 
-Документы связаны относительными Markdown-ссылками. Это сознательно: ссылки одинаково работают в GitHub, Obsidian и большинстве AI-инструментов, не привязывая знания к конкретному приложению.
+Current contract: knowledge base + code + tests + CI. Historical `docs/releases`, handoffs and audits preserve context/evidence, but do not override current implementation.
