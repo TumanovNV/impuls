@@ -3,7 +3,7 @@ title: Behavioral QA Matrix
 type: qa-reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-19
 tags: [impuls, qa, scenarios, hardware, permissions, release]
 ---
@@ -105,6 +105,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | UI-03 | Change appearance while app runs | manual-macos | surfaces update without restart |
 | UI-04 | Reduce Motion enabled | mixed | transitions use reduced-motion contract rather than full animation |
 | UI-05 | Keyboard handoff between displays/text modules | mixed | keyboard ownership follows active surface without stealing focus from another app |
+| UI-06 | Menu Bar battery status in light/dark on Retina display | manual-macos | native battery glyph, percentage and charging bolt remain legible, aligned and semantically coloured in both appearances at Retina scale |
 
 ## Release and update
 
@@ -119,4 +120,8 @@ The rows below describe the contract to verify. They deliberately separate **ver
 
 ## Evidence routes
 
-Automated behavior lives primarily under [`Tests/ImpulsTests`](../../Tests/ImpulsTests) and [`Tests/PythonTests`](../../Tests/PythonTests). Hardware/TCC/service rows need explicit release or audit evidence when a particular build is certified; do not change this matrix to `passed` as a substitute for running that evidence.
+Automated behavior lives primarily under [`Tests/ImpulsTests`](../../Tests/ImpulsTests) and [`Tests/PythonTests`](../../Tests/PythonTests).
+
+Hardware/TCC/service/mixed rows are accounted for per version in [Release QA Evidence](release-evidence/README.md). The matrix remains the canonical contract inventory; do not add `passed` state here or infer certification merely because a scenario exists.
+
+Starting with 1.4.12, the release evidence validator derives the complete manual/mixed ID set from this table. Adding or changing a non-automated row therefore creates a machine-checked evidence obligation for the current release candidate.
