@@ -118,7 +118,7 @@ class QAImpactTests(unittest.TestCase):
         self.assertIn("Sources/Impuls/Services/VersionTelemetryService.swift", exemptions)
 
     def test_release_candidate_requires_impacted_manual_ids_in_evidence(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory(dir=ROOT) as temporary:
             directory = Path(temporary)
             config = qa.Config(
                 self.config.matrix_path,
@@ -148,7 +148,7 @@ class QAImpactTests(unittest.TestCase):
             self.assertEqual(results.get("DISP-01"), "pass")
 
     def test_automated_impact_does_not_require_release_evidence_row(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory(dir=ROOT) as temporary:
             config = qa.Config(
                 self.config.matrix_path,
                 Path(temporary),
