@@ -1,5 +1,5 @@
 {
-  "documentation_version": "1.2",
+  "documentation_version": "1.3",
   "last_reviewed": "2026-08-19",
   "entries": [
     {
@@ -207,6 +207,107 @@
       "tests": [
         "Tests/ImpulsTests/VersionTelemetryServiceTests.swift",
         "Tests/PythonTests/test_version_statistics.py"
+      ]
+    },
+    {
+      "area": "Panel / shared state",
+      "symbol": "NotchViewModel",
+      "source": "Sources/Impuls/Model/NotchViewModel.swift",
+      "doc": "knowledge-base/01-architecture/state-and-ownership.md",
+      "tests": [
+        "Tests/ImpulsTests/StorageIsolationTests.swift",
+        "Tests/ImpulsTests/MultiDisplayControllerTests.swift"
+      ]
+    },
+    {
+      "area": "Panel / multi-display",
+      "symbol": "PointerWatcher",
+      "source": "Sources/Impuls/Notch/PointerWatcher.swift",
+      "doc": "knowledge-base/01-architecture/multi-display.md",
+      "tests": [
+        "Tests/ImpulsTests/MultiDisplayHoverTests.swift"
+      ]
+    },
+    {
+      "area": "Notes",
+      "symbol": "NoteStore",
+      "source": "Sources/Impuls/Services/NoteStore.swift",
+      "doc": "knowledge-base/02-modules/notes.md",
+      "tests": [
+        "Tests/ImpulsTests/StorageIsolationTests.swift"
+      ]
+    },
+    {
+      "area": "Snippets",
+      "symbol": "SnippetStore",
+      "source": "Sources/Impuls/Services/SnippetStore.swift",
+      "doc": "knowledge-base/02-modules/snippets.md",
+      "tests": [
+        "Tests/ImpulsTests/StorageIsolationTests.swift"
+      ]
+    },
+    {
+      "area": "Shelf",
+      "symbol": "ShelfStore",
+      "source": "Sources/Impuls/Services/ShelfStore.swift",
+      "doc": "knowledge-base/02-modules/shelf.md",
+      "tests": [
+        "Tests/ImpulsTests/StorageIsolationTests.swift"
+      ]
+    },
+    {
+      "area": "Power / devices",
+      "symbol": "DeviceRefreshScheduler",
+      "source": "Sources/Impuls/Services/DeviceRefreshScheduler.swift",
+      "doc": "knowledge-base/12-reference/background-concurrency-registry.md",
+      "tests": [
+        "Tests/ImpulsTests/DevicePowerCenterTests.swift"
+      ]
+    },
+    {
+      "area": "Power / devices",
+      "symbol": "AppleAccessoryBatteryProvider",
+      "source": "Sources/Impuls/Services/AppleAccessoryBatteryProvider.swift",
+      "doc": "knowledge-base/02-modules/power.md",
+      "tests": [
+        "Tests/ImpulsTests/IORegistryAccessoryTests.swift"
+      ]
+    },
+    {
+      "area": "Power / privacy",
+      "symbol": "DeviceIdentityResolver",
+      "source": "Sources/Impuls/Services/AppleDeviceIdentity.swift",
+      "doc": "knowledge-base/06-security/privacy-boundaries.md",
+      "tests": [
+        "Tests/ImpulsTests/IORegistryAccessoryTests.swift",
+        "Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift"
+      ]
+    },
+    {
+      "area": "Safety / bounds",
+      "symbol": "BoundedFileReader",
+      "source": "Sources/Impuls/Services/BoundedData.swift",
+      "doc": "knowledge-base/12-reference/resource-budget-registry.md",
+      "tests": [
+        "Tests/ImpulsTests/BoundedDataTests.swift"
+      ]
+    },
+    {
+      "area": "Safety / bounds",
+      "symbol": "BoundedText",
+      "source": "Sources/Impuls/Services/BoundedText.swift",
+      "doc": "knowledge-base/12-reference/resource-budget-registry.md",
+      "tests": [
+        "Tests/ImpulsTests/BoundedTextTests.swift"
+      ]
+    },
+    {
+      "area": "Project topology",
+      "symbol": "AppFeatureCatalog",
+      "source": "Sources/Impuls/Services/AppFeatureCatalog.swift",
+      "doc": "knowledge-base/12-reference/project-manifest.md",
+      "tests": [
+        "Tests/PythonTests/test_project_manifest.py"
       ]
     }
   ]
