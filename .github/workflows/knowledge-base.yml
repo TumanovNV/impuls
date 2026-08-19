@@ -25,11 +25,14 @@ on:
       - 'Scripts/documentation-guardian-rules.json'
       - 'Scripts/check-documentation-freshness.py'
       - 'Scripts/documentation-freshness.json'
+      - 'Scripts/check-release-qa-evidence.py'
+      - 'Scripts/release-qa-policy.json'
       - 'Tests/PythonTests/test_project_manifest.py'
       - 'Tests/PythonTests/test_dependency_policy.py'
       - 'Tests/PythonTests/test_architecture_ledger.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
       - 'Tests/PythonTests/test_documentation_freshness.py'
+      - 'Tests/PythonTests/test_release_qa_evidence.py'
       - '.github/workflows/knowledge-base.yml'
   push:
     branches: [main]
@@ -56,11 +59,14 @@ on:
       - 'Scripts/documentation-guardian-rules.json'
       - 'Scripts/check-documentation-freshness.py'
       - 'Scripts/documentation-freshness.json'
+      - 'Scripts/check-release-qa-evidence.py'
+      - 'Scripts/release-qa-policy.json'
       - 'Tests/PythonTests/test_project_manifest.py'
       - 'Tests/PythonTests/test_dependency_policy.py'
       - 'Tests/PythonTests/test_architecture_ledger.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
       - 'Tests/PythonTests/test_documentation_freshness.py'
+      - 'Tests/PythonTests/test_release_qa_evidence.py'
       - '.github/workflows/knowledge-base.yml'
   schedule:
     - cron: '17 5 * * 1'
@@ -92,6 +98,10 @@ jobs:
         run: python3 -m unittest discover -s Tests/PythonTests -p 'test_architecture_ledger.py'
       - name: Validate engineering knowledge base
         run: python3 Scripts/check-knowledge-base.py
+      - name: Verify release QA shipping gate
+        run: python3 Scripts/check-release-qa-evidence.py --release-gate
+      - name: Test release QA evidence policy
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_release_qa_evidence.py'
       - name: Verify generated source-test-doc map
         run: python3 Scripts/generate-knowledge-map.py --check
       - name: Test Documentation Guardian matcher

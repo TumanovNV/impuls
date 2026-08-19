@@ -119,4 +119,8 @@ The rows below describe the contract to verify. They deliberately separate **ver
 
 ## Evidence routes
 
-Automated behavior lives primarily under [`Tests/ImpulsTests`](../../Tests/ImpulsTests) and [`Tests/PythonTests`](../../Tests/PythonTests). Hardware/TCC/service rows need explicit release or audit evidence when a particular build is certified; do not change this matrix to `passed` as a substitute for running that evidence.
+Automated behavior lives primarily under [`Tests/ImpulsTests`](../../Tests/ImpulsTests) and [`Tests/PythonTests`](../../Tests/PythonTests).
+
+Hardware/TCC/service/mixed rows are accounted for per version in [Release QA Evidence](release-evidence/README.md). The matrix remains the canonical contract inventory; do not add `passed` state here or infer certification merely because a scenario exists.
+
+Starting with 1.4.12, the release evidence validator derives the complete manual/mixed ID set from this table. Adding or changing a non-automated row therefore creates a machine-checked evidence obligation for the current release candidate.

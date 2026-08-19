@@ -100,6 +100,8 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.11**.
 ## 13 — Behavioral QA
 - [Behavioral QA Index](13-qa/README.md)
 - [Behavioral QA Matrix](13-qa/behavioral-qa-matrix.md)
+- [Release QA Evidence](13-qa/release-evidence/README.md)
+- [1.4.11 Retrospective Evidence](13-qa/release-evidence/1.4.11.md)
 
 ## v1.3 anti-drift loop
 
@@ -110,16 +112,22 @@ flowchart LR
     SRC --> F[Git-history Freshness Guard]
     DOC --> F
     M[PROJECT-MANIFEST + curated manifests] --> V[Machine validators]
+    QAM[Behavioral QA Matrix] --> QAE[Release QA Evidence]
+    QAE --> QAG[Release QA Gate]
+    VER[Scripts/version] --> QAG
     V --> CI[knowledge-base workflow]
     KB[Markdown + frontmatter + links] --> CI
     G --> CI
     F --> CI
+    QAG --> CI
     CI -->|green| PR[PR may merge]
 ```
 
-v1.3 combines performance/concurrency and resource-budget registries, behavioral QA, semantic diff protection, historical freshness, a routing-only project manifest, dependency supply-chain policy and a generated release→architecture evidence ledger.
+v1.3 combines performance/concurrency and resource-budget registries, behavioral QA, release-specific hardware/TCC evidence, semantic diff protection, historical freshness, a routing-only project manifest, dependency supply-chain policy and a generated release→architecture evidence ledger.
 
-The lightweight knowledge-base workflow also runs weekly. On the scheduled run, freshness additionally enforces periodic review-age budgets; normal PRs enforce only real source→doc drift.
+The release QA gate keeps the scenario inventory separate from pass evidence. `1.4.11` is an explicit retrospective baseline; from `1.4.12` onward every manual/mixed scenario must be classified in the version-specific evidence file and `blocked` candidates fail the knowledge-base CI gate.
+
+The lightweight knowledge-base workflow also runs weekly. On the scheduled run, freshness additionally enforces periodic review-age budgets; normal PRs enforce only real source→doc drift plus current release-evidence consistency.
 
 ## Operational source-of-truth boundary
 
@@ -128,5 +136,7 @@ This public repository owns application/software facts. Current private producti
 ## Source-of-truth rule
 
 Current software contract: knowledge base + code + tests + CI. Historical release/handoff/audit documents preserve evidence and context, but do not override current implementation.
+
+Release certification claims require the version-specific Release QA Evidence record; the Behavioral QA Matrix alone is never pass evidence.
 
 For private production runtime, use the private operational source of truth rather than inferring from public source defaults or old audits.
