@@ -142,5 +142,6 @@ Widevine — the source is not offered rather than shipped as a tab that signs i
 but never plays. A provider may also refuse to sign a user in inside an
 embedded web view; Impuls surfaces that message instead of hiding it.
 
-The latest documented review is
-[`docs/audits/1.4.10-version-statistics.md`](docs/audits/1.4.10-version-statistics.md).
+The current whole-repository audit starting point is
+[`knowledge-base/00-project/pre-audit-baseline-1.4.12.md`](knowledge-base/00-project/pre-audit-baseline-1.4.12.md).
+The 1.4.10 version-statistics audit remains historical evidence for that subsystem; it does not override the current 1.4.12 code, tests, CI, privacy or release contracts.
