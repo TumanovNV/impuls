@@ -2,7 +2,7 @@
 title: IMPULS Knowledge Base Index
 type: index
 status: active
-documentation_version: 1.1
+documentation_version: 1.2
 app_version: 1.4.11
 last_reviewed: 2026-08-19
 tags: [impuls, documentation, index]
@@ -11,6 +11,8 @@ tags: [impuls, documentation, index]
 # IMPULS Knowledge Base
 
 Current engineering knowledge base for humans, Obsidian and AI agents.
+
+Documentation baseline: **1.2**. Product baseline: **Impuls 1.4.11**.
 
 ## 00 — Project
 - [Project Overview](00-project/project-overview.md)
@@ -62,7 +64,7 @@ Current engineering knowledge base for humans, Obsidian and AI agents.
 - [Data Classification](06-security/data-classification.md)
 - [Privacy Boundaries](06-security/privacy-boundaries.md)
 
-## 07 — Web / Operations
+## 07 — Web / Operations software
 - [Website Architecture](07-web/website.md)
 - [Version Statistics Collector](07-web/version-statistics-collector.md)
 
@@ -82,6 +84,34 @@ Current engineering knowledge base for humans, Obsidian and AI agents.
 ## 11 — History
 - [Architecture Timeline](11-history/architecture-timeline.md)
 
+## 12 — Reference
+- [Reference Layer Index](12-reference/README.md)
+- [Schema & Migration Registry](12-reference/schema-migration-registry.md)
+- [Core Type Reference](12-reference/core-type-reference.md)
+- [Generated Type → Tests → Docs Map](12-reference/generated-type-test-doc-map.md)
+- [Public / Private Operations Boundary](12-reference/operations-boundary.md)
+
+## v1.2 machine-checked reference loop
+
+```mermaid
+flowchart LR
+    M[knowledge-map-manifest.json] --> G[generate-knowledge-map.py]
+    G --> MAP[Generated Type → Tests → Docs Map]
+    SRC[Source tree] --> G
+    TEST[Tests tree] --> G
+    DOC[Canonical docs] --> G
+    MAP --> CI[knowledge-base workflow]
+    CI -->|must match| M
+```
+
+The map covers important ownership boundaries rather than every Swift symbol. Architectural ownership remains curated; existence and freshness are machine-checked.
+
+## Operational source-of-truth boundary
+
+This public repository owns application/software facts. Current private production topology/runtime facts for Impuls telemetry are maintained in the private infrastructure documentation vault. See [Public / Private Operations Boundary](12-reference/operations-boundary.md).
+
 ## Source-of-truth rule
 
-Current contract: knowledge base + code + tests + CI. Historical release/handoff/audit documents preserve evidence and context, but do not override current implementation.
+Current software contract: knowledge base + code + tests + CI. Historical release/handoff/audit documents preserve evidence and context, but do not override current implementation.
+
+For private production runtime, use the private operational source of truth rather than inferring from public source defaults or old audits.
