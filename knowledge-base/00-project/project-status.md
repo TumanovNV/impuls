@@ -58,7 +58,7 @@ The knowledge base contains:
 - per-release QA evidence records that bind manual/mixed scenarios to real environments, outcomes and known gaps;
 - a machine-checked release QA policy that requires an evidence file whenever the version baseline changes and forbids historical `not-recorded` results from 1.4.12 onward;
 - Documentation Guardian v2 with 11 semantic contract families, including privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and module topology in addition to the original background/resource/persistence/network/permission/dependency rules;
-- Git-history freshness guard with **19 curated canonical mappings**, including Menu Bar, Privacy Boundaries, Signing & Distribution and State & Ownership;
+- Git-history freshness guard with **20 curated canonical mappings**, including Menu Bar, Privacy Boundaries, Signing & Distribution, State & Ownership and the Core Type Reference;
 - weekly periodic review-age enforcement for curated high-risk docs;
 - explicit collector SQLite schema versioning and ordered migration boundary using `PRAGMA user_version`.
 
@@ -95,7 +95,7 @@ Scripts/check-qa-impact.py --base <base-sha>
 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files; the current map contains 34 verified owners. The third is Documentation Guardian v2: it inspects added and removed source lines across 11 narrow semantic contract families and requires the appropriate canonical owner in the same diff. The protected families include background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and shipped module topology. The fourth uses full Git history to prove that 19 curated canonical mappings are not older than their tracked implementation.
+The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files; the current map contains 34 verified owners. The third is Documentation Guardian v2: it inspects added and removed source lines across 11 narrow semantic contract families and requires the appropriate canonical owner in the same diff. The protected families include background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and shipped module topology. The fourth uses full Git history to prove that 20 curated canonical mappings are not older than their tracked implementation.
 
 The fifth maps the actual Git diff through `Scripts/qa-impact-rules.json`, reports impacted Behavioral QA IDs, fails when a changed tracked behavioral source has no route, requires every matrix scenario to be covered by the map, requires automated QA IDs to have a mapped test route, and on version-bump diffs verifies that impacted non-automated IDs exist in that version's Release QA Evidence. The sixth validates the full release evidence contract and rejects a release candidate whose decision is `blocked`.
 
@@ -125,6 +125,6 @@ Production telemetry runtime/topology is intentionally not duplicated here. The 
 
 ## Next documentation work
 
-The broad documentation foundation, release evidence, source/test→QA traceability, Guardian v2, 34-owner Type→Tests→Docs map and 19 high-risk freshness mappings are now in place. There is no value in expanding these registries by file count alone.
+The broad documentation foundation, release evidence, source/test→QA traceability, Guardian v2, 34-owner Type→Tests→Docs map and 20 high-risk freshness mappings are now in place. There is no value in expanding these registries by file count alone.
 
 Future documentation work should primarily travel with product changes. Add a new curated type/freshness owner only when a new subsystem gains durable architectural responsibility or an actual drift incident exposes a missing route. Preserve concrete real-Mac release evidence for future versions and refine Guardian/QA matchers only when a real product change exposes a gap or false-positive pattern.
