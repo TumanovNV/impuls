@@ -27,12 +27,15 @@ on:
       - 'Scripts/documentation-freshness.json'
       - 'Scripts/check-release-qa-evidence.py'
       - 'Scripts/release-qa-policy.json'
+      - 'Scripts/check-qa-impact.py'
+      - 'Scripts/qa-impact-rules.json'
       - 'Tests/PythonTests/test_project_manifest.py'
       - 'Tests/PythonTests/test_dependency_policy.py'
       - 'Tests/PythonTests/test_architecture_ledger.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
       - 'Tests/PythonTests/test_documentation_freshness.py'
       - 'Tests/PythonTests/test_release_qa_evidence.py'
+      - 'Tests/PythonTests/test_qa_impact.py'
       - '.github/workflows/knowledge-base.yml'
   push:
     branches: [main]
@@ -61,12 +64,15 @@ on:
       - 'Scripts/documentation-freshness.json'
       - 'Scripts/check-release-qa-evidence.py'
       - 'Scripts/release-qa-policy.json'
+      - 'Scripts/check-qa-impact.py'
+      - 'Scripts/qa-impact-rules.json'
       - 'Tests/PythonTests/test_project_manifest.py'
       - 'Tests/PythonTests/test_dependency_policy.py'
       - 'Tests/PythonTests/test_architecture_ledger.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
       - 'Tests/PythonTests/test_documentation_freshness.py'
       - 'Tests/PythonTests/test_release_qa_evidence.py'
+      - 'Tests/PythonTests/test_qa_impact.py'
       - '.github/workflows/knowledge-base.yml'
   schedule:
     - cron: '17 5 * * 1'
@@ -98,6 +104,19 @@ jobs:
         run: python3 -m unittest discover -s Tests/PythonTests -p 'test_architecture_ledger.py'
       - name: Validate engineering knowledge base
         run: python3 Scripts/check-knowledge-base.py
+      - name: Test Behavioral QA impact traceability
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_qa_impact.py'
+      - name: Verify Behavioral QA impact traceability
+        env:
+          QA_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${QA_BASE:-}" ] && [ "$QA_BASE" != "0000000000000000000000000000000000000000" ]; then
+            python3 Scripts/check-qa-impact.py --base "$QA_BASE" --github-summary
+          else
+            python3 Scripts/check-qa-impact.py --github-summary
+          fi
       - name: Verify release QA shipping gate
         run: python3 Scripts/check-release-qa-evidence.py --release-gate
       - name: Test release QA evidence policy

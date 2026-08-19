@@ -5,16 +5,17 @@ status: active
 documentation_version: 1.3
 app_version: 1.4.11
 last_reviewed: 2026-08-19
-tags: [impuls, qa, testing, manual, hardware, ai]
+tags: [impuls, qa, testing, manual, hardware, ai, traceability]
 ---
 
 # 13 — Behavioral QA
 
-This layer defines **what behavior must be exercised** and records **what was actually exercised for a release**. It includes scenarios that unit tests cannot prove on a hosted CI runner: real TCC prompts, sleep/wake, multiple displays, Apple devices, Music/WebKit and release installation behavior.
+This layer defines **what behavior must be exercised**, determines **which QA contracts a code/test diff may affect**, and records **what was actually exercised for a release**. It includes scenarios that unit tests cannot prove on a hosted CI runner: real TCC prompts, sleep/wake, multiple displays, Apple devices, Music/WebKit and release installation behavior.
 
 ## Documents
 
 - [Behavioral QA Matrix](behavioral-qa-matrix.md) — canonical scenario inventory with verification mode and expected contract.
+- [Behavioral QA Change Impact Traceability](change-impact-traceability.md) — diff → source/test ownership → affected QA IDs → release-evidence obligation.
 - [Release QA Evidence](release-evidence/README.md) — per-version environments, manual/mixed results, known gaps and release decision.
 - [Release Evidence Template](release-evidence/TEMPLATE.md) — starting point for the next version.
 
@@ -29,6 +30,21 @@ This layer defines **what behavior must be exercised** and records **what was ac
 The matrix is an **inventory, not a green release report**. Presence in the table never means the latest release has passed the scenario.
 
 Release-specific manual evidence belongs under `release-evidence/<version>.md`. Starting with **1.4.12**, the evidence file must exist for the version in `Scripts/version`, must account for every manual/mixed row, and may no longer use the historical `not-recorded` result.
+
+## Automatic change-impact traceability
+
+The source/test ownership map lives in [`../../Scripts/qa-impact-rules.json`](../../Scripts/qa-impact-rules.json). The checker is [`../../Scripts/check-qa-impact.py`](../../Scripts/check-qa-impact.py).
+
+```bash
+python3 Scripts/check-qa-impact.py
+python3 Scripts/check-qa-impact.py --base <base-sha>
+```
+
+For a diff-aware run, the checker reports the exact impacted QA IDs and why they were selected. Production source and associated tests converge on the same Behavioral QA IDs.
+
+A changed tracked behavioral source file that matches neither a QA rule nor a narrow documented exemption fails CI. This is deliberate: new behavioral ownership must not appear without a QA route.
+
+When the same diff changes `Scripts/version`, the checker also verifies that every impacted non-automated ID is present in `release-evidence/<version>.md`. It never promotes unit tests to manual passes; the result in release evidence remains a truthful `pass`, `fail`, `blocked`, `not-run` or justified `not-applicable`.
 
 ## Evidence discipline
 
@@ -47,10 +63,15 @@ Do not record serial numbers, UDIDs, usernames, hostnames, MAC/Bluetooth address
 Validation:
 
 ```bash
+python3 -m unittest discover -s Tests/PythonTests -p 'test_qa_impact.py'
+python3 Scripts/check-qa-impact.py --base <base-sha>
 python3 Scripts/check-release-qa-evidence.py --all
 ```
 
-Policy: [`../../Scripts/release-qa-policy.json`](../../Scripts/release-qa-policy.json).
+Policies:
+
+- [`../../Scripts/qa-impact-rules.json`](../../Scripts/qa-impact-rules.json) — code/test → QA IDs;
+- [`../../Scripts/release-qa-policy.json`](../../Scripts/release-qa-policy.json) — release-specific evidence and shipping decision.
 
 ## Maintenance rule
 
@@ -65,4 +86,4 @@ Add or update a scenario when a change introduces a new:
 - update/install path;
 - accessibility/appearance behavior that cannot be proven by a narrow unit test.
 
-When a matrix row is added or its verification mode changes, also review the release evidence template and the current candidate evidence file. The validator will reject a candidate that fails to account for the complete manual/mixed set.
+When a matrix row is added or its verification mode changes, update the QA impact map so the new ID has an explicit source/test route, then review the release evidence template and current candidate evidence file. CI validates both traceability coverage and release-specific classification.
