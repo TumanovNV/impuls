@@ -1,42 +1,47 @@
 import AppKit
 import Combine
-import ServiceManagement
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var settings = SettingsStore()
     private let hotKey = GlobalHotKey()
     private var controller: NotchController?
-    private var statusItem: NSStatusItem?
-    private var clearVaultItem: NSMenuItem?
-    private var checkUpdatesItem: NSMenuItem?
-    private var networkAccessItem: NSMenuItem?
-    private var saveShotsItem: NSMenuItem?
-    private var launchAtLoginItem: NSMenuItem?
-    private var vaultUsageGeneration = 0
     private var cancellables = Set<AnyCancellable>()
     private let updateService = UpdateService()
     private let versionTelemetryService = VersionTelemetryService()
     private lazy var feedbackWindowController = FeedbackWindowController()
-    private lazy var settingsWindowController = SettingsWindowController(
+    private var settingsWindowController: SettingsWindowController?
+    private var onboardingController: OnboardingWindowController?
+    private lazy var menuBarWorkspaceController = MenuBarWorkspaceController(
         settings: settings,
         updateService: updateService,
-        versionTelemetryService: versionTelemetryService,
-        onExport: { [weak self] in self?.exportData() },
-        onImport: { [weak self] in self?.importData() },
-        onFeedback: { [weak self] in self?.feedbackWindowController.show() }
+        actions: .init(
+            openPanel: { [weak self] in self?.controller?.open() },
+            openTab: { [weak self] tab in self?.controller?.open(tab: tab) },
+            openSettings: { [weak self] in self?.settingsWindowController?.show() },
+            checkForUpdates: { [weak self] in self?.updateService.checkForUpdates() },
+            openFeedback: { [weak self] in self?.feedbackWindowController.show() },
+            revealScreenshots: { ScreenshotVault.reveal() },
+            clearScreenshots: { [weak self] in
+                ScreenshotVault.clear { self?.controller?.reloadShelf() }
+            },
+            quit: { NSApp.terminate(nil) }
+        )
     )
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         LegacyMigration.runIfNeeded()
         controller = NotchController(settings: settings, environment: .live)
         controller?.install()
+        installWindowControllers()
         settings.lowBatteryAlerts.onOpenPowerCenter = { [weak self] in
             NSApp.activate(ignoringOtherApps: true)
             self?.controller?.openPower()
         }
         installGlobalHotKey()
-        installStatusItem()
+        if let viewModel = controller?.viewModel {
+            menuBarWorkspaceController.install(viewModel: viewModel)
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
             self?.updateService.requestConsentIfNeeded()
@@ -48,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self else { return }
             Task { _ = await self.versionTelemetryService.sendHeartbeatIfNeeded() }
         }
+        onboardingController?.presentIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -55,197 +61,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller?.teardown()
     }
 
-    private func installStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = statusIcon()
-        item.button?.toolTip = "Impuls"
-
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        menu.delegate = self
-        menu.addItem(withTitle: "Impuls \(Bundle.main.shortVersion)", action: nil, keyEquivalent: "")
-        menu.addItem(.separator())
-
-        let toggle = NSMenuItem(title: localized("Open Panel"), action: #selector(togglePanel), keyEquivalent: "")
-        toggle.target = self
-        toggle.isEnabled = true
-        menu.addItem(toggle)
-
-        let preferences = NSMenuItem(title: localized("Settings…"), action: #selector(openSettings), keyEquivalent: ",")
-        preferences.target = self
-        preferences.isEnabled = true
-        menu.addItem(preferences)
-
-        let feedback = NSMenuItem(title: localized("Send Feedback…"), action: #selector(openFeedback), keyEquivalent: "")
-        feedback.target = self
-        feedback.isEnabled = true
-        menu.addItem(feedback)
-
-        menu.addItem(.separator())
-
-        let login = NSMenuItem(title: localized("Launch at Login"), action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
-        login.target = self
-        login.state = launchAtLoginEnabled ? .on : .off
-        login.isEnabled = true
-        menu.addItem(login)
-        launchAtLoginItem = login
-
-        let saveShots = NSMenuItem(title: localized("Save Clipboard Screenshots"), action: #selector(toggleSaveClipboardImages), keyEquivalent: "")
-        saveShots.target = self
-        saveShots.state = settings.saveClipboardImages ? .on : .off
-        saveShots.isEnabled = true
-        menu.addItem(saveShots)
-        saveShotsItem = saveShots
-
-        let openFolder = NSMenuItem(title: localized("Show Screenshots Folder"), action: #selector(revealScreenshots), keyEquivalent: "")
-        openFolder.target = self
-        openFolder.isEnabled = true
-        menu.addItem(openFolder)
-
-        let clearVault = NSMenuItem(title: localized("Clear Screenshots Folder"), action: #selector(clearScreenshots), keyEquivalent: "")
-        clearVault.target = self
-        menu.addItem(clearVault)
-        clearVaultItem = clearVault
-
-        let openSnippets = NSMenuItem(title: localized("Show Snippets File"), action: #selector(revealSnippets), keyEquivalent: "")
-        openSnippets.target = self
-        openSnippets.isEnabled = true
-        menu.addItem(openSnippets)
-
-        menu.addItem(.separator())
-
-        let checkUpdates = NSMenuItem(title: localized("Check for Updates…"), action: #selector(checkForUpdates), keyEquivalent: "")
-        checkUpdates.target = self
-        checkUpdates.isEnabled = true
-        menu.addItem(checkUpdates)
-        checkUpdatesItem = checkUpdates
-
-        let networkAccess = NSMenuItem(title: localized("Allow Update Checks"), action: #selector(toggleNetworkAccess), keyEquivalent: "")
-        networkAccess.target = self
-        networkAccess.isEnabled = true
-        menu.addItem(networkAccess)
-        networkAccessItem = networkAccess
-
-        menu.addItem(.separator())
-        let quit = NSMenuItem(title: localized("Quit"), action: #selector(quit), keyEquivalent: "q")
-        quit.target = self
-        quit.isEnabled = true
-        menu.addItem(quit)
-
-        item.menu = menu
-        statusItem = item
-    }
-
-    private func statusIcon() -> NSImage? {
-        if let url = Bundle.main.url(forResource: "ImpulsStatusTemplate", withExtension: "png"),
-           let image = NSImage(contentsOf: url) {
-            image.size = NSSize(width: 18, height: 18)
-            image.isTemplate = true
-            return image
-        }
-
-        let fallback = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
-            guard let context = NSGraphicsContext.current?.cgContext else { return false }
-            // Match the generated template when the bundled PNG is unavailable.
-            // The one-piece rising pulse stays legible at menu-bar scale.
-            let pulse = CGMutablePath()
-            pulse.move(to: CGPoint(x: 2.15, y: 2.25))
-            pulse.addLine(to: CGPoint(x: 5.45, y: 2.25))
-            pulse.addCurve(
-                to: CGPoint(x: 15.75, y: 15.75),
-                control1: CGPoint(x: 9.15, y: 2.25),
-                control2: CGPoint(x: 13.65, y: 8.35)
-            )
-            pulse.addLine(to: CGPoint(x: 15.75, y: 12.35))
-            pulse.addCurve(
-                to: CGPoint(x: 8.95, y: 5.45),
-                control1: CGPoint(x: 13.85, y: 10.05),
-                control2: CGPoint(x: 11.05, y: 6.45)
-            )
-            pulse.addCurve(
-                to: CGPoint(x: 5.45, y: 4.45),
-                control1: CGPoint(x: 7.55, y: 4.75),
-                control2: CGPoint(x: 6.35, y: 4.45)
-            )
-            pulse.addLine(to: CGPoint(x: 2.15, y: 4.45))
-            pulse.closeSubpath()
-            context.addPath(pulse)
-            context.setFillColor(CGColor(gray: 0, alpha: 1))
-            context.fillPath()
-            return true
-        }
-        fallback.isTemplate = true
-        return fallback
-    }
-
-    func menuWillOpen(_ menu: NSMenu) {
-        launchAtLoginItem?.state = launchAtLoginEnabled ? .on : .off
-        saveShotsItem?.state = settings.saveClipboardImages ? .on : .off
-        if let networkAccessItem {
-            networkAccessItem.state = updateService.consent == .allowed ? .on : .off
-        }
-        checkUpdatesItem?.isEnabled = updateService.canCheckForUpdates
-
-        guard let clearVaultItem else { return }
-        vaultUsageGeneration += 1
-        let generation = vaultUsageGeneration
-        clearVaultItem.title = localized("Clear Screenshots Folder")
-        clearVaultItem.isEnabled = false
-        ScreenshotVault.usage { [weak self, weak clearVaultItem] usage in
-            guard let self, self.vaultUsageGeneration == generation, let clearVaultItem else { return }
-            if usage.files == 0 {
-                clearVaultItem.title = localized("Clear Screenshots Folder")
-                clearVaultItem.isEnabled = false
-            } else {
-                let size = ByteCountFormatter.string(fromByteCount: usage.bytes, countStyle: .file)
-                clearVaultItem.title = localized("Clear Screenshots Folder (%@)", size)
-                clearVaultItem.isEnabled = true
-            }
-        }
-    }
-
-    @objc private func togglePanel() { controller?.toggle() }
-    @objc private func openSettings() { settingsWindowController.show() }
-    @objc private func openFeedback() { feedbackWindowController.show() }
-
-    @objc private func clearScreenshots() {
-        vaultUsageGeneration += 1
-        clearVaultItem?.isEnabled = false
-        ScreenshotVault.clear { [weak self] in
-            self?.controller?.reloadShelf()
-        }
-    }
-
-    @objc private func quit() { NSApp.terminate(nil) }
-
-    @objc private func toggleSaveClipboardImages(_ sender: NSMenuItem) {
-        settings.saveClipboardImages.toggle()
-        sender.state = settings.saveClipboardImages ? .on : .off
-    }
-
-    @objc private func revealScreenshots() { ScreenshotVault.reveal() }
-    @objc private func revealSnippets() { SnippetStore.reveal() }
-    @objc private func checkForUpdates() { updateService.checkForUpdates() }
-
-    @objc private func toggleNetworkAccess(_ sender: NSMenuItem) {
-        let allowed = updateService.consent != .allowed
-        updateService.setNetworkAccess(allowed)
-        sender.state = allowed ? .on : .off
-    }
-
-    private var launchAtLoginEnabled: Bool { SMAppService.mainApp.status == .enabled }
-
-    @objc private func toggleLaunchAtLogin(_ sender: NSMenuItem) {
-        do {
-            if launchAtLoginEnabled {
-                try SMAppService.mainApp.unregister()
-            } else {
-                try SMAppService.mainApp.register()
-            }
-        } catch {
-            NSLog("Impuls: launch-at-login failed: \(error.localizedDescription)")
-        }
-        sender.state = launchAtLoginEnabled ? .on : .off
+    private func installWindowControllers() {
+        onboardingController = OnboardingWindowController(
+            settings: settings,
+            defaults: settings.defaults,
+            versionTelemetryService: versionTelemetryService,
+            onOpenSettings: { [weak self] in self?.settingsWindowController?.show() }
+        )
+        settingsWindowController = SettingsWindowController(
+            settings: settings,
+            updateService: updateService,
+            versionTelemetryService: versionTelemetryService,
+            onExport: { [weak self] in self?.exportData() },
+            onImport: { [weak self] in self?.importData() },
+            onFeedback: { [weak self] in self?.feedbackWindowController.show() },
+            onShowOnboarding: { [weak self] in self?.onboardingController?.showFullTour() }
+        )
     }
 
     private func installGlobalHotKey() {
@@ -267,11 +98,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func exportData() {
         guard let document = controller?.makeBackup(settings: settings.snapshot) else { return }
-        BackupService.export(document, from: settingsWindowController.presentedWindow)
+        BackupService.export(document, from: settingsWindowController?.presentedWindow)
     }
 
     private func importData() {
-        BackupService.importData(from: settingsWindowController.presentedWindow) { [weak self] document in
+        BackupService.importData(from: settingsWindowController?.presentedWindow) { [weak self] document in
             self?.controller?.restore(document)
         }
     }

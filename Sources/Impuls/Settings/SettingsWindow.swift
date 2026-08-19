@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
+    case menuBar
     case updates
     case modules
     case appleDevices
@@ -19,6 +20,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: return localized("General")
+        case .menuBar: return localized("Menu Bar")
         case .updates: return localized("Updates")
         case .modules: return localized("Modules")
         case .appleDevices: return localized("Apple Devices")
@@ -32,6 +34,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .general: return "gearshape"
+        case .menuBar: return "menubar.rectangle"
         case .updates: return "arrow.triangle.2.circlepath"
         case .modules: return "square.grid.2x2"
         case .appleDevices: return "battery.100percent"
@@ -72,6 +75,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let onExport: () -> Void
     private let onImport: () -> Void
     private let onFeedback: () -> Void
+    private let onShowOnboarding: () -> Void
     private var window: NSWindow?
 
     init(
@@ -80,7 +84,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         versionTelemetryService: VersionTelemetryService,
         onExport: @escaping () -> Void,
         onImport: @escaping () -> Void,
-        onFeedback: @escaping () -> Void
+        onFeedback: @escaping () -> Void,
+        onShowOnboarding: @escaping () -> Void
     ) {
         self.settings = settings
         self.updateService = updateService
@@ -88,6 +93,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.onExport = onExport
         self.onImport = onImport
         self.onFeedback = onFeedback
+        self.onShowOnboarding = onShowOnboarding
     }
 
     var presentedWindow: NSWindow? { window }
@@ -106,7 +112,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             versionTelemetryService: versionTelemetryService,
             onExport: onExport,
             onImport: onImport,
-            onFeedback: onFeedback
+            onFeedback: onFeedback,
+            onShowOnboarding: onShowOnboarding
         )
         let hosting = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: hosting)
@@ -137,6 +144,7 @@ private struct SettingsView: View {
     let onExport: () -> Void
     let onImport: () -> Void
     let onFeedback: () -> Void
+    let onShowOnboarding: () -> Void
 
     var body: some View {
         NavigationSplitView {
@@ -164,6 +172,8 @@ private struct SettingsView: View {
             switch section {
             case .general:
                 GeneralSettingsPane(settings: settings)
+            case .menuBar:
+                MenuBarSettingsPane(settings: settings, onShowOnboarding: onShowOnboarding)
             case .updates:
                 UpdateSettingsPane(updateService: updateService)
             case .modules:
@@ -352,6 +362,358 @@ private struct GeneralSettingsPane: View {
             launchError = error.localizedDescription
         }
         launchAtLogin = SMAppService.mainApp.status == .enabled
+    }
+}
+
+private struct MenuBarSettingsPane: View {
+    @ObservedObject var settings: SettingsStore
+    let onShowOnboarding: () -> Void
+
+    var body: some View {
+        Form {
+            Section(localized("Workspace")) {
+                Picker(localized("Menu Bar Preset"), selection: Binding(
+                    get: { settings.menuBarWorkspace.preset },
+                    set: { settings.applyMenuBarWorkspacePreset($0) }
+                )) {
+                    ForEach(MenuBarWorkspacePreset.allCases) { preset in
+                        Text(preset.title).tag(preset)
+                    }
+                }
+                Text(localized("Presets are a starting point. Choose Custom to keep an individual combination."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Picker(localized("Status Item"), selection: Binding(
+                    get: { settings.menuBarWorkspace.statusMode },
+                    set: { mode in
+                        settings.updateMenuBarWorkspace {
+                            $0.statusMode = mode
+                            $0.preset = .custom
+                        }
+                    }
+                )) {
+                    ForEach(MenuBarStatusMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                Text(localized("Automatic follows your Smart priorities using only current local battery and player state."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section(localized("Widgets")) {
+                Picker(localized("Primary Widget"), selection: Binding(
+                    get: { settings.menuBarWorkspace.primaryWidget },
+                    set: { widget in
+                        settings.updateMenuBarWorkspace {
+                            $0.primaryWidget = widget
+                            if $0.secondaryWidget == widget { $0.secondaryWidget = nil }
+                            $0.preset = .custom
+                        }
+                    }
+                )) {
+                    ForEach(MenuBarWorkspaceWidget.allCases) { widget in
+                        Text(widget.title).tag(widget)
+                    }
+                }
+
+                Picker(localized("Secondary Widget"), selection: Binding<MenuBarWorkspaceWidget?>(
+                    get: { settings.menuBarWorkspace.secondaryWidget },
+                    set: { widget in
+                        settings.updateMenuBarWorkspace {
+                            $0.secondaryWidget = widget == $0.primaryWidget ? nil : widget
+                            $0.preset = .custom
+                        }
+                    }
+                )) {
+                    Text(localized("None")).tag(MenuBarWorkspaceWidget?.none)
+                    ForEach(MenuBarWorkspaceWidget.allCases.filter {
+                        $0 != .none && $0 != settings.menuBarWorkspace.primaryWidget
+                    }) { widget in
+                        Text(widget.title).tag(Optional(widget))
+                    }
+                }
+                Text(localized("A secondary widget cannot duplicate the primary widget."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section(localized("Battery Source")) {
+                Picker(localized("Selected Device"), selection: Binding<String?>(
+                    get: { settings.menuBarSelectedDevicePreferenceKey },
+                    set: { key in
+                        let device = settings.knownExternalAppleDevices.first {
+                            $0.identity.localPreferenceKey == key
+                        }
+                        settings.setMenuBarSelectedDevice(device)
+                    }
+                )) {
+                    Text(localized("Use Mac Fallback")).tag(String?.none)
+                    ForEach(
+                        settings.visibleExternalAppleDevices(from: settings.knownExternalAppleDevices),
+                        id: \.identity.localPreferenceKey
+                    ) { device in
+                        Text(device.displayName).tag(Optional(device.identity.localPreferenceKey))
+                    }
+                }
+                Text(localized("If a chosen device is unavailable, Impuls falls back to this Mac and then to the Impuls logo. Device identifiers are never shown or backed up."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Stepper(
+                    localized("Low Battery Threshold: %d%%", settings.menuBarWorkspace.lowBatteryThreshold),
+                    value: Binding(
+                        get: { settings.menuBarWorkspace.lowBatteryThreshold },
+                        set: { threshold in
+                            settings.updateMenuBarWorkspace {
+                                $0.lowBatteryThreshold = threshold
+                                $0.preset = .custom
+                            }
+                        }
+                    ),
+                    in: 5...50,
+                    step: 5
+                )
+            }
+
+            Section(localized("Smart Priorities")) {
+                Text(localized("When Status Item or a widget is Automatic, the first available priority wins."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(Array(settings.menuBarWorkspace.smartPriorities.enumerated()), id: \.element) { index, priority in
+                    priorityRow(priority, index: index)
+                }
+            }
+
+            Section(localized("Quick Actions")) {
+                Text(localized("Choose zero to four actions. The fixed footer always contains Open Panel, Settings, Check for Updates, Feedback and Quit."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(settings.menuBarWorkspace.quickActions) { action in
+                    quickActionRow(action)
+                }
+                Menu(localized("Add Quick Action")) {
+                    ForEach(availableQuickActions) { action in
+                        Button(action.title) {
+                            settings.updateMenuBarWorkspace {
+                                guard $0.quickActions.count < MenuBarWorkspaceConfiguration.maximumQuickActions else { return }
+                                $0.quickActions.append(action)
+                                $0.preset = .custom
+                            }
+                        }
+                    }
+                }
+                .disabled(availableQuickActions.isEmpty)
+            }
+
+            Section(localized("Preview")) {
+                MenuBarWorkspacePreview(configuration: settings.menuBarWorkspace)
+                Text(localized("Preview data is illustrative and stays inside Settings. It does not read a device, start playback, send telemetry, or make a network request."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section(localized("Getting Started")) {
+                Button(localized("Show Impuls Tour"), action: onShowOnboarding)
+            }
+        }
+        .formStyle(.grouped)
+    }
+
+    private var availableQuickActions: [MenuBarQuickAction] {
+        guard settings.menuBarWorkspace.quickActions.count < MenuBarWorkspaceConfiguration.maximumQuickActions else {
+            return []
+        }
+        return AppFeatureCatalog.quickActions.filter { !settings.menuBarWorkspace.quickActions.contains($0) }
+    }
+
+    private func priorityRow(_ priority: MenuBarSmartPriority, index: Int) -> some View {
+        HStack {
+            Text(priority.title)
+            Spacer()
+            Button {
+                settings.updateMenuBarWorkspace {
+                    guard index > 0 else { return }
+                    $0.smartPriorities.swapAt(index, index - 1)
+                    $0.preset = .custom
+                }
+            } label: {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(.borderless)
+            .disabled(index == 0)
+            .accessibilityLabel(localized("Move Up"))
+            Button {
+                settings.updateMenuBarWorkspace {
+                    guard index < $0.smartPriorities.count - 1 else { return }
+                    $0.smartPriorities.swapAt(index, index + 1)
+                    $0.preset = .custom
+                }
+            } label: {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(.borderless)
+            .disabled(index == settings.menuBarWorkspace.smartPriorities.count - 1)
+            .accessibilityLabel(localized("Move Down"))
+        }
+    }
+
+    private func quickActionRow(_ action: MenuBarQuickAction) -> some View {
+        let index = settings.menuBarWorkspace.quickActions.firstIndex(of: action) ?? 0
+        return HStack {
+            Label(action.title, systemImage: action.symbol)
+            Spacer()
+            Button {
+                settings.updateMenuBarWorkspace {
+                    $0.quickActions.removeAll { $0 == action }
+                    $0.preset = .custom
+                }
+            } label: {
+                Image(systemName: "minus.circle")
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(localized("Remove"))
+            Button {
+                settings.updateMenuBarWorkspace {
+                    guard index > 0 else { return }
+                    $0.quickActions.swapAt(index, index - 1)
+                    $0.preset = .custom
+                }
+            } label: {
+                Image(systemName: "chevron.up")
+            }
+            .buttonStyle(.borderless)
+            .disabled(index == 0)
+            .accessibilityLabel(localized("Move Up"))
+            Button {
+                settings.updateMenuBarWorkspace {
+                    guard index < $0.quickActions.count - 1 else { return }
+                    $0.quickActions.swapAt(index, index + 1)
+                    $0.preset = .custom
+                }
+            } label: {
+                Image(systemName: "chevron.down")
+            }
+            .buttonStyle(.borderless)
+            .disabled(index == settings.menuBarWorkspace.quickActions.count - 1)
+            .accessibilityLabel(localized("Move Down"))
+        }
+    }
+}
+
+struct MenuBarWorkspacePreview: View {
+    let configuration: MenuBarWorkspaceConfiguration
+
+    private let state = MenuBarWorkspaceState(
+        macBattery: MenuBarBattery(identifier: "preview-mac", title: "MacBook Pro", percentage: 72, state: .charging),
+        visibleDevices: [
+            MenuBarBattery(identifier: "preview-airpods", title: "AirPods Pro", percentage: 58, state: .unknown),
+            MenuBarBattery(identifier: "preview-mouse", title: "Magic Mouse", percentage: 14, state: .discharging)
+        ],
+        player: MenuBarPlayer(
+            title: localized("Example Track"),
+            subtitle: localized("Example Artist"),
+            isPlaying: true
+        ),
+        selectedDeviceIdentifier: "preview-airpods"
+    )
+
+    var body: some View {
+        let status = MenuBarWorkspaceResolver.resolve(
+            mode: configuration.statusMode,
+            configuration: configuration,
+            state: state
+        )
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: symbol(for: status))
+                Text(title(for: status))
+                    .font(.headline)
+                Spacer()
+                Text(localized("Menu Bar"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+            if configuration.primaryWidget != .none {
+                previewWidget(configuration.primaryWidget)
+            }
+            if let secondary = configuration.secondaryWidget,
+               secondary != .none,
+               secondary != configuration.primaryWidget,
+               shouldShowSecondary(secondary) {
+                previewWidget(secondary)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(localized("Menu Bar preview"))
+    }
+
+    private func previewWidget(_ widget: MenuBarWorkspaceWidget) -> some View {
+        if widget == .quickActions {
+            return AnyView(
+                HStack {
+                    Image(systemName: "command")
+                        .foregroundStyle(.secondary)
+                    Text(configuration.quickActions.isEmpty
+                        ? localized("Quick Actions: None")
+                        : localized("Quick Actions: %@", configuration.quickActions.map(\.title).joined(separator: ", ")))
+                    Spacer()
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(nsColor: .underPageBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+            )
+        }
+        let content = MenuBarWorkspaceResolver.resolve(widget: widget, configuration: configuration, state: state)
+        return AnyView(HStack {
+            Image(systemName: symbol(for: content))
+                .foregroundStyle(.secondary)
+            Text(title(for: content))
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(nsColor: .underPageBackgroundColor), in: RoundedRectangle(cornerRadius: 8)))
+    }
+
+    private func shouldShowSecondary(_ secondary: MenuBarWorkspaceWidget) -> Bool {
+        if configuration.primaryWidget == .quickActions || secondary == .quickActions { return true }
+        let primary = MenuBarWorkspaceResolver.resolve(
+            widget: configuration.primaryWidget,
+            configuration: configuration,
+            state: state
+        )
+        let secondaryContent = MenuBarWorkspaceResolver.resolve(
+            widget: secondary,
+            configuration: configuration,
+            state: state
+        )
+        return primary != secondaryContent
+    }
+
+    private func title(for content: MenuBarWorkspaceContent) -> String {
+        switch content {
+        case .logo: return localized("Impuls")
+        case .battery(let battery):
+            let percentage = battery.percentage.map { "\($0)%" } ?? "—"
+            return "\(battery.title) — \(percentage)"
+        case .player(let player):
+            return player.subtitle.isEmpty ? player.title : "\(player.title) — \(player.subtitle)"
+        }
+    }
+
+    private func symbol(for content: MenuBarWorkspaceContent) -> String {
+        switch content {
+        case .logo: return "waveform.path.ecg"
+        case .battery: return "battery.75"
+        case .player(let player): return player.isPlaying ? "pause.fill" : "music.note"
+        }
     }
 }
 

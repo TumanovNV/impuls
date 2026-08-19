@@ -117,6 +117,14 @@ When opened from the keyboard, use the left and right arrows to move between
 modules and Escape to close the panel. Settings, snippets, and notes can be
 exported to and restored from a local JSON backup.
 
+Impuls 1.4.11 adds a versioned first-run tour and a configurable **Menu Bar**
+workspace. A fresh installation can choose a preset, a compact status item, one
+or two live widgets, Smart priorities, and zero to four quick actions. Existing
+installations receive only a concise What’s New note; the full tour remains
+available from Settings → Menu Bar. The Menu Bar reads existing local battery and
+player state only. It never starts a provider, makes a network request, or
+invents missing device data.
+
 ## Battery and power
 
 On a MacBook, the Battery module uses public IOPowerSources data for charge,

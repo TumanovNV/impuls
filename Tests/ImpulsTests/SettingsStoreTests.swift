@@ -151,7 +151,12 @@ final class SettingsStoreTests: XCTestCase {
             XCTAssertTrue(text.contains("showsExternalAppleDevices"))
             XCTAssertFalse(text.lowercased().contains("udid"))
             XCTAssertFalse(text.lowercased().contains("serial"))
-            XCTAssertFalse(text.lowercased().contains("battery"))
+            // 1.4.11 deliberately backs up generic Menu Bar policy such as a
+            // low-battery threshold. That is not a device reading. Runtime
+            // percentages and the local selected-device key must still stay
+            // out of the portable snapshot.
+            XCTAssertFalse(text.contains("batteryPercentage"))
+            XCTAssertFalse(text.contains("selectedDeviceKey"))
         }
     }
 
