@@ -243,8 +243,7 @@
       "source": "Sources/Impuls/Services/SnippetStore.swift",
       "doc": "knowledge-base/02-modules/snippets.md",
       "tests": [
-        "Tests/ImpulsTests/StorageIsolationTests.swift",
-        "Tests/ImpulsTests/SnippetSearchTests.swift"
+        "Tests/ImpulsTests/StorageIsolationTests.swift"
       ]
     },
     {
