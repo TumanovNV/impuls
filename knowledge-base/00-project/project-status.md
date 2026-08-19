@@ -83,10 +83,10 @@ Scripts/check-knowledge-base.py
 Scripts/generate-knowledge-map.py --check
 Scripts/check-documentation-guardian.py --base <base-sha>
 Scripts/check-documentation-freshness.py
-Scripts/check-release-qa-evidence.py --all
+Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files. The third inspects changed source lines for background/concurrency, resource-budget, persistence, networking and permission contracts and requires a matching canonical documentation review in the same diff. The fourth uses full Git history to prove that curated canonical docs are not older than their tracked implementation. The fifth cross-checks the Behavioral QA Matrix against per-release evidence, validates environment/result semantics and requires an evidence record for the version in `Scripts/version`.
+The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files. The third inspects changed source lines for background/concurrency, resource-budget, persistence, networking and permission contracts and requires a matching canonical documentation review in the same diff. The fourth uses full Git history to prove that curated canonical docs are not older than their tracked implementation. The fifth cross-checks the Behavioral QA Matrix against per-release evidence, validates environment/result semantics, requires an evidence record for the version in `Scripts/version` and rejects a release candidate whose decision is `blocked`.
 
 The weekly scheduled knowledge-base workflow additionally enables freshness review-age policy. It does not make ordinary PRs fail merely because calendar time passed.
 
@@ -100,7 +100,7 @@ Collector SQLite schema is explicitly versioned as schema `1` with `PRAGMA user_
 
 Release `1.4.11` has a truthful retrospective evidence record because the structured hardware/TCC evidence system did not exist at release time. Missing historical rows are recorded as `not-recorded`; they are not silently converted to pass.
 
-Starting with `1.4.12`, every version baseline must include `knowledge-base/13-qa/release-evidence/<version>.md`. Every `mixed`, `manual-macos`, `manual-hardware` and `manual-service` matrix scenario must be classified explicitly. A release may be `certified`, `ship-with-known-gaps` or `blocked`, but certification requires all manual/mixed rows to be `pass` or justified `not-applicable` and at least one real Mac environment.
+Starting with `1.4.12`, every version baseline must include `knowledge-base/13-qa/release-evidence/<version>.md`. Every `mixed`, `manual-macos`, `manual-hardware` and `manual-service` matrix scenario must be classified explicitly. A release may be `certified`, `ship-with-known-gaps` or `blocked`, but certification requires all manual/mixed rows to be `pass` or justified `not-applicable` and at least one real Mac environment. The CI shipping gate rejects `blocked` candidates.
 
 See [Release QA Evidence](../13-qa/release-evidence/README.md).
 
