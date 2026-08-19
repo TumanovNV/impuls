@@ -194,12 +194,18 @@ final class LowBatteryAlertEngineTests: XCTestCase {
 final class LowBatteryAlertPermissionTests: XCTestCase {
     func testAuthorizedServiceUsesTheInjectedDelivery() async {
         let delivery = AuthorizedAlertDelivery()
+        // Reaching the delivery crosses two unstructured tasks: the permission
+        // refresh that sets `authorization`, and the send itself. A fixed number
+        // of `Task.yield()` calls is a guess at how many suspension points that
+        // takes, and under load it was not enough — this case failed about one
+        // run in five. Waiting for the event is what makes it deterministic.
+        let arrived = expectation(description: "low battery alert delivered")
+        delivery.onDelivery = arrived
         let service = LowBatteryAlertService(
             engine: LowBatteryAlertEngine(store: MemoryAlertStateStore(), now: Fixtures.noon),
             delivery: delivery
         )
         service.setEnabled(true, requestAuthorization: false)
-        for _ in 0..<20 { await Task.yield() }
 
         service.evaluate(
             [Fixtures.device(
@@ -210,7 +216,7 @@ final class LowBatteryAlertPermissionTests: XCTestCase {
             now: Fixtures.noon,
             staleAfter: DeviceSnapshotMerger.defaultStaleInterval
         )
-        for _ in 0..<20 { await Task.yield() }
+        await fulfillment(of: [arrived], timeout: 2)
 
         XCTAssertEqual(delivery.delivered.count, 1)
         XCTAssertEqual(delivery.delivered.first?.devicePreferenceKey.count, 32)
@@ -367,9 +373,16 @@ private final class DeniedAlertDelivery: LowBatteryNotificationDelivering, @unch
 private final class AuthorizedAlertDelivery: LowBatteryNotificationDelivering, @unchecked Sendable {
     var onNotificationOpened: (@MainActor @Sendable (String?) -> Void)?
     private(set) var delivered: [LowBatteryNotification] = []
+    /// Fulfilled once per delivery, so a test asserting that an alert *did*
+    /// arrive can wait for the event instead of guessing how many yields the
+    /// permission hop and the delivery hop need between them.
+    var onDelivery: XCTestExpectation?
     func authorizationStatus() async -> LowBatteryNotificationAuthorization { .authorized }
     func requestAuthorization() async -> LowBatteryNotificationAuthorization { .authorized }
-    func deliver(_ notification: LowBatteryNotification) async throws { delivered.append(notification) }
+    func deliver(_ notification: LowBatteryNotification) async throws {
+        delivered.append(notification)
+        onDelivery?.fulfill()
+    }
 }
 
 private struct FixedAlertClock: DeviceClock {
