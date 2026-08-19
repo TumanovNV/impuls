@@ -39,9 +39,15 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
     private let registrySource: DeviceBatterySource
     private let profilerSource: SystemProfilerAccessorySource?
     private var onUpdate: ((DeviceProviderUpdate) -> Void)?
-    private var notificationPort: IONotificationPortRef?
-    private var matchedIterator: io_iterator_t = 0
-    private var terminatedIterator: io_iterator_t = 0
+    // Plain C handles, and the only state `deinit` has to reach. They are
+    // created and released on the main actor by `installNotifications` and
+    // `stop`; `deinit` is the one other writer, and it runs when nothing else
+    // can still hold a reference. Declared `nonisolated(unsafe)` so the release
+    // path does not have to assert an actor it may not be running on — see the
+    // note on `deinit`.
+    private nonisolated(unsafe) var notificationPort: IONotificationPortRef?
+    private nonisolated(unsafe) var matchedIterator: io_iterator_t = 0
+    private nonisolated(unsafe) var terminatedIterator: io_iterator_t = 0
     private var readTask: Task<Void, Never>?
     private var wakeObserver: NSObjectProtocol?
     private var lastDevices: [AppleDeviceSnapshot] = []
@@ -58,7 +64,12 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
         // The task holds `self` weakly and the observers are removed in `stop`,
         // which the coordinator always calls. This is the belt for the braces:
         // an iterator left registered would keep delivering into a dead object.
-        MainActor.assumeIsolated { teardownNotifications() }
+        //
+        // `deinit` is nonisolated, so it cannot assume the main actor: the last
+        // reference being released from anywhere else would have turned this
+        // safety net into the crash it exists to prevent. The teardown touches
+        // only C handles and is nonisolated for that reason.
+        teardownNotifications()
     }
 
     func start(onUpdate: @escaping (DeviceProviderUpdate) -> Void) {
@@ -212,7 +223,7 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
         }
     }
 
-    private func teardownNotifications() {
+    private nonisolated func teardownNotifications() {
         if matchedIterator != 0 {
             IOObjectRelease(matchedIterator)
             matchedIterator = 0

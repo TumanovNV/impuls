@@ -147,18 +147,7 @@ enum IORegistryAccessoryMapper {
     /// string, a boolean, a dictionary, a value from a key that was reused for
     /// something else — reads as absent rather than as a battery level.
     static func integer(_ value: Any?) -> Int? {
-        guard let value else { return nil }
-        guard let number = value as? NSNumber else { return nil }
-        // `true` bridges to NSNumber 1, and a flag misread as 1% would be a
-        // wrong number rather than a missing one.
-        guard CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
-        let doubleValue = number.doubleValue
-        // Range-checked before the conversion, not after: converting a `Double`
-        // outside `Int`'s range is a trap, not an overflow, and a driver
-        // publishing `Int.max` in a field we did not expect would take the
-        // application down rather than be ignored.
-        guard doubleValue.isFinite, abs(doubleValue) <= Double(Int32.max) else { return nil }
-        return Int(doubleValue.rounded())
+        RegistryNumber.integer(value)
     }
 
     static func string(_ value: Any?) -> String? {

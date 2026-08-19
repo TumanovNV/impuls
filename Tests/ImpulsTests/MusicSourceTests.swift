@@ -245,4 +245,39 @@ final class MusicSourceTests: XCTestCase {
         XCTAssertEqual(controller.selectedSource, .appleMusic)
         XCTAssertEqual(controller.emptyReason, .appleMusicNotRunning)
     }
+
+    // MARK: - Durations the app did not produce
+
+    /// `duration` arrives from the provider's page through the web bridge, so
+    /// its magnitude is not the app's to trust. `Int(_:)` is a trap rather than
+    /// an overflow outside `Int`'s range, and the media pane formats the value
+    /// on every draw — including from `accessibilityValue`, so VoiceOver reached
+    /// the same conversion.
+    func testFormatTimeIsTotalForADurationReportedByAWebPage() {
+        XCTAssertEqual(formatTime(.nan), "--:--")
+        XCTAssertEqual(formatTime(.infinity), "--:--")
+        XCTAssertEqual(formatTime(-.infinity), "--:--")
+        XCTAssertEqual(formatTime(-1), "--:--")
+        XCTAssertEqual(formatTime(1e30), "--:--")
+        XCTAssertEqual(formatTime(.greatestFiniteMagnitude), "--:--")
+
+        // Real durations keep formatting exactly as before.
+        XCTAssertEqual(formatTime(0), "0:00")
+        XCTAssertEqual(formatTime(9), "0:09")
+        XCTAssertEqual(formatTime(61), "1:01")
+        XCTAssertEqual(formatTime(241), "4:01")
+        XCTAssertEqual(formatTime(3_600), "60:00")
+    }
+
+    /// The same value reaches AppleScript as a spliced-in integer. The guard has
+    /// to hold before the conversion, not after.
+    func testSeekingToAnUnrepresentablePositionIsDroppedRatherThanConverted() {
+        // Apple Music is not running under test, so `command` is a no-op; what
+        // is being proven is that the conversion in front of it cannot trap.
+        PlayerBridge.seek(.music, to: .infinity)
+        PlayerBridge.seek(.music, to: .nan)
+        PlayerBridge.seek(.music, to: 1e30)
+        PlayerBridge.seek(.music, to: -1)
+        PlayerBridge.seek(.music, to: 241)
+    }
 }

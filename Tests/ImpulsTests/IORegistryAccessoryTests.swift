@@ -164,6 +164,52 @@ final class IORegistryAccessoryTests: DeviceIdentityTestCase {
         XCTAssertNil(IORegistryAccessoryMapper.integer(NSNumber(value: false)))
     }
 
+    /// The coercion every system-dictionary reader shares.
+    ///
+    /// `Int(someDouble)` is a trap rather than an overflow outside `Int`'s
+    /// range, so a driver publishing an unexpected magnitude under a key we read
+    /// would abort the process. Each class below has to read as absent instead.
+    func testRegistryNumberIsTotalForEveryValueASystemDictionaryCanPublish() {
+        XCTAssertNil(RegistryNumber.integer(Double.nan))
+        XCTAssertNil(RegistryNumber.integer(Double.infinity))
+        XCTAssertNil(RegistryNumber.integer(-Double.infinity))
+        // A flag read as a number would be a wrong value, not a missing one.
+        XCTAssertNil(RegistryNumber.integer(NSNumber(value: true)))
+        XCTAssertNil(RegistryNumber.integer(NSNumber(value: false)))
+        // Beyond `Int`, in both directions: the trap this guard exists for.
+        XCTAssertNil(RegistryNumber.integer(1e30))
+        XCTAssertNil(RegistryNumber.integer(-1e30))
+        XCTAssertNil(RegistryNumber.integer(Double.greatestFiniteMagnitude))
+        XCTAssertNil(RegistryNumber.integer(-Double.greatestFiniteMagnitude))
+        XCTAssertNil(RegistryNumber.integer(nil))
+        XCTAssertNil(RegistryNumber.integer("61"))
+
+        // Ordinary battery readings still convert, including the fractional
+        // ones a driver may publish.
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 61)), 61)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 0)), 0)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 100)), 100)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 4_311)), 4_311)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 12_486)), 12_486)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 342)), 342)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 60.6)), 61)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: -20)), -20)
+
+        // `double` shares the rejections but keeps the fraction.
+        XCTAssertNil(RegistryNumber.double(Double.nan))
+        XCTAssertNil(RegistryNumber.double(NSNumber(value: true)))
+        XCTAssertEqual(RegistryNumber.double(NSNumber(value: 3_041.5)), 3_041.5)
+    }
+
+    /// The generic helper carries no range of its own, so the domain owner has
+    /// to keep rejecting values that are numerically fine but not battery levels.
+    func testWideningTheCoercionDidNotWidenWhatCountsAsAPercentage() {
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 5_000)), 5_000)
+        XCTAssertNil(AppleDeviceNormalizer.percentage(fromPercent: 5_000))
+        XCTAssertNil(AppleDeviceNormalizer.percentage(fromPercent: -1))
+        XCTAssertEqual(AppleDeviceNormalizer.percentage(fromPercent: 61), 61)
+    }
+
     func testImpossiblePercentagesAreDroppedRatherThanClamped() {
         for impossible in [-1, 101, 255, Int.max] {
             var properties = Fixture.magicMouse(percent: 61).properties
