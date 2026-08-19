@@ -59,7 +59,29 @@ final class VersionTelemetryServiceTests: XCTestCase {
         XCTAssertEqual(Set(object.keys), ["schema", "installation_id", "app_version"])
     }
 
-    func testHeartbeatIsThrottledForTwentyFourHoursIncludingAfterFailure() async {
+    func testSuccessfulHeartbeatIsThrottledForOneHour() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock)
+        let service = harness.service()
+        service.setConsent(.allowed)
+
+        let first = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(first, .sent)
+
+        clock.advance(by: 59 * 60 + 59)
+        let throttled = await service.sendHeartbeatIfNeeded()
+        let firstCount = await harness.recorder.count
+        XCTAssertEqual(throttled, .throttled)
+        XCTAssertEqual(firstCount, 1)
+
+        clock.advance(by: 1)
+        let second = await service.sendHeartbeatIfNeeded()
+        let secondCount = await harness.recorder.count
+        XCTAssertEqual(second, .sent)
+        XCTAssertEqual(secondCount, 2)
+    }
+
+    func testFailedHeartbeatIsAlsoThrottledForOneHour() async {
         let clock = TestClock(Date(timeIntervalSince1970: 10_000))
         let recorder = RequestRecorder(statusCode: 500)
         let harness = Harness(clock: clock, recorder: recorder)
@@ -68,7 +90,7 @@ final class VersionTelemetryServiceTests: XCTestCase {
 
         let first = await service.sendHeartbeatIfNeeded()
         XCTAssertEqual(first, .failed)
-        clock.advance(by: VersionTelemetryService.heartbeatInterval - 1)
+        clock.advance(by: 59 * 60 + 59)
         let throttled = await service.sendHeartbeatIfNeeded()
         let firstCount = await recorder.count
         XCTAssertEqual(throttled, .throttled)
@@ -117,6 +139,22 @@ final class VersionTelemetryServiceTests: XCTestCase {
         let second = try jsonObject(requests[1])
         XCTAssertEqual(first["previous_version"] as? String, "1.4.9")
         XCTAssertNil(second["previous_version"])
+    }
+
+    func testObservedUpgradeFrom1_4_10To1_4_11SendsTheExactTransitionPayload() async throws {
+        let harness = Harness()
+        harness.defaults.set("1.4.10", forKey: VersionTelemetryService.lastObservedVersionKey)
+        let service = harness.service(appVersion: "1.4.11")
+        service.setConsent(.allowed)
+
+        let result = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(result, .sent)
+
+        let requests = await harness.recorder.requests
+        let request = try XCTUnwrap(requests.first)
+        let payload = try jsonObject(request)
+        XCTAssertEqual(payload["app_version"] as? String, "1.4.11")
+        XCTAssertEqual(payload["previous_version"] as? String, "1.4.10")
     }
 
     func testEndpointMustBeTheExactHTTPSHeartbeatRoute() throws {
@@ -244,14 +282,14 @@ private final class Harness {
 
     deinit { defaults.removePersistentDomain(forName: suite) }
 
-    func service() -> VersionTelemetryService {
+    func service(appVersion: String = "1.4.10") -> VersionTelemetryService {
         let recorder = recorder
         let identifier = identifier
         let clock = clock
         return VersionTelemetryService(
             defaults: defaults,
             endpoint: URL(string: "https://stats.example/v1/heartbeat"),
-            appVersion: "1.4.10",
+            appVersion: appVersion,
             installationID: { identifier },
             now: { clock.now() },
             sender: { request in try await recorder.send(request) }

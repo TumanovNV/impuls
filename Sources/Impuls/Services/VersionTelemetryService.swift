@@ -40,7 +40,7 @@ final class VersionTelemetryService: @unchecked Sendable {
     static let lastObservedVersionKey = "versionStatistics.lastObservedVersion.v1"
     static let pendingPreviousVersionKey = "versionStatistics.pendingPreviousVersion.v1"
     static let endpointInfoKey = "ImpulsVersionStatisticsEndpoint"
-    static let heartbeatInterval: TimeInterval = 24 * 60 * 60
+    static let heartbeatInterval: TimeInterval = 60 * 60
     private static let maximumResponseBytes = 1_024
     private static let telemetrySession: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
@@ -98,7 +98,7 @@ final class VersionTelemetryService: @unchecked Sendable {
     }
 
     /// Records the attempt before suspension. A failed server must not turn
-    /// each relaunch into another request and exceed the once-per-day promise.
+    /// each relaunch into another request and exceed the once-per-hour promise.
     func sendHeartbeatIfNeeded() async -> SendResult {
         let request: URLRequest
         let previousVersion: String?

@@ -54,7 +54,7 @@ not as a public HTTP endpoint:
 ```bash
 python3 report.py \
   --database /var/lib/impuls-statistics/version-statistics.sqlite3 \
-  --latest-version 1.4.10
+  --latest-version 1.4.11
 ```
 
 Add `--json` for automation. Every output includes the scope warning that the
@@ -75,7 +75,7 @@ public telemetry reverse proxy:
 export IMPULS_DASHBOARD_HOST=10.0.0.21
 export IMPULS_DASHBOARD_PORT=8090
 export IMPULS_DASHBOARD_DATABASE=/var/lib/impuls-statistics/version-statistics.sqlite3
-export IMPULS_DASHBOARD_LATEST_VERSION=1.4.10
+export IMPULS_DASHBOARD_LATEST_VERSION=1.4.11
 export IMPULS_DASHBOARD_ALLOWED_CIDR=10.0.0.0/24
 python3 dashboard.py
 ```
@@ -85,6 +85,14 @@ to `127.0.0.0/8`. Database and latest-version values are required. In
 production, bind to the WireGuard address only and set the CIDR to the VPN peer
 network. The handler checks the socket peer address directly and deliberately
 ignores proxy headers.
+
+`IMPULS_DASHBOARD_LATEST_VERSION` is deployment configuration, not a database
+inference: it must match the current production release even before that release
+has received its first opt-in heartbeat. Do not add a GitHub Releases request to
+the private dashboard merely to derive it. A future automation needs an
+owner-controlled release-to-private-deployment channel that atomically updates a
+local version file or this service configuration; this repository does not yet
+contain such a channel or its server credentials.
 
 The HTTP surface is limited to `GET` and `HEAD` for `/` and `/healthz`.
 Mutating methods return `405`; other paths return `404`. `/healthz` performs a

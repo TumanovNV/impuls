@@ -32,7 +32,7 @@ version; unavailable hardware data is shown as unavailable rather than guessed.
   opens a selected web music service, or separately opts in to minimal version
   statistics;
 - version statistics contain only a random installation pseudonym and app
-  version (plus a correctly observed previous version), at most once per day;
+  version (plus a correctly observed previous version), at most once per hour;
 - update checks contact only the Impuls GitHub Releases endpoint;
 - an update is downloaded and installed only after the user acts;
 - clipboard content, notes, snippets, files, and calendar data never leave the Mac;

@@ -29,7 +29,7 @@ include user data, credentials, or exploit payloads in public discussions.
   build-configured HTTPS `/v1/heartbeat` endpoint it cannot construct a request;
 - its payload type exposes only schema, a random installation UUID, current app
   version and an optional correctly observed previous version; CI and unit tests
-  pin that allow-list, the 24-hour attempt throttle and zero requests for
+  pin that allow-list, the one-hour attempt throttle and zero requests for
   `unknown` or `denied`;
 - the random UUID is stored as a device-only Keychain item and has no hardware
   or user input. The collector HMACs it with an owner secret before SQLite,
