@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "package_manager": "swiftpm",
+  "policy": "Every resolved remote Swift package must be explicitly approved here. Direct dependencies must use an exact version requirement in Package.swift, and the resolved version, repository location and Git revision must match this allowlist.",
+  "dependencies": [
+    {
+      "identity": "sparkle",
+      "location": "https://github.com/sparkle-project/Sparkle",
+      "version": "2.9.5",
+      "revision": "79bc9e872948e47877e76f194cb0c8e0412b0b90",
+      "direct": true,
+      "requirement": "exact",
+      "purpose": "Signed application update framework",
+      "canonical_doc": "knowledge-base/05-release/update-system.md"
+    }
+  ]
+}

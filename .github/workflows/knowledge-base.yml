@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'PROJECT-MANIFEST.json'
+      - 'Package.swift'
+      - 'Package.resolved'
       - 'knowledge-base/**'
       - 'Sources/**'
       - 'Resources/**'
@@ -11,6 +13,8 @@ on:
       - 'Scripts/bundle.sh'
       - 'Scripts/version'
       - 'Scripts/check-project-manifest.py'
+      - 'Scripts/check-dependency-policy.py'
+      - 'Scripts/dependency-policy.json'
       - 'Scripts/check-knowledge-base.py'
       - 'Scripts/generate-knowledge-map.py'
       - 'Scripts/knowledge-map-manifest.json'
@@ -19,6 +23,7 @@ on:
       - 'Scripts/check-documentation-freshness.py'
       - 'Scripts/documentation-freshness.json'
       - 'Tests/PythonTests/test_project_manifest.py'
+      - 'Tests/PythonTests/test_dependency_policy.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
       - 'Tests/PythonTests/test_documentation_freshness.py'
       - '.github/workflows/knowledge-base.yml'
@@ -26,6 +31,8 @@ on:
     branches: [main]
     paths:
       - 'PROJECT-MANIFEST.json'
+      - 'Package.swift'
+      - 'Package.resolved'
       - 'knowledge-base/**'
       - 'Sources/**'
       - 'Resources/**'
@@ -33,6 +40,8 @@ on:
       - 'Scripts/bundle.sh'
       - 'Scripts/version'
       - 'Scripts/check-project-manifest.py'
+      - 'Scripts/check-dependency-policy.py'
+      - 'Scripts/dependency-policy.json'
       - 'Scripts/check-knowledge-base.py'
       - 'Scripts/generate-knowledge-map.py'
       - 'Scripts/knowledge-map-manifest.json'
@@ -41,6 +50,7 @@ on:
       - 'Scripts/check-documentation-freshness.py'
       - 'Scripts/documentation-freshness.json'
       - 'Tests/PythonTests/test_project_manifest.py'
+      - 'Tests/PythonTests/test_dependency_policy.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
       - 'Tests/PythonTests/test_documentation_freshness.py'
       - '.github/workflows/knowledge-base.yml'
@@ -64,6 +74,10 @@ jobs:
         run: python3 Scripts/check-project-manifest.py
       - name: Test project manifest contract
         run: python3 -m unittest discover -s Tests/PythonTests -p 'test_project_manifest.py'
+      - name: Validate dependency supply-chain policy
+        run: python3 Scripts/check-dependency-policy.py
+      - name: Test dependency supply-chain policy
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_dependency_policy.py'
       - name: Validate engineering knowledge base
         run: python3 Scripts/check-knowledge-base.py
       - name: Verify generated source-test-doc map
