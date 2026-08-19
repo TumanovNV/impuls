@@ -43,6 +43,29 @@ enum ClipboardHistoryPersistenceError: Error {
     case randomKey(OSStatus)
 }
 
+/// Why `load` came back with nothing.
+///
+/// "There is no history yet" and "the history is there but this process could
+/// not open it" are the same empty list to a caller that only sees `[ClipItem]`,
+/// and they call for opposite behaviour: the first is safe to write over, the
+/// second is the user's data. The login keychain being locked, an interrupted
+/// write or an archive from a newer build all land in the second case and all
+/// recover on their own later — but only if nothing sealed an empty list over
+/// them in the meantime.
+enum ClipboardHistoryLoad: Equatable {
+    case loaded([ClipItem])
+    case unreadable
+
+    var items: [ClipItem] {
+        switch self {
+        case .loaded(let items): return items
+        case .unreadable: return []
+        }
+    }
+
+    var isUnreadable: Bool { self == .unreadable }
+}
+
 /// Stores the optional clipboard archive encrypted with AES-GCM. The random
 /// 256-bit encryption key never enters UserDefaults or the archive itself; it
 /// lives as a device-only generic password in the user's macOS Keychain.
@@ -50,9 +73,12 @@ final class ClipboardHistoryPersistence: @unchecked Sendable {
     private static let maximumArchiveBytes = 64 * 1_024 * 1_024
     private static let saveDelay: TimeInterval = 0.75
 
+    static let defaultService = "io.tumanov.impuls.clipboard-history"
+    static let defaultAccount = "archive-key.v1"
+
     private let fileURL: URL
-    private let service = "io.tumanov.impuls.clipboard-history"
-    private let account = "archive-key.v1"
+    private let service: String
+    private let account: String
     private let writeQueue = DispatchQueue(
         label: "io.tumanov.impuls.clipboard-history.writer",
         qos: .utility
@@ -61,21 +87,31 @@ final class ClipboardHistoryPersistence: @unchecked Sendable {
     private var pendingItems: [ClipItem]?
     private var saveGeneration = 0
 
-    init(fileURL: URL? = nil) {
+    /// The keychain coordinates are injectable for the same reason
+    /// `DeviceIdentityResolver`'s are: a test that exercises the write path must
+    /// not be able to mint or delete the key that decrypts the developer's own
+    /// clipboard archive.
+    init(fileURL: URL? = nil, service: String = defaultService, account: String = defaultAccount) {
         self.fileURL = fileURL ?? Self.defaultFileURL
+        self.service = service
+        self.account = account
     }
 
-    func load() -> [ClipItem] {
-        guard let encrypted = try? BoundedFileReader.read(
-            from: fileURL,
-            maximumBytes: Self.maximumArchiveBytes
-        ) else { return [] }
+    func load() -> ClipboardHistoryLoad {
+        // No archive yet is the ordinary first-run case and is safe to write
+        // over. Every other failure below means one exists and this process
+        // could not open it, which is not the same thing.
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return .loaded([]) }
         do {
+            let encrypted = try BoundedFileReader.read(
+                from: fileURL,
+                maximumBytes: Self.maximumArchiveBytes
+            )
             let key = try keyData(createIfMissing: false)
-            return try EncryptedClipboardArchive.open(encrypted, keyData: key).items
+            return .loaded(try EncryptedClipboardArchive.open(encrypted, keyData: key).items)
         } catch {
             NSLog("Impuls: cannot read encrypted clipboard history: \(error.localizedDescription)")
-            return []
+            return .unreadable
         }
     }
 

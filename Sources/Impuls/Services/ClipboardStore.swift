@@ -108,9 +108,15 @@ final class ClipboardStore: ObservableObject {
         retentionInterval = retention.timeInterval
 
         if enabled, !wasEnabled {
-            let restored = persistence?.load() ?? []
-            merge(restored)
+            let restored = persistence?.load() ?? .loaded([])
+            merge(restored.items)
             prune()
+            // An archive that could not be opened is left exactly as it is.
+            // Sealing the in-memory list over it here is what turned a history
+            // this build merely could not read — a newer build's archive, one
+            // over the size budget, a key the process could not fetch — into a
+            // permanent loss, triggered by nothing but a toggle.
+            guard !restored.isUnreadable else { return }
             persist()
         } else if enabled {
             prune()
