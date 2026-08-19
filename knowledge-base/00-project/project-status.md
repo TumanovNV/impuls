@@ -50,7 +50,9 @@ The knowledge base contains:
 - background work / concurrency registry with cadence, cancellation and MainActor boundaries;
 - centralized input/resource/cadence budgets;
 - behavioral QA matrix for automated, real-macOS, hardware and service-dependent scenarios;
-- semantic Documentation Guardian that detects contract-sensitive source diffs without canonical documentation review.
+- semantic Documentation Guardian that detects contract-sensitive source diffs without canonical documentation review;
+- Git-history freshness guard that detects canonical docs whose mapped source evolved after their latest review commit/date;
+- weekly periodic review-age enforcement for curated high-risk docs.
 
 ## Current architectural anchors
 
@@ -69,17 +71,20 @@ The knowledge base contains:
 
 ## Documentation automation
 
-Three checks protect documentation drift:
+Four repository checks protect documentation drift:
 
 ```text
 Scripts/check-knowledge-base.py
 Scripts/generate-knowledge-map.py --check
 Scripts/check-documentation-guardian.py --base <base-sha>
+Scripts/check-documentation-freshness.py
 ```
 
-The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files. The third inspects changed source lines for background/concurrency, resource-budget, persistence, networking and permission contracts and requires a matching canonical documentation review in the same diff.
+The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files. The third inspects changed source lines for background/concurrency, resource-budget, persistence, networking and permission contracts and requires a matching canonical documentation review in the same diff. The fourth uses full Git history to prove that curated canonical docs are not older than their tracked implementation.
 
-The semantic Guardian is intentionally conservative: it does not pretend regex can understand architecture. Its job is to make high-risk changes impossible to overlook during an AI/PR workflow.
+The weekly scheduled knowledge-base workflow additionally enables freshness review-age policy. It does not make ordinary PRs fail merely because calendar time passed.
+
+These guards are intentionally conservative: they do not pretend automation can understand architecture. Their job is to make high-risk changes and stale ownership impossible to overlook during an AI/PR workflow.
 
 ## Current known schema debt
 
@@ -91,4 +96,4 @@ Production telemetry runtime/topology is intentionally not duplicated here. The 
 
 ## Next documentation work
 
-The broad documentation foundation is now in place. Future work should primarily happen as part of product changes. Useful next improvements are expanding the curated type/test map where new core owners appear, adding release-specific evidence for manual hardware/TCC rows, and implementing the already-documented formal collector DB migration mechanism before any incompatible telemetry database change.
+The broad documentation foundation is now in place. Future work should primarily happen as part of product changes. Useful next improvements are expanding the curated type/test and freshness mappings where new core owners appear, adding release-specific evidence for manual hardware/TCC rows, and implementing the already-documented formal collector DB migration mechanism before any incompatible telemetry database change.

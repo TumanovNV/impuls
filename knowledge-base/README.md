@@ -23,7 +23,10 @@ v1.3 добавляет anti-drift и performance/QA слой:
 - [Behavioral QA Matrix](13-qa/behavioral-qa-matrix.md) для multi-display, TCC, hardware, data, media, UI и release edge cases;
 - [Documentation Guardian](10-ai/documentation-guardian.md);
 - machine-readable semantic rules `Scripts/documentation-guardian-rules.json`;
-- diff checker `Scripts/check-documentation-guardian.py`, подключённый к GitHub Actions.
+- diff checker `Scripts/check-documentation-guardian.py`;
+- historical source→doc freshness mapping `Scripts/documentation-freshness.json`;
+- Git-history freshness checker `Scripts/check-documentation-freshness.py`;
+- weekly lightweight freshness run for periodic high-risk documentation review.
 
 ## Автоматические проверки документации
 
@@ -31,11 +34,14 @@ v1.3 добавляет anti-drift и performance/QA слой:
 python3 Scripts/check-knowledge-base.py
 python3 Scripts/generate-knowledge-map.py --check
 python3 Scripts/check-documentation-guardian.py --base <base-sha>
+python3 Scripts/check-documentation-freshness.py
 ```
 
-Первая проверка валидирует структуру/frontmatter/links/baseline. Вторая проверяет curated source→tests→docs map. Третья смотрит **изменённые строки кода** и требует review соответствующего канонического документа, если изменились timers/tasks/queues, resource budgets, persisted contracts, networking или permission paths.
+Первая проверка валидирует структуру/frontmatter/links/baseline. Вторая проверяет curated source→tests→docs map. Третья смотрит **изменённые строки кода** и требует review соответствующего канонического документа, если изменились timers/tasks/queues, resource budgets, persisted contracts, networking или permission paths. Четвёртая смотрит историю Git и не даёт canonical doc оставаться старее закреплённого за ним source.
 
 Guardian не генерирует текст из кода. Он создаёт обязательство пересмотреть документ и тем самым не даёт документации тихо отстать от реализации.
+
+По понедельникам GitHub Actions дополнительно запускает freshness check с `--enforce-review-age`: для критичных архитектурных/reference документов используется 180-дневный цикл review, для отдельных module docs — 365 дней. Обычный PR не краснеет только из-за возраста — age policy включается отдельно по расписанию.
 
 ## Автоматическая карта кода
 

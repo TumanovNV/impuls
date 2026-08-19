@@ -102,8 +102,10 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.11**.
 
 ```mermaid
 flowchart LR
-    SRC[Source / workflows / collector] --> G[Documentation Guardian]
+    SRC[Source / workflows / collector] --> G[Semantic Documentation Guardian]
     G -->|contract-sensitive diff| DOC[Canonical KB review]
+    SRC --> F[Git-history Freshness Guard]
+    DOC --> F
     M[knowledge-map-manifest.json] --> GEN[generate-knowledge-map.py]
     GEN --> MAP[Type → Tests → Docs Map]
     KB[Markdown + frontmatter + links] --> CHECK[check-knowledge-base.py]
@@ -111,10 +113,13 @@ flowchart LR
     MAP --> CI[knowledge-base workflow]
     CHECK --> CI
     G --> CI
+    F --> CI
     CI -->|green| PR[PR may merge]
 ```
 
-v1.3 adds explicit performance/concurrency and resource-budget registries, a behavioral QA inventory, and a semantic diff guard. The guard does not write documentation automatically; it prevents contract-sensitive code changes from silently outrunning their canonical docs.
+v1.3 adds explicit performance/concurrency and resource-budget registries, a behavioral QA inventory, a semantic diff guard and a Git-history freshness guard. The automation does not write documentation automatically; it prevents contract-sensitive code changes or source evolution from silently outrunning canonical docs.
+
+The lightweight knowledge-base workflow also runs weekly. On the scheduled run, freshness additionally enforces periodic review-age budgets; normal PRs enforce only real source→doc drift.
 
 ## Operational source-of-truth boundary
 

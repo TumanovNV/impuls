@@ -29,6 +29,7 @@ swift test -c release
 ./Scripts/dmg.sh
 python3 Scripts/check-knowledge-base.py
 python3 Scripts/generate-knowledge-map.py --check
+python3 Scripts/check-documentation-freshness.py
 # PR/diff-aware documentation check:
 python3 Scripts/check-documentation-guardian.py --base <base-sha>
 open build/Impuls.app
@@ -105,7 +106,7 @@ Before adding or changing a repeating timer, poller, debounce, delayed retry, lo
 
 Before raising/removing a size, count, cadence, timeout or backpressure limit, read `knowledge-base/12-reference/resource-budget-registry.md`. Prefer bounded/lazy/streaming designs over removing a limit.
 
-The semantic `Documentation Guardian` checks sensitive changed lines during PR CI. Do not bypass it with meaningless Markdown edits: establish the real code/test contract and make the smallest truthful documentation update.
+The semantic `Documentation Guardian` checks sensitive changed lines during PR CI. The historical freshness guard separately checks whether curated canonical docs are newer than their tracked source. Do not bypass either with meaningless Markdown edits or a fake `last_reviewed`: establish the real code/test contract and make the smallest truthful documentation update.
 
 ## Release flow
 
@@ -128,5 +129,9 @@ See `knowledge-base/05-release/release-process.md` for the current release docum
 If a change alters architecture, module ownership, networking, permissions, persistence, device identity, background work/concurrency, resource budgets, release semantics or the current shipped baseline, update the corresponding document under `knowledge-base/` in the same change. Long-lived architectural decisions require an ADR under `knowledge-base/08-decisions/`.
 
 If a change introduces a new user-visible platform/hardware/TCC/lifecycle edge, update `knowledge-base/13-qa/behavioral-qa-matrix.md` even when part of the deterministic core is unit-tested.
+
+If a new canonical architecture/reference owner is introduced, consider adding it to `Scripts/documentation-freshness.json` so historical drift is machine-detectable.
+
+`last_reviewed` changes only after actual review against source/tests/CI. It is evidence, not a version-bump ritual.
 
 If documentation conflicts with code/tests/CI, establish the actual contract first and then fix the stale document. Never preserve an obsolete statement just because it is written down.
