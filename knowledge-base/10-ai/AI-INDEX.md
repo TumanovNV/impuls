@@ -17,6 +17,7 @@ tags: [impuls, ai, agents, index, qa]
 ## Core map
 
 - [Current Status](../00-project/project-status.md)
+- [Pre-Audit Baseline — 1.4.12](../00-project/pre-audit-baseline-1.4.12.md)
 - [Architecture](../01-architecture/architecture-overview.md)
 - [System Diagrams](../01-architecture/system-diagrams.md)
 - [Module Catalog](../02-modules/README.md)
@@ -95,6 +96,9 @@ Add/update a Behavioral QA row when deterministic unit tests cannot fully prove 
 
 ### Behavioral owner/source change
 Read [Behavioral QA Change Impact Traceability](../13-qa/change-impact-traceability.md). A changed tracked production file that matches no QA rule fails closed. Add the correct rule or, only when another explicit verification contract owns the area, a narrow documented exemption. Never add a broad `Sources/**` exemption.
+
+### Full-repository security / performance audit
+Read [Pre-Audit Baseline — 1.4.12](../00-project/pre-audit-baseline-1.4.12.md) before scanning code. Use `main` as the only current branch, verify `Scripts/version`, and treat `v1.4.12` as the published product tag while later `main` commits may contain documentation-only hardening. Start with inventory and evidence; do not silently rewrite architecture to make a finding disappear. Performance findings must name the owning queue/actor/timer/provider and the measured or testable risk. Security findings must name the trust/data/permission/network boundary and distinguish exploitability from defense-in-depth.
 
 ## Trust rule
 
