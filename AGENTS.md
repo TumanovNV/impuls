@@ -13,14 +13,15 @@ Start with:
 1. `PROJECT-MANIFEST.json` — routing-only machine-readable map of stable project topology and canonical owners.
 2. `knowledge-base/10-ai/AI-INDEX.md` — task-oriented documentation entrypoint.
 3. `knowledge-base/00-project/project-status.md` — current shipped baseline.
-4. `knowledge-base/10-ai/invariants.md` — concise project invariants.
-5. `knowledge-base/12-reference/README.md` — schema/type/performance reference routes.
-6. `knowledge-base/13-qa/README.md` — behavioral verification, source/test impact traceability and release-evidence routes when platform/hardware behavior matters.
-7. The implementation and tests for the area you are changing.
+4. `knowledge-base/00-project/pre-audit-baseline-1.4.12.md` — trusted starting point for a whole-repository security/performance audit.
+5. `knowledge-base/10-ai/invariants.md` — concise project invariants.
+6. `knowledge-base/12-reference/README.md` — schema/type/performance reference routes.
+7. `knowledge-base/13-qa/README.md` — behavioral verification, source/test impact traceability and release-evidence routes when platform/hardware behavior matters.
+8. The implementation and tests for the area you are changing.
 
 The root manifest is a routing aid, not a duplicate implementation database. Do not put persisted keys, performance constants, live endpoints, production topology, addresses or secrets into it.
 
-At Documentation v1.3 the baseline in `main` is Impuls 1.4.11. Always verify `Scripts/version` when the exact version matters.
+At Documentation v1.3 the baseline in `main` is Impuls 1.4.12. Always verify `Scripts/version` when the exact version matters. For a whole-repository security/performance audit, audit `main` only; historical branches and release handoffs are not current source of truth.
 
 Historical technical documents under `docs/` remain valuable evidence, especially the 1.4.6 device-battery and 1.4.7 multi-display documents, but they are not automatically current state.
 
