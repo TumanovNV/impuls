@@ -1,0 +1,65 @@
+name: pre-audit branch cleanup
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/pre-audit-branch-cleanup.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete every non-main branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t branches < <(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/branches?per_page=100" --jq '.[].name'
+          )
+          printf 'Found %s branches before cleanup.\n' "${#branches[@]}"
+
+          failures=0
+          for branch in "${branches[@]}"; do
+            if [[ "$branch" == "main" ]]; then
+              continue
+            fi
+            echo "Deleting branch: $branch"
+            encoded_branch=$(jq -rn --arg value "$branch" '$value|@uri')
+            if ! gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/${encoded_branch}"; then
+              echo "Failed to delete: $branch" >&2
+              failures=$((failures + 1))
+            fi
+          done
+
+          mapfile -t remaining < <(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/branches?per_page=100" --jq '.[].name'
+          )
+          printf 'Remaining branches: %s\n' "${remaining[*]}"
+
+          if [[ "$failures" -ne 0 ]]; then
+            echo "Branch cleanup had $failures deletion failure(s)." >&2
+            exit 1
+          fi
+          if [[ "${#remaining[@]}" -ne 1 || "${remaining[0]}" != "main" ]]; then
+            echo 'Branch cleanup incomplete: expected only main.' >&2
+            exit 1
+          fi
+
+      - name: Remove this one-time workflow from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          path='.github/workflows/pre-audit-branch-cleanup.yml'
+          sha=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${path}?ref=main" --jq '.sha')
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/contents/${path}" \
+            -f message='chore: remove one-time branch cleanup workflow' \
+            -f sha="$sha" \
+            -f branch='main'
