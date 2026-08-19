@@ -14,6 +14,7 @@ This directory is the high-precision reference layer for engineers and AI agents
 
 ## Documents
 
+- [Machine-Readable Project Manifest](project-manifest.md) — routing-only root map for modules, ownership, network/permission boundaries and canonical docs.
 - [Schema & Migration Registry](schema-migration-registry.md) — persisted formats, version keys, compatibility rules and migration ownership.
 - [Core Type Reference](core-type-reference.md) — responsibilities and boundaries of the most important production types.
 - [Generated Type → Tests → Docs Map](generated-type-test-doc-map.md) — CI-checked deterministic route from important types to source, verification and canonical docs.
@@ -22,6 +23,10 @@ This directory is the high-precision reference layer for engineers and AI agents
 - [Operations Boundary](operations-boundary.md) — what belongs in this public repository versus the private operational documentation vault.
 
 Behavioral verification that depends on real platform/hardware state lives under [Behavioral QA](../13-qa/README.md).
+
+## Machine-readable cold start
+
+Agents that do not yet know the repository should inspect [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json) first. It is routing-only and CI-validated against the actual shipped feature catalog and repository paths. It must not be treated as a replacement for the canonical documents it points to.
 
 ## Generated map
 
@@ -40,15 +45,15 @@ python3 Scripts/generate-knowledge-map.py --check
 
 The first command regenerates the map. The second is CI mode and fails if the committed output is stale.
 
-## v1.3 semantic guard
-
-Contract-sensitive source diffs are checked by:
+## v1.3 guards
 
 ```bash
+python3 Scripts/check-project-manifest.py
 python3 Scripts/check-documentation-guardian.py --base <base-sha>
+python3 Scripts/check-documentation-freshness.py
 ```
 
-The machine-readable routing lives in [`Scripts/documentation-guardian-rules.json`](../../Scripts/documentation-guardian-rules.json). See [Documentation Guardian](../10-ai/documentation-guardian.md) for the maintenance contract.
+The project-manifest checker protects stable routing/ownership. The semantic Guardian protects contract-sensitive diffs. The freshness checker protects historical source→doc ordering and periodic review age.
 
 ## Rule for persisted data
 
@@ -64,4 +69,4 @@ Before increasing/deleting a size/count/time/backpressure limit, read [Input & R
 
 ## Source of truth
 
-Reference documents do not override code/tests/CI. Their purpose is to make verified ownership and compatibility constraints discoverable. If implementation and reference disagree, determine the real contract from code + tests + CI and update the stale reference in the same change set.
+Reference documents and the root routing manifest do not override code/tests/CI. Their purpose is to make verified ownership and compatibility constraints discoverable. If implementation and reference disagree, determine the real contract from code + tests + CI and update the stale reference in the same change set.
