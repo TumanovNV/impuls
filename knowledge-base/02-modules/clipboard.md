@@ -54,6 +54,8 @@ Off by default. Opt-in archive AES-GCM encrypted; random key только в Key
 
 Декодирование изображений из pasteboard выполняется на отдельной serial queue; на `MainActor` остаются только чтения `NSPasteboard`. Результат отбрасывается, если `changeCount` успел смениться.
 
+Представления берутся поэтапно: сначала PNG, и только если он оказался непригодным — объявлен, но превышает бюджет или не открывается ImageIO — читается TIFF. Читать оба сразу означало бы держать в памяти две копии крупного скриншота ради fallback, который почти никогда не выполняется.
+
 ## Privacy
 
 Clipboard не отправляется в сеть и не входит в backup. Password-manager concealed entries не захватываются. Application exclusions позволяют исключить selected bundle IDs.

@@ -78,7 +78,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Notes save debounce | 800 ms | disk work on utility queue |
 | Snippets save | no debounce | written from a utility queue on each deliberate change; flushed synchronously at shutdown |
 | Clipboard archive save | 750 ms | encryption/disk work on utility queue |
-| Clipboard image conversion | one in flight | serial queue; a result whose pasteboard generation moved on is discarded |
+| Clipboard image conversion | one in flight | serial queue; a result whose pasteboard generation moved on is discarded. Representations are read in stages so the 64 MiB image budget is not paid twice for one copy |
 | Actions corpus fold | once per source change | not per keystroke; invalidated by clipboard/snippets/notes announcements |
 | Menu bar rebuild | once per shown-state change | gated on a fingerprint that excludes playback position |
 | Web music bridge push | 1 s, DOM observer debounced 400 ms | runs in the page; stopped by `WebMusicPlayer.teardown()` |
