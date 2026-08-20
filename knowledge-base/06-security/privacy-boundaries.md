@@ -75,6 +75,8 @@ Privacy включает не только «не отправлять», но �
 - `Sources/Impuls/Services/FeedbackService.swift` — explicit local report/browser handoff;
 - `Sources/Impuls/Services/ClipboardHistoryPersistence.swift` — encrypted optional local clipboard archive.
 
+Архив остаётся локальным и зашифрованным; write latch 1.4.12-hardening ничего к этому не добавляет и ничего не отправляет. Одно уточнение по логированию: заблокированная запись пишет в `NSLog` строку с **количеством** удержанных в памяти записей и причиной — содержимое буфера, превью и пути туда не попадают, как и в остальных сообщениях этого файла.
+
 ## Legal / public docs
 
 Public commitments находятся in `PRIVACY.md`, `SECURITY.md` и published website privacy policy. Knowledge base объясняет engineering contract, but не заменяет юридический текст. A public-policy change and an internal engineering-boundary change must be kept consistent without putting private infrastructure facts into this repository.
