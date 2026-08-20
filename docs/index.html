@@ -184,6 +184,12 @@
   --stage-line:rgba(255,255,255,.10);
   --stage-ink:rgba(233,238,248,.62);
   --stage-ink-dim:rgba(233,238,248,.55);
+  /* The accent hairline on a product surface sits on the stage, not on the
+     page, so it is judged against the stage and carries one value in both
+     themes. Deriving it from the page-level `--accent-line` made it
+     rgba(10,95,214,.55) over #252a35 in the light theme — a navy line on a
+     near-navy surface, which is where the brand mark quietly disappeared. */
+  --stage-accent-line:rgba(77,148,255,.7);
 
   /* Radii — the panel's scale, plus two marketing sizes. */
   --r-s:6px; --r-m:10px; --r-l:14px; --r-xl:22px; --r-2xl:30px; --r-pill:999px;
@@ -400,7 +406,7 @@ header.stuck{border-bottom-color:var(--line)}
 .stage::before,.shot::before{
   content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
   width:min(560px,66%);height:1px;pointer-events:none;
-  background:linear-gradient(90deg,transparent,var(--accent-line),transparent);
+  background:linear-gradient(90deg,transparent,var(--stage-accent-line),transparent);
 }
 .menubar{
   display:flex;align-items:center;gap:var(--s4);height:28px;
@@ -570,8 +576,13 @@ kbd{
    a row you can point at. The accent lives in the glyphs. */
 /* Narrower than the page, but anchored to the same left edge as every other
    chapter. Centring a left-aligned column instead makes the page's left rail
-   jump inward for one section, which reads as an indent, not a composition. */
-.boundaries{list-style:none;margin:clamp(40px,5vw,var(--s8)) 0 0;padding:0;display:grid;gap:0;max-width:52rem}
+   jump inward for one section, which reads as an indent, not a composition.
+
+   The width is `.chapter`'s, not a wider one of its own: the ledger and the
+   headline above it are one chapter, and at 52rem their right edges parted by
+   about 150 px on a wide screen — close enough to look like a mistake rather
+   than a decision, and 87 characters a line is past comfortable anyway. */
+.boundaries{list-style:none;margin:clamp(40px,5vw,var(--s8)) 0 0;padding:0;display:grid;gap:0;max-width:46rem}
 .boundaries li{
   display:grid;grid-template-columns:auto 1fr;gap:var(--s4);
   padding-block:var(--s5);border-top:1px solid var(--line);align-items:start;
@@ -593,10 +604,15 @@ kbd{
   font-family:var(--mono);font-size:.75rem;color:var(--muted);
   overflow-wrap:anywhere;flex:1;min-width:200px;
 }
+/* `nowrap` with the scroll it already had: this is a command to be copied, and
+   on a phone it was breaking at the hyphen inside Impuls-1.4.13.dmg, which
+   turns one line a reader can select into two they have to reassemble. The box
+   scrolls; the page does not. */
 .cmd{
   display:block;margin-top:var(--s3);font-family:var(--mono);font-size:.8125rem;
   color:var(--muted);overflow-x:auto;padding:var(--s3);border-radius:var(--r-m);
   background:var(--surface-2);border:1px solid var(--line);
+  white-space:nowrap;
 }
 
 /* --- FAQ ---------------------------------------------------------------- */
@@ -640,6 +656,13 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
 .foot a{color:var(--muted);text-decoration:none;display:inline-block;padding-block:5px}
 .foot a:hover{color:var(--text);text-decoration:underline}
 .foot .spacer{margin-inline-start:auto}
+/* On a phone the row already wraps, and pushing the licence to the right edge
+   of whichever line it landed on read as a stray fragment. Give it the full
+   width instead: it becomes a deliberate last line on the same left edge as
+   everything above it. The desktop right-alignment is untouched. */
+@media(max-width:599px){
+  .foot .spacer{margin-inline-start:0;width:100%}
+}
 
 /* At 320 px the English header row — RU · EN · Download — is 3 px wider than the
    viewport where the shorter Russian one fits. Tighten the row rather than drop a
@@ -676,11 +699,15 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
     padding:var(--s5) 0 0;border-radius:0;border-inline:0;box-shadow:none;
   }
   .shot img{border-radius:0}
+  /* `flex-start`, not `center`: the hint wraps to two lines at this width, and
+     centring the arrow against the whole block leaves it floating between the
+     lines instead of pointing at the sentence it opens. The offset optically
+     centres it on the first line — (20.8 px line box - 14 px glyph) / 2. */
   .pan-hint{
-    display:flex;align-items:center;gap:var(--s2);
+    display:flex;align-items:flex-start;gap:var(--s2);
     margin-top:var(--s4);color:var(--faint);font-size:.8125rem;
   }
-  .pan-hint svg{width:14px;height:14px}
+  .pan-hint svg{width:14px;height:14px;flex:none;margin-top:3px}
 }
 
 /* Without script every module is a stacked section; with script the chips
@@ -861,6 +888,12 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
   </div>
 
   <div class="wrap wrap-wide">
+    <!-- The pan hint belongs to a screenshot, so it lives inside the module
+         next to its own `.shot` rather than once below the whole switcher,
+         where it ended up two paragraphs away from the capture it describes.
+         Six copies in the markup, never six on screen: with script exactly one
+         module is displayed, and without script each of the six stacked
+         modules carries the hint for the capture directly above it. -->
     <div class="module-panel" id="module-panels">
 
       <article class="module" id="mod-shelf" data-mod="shelf" data-icon="shelf">
@@ -871,6 +904,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="Модуль «Полка»: четыре файла с миниатюрами — схема, договор, обложка и смета — и команды «Выбрать все» и «Очистить»">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
         <div class="module-copy">
           <h3 data-i="mod.shelf.t">Полка файлов</h3>
           <p data-i="mod.shelf.d">Перетащите файл на панель, переключитесь в другое приложение и заберите его оттуда. Оригинал остаётся на месте: полка хранит ссылку, а не копию.</p>
@@ -886,6 +920,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="Модуль «Буфер»: пять последних записей — ссылка, команда, адрес, фрагмент JSON и адрес почты, у каждой свой значок типа">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
         <div class="module-copy">
           <h3 data-i="mod.clip.t">История буфера обмена</h3>
           <p data-i="mod.clip.d">То, что вы копировали час назад, никуда не делось. Impuls различает текст, ссылки, почту, телефоны, цвета, JSON, код, файлы и изображения и подписывает тип каждой записи.</p>
@@ -901,6 +936,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="Модуль «Заготовки»: поле поиска и список сохранённых заготовок с названиями «адрес», «созвон», «git» и «трек»">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
         <div class="module-copy">
           <h3 data-i="mod.snip.t">Заготовки</h3>
           <p data-i="mod.snip.d">Тексты, которые вы пишете снова и снова: адрес, реквизиты, команда, ссылка на созвон. Каждой можно дать короткое имя и находить по нему.</p>
@@ -916,6 +952,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="Модуль «Заметки»: слева список из двух заметок и кнопка «Новая заметка», справа открытый текст выбранной заметки">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
         <div class="module-copy">
           <h3 data-i="mod.notes.t">Заметки</h3>
           <p data-i="mod.notes.d">Место для мысли, которая нужна на час: номер из разговора, половина ссылки, идея. Заметка создаётся пустой и мгновенно, а пустые убираются сами.</p>
@@ -931,6 +968,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="Модуль «Перевод»: слева русская фраза, справа её английский перевод, язык каждой колонки выбирается в её заголовке">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
         <div class="module-copy">
           <h3 data-i="mod.tr.t">Перевод</h3>
           <p data-i="mod.tr.d">Переводчик macOS прямо в панели. Язык меняется в заголовке колонки, а направление определяется по алфавиту введённого текста.</p>
@@ -946,6 +984,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="Модуль «Музыка» с выбранным источником «Яндекс Музыка» и кнопкой «Открыть веб-плеер»">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
         <div class="module-copy">
           <h3 data-i="mod.media.t">Музыка</h3>
           <p data-i="mod.media.d">Источник выбирается явно. Apple Music читается нативно через её сценарный интерфейс; Яндекс Музыка, VK Музыка и YouTube Music открываются своими официальными сайтами в системном окне WebKit.</p>
@@ -954,7 +993,6 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
       </article>
 
     </div>
-    <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
   </div>
 
   <div class="wrap">

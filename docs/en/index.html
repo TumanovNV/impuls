@@ -222,6 +222,12 @@
   --stage-line:rgba(255,255,255,.10);
   --stage-ink:rgba(233,238,248,.62);
   --stage-ink-dim:rgba(233,238,248,.55);
+  /* The accent hairline on a product surface sits on the stage, not on the
+     page, so it is judged against the stage and carries one value in both
+     themes. Deriving it from the page-level `--accent-line` made it
+     rgba(10,95,214,.55) over #252a35 in the light theme — a navy line on a
+     near-navy surface, which is where the brand mark quietly disappeared. */
+  --stage-accent-line:rgba(77,148,255,.7);
 
   /* Radii — the panel's scale, plus two marketing sizes. */
   --r-s:6px; --r-m:10px; --r-l:14px; --r-xl:22px; --r-2xl:30px; --r-pill:999px;
@@ -438,7 +444,7 @@ header.stuck{border-bottom-color:var(--line)}
 .stage::before,.shot::before{
   content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
   width:min(560px,66%);height:1px;pointer-events:none;
-  background:linear-gradient(90deg,transparent,var(--accent-line),transparent);
+  background:linear-gradient(90deg,transparent,var(--stage-accent-line),transparent);
 }
 .menubar{
   display:flex;align-items:center;gap:var(--s4);height:28px;
@@ -608,8 +614,13 @@ kbd{
    a row you can point at. The accent lives in the glyphs. */
 /* Narrower than the page, but anchored to the same left edge as every other
    chapter. Centring a left-aligned column instead makes the page's left rail
-   jump inward for one section, which reads as an indent, not a composition. */
-.boundaries{list-style:none;margin:clamp(40px,5vw,var(--s8)) 0 0;padding:0;display:grid;gap:0;max-width:52rem}
+   jump inward for one section, which reads as an indent, not a composition.
+
+   The width is `.chapter`'s, not a wider one of its own: the ledger and the
+   headline above it are one chapter, and at 52rem their right edges parted by
+   about 150 px on a wide screen — close enough to look like a mistake rather
+   than a decision, and 87 characters a line is past comfortable anyway. */
+.boundaries{list-style:none;margin:clamp(40px,5vw,var(--s8)) 0 0;padding:0;display:grid;gap:0;max-width:46rem}
 .boundaries li{
   display:grid;grid-template-columns:auto 1fr;gap:var(--s4);
   padding-block:var(--s5);border-top:1px solid var(--line);align-items:start;
@@ -631,10 +642,15 @@ kbd{
   font-family:var(--mono);font-size:.75rem;color:var(--muted);
   overflow-wrap:anywhere;flex:1;min-width:200px;
 }
+/* `nowrap` with the scroll it already had: this is a command to be copied, and
+   on a phone it was breaking at the hyphen inside Impuls-1.4.13.dmg, which
+   turns one line a reader can select into two they have to reassemble. The box
+   scrolls; the page does not. */
 .cmd{
   display:block;margin-top:var(--s3);font-family:var(--mono);font-size:.8125rem;
   color:var(--muted);overflow-x:auto;padding:var(--s3);border-radius:var(--r-m);
   background:var(--surface-2);border:1px solid var(--line);
+  white-space:nowrap;
 }
 
 /* --- FAQ ---------------------------------------------------------------- */
@@ -678,6 +694,13 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
 .foot a{color:var(--muted);text-decoration:none;display:inline-block;padding-block:5px}
 .foot a:hover{color:var(--text);text-decoration:underline}
 .foot .spacer{margin-inline-start:auto}
+/* On a phone the row already wraps, and pushing the licence to the right edge
+   of whichever line it landed on read as a stray fragment. Give it the full
+   width instead: it becomes a deliberate last line on the same left edge as
+   everything above it. The desktop right-alignment is untouched. */
+@media(max-width:599px){
+  .foot .spacer{margin-inline-start:0;width:100%}
+}
 
 /* At 320 px the English header row — RU · EN · Download — is 3 px wider than the
    viewport where the shorter Russian one fits. Tighten the row rather than drop a
@@ -714,11 +737,15 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
     padding:var(--s5) 0 0;border-radius:0;border-inline:0;box-shadow:none;
   }
   .shot img{border-radius:0}
+  /* `flex-start`, not `center`: the hint wraps to two lines at this width, and
+     centring the arrow against the whole block leaves it floating between the
+     lines instead of pointing at the sentence it opens. The offset optically
+     centres it on the first line — (20.8 px line box - 14 px glyph) / 2. */
   .pan-hint{
-    display:flex;align-items:center;gap:var(--s2);
+    display:flex;align-items:flex-start;gap:var(--s2);
     margin-top:var(--s4);color:var(--faint);font-size:.8125rem;
   }
-  .pan-hint svg{width:14px;height:14px}
+  .pan-hint svg{width:14px;height:14px;flex:none;margin-top:3px}
 }
 
 /* Without script every module is a stacked section; with script the chips
@@ -899,6 +926,12 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
   </div>
 
   <div class="wrap wrap-wide">
+    <!-- The pan hint belongs to a screenshot, so it lives inside the module
+         next to its own `.shot` rather than once below the whole switcher,
+         where it ended up two paragraphs away from the capture it describes.
+         Six copies in the markup, never six on screen: with script exactly one
+         module is displayed, and without script each of the six stacked
+         modules carries the hint for the capture directly above it. -->
     <div class="module-panel" id="module-panels">
 
       <article class="module" id="mod-shelf" data-mod="shelf" data-icon="shelf">
@@ -909,6 +942,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="The Shelf module: four files with thumbnails — a diagram, an agreement, a cover and a quote — with Select All and Clear">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2">Swipe the capture to see the whole panel</p>
         <div class="module-copy">
           <h3 data-i="mod.shelf.t">File shelf</h3>
           <p data-i="mod.shelf.d">Drop a file on the panel, switch to another application and pick it up there. The original never moves: the shelf holds a reference, not a copy.</p>
@@ -924,6 +958,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="The Clipboard module: the five most recent entries — a link, a command, an address, a JSON fragment and an email address — each with its own type icon">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2">Swipe the capture to see the whole panel</p>
         <div class="module-copy">
           <h3 data-i="mod.clip.t">Clipboard history</h3>
           <p data-i="mod.clip.d">What you copied an hour ago is still there. Impuls tells text, links, addresses, phone numbers, colours, JSON, code, files and images apart, and labels the type of every entry.</p>
@@ -939,6 +974,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="The Snippets module: a search field and saved snippets named address, standup, git and tracking">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2">Swipe the capture to see the whole panel</p>
         <div class="module-copy">
           <h3 data-i="mod.snip.t">Snippets</h3>
           <p data-i="mod.snip.d">The text you write over and over: an address, account details, a command, a standing call link. Give each one a short name and find it by that.</p>
@@ -954,6 +990,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="The Notes module: a list of two notes and a New Note button on the left, the selected note's text on the right">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2">Swipe the capture to see the whole panel</p>
         <div class="module-copy">
           <h3 data-i="mod.notes.t">Notes</h3>
           <p data-i="mod.notes.d">Somewhere to put a thought that matters for an hour: a number from a call, half a link, an idea. A note is created empty and instantly, and empty ones clear themselves away.</p>
@@ -969,6 +1006,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="The Translate module: a Russian phrase on the left and its English translation on the right, with the language of each column chosen in its heading">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2">Swipe the capture to see the whole panel</p>
         <div class="module-copy">
           <h3 data-i="mod.tr.t">Translate</h3>
           <p data-i="mod.tr.d">The macOS translator inside the panel. The language is chosen in each column's heading, and the direction is read from the script of the text you typed.</p>
@@ -984,6 +1022,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
                  alt="The Music module with Yandex Music selected as the source and an Open Web Player button">
           </picture>
         </div>
+        <p class="pan-hint" data-i="pan2">Swipe the capture to see the whole panel</p>
         <div class="module-copy">
           <h3 data-i="mod.media.t">Music</h3>
           <p data-i="mod.media.d">The source is chosen explicitly. Apple Music is read natively through its scripting interface; Yandex Music, VK Music and YouTube Music open their own official sites in a system WebKit window.</p>
@@ -992,7 +1031,6 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
       </article>
 
     </div>
-    <p class="pan-hint" data-i="pan2">Swipe the capture to see the whole panel</p>
   </div>
 
   <div class="wrap">
