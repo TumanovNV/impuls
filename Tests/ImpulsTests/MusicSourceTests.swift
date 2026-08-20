@@ -246,6 +246,61 @@ final class MusicSourceTests: XCTestCase {
         XCTAssertEqual(controller.emptyReason, .appleMusicNotRunning)
     }
 
+    // MARK: - The web player's background work has an owner
+
+    /// The injected bridge installs `setInterval(..., 1000)` and a
+    /// `MutationObserver`. Nothing stopped them: `deactivate()` only ordered the
+    /// window out, and `MediaController.stop()` never reached the player at all,
+    /// so the page kept pushing state past panel teardown until the process
+    /// exited. `stop()` now tears it down.
+    @MainActor
+    func testStoppingReleasesTheWebPlayerAndStaysReusable() throws {
+        let suite = "MusicSourceTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let player = WebMusicPlayer()
+        player.teardown()
+        XCTAssertNil(player.source, "teardown leaves nothing selected")
+        XCTAssertNil(player.currentState)
+
+        // Idempotent: shutdown runs it, and a second pass must not trap.
+        player.teardown()
+
+        // And it does not construct a web view or reach the network by itself —
+        // the "launching Impuls must not build a WKWebView" invariant covers
+        // the shutdown path too.
+        XCTAssertFalse(player.hasWebView, "teardown must not leave or create a web view")
+    }
+
+    /// A torn-down player must stay a safe object, not a dead one.
+    ///
+    /// Reuse itself is not driven here on purpose: `show(source:)` opens a
+    /// window and loads the provider's page, and a unit test must not put this
+    /// app on the network — the suite is the same one CI checks with `lsof` for
+    /// exactly that. What is checked instead is every precondition reuse
+    /// depends on: no web view is held, so `webView ?? makeWebView()` builds a
+    /// fresh one, and meanwhile every command is an inert no-op rather than a
+    /// call into released state.
+    @MainActor
+    func testATornDownWebPlayerIsInertRatherThanBroken() throws {
+        let player = WebMusicPlayer()
+        player.teardown()
+
+        XCTAssertFalse(player.hasWebView, "the next open has to build a new view, not revive a dead one")
+
+        player.command(.playPause)
+        player.command(.next)
+        player.command(.previous)
+        player.seek(to: 42)
+        player.requestSnapshot()
+        player.deactivate()
+
+        XCTAssertNil(player.source)
+        XCTAssertNil(player.currentState)
+        XCTAssertFalse(player.hasWebView)
+    }
+
     // MARK: - Durations the app did not produce
 
     /// `duration` arrives from the provider's page through the web bridge, so

@@ -151,6 +151,62 @@ final class StorageIsolationTests: XCTestCase {
         XCTAssertEqual(defaults.stringArray(forKey: "shelf.urls"), [card.path])
     }
 
+    /// The Actions corpus is cached, and `NotchViewModel` is what invalidates
+    /// it. The unit tests drive `invalidateCorpus()` directly, so this pins the
+    /// wiring that calls it: without this subscription the cache would be a
+    /// stale-results bug rather than an optimisation.
+    func testMutatingASourceStoreInvalidatesTheActionsCorpusThroughTheViewModel() throws {
+        let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let settings = SettingsStore(
+            defaults: defaults,
+            lowBatteryAlerts: LowBatteryAlertService(
+                engine: LowBatteryAlertEngine(store: MemoryDisplayAlertStore(), now: Date()),
+                delivery: SilentDisplayAlertDelivery()
+            )
+        )
+        let vm = NotchViewModel(settings: settings, storage: environment())
+
+        // An edit rather than an addition, deliberately: the row count does not
+        // move, so the corpus size still agrees with its sources and the safety
+        // net inside the store cannot notice. Only the subscription can. This is
+        // the case that would ship stale search results if the wiring were lost.
+        let id = vm.notes.add(text: "the original wording")
+        vm.actions.query = "original"
+        XCTAssertEqual(
+            vm.actions.results(
+                clipboard: vm.clipboard.items,
+                snippets: vm.snippets.items,
+                notes: vm.notes.notes
+            ).count,
+            1
+        )
+
+        vm.notes.update(id, text: "the rewritten wording")
+
+        vm.actions.query = "rewritten"
+        XCTAssertEqual(
+            vm.actions.results(
+                clipboard: vm.clipboard.items,
+                snippets: vm.snippets.items,
+                notes: vm.notes.notes
+            ).count,
+            1,
+            "the edited text has to be searchable at once"
+        )
+        vm.actions.query = "original"
+        XCTAssertTrue(
+            vm.actions.results(
+                clipboard: vm.clipboard.items,
+                snippets: vm.snippets.items,
+                notes: vm.notes.notes
+            ).isEmpty,
+            "and the wording it replaced must not still be matching"
+        )
+    }
+
     // MARK: - The multi-display harness
 
     /// The harness is the thing that leaked, so it is the thing to pin: a note

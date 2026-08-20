@@ -97,6 +97,13 @@ final class MediaController: ObservableObject {
         ticker = nil
         nativeRefreshTimer?.invalidate()
         nativeRefreshTimer = nil
+        // The web player was the one piece of background work `stop()` did not
+        // reach. Its injected bridge pushes state once a second, and that ran
+        // on past panel teardown until the process exited. `teardown()` is
+        // idempotent and leaves the player reusable: `openWebPlayer()` rebuilds
+        // it through `webPlayer ?? makeWebPlayer()` when the user asks again.
+        webPlayer?.teardown()
+        webPlayer = nil
     }
 
     func setActive(_ active: Bool) {

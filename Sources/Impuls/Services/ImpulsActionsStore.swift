@@ -168,6 +168,64 @@ final class ImpulsActionsStore: ObservableObject {
         let order: Int
     }
 
+    /// One searchable row, with its three match fields already case- and
+    /// diacritic-folded.
+    private struct FoldedResult {
+        let result: ImpulsActionResult
+        let title: String
+        let content: String
+        let kind: String
+    }
+
+    private var corpus: [FoldedResult]?
+
+    /// How many times the folded corpus has been built. The saving is "not
+    /// rebuilt per keystroke", which is a statement about how often this runs,
+    /// so it is the thing a test can hold to.
+    private(set) var corpusBuildCount = 0
+
+    /// Drops the folded corpus so the next search rebuilds it.
+    ///
+    /// Called from `NotchViewModel` when clipboard, snippets or notes announce
+    /// a change. `objectWillChange` fires before the value lands, so the cache
+    /// is already gone by the time anything can read the new one — the next
+    /// search sees the new data, never the old.
+    func invalidateCorpus() {
+        corpus = nil
+    }
+
+    /// The folded corpus for a non-empty query, rebuilt only when the sources
+    /// have changed rather than on every keystroke.
+    ///
+    /// Searching folded every row's title, searchable value and kind — three
+    /// `String.folding` calls per row, each allocating, over up to 16 KiB — and
+    /// did it again for every letter typed. Typing is exactly when it happened,
+    /// and the pane calls this from `body`.
+    ///
+    /// The count check is a safety net, not the mechanism: invalidation is
+    /// driven by the stores' own announcements, and a corpus that disagrees
+    /// with the arrays it was handed is rebuilt rather than trusted.
+    private func foldedCorpus(
+        clipboard: [ClipItem],
+        snippets: [Snippet],
+        notes: [Note]
+    ) -> [FoldedResult] {
+        let expected = clipboard.count + snippets.count + notes.count
+        if let corpus, corpus.count == expected { return corpus }
+
+        let built = makeResults(clipboard: clipboard, snippets: snippets, notes: notes).map {
+            FoldedResult(
+                result: $0,
+                title: Self.fold($0.title),
+                content: Self.fold(Self.searchableValue(of: $0)),
+                kind: Self.fold($0.contentKind.title)
+            )
+        }
+        corpus = built
+        corpusBuildCount += 1
+        return built
+    }
+
     func results(
         clipboard: [ClipItem],
         snippets: [Snippet],
@@ -189,12 +247,13 @@ final class ImpulsActionsStore: ObservableObject {
             )
         }
 
-        let all = makeResults(clipboard: clipboard, snippets: snippets, notes: notes)
+        let all = foldedCorpus(clipboard: clipboard, snippets: snippets, notes: notes)
         let tokens = needle.split(whereSeparator: \Character.isWhitespace).map(String.init)
-        return all.enumerated().compactMap { order, result -> Ranked? in
-            let title = Self.fold(result.title)
-            let content = Self.fold(Self.searchableValue(of: result))
-            let kind = Self.fold(result.contentKind.title)
+        return all.enumerated().compactMap { order, folded -> Ranked? in
+            let result = folded.result
+            let title = folded.title
+            let content = folded.content
+            let kind = folded.kind
             guard tokens.allSatisfy({ token in
                 title.contains(token) || content.contains(token) || kind.contains(token)
             }) else { return nil }
