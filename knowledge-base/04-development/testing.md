@@ -3,8 +3,8 @@ title: Testing Strategy
 type: development
 status: active
 documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+app_version: 1.4.12
+last_reviewed: 2026-08-20
 tags: [impuls, development, tests, ci]
 ---
 
@@ -26,6 +26,18 @@ flowchart TD
 `Tests/ImpulsTests` проверяет stores, persistence, display topology, device power, media/security helpers, settings/backup и другие domain contracts. Тесты должны использовать injected storage/environment и не читать реальные пользовательские файлы.
 
 Базовая команда: `swift test -c release`.
+
+**Локальная оговорка (проверено 2026-08-20 на 1.4.12).** Голый `swift test -c release` в этом окружении может выполнить **ноль** тестов и всё равно вернуть успех — swift-testing сообщает «0 tests in 0 suites passed», а XCTest-набор не запускается. Явный фильтр запускает его целиком:
+
+```bash
+swift test -c release --filter 'ImpulsTests\.'
+```
+
+Всегда сверяйтесь со строкой `Executed N tests` в выводе, а не только с кодом возврата. И не заворачивайте команду в пайп (`| tail`, `| grep`) без `PIPESTATUS`: код возврата тогда принадлежит последней команде пайпа, и красный прогон читается как зелёный. Именно так во время аудита 1.4.12 едва не был пропущен flaky-тест.
+
+## Flaky-тесты
+
+Ожидание фиксированным числом `await Task.yield()` — это догадка о том, сколько точек приостановки понадобится, и под нагрузкой она не выдерживает. `LowBatteryAlertPermissionTests` падал примерно раз на пять прогонов именно так. Для утверждения «событие произошло» используйте `XCTestExpectation` + `await fulfillment(of:timeout:)`, как в `MobileDeviceBatteryProviderTests` и `IORegistryAccessoryTests`. Отсутствие события дождаться нельзя, поэтому негативные проверки — единственное оправданное место для короткого spin.
 
 ## Python tests
 

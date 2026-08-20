@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 1.3
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
 
@@ -42,6 +42,24 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Screenshot vault | concurrent pending saves | 2 | `ScreenshotVault.maximumPendingSaves` |
 | Telemetry | response body | 1 KiB | `VersionTelemetryService.maximumResponseBytes` |
 | Telemetry | version string | 32 chars | `VersionTelemetryService.validVersion` |
+| Shelf | cards | 60 | `ShelfStore.limit` — enforced on `add` **and** on `load`, before any icon or thumbnail work |
+| Shelf | inline pasteboard payload | 64 MiB | `ShelfStore.maximumInlinePasteboardBytes` |
+| File tools | decoded image | 64,000,000 px | `FileToolsService.maximumDecodedImagePixels` — a pixel bound; the file itself is read through ImageIO and is not byte-bounded |
+| File tools | digest read | 512 MiB | `GeneratedFileRecord` streaming SHA-256 cap |
+| File tools / vault | collision-suffix attempts | 1,000 | `uniqueOutputURL`, `ScreenshotVault`; falls back to a UUID |
+| Accessories | `system_profiler` stdout | 1 MiB | `SystemProfilerAccessorySource.maximumOutputBytes`; truncation is an error, never a partial parse |
+| Accessories | `system_profiler` stderr | 8 KiB | `SystemProfilerAccessorySource.maximumErrorBytes` |
+| Accessories | `system_profiler` deadline | 5 s | terminate, then `SIGKILL` after a grace period |
+| Device transport | usbmuxd/lockdown frame | 512 KiB | `MobileDeviceTransport.maximumPayloadBytes`; the plist parser only ever sees a bounded buffer |
+| Device transport | socket read/write deadline | 5 s | `SO_RCVTIMEO` / `SO_SNDTIMEO` |
+| Device transport | TLS handshake | 10 s, 256 iterations | `LockdownTLSChannel` |
+| Device transport | public key compared | 8 KiB | `LockdownPairRecord.maximumPublicKeyBytes` |
+| Settings | remembered Apple devices | 100 | `SettingsStore.maximumRememberedAppleDevices` |
+| Device log | message | 200 chars | `DevicePowerLog.maximumMessageCharacters`; off unless `IMPULS_DEVICE_LOG=1` |
+| Web music | reported string fields | 512 / 2,048 chars | `WebMusicState.decode` |
+| Web music | artwork transferred from the page | 6 MiB base64 → 16 MiB decoded | `WebMusicPlayer`, then `PlayerBridge.maximumArtworkBytes` |
+| Web music | page diagnostic line | 512 chars | forwarded to `NSLog`; page-controlled text |
+| Feedback | summary / details / prefilled URL | 120 / 4,000 / 7,000 chars | `FeedbackService`; an over-long body is copied instead of prefilled |
 
 ## Cadence and wake-up budgets
 
@@ -58,7 +76,15 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Device failure backoff | max 600 s | exponential, reset after success |
 | Translation debounce | 320 ms | pending task cancels on new input |
 | Notes save debounce | 800 ms | disk work on utility queue |
+| Snippets save | no debounce | written from a utility queue on each deliberate change; flushed synchronously at shutdown |
 | Clipboard archive save | 750 ms | encryption/disk work on utility queue |
+| Clipboard image conversion | one in flight | serial queue; a result whose pasteboard generation moved on is discarded |
+| Actions corpus fold | once per source change | not per keystroke; invalidated by clipboard/snippets/notes announcements |
+| Menu bar rebuild | once per shown-state change | gated on a fingerprint that excludes playback position |
+| Web music bridge push | 1 s, DOM observer debounced 400 ms | runs in the page; stopped by `WebMusicPlayer.teardown()` |
+| Device topology reconnect | 1 s doubling to 60 s | unbounded in attempts by design, bounded in interval |
+| Low-battery background override | 60 s low / 300 s otherwise | only while alerts are enabled |
+| Rail hover dwell | 150 ms | hover is an affordance, not a selection |
 | Version telemetry | max one attempt per 1 h | timestamp is recorded before request, including failures; 10 s request/resource timeout |
 | Sparkle scheduled check | 86,400 s | only after user enables automatic checks |
 

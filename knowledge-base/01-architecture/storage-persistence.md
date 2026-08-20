@@ -4,7 +4,7 @@ type: architecture
 status: active
 documentation_version: 1.1
 app_version: 1.4.11
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, storage, persistence, privacy]
 ---
 
@@ -49,6 +49,9 @@ flowchart TD
 `snippets.json` намеренно user-editable. Store проверяет file signature, re-read'ит перед записью и ограничивает файл 10 MiB / 5 000 элементов. JSON pretty-printed.
 
 ## Clipboard history
+
+`load()` различает «архива нет» и «архив есть, но открыть его не удалось». Включение persistence записывает поверх только в первом случае; подробности и осознанная граница — в [Clipboard](../02-modules/clipboard.md). Keychain service/account инжектируемы (по образцу `DeviceIdentityResolver`), чтобы тест пути записи не мог создать или удалить ключ, которым шифруется настоящий архив; значения по умолчанию не изменились.
+
 
 По умолчанию persistent history выключена. При opt-in:
 

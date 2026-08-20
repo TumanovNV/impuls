@@ -4,7 +4,7 @@ type: architecture
 status: active
 documentation_version: 1.1
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, networking, security]
 ---
 
@@ -40,7 +40,14 @@ WebKit создаётся только после явного `Open Web Player`
 
 Отдельный consent. Endpoint отсутствует в source code и приходит из build config/Info.plist. Разрешён только HTTPS endpoint с точным `/v1/heartbeat`, redirects запрещены. Payload allow-list: schema, random installation UUID, app version, optional actually-observed previous version. Не чаще одной попытки в час; timestamp записывается до request, поэтому и неуспешный collector не может превратить relaunch в обход этого лимита.
 
+## Время жизни WKWebView
+
+Единственный `WKWebView` теперь имеет путь остановки. `WebMusicPlayer.teardown()` вызывается из `MediaController.stop()`: он останавливает внедрённый мост (`setInterval` 1 с и `MutationObserver`), снимает обработчик сообщений `impulsMusic` и user scripts, освобождает view. Раньше эта работа продолжалась со свёрнутой панелью и переживала `NotchController.teardown()` до выхода процесса.
+
+`teardown()` идемпотентен и **не создаёт** view и не грузит URL, поэтому путь завершения не нарушает инвариант «запуск Impuls не конструирует `WKWebView`». Объект остаётся пригодным к повторному использованию: следующее явное действие пользователя пересобирает плеер.
+
 ## CI enforcement
+
 
 `build.yml` и `release.yml` ищут `URLSession`, `URLRequest`, Network.framework/socket helpers и запрещают их во всех остальных Swift-файлах. Добавление четвёртого владельца сети должно быть ADR-level решением.
 

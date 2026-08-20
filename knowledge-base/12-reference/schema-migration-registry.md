@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 1.3
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, schemas, migrations, persistence, compatibility]
 ---
 
@@ -123,7 +123,14 @@ flowchart LR
 
 Tests: [`ClipboardHistoryPersistenceTests.swift`](../../Tests/ImpulsTests/ClipboardHistoryPersistenceTests.swift).
 
+## Изменения 1.4.12-hardening
+
+Persisted-контракт не менялся. `ClipboardHistoryPersistence` service/account стали инжектируемыми параметрами со значениями по умолчанию `io.tumanov.impuls.clipboard-history` / `archive-key.v1` — те же строки, что и раньше; смысл в том, чтобы тест пути записи не мог создать или удалить настоящий ключ. Формат архива, версия и путь файла не тронуты.
+
+`SnippetStore` перешёл на запись из serial queue с синхронным flush на выходе. Формат `snippets.json` и его границы не изменились.
+
 ## Legacy product migration
+
 
 `LegacyMigration.runIfNeeded()` is the explicit Cyclop → Impuls bridge.
 

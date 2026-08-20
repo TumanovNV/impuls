@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 1.3
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, reference, swift, ownership, ai]
 ---
 
@@ -286,6 +286,11 @@ Large file hashing uses streaming chunks rather than loading whole files. File i
 Canonical docs: [Actions](../02-modules/actions.md), [Threat Model](../06-security/threat-model.md).
 
 ## Menu Bar
+
+| Тип | Роль |
+| --- | --- |
+| `MenuBarMenuFingerprint` | Всё, что меню показывает или включает. Сравнивается перед пересборкой; `MediaController.position` не входит намеренно, потому что меню его не отображает. |
+
 
 ### `MenuBarWorkspaceConfiguration`
 

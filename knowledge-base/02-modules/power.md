@@ -4,7 +4,7 @@ type: module
 status: production
 documentation_version: 1.1
 app_version: 1.4.11
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, module, battery, devices, iokit]
 ---
 
@@ -43,7 +43,14 @@ Module switch и external-device switch различны. External providers с�
 - accessories: IORegistry + best-effort fixed-argument `system_profiler` source;
 - iPhone/iPad: local usbmuxd/lockdown transport over USB or Wi-Fi sync, existing trust required.
 
+## Числа из системных словарей
+
+IOKit и usbmuxd отдают `CFNumber` той ширины, которую выбрал драйвер или устройство. Все читатели используют один `RegistryNumber`: отклонить не-`NSNumber`, отклонить `CFBoolean`, отклонить не-finite, округлить, преобразовать через failable инициализатор. Преобразование тотальное — `Int(someDouble)` вне диапазона `Int` это trap, а не переполнение.
+
+Своего верхнего предела helper не несёт намеренно: что считать правдоподобным процентом или ёмкостью, решает домен (`AppleDeviceNormalizer` ограничивает процент диапазоном `0...100`, `PowerSnapshot` проверяет пару ёмкостей перед делением). Скрытый предел на этом уровне молча отбрасывал бы значения, которые владелец домена считает корректными.
+
 ## Honest missing data
+
 
 Missing value остаётся missing: нет fabricated 0%, guessed charging state или guessed connector. Last-good external reading может временно оставаться с freshness timestamp после transient failure; alerts используют более строгий current-ready set.
 

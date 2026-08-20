@@ -4,7 +4,7 @@ type: architecture
 status: active
 documentation_version: 1.3
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, architecture, state, ownership]
 ---
 
@@ -76,6 +76,13 @@ Menu Bar follows the same principle. It is a second **presentation surface**, no
 These boundaries are guarded by Documentation Guardian and the Background Work & Concurrency Registry.
 
 ## Published-state budget
+
+**Наблюдатель не обязан перестраиваться на каждое уведомление.** `MediaController.position` публикуется 4 раза в секунду во время воспроизведения. `MenuBarWorkspaceController` подписан на `media.objectWillChange` и раньше на каждое такое уведомление пересобирал весь `NSMenu` и перечитывал иконку статуса с диска. Теперь пересборка ограничена сравнением `MenuBarMenuFingerprint` — значения, которое несёт всё, что меню показывает или включает, и намеренно не несёт `position`, потому что меню его не отображает. `menuWillOpen` пересобирает принудительно.
+
+Та же идея в `ImpulsActionsStore`: свёрнутый корпус поиска строится один раз и сбрасывается по `objectWillChange` от clipboard/snippets/notes, а не на каждое нажатие клавиши. Подписка живёт в `NotchViewModel` и ничего не переиздаёт, поэтому не возвращает перерисовку панели на букву, которой fan-in выше специально избегает.
+
+`MenuBarWorkspaceController` живёт всё время процесса и не разбирается `NotchController.teardown()`.
+
 
 `NotchViewModel` не проксирует любое изменение любого store постоянно. Для collapsed state широкие redraws бессмысленны; часть child publishers форвардится только когда панель открыта или drop-targeted. Text-field stores наблюдаются pane'ами напрямую, иначе глобальный redraw на каждую букву способен сбить focus.
 

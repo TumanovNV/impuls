@@ -4,7 +4,7 @@ type: architecture
 status: active
 documentation_version: 1.1
 app_version: 1.4.11
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, permissions, tcc, architecture]
 ---
 
@@ -48,7 +48,12 @@ iPhone/iPad trust — не macOS TCC permission. Provider проверяет exi
 
 `PermissionCenter` агрегирует отображаемые states Calendar, Music Automation и Notifications и умеет открыть соответствующие System Settings. Он не является владельцем бизнес-логики модулей.
 
+## Изменения 1.4.12-hardening
+
+Контракт разрешений не менялся. `PlayerBridge` правился только в части преобразования позиции воспроизведения перед подстановкой в AppleScript: значение приходит из плеера и раньше конвертировалось через `Int(_:)`, что является trap вне диапазона `Int`. `AEDeterminePermissionToAutomateTarget` с `prompt: false` на всех автоматических путях и `prompt: true` только из Settings остались как были.
+
 ## Инварианты
+
 
 - update не создаёт новый prompt сам;
 - opening tab может refresh status, но prompt требует button/action;

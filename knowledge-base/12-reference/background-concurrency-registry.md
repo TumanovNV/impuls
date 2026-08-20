@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 1.3
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, performance, concurrency, timers, background-work, ai]
 ---
 
@@ -44,6 +44,20 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 | `ScreenshotVault` | Screenshot save / usage / clear | event driven; at most 2 pending saves | serial utility queue `io.tumanov.impuls.screenshot-vault`; completions hop to MainActor | bounded pending counter supplies backpressure; no repeating work |
 | `VersionTelemetryService` | Version heartbeat | no repeating app timer; send attempt throttled to once per `1 h` | async ephemeral `URLSession`; response bounded; service is not UI actor | no request without consent/endpoint; attempt time is persisted before suspension even for failure; request/resource timeout `10 s` |
 | Sparkle updater | Update check scheduling | when user enables automatic checks, bundle schedule is `86400 s` | Sparkle-owned scheduler; `UpdateService` owns policy | default automatic checks/install remain off; user controls update setting |
+| `WebMusicPlayer` | Injected page bridge: state pump, DOM observer, pause verification | JS `setInterval` `1 s`; `MutationObserver` debounced `400 ms`; pause re-check `0.7 s` | runs inside the `WKWebView` content process; messages arrive on `MainActor` via `impulsMusic` | **`teardown()` is the stop path**, called from `MediaController.stop()`: bridge `stop()` clears both intervals and silences the observer, the script-message handler and user scripts are removed, the view is released. Idempotent, and it never builds a view or loads a URL. `deactivate()` only hides the window |
+| `ClipboardStore` | Pasteboard image decode / PNG re-encode | per pasteboard change carrying an image | serial `io.tumanov.impuls.clipboard.image-conversion` at `userInitiated`; pasteboard reads stay on `MainActor` | one image at a time; result discarded unless the pasteboard `changeCount` still matches; feeds the same 12-attempt retry |
+| `SnippetStore` | Snippets persistence | on every mutation; no debounce — a snippet changes on a deliberate action, not per keystroke | serial utility queue `io.tumanov.impuls.snippets.writer` | generation drops stale writes; `reload()` will not read while a write is pending; `flushSynchronously()` is the shutdown durability path, called from `NotchViewModel.stop()` |
+| `ShelfStore` | Restore sweep + QuickLook thumbnails | on `load()`; one thumbnail request per restored card | existence sweep on serial `io.tumanov.impuls.shelf.io`; `NSWorkspace.icon` stays on `MainActor` (AppKit promises it nowhere else) | generation discards a superseded load; cards clamped to `limit` **before** any icon or thumbnail work, so the fan-out is bounded by the limit and not by the defaults |
+| `ImpulsActionsStore` | Folded search corpus | built on the first non-empty query, then reused | `@MainActor`; folding is the expensive part | invalidated by `clipboard`/`snippets`/`notes` `objectWillChange`, wired in `NotchViewModel`; a corpus whose size disagrees with its sources is rebuilt rather than trusted. **Not** rebuilt per keystroke |
+| `MenuBarWorkspaceController` | Status item + menu rebuild | Combine fan-in over settings, power, devices and `media.objectWillChange`; effectively up to `4 Hz` while a track plays | `@MainActor`; status icon read once and cached | rebuild gated on `MenuBarMenuFingerprint`; `position` is deliberately excluded because the menu never shows it; `menuWillOpen` forces a rebuild. Lives for the process — not torn down by `NotchController.teardown()` |
+| `MobileDeviceTopologyMonitor` | usbmuxd attach/detach listener | blocking socket read loop; reconnect backoff `1 s`, doubling to a `60 s` ceiling | `Task.detached(.utility)`; socket work never touches `MainActor` | `stop()` cancels the task **and** closes the fd; `deinit` calls `stop()`; unbounded in attempts by design, bounded in interval |
+| `LowBatteryAlertService` | Background alert cadence override | `60 s` when a device is low and discharging, otherwise `300 s` | `@MainActor` policy only; feeds `DeviceRefreshScheduler` | returns `nil` when alerts are disabled, which removes the override entirely |
+| `SystemProfilerAccessorySource` | `system_profiler` subprocess | on accessory refresh, not on a timer of its own | `BoundedProcess`: two `DispatchQueue.global(.utility)` drains, fixed executable path, empty environment | `5 s` deadline then `terminate()` and `SIGKILL` after a grace period; stdout bounded to `1 MiB`, stderr `8 KiB`; truncation is an error, never a partial parse |
+| `NotchController` | Collapse-if-pointer-away, topology refresh | collapse check `0.6 s` after intent; topology refresh coalesced onto the next main turn | `@MainActor` delayed work items | generation counters discard superseded intents; `topologyRefreshWork` is cancelled by `teardown()`; sleep stops the pointer sampler, wake refreshes topology **before** restarting it |
+| `AppDelegate` | Launch-time deferrals | update consent `+0.75 s`; version heartbeat `+2 s` | main queue delayed callbacks | one-shot; consent prompt is skipped under `CI=true`; neither opens a socket at launch, which CI verifies with `lsof` |
+| `FileToolsCoordinator` | File batches and status auto-clear | user-initiated; status clears after `3 s` | `Task.detached(.userInitiated)` per batch, `autoreleasepool` per item | status writes guarded by a generation. **Known gap:** batch tasks keep no handle, so they are not cancelled on teardown — see `09-known-issues/current-limitations.md` |
+| `NotchContentView` | Rail hover dwell | `150 ms` before a hover switches module | SwiftUI `.task(id:)` | id change cancels; hover is an affordance and must not become selection |
+| Panes (`Actions`, `Clipboard`, `Notes`, `Snippets`, `Translate`) | "Copied" toast clear | `1.1 s` per pane | main queue delayed callback | value comparison discards a stale clear; no repeating work |
 
 ## Provider cadence model
 
@@ -71,9 +85,17 @@ flowchart TD
 The same design idea is used elsewhere:
 
 - `PlayerBridge` serializes scripting work on a utility queue;
-- notes and encrypted clipboard persistence use utility writer queues;
+- notes, snippets and encrypted clipboard persistence use utility writer queues;
 - screenshot file operations use a utility queue;
+- clipboard image decoding and the shelf's restore sweep use their own serial queues;
+- `BoundedProcess` drains subprocess output on global utility queues under a deadline;
 - callbacks hop back to `MainActor` only to publish/present state.
+
+Two things stay on `MainActor` on purpose, and both are recorded here so the next
+reader does not "fix" them: `NSPasteboard` access, because AppKit does not promise it
+off the main thread, and `NSWorkspace.icon(forFile:)`, for the same reason. In both
+cases only that call remains — the decode, the re-encode and the existence sweep
+around it were moved off.
 
 ## Change protocol
 

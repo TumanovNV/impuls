@@ -3,8 +3,8 @@ title: Snippets Module
 type: module
 status: production
 documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+app_version: 1.4.12
+last_reviewed: 2026-08-20
 tags: [impuls, module, snippets]
 ---
 
@@ -32,6 +32,10 @@ flowchart LR
 `~/Library/Application Support/Impuls/snippets.json`, pretty-printed user-editable JSON. Label optional. Перед записью store reload'ит file, чтобы не затереть external edits. File signature включает size/modification/resource identity.
 
 Limits: 10 MiB, 5 000 items, query 256 chars, searchable value bounded 16 KiB.
+
+Запись идёт через serial utility queue `io.tumanov.impuls.snippets.writer`, как у `NoteStore`. Debounce нет намеренно: snippet меняется по осознанному действию, а не на каждое нажатие клавиши. `NotchViewModel.stop()` вызывает `flushSynchronously()` — durability на выходе приравнена к notes.
+
+Пока запись в полёте, `reload()` не читает file: копия в памяти новее диска, и чтение отменило бы изменение, которое ещё летит. Retry в `reload()` действительно повторяет попытку — подмена файла редактором во время bounded read проявляется как read/decode failure, и прежний `catch` возвращался на первой же итерации, из-за чего единственный сценарий, ради которого цикл был написан, не срабатывал.
 
 ## Identity
 

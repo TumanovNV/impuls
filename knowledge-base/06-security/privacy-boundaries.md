@@ -4,7 +4,7 @@ type: security
 status: active
 documentation_version: 1.3
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, privacy, boundaries]
 ---
 
@@ -35,7 +35,12 @@ Clipboard, notes, snippets, file contents and calendar data не являютс�
 
 External Apple-device data remains a local presentation/provider domain. Battery percentage, charging state, raw UDID/serial/Bluetooth identity and pairing material are not version-statistics fields.
 
+## Сохранность локальных данных
+
+Приватность включает и то, что локальные данные не исчезают молча. Зашифрованный архив истории буфера, который эта сборка не может открыть, больше не перезаписывается при включении persistence: `load()` отличает «пусто» от «нечитаемо». Остаточная граница задокументирована в [Current Limitations](../09-known-issues/current-limitations.md).
+
 ## Consent separation
+
 
 Update consent, web-player action и version-statistics consent — три разных решения пользователя. Consent одной boundary не переносится на другую.
 

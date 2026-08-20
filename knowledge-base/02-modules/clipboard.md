@@ -3,8 +3,8 @@ title: Clipboard Module
 type: module
 status: production
 documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+app_version: 1.4.12
+last_reviewed: 2026-08-20
 tags: [impuls, module, clipboard, keychain, privacy]
 ---
 
@@ -47,6 +47,12 @@ Image capture может асинхронно передаваться в screen
 ## Persistence
 
 Off by default. Opt-in archive AES-GCM encrypted; random key только в Keychain (`AfterFirstUnlockThisDeviceOnly`). Retention: 1h/1d/7d/30d; pinned entries не удаляются по age. Выключение persistence удаляет archive и key.
+
+**Unreadable ≠ empty.** `load()` различает «архива ещё нет» и «архив есть, но открыть его не удалось» — over budget, недоступный key, провалившаяся аутентификация AES-GCM, формат более новой сборки. Включение persistence записывает архив только в первом случае. Раньше все четыре исхода возвращали `[]`, и включение переключателя немедленно запечатывало пустой список поверх файла, уничтожая историю без единого следа кроме `NSLog`.
+
+Путь записи это уже защищал с другой стороны: новый ключ создаётся только при `errSecItemNotFound`, поэтому запертый Keychain никогда не писал. Осознанная граница: последующее пользовательское копирование возобновляет обычную запись и заменяет архив, который эта сборка открыть не может. Исправление закрывает автоматический путь, где пользователь не делал ничего кроме переключения.
+
+Декодирование изображений из pasteboard выполняется на отдельной serial queue; на `MainActor` остаются только чтения `NSPasteboard`. Результат отбрасывается, если `changeCount` успел смениться.
 
 ## Privacy
 
