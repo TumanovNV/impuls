@@ -3,8 +3,8 @@ title: Reference Layer
 type: reference-index
 status: active
 documentation_version: 1.3
-app_version: 1.4.12
-last_reviewed: 2026-08-19
+app_version: 1.4.13
+last_reviewed: 2026-08-20
 tags: [impuls, reference, schemas, types, performance, ai]
 ---
 

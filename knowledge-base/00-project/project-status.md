@@ -3,8 +3,8 @@ title: Project Status
 type: status
 status: active
 documentation_version: 1.3
-app_version: 1.4.12
-last_reviewed: 2026-08-19
+app_version: 1.4.13
+last_reviewed: 2026-08-20
 tags: [impuls, status, current]
 ---
 
@@ -12,11 +12,11 @@ tags: [impuls, status, current]
 
 ## Baseline
 
-**Current `main` product baseline: 1.4.12.** Источник версии — `Scripts/version`.
+**Current release-candidate product baseline: 1.4.13.** Источник версии — `Scripts/version`.
 
 **Current documentation baseline: 1.3.**
 
-Release `1.4.12` is the current published product baseline. Its release-specific QA decision is `ship-with-known-gaps`: the real-Mac Menu Bar battery visual acceptance (`UI-06`) passed, while other manual/mixed scenarios that were not exercised remain explicit `not-run` rather than being inferred from green CI.
+Release `1.4.13` packages the merged PR #66 security, performance and reliability hardening as a patch release. Automated Swift/Python validation, PR CI and the release-owner real-Mac smoke test passed. Its release-specific QA decision remains `ship-with-known-gaps`: unperformed manual hardware, TCC and service scenarios stay explicit `not-run` rather than being inferred from green CI. Developer ID signing and notarization are not claimed.
 
 ## Current product surface
 
@@ -113,7 +113,7 @@ Release `1.4.11` has a truthful retrospective evidence record because the struct
 
 Starting with `1.4.12`, every version baseline must include `knowledge-base/13-qa/release-evidence/<version>.md`. Every `mixed`, `manual-macos`, `manual-hardware` and `manual-service` matrix scenario must be classified explicitly. A release may be `certified`, `ship-with-known-gaps` or `blocked`, but certification requires all manual/mixed rows to be `pass` or justified `not-applicable` and at least one real Mac environment. The CI shipping gate rejects `blocked` candidates.
 
-The published 1.4.12 record intentionally uses `ship-with-known-gaps`: `UI-06` passed its real-Mac light/dark Retina acceptance, while unperformed manual/mixed rows remain visible as `not-run`.
+The 1.4.13 candidate intentionally uses `ship-with-known-gaps`: the current hardening build passed a release-owner smoke test on a real Mac, while scenario-specific manual/hardware/TCC/service checks that were not performed remain visible as `not-run`.
 
 The QA impact layer sits before that gate: it tells reviewers and agents which scenario IDs the candidate's changed source/tests may have affected and verifies that impacted manual/mixed IDs are represented in the candidate evidence. It does not change their result or claim they passed.
 
