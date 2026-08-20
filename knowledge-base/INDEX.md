@@ -68,6 +68,7 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.13**.
 
 ## 07 — Web / Operations software
 - [Website Architecture](07-web/website.md)
+- [Website Design System](07-web/design-system.md)
 - [Version Statistics Collector](07-web/version-statistics-collector.md)
 
 ## 08 — Decisions

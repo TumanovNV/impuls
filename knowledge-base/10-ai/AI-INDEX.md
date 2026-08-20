@@ -25,6 +25,8 @@ tags: [impuls, ai, agents, index, qa]
 - [Dependency / Supply Chain](../06-security/supply-chain.md)
 - [Release Pipeline](../05-release/release-pipeline.md)
 - [Release Architecture Ledger](../11-history/release-architecture-ledger.md)
+- [Website Architecture](../07-web/website.md)
+- [Website Design System](../07-web/design-system.md)
 - [Collector](../07-web/version-statistics-collector.md)
 - [Current Limitations](../09-known-issues/current-limitations.md)
 - [ADRs](../08-decisions/README.md)
