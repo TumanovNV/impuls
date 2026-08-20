@@ -158,6 +158,41 @@ final class FileToolsServiceTests: XCTestCase {
         }
     }
 
+    /// `load()` stats remembered paths off the main actor, so a card dropped
+    /// while that sweep is still running must not be replaced by the answer it
+    /// started computing beforehand.
+    func testACardDroppedDuringRestoreSurvivesTheRestore() async throws {
+        let remembered = try (0..<8).map { try makeImage(named: "remembered-\($0).png", width: 4, height: 4) }
+        let dropped = try makeImage(named: "dropped-during-restore.png", width: 4, height: 4)
+        defer { (remembered + [dropped]).forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(remembered.map(\.path), forKey: "shelf.urls")
+
+        let store = await MainActor.run { ShelfStore(defaults: defaults) }
+        try await MainActor.run {
+            store.load()
+            // Same main-actor turn: the sweep cannot have finished yet.
+            store.add([dropped])
+            XCTAssertEqual(store.items.map(\.url), [dropped])
+        }
+
+        // Give the restore every chance to land and clobber it.
+        try await Task.sleep(nanoseconds: 300_000_000)
+
+        await MainActor.run {
+            XCTAssertEqual(
+                store.items.map(\.url),
+                [dropped],
+                "a restore that began before the drop must not resurrect the old shelf"
+            )
+            XCTAssertEqual(defaults.stringArray(forKey: "shelf.urls"), [dropped.path])
+            store.clear()
+        }
+    }
+
     /// `add` clamped to the limit and `load` did not, so a remembered shelf
     /// longer than the limit came back in full — and paid for an icon and a
     /// thumbnail request for every one of those cards on the main actor.

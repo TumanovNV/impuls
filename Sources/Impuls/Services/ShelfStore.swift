@@ -276,6 +276,10 @@ final class ShelfStore: ObservableObject {
     }
 
     private func persist() {
+        // Any mutation retires a restore that is still stating files. `load()`
+        // became asynchronous, so a card dropped during launch would otherwise
+        // be overwritten a moment later by the sweep that started before it.
+        loadGeneration += 1
         defaults.set(items.map(\.url.path), forKey: defaultsKey)
     }
 }

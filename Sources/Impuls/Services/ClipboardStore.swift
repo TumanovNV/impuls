@@ -267,15 +267,41 @@ final class ClipboardStore: ObservableObject {
         let pasteboard = NSPasteboard.general
         guard pasteboard.changeCount == changeCount else { return }
 
-        let png = pasteboard.data(forType: .png)
-        let tiff = png == nil ? pasteboard.data(forType: .tiff) : nil
-        guard png != nil || tiff != nil else {
+        // PNG first, and the TIFF representation only if the PNG turns out to
+        // be unusable — advertised but oversized, or something ImageIO cannot
+        // open. Reading both up front would materialise two copies of a large
+        // screenshot for a fallback that almost never runs.
+        guard let png = pasteboard.data(forType: .png) else {
+            convertTIFF(at: changeCount, attempt: attempt)
+            return
+        }
+
+        Self.conversionQueue.async { [weak self] in
+            let usable = Self.isImagePayloadAllowed(png) ? png : nil
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    guard NSPasteboard.general.changeCount == changeCount else { return }
+                    if let usable, let onImage = self.onImage {
+                        onImage(usable, Date())
+                        return
+                    }
+                    self.convertTIFF(at: changeCount, attempt: attempt)
+                }
+            }
+        }
+    }
+
+    private func convertTIFF(at changeCount: Int, attempt: Int) {
+        let pasteboard = NSPasteboard.general
+        guard pasteboard.changeCount == changeCount,
+              let tiff = pasteboard.data(forType: .tiff) else {
             retryOrRecordText(at: changeCount, attempt: attempt)
             return
         }
 
         Self.conversionQueue.async { [weak self] in
-            let converted = Self.pngData(png: png, tiff: tiff)
+            let converted = Self.pngFromTIFF(tiff)
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     guard let self else { return }
@@ -314,11 +340,10 @@ final class ClipboardStore: ObservableObject {
     }
 
     /// Runs off the main actor. Takes only the bytes, so nothing it touches is
-    /// owned by another thread.
-    nonisolated private static func pngData(png: Data?, tiff: Data?) -> Data? {
-        if let png, isImagePayloadAllowed(png) { return png }
-        guard let tiff,
-              isImagePayloadAllowed(tiff),
+    /// owned by another thread. This is the expensive half: a decode of the
+    /// TIFF and a re-encode to PNG, both bounded.
+    nonisolated private static func pngFromTIFF(_ tiff: Data) -> Data? {
+        guard isImagePayloadAllowed(tiff),
               let rep = NSBitmapImageRep(data: tiff),
               let converted = rep.representation(using: .png, properties: [:]),
               converted.count <= maximumImageBytes else { return nil }
