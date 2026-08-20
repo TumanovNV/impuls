@@ -530,6 +530,78 @@ final class AppleAccessoryBatteryProviderTests: DeviceIdentityTestCase {
         }
     }
 
+    // MARK: - The notification callback's context outlives the provider
+
+    /// The residual risk behind the teardown change: IOKit keeps the callback
+    /// context pointer for the life of the registration and cannot be told the
+    /// provider has gone. It used to be `Unmanaged.passUnretained(self)`, so a
+    /// notification delivered while the provider was being released resolved a
+    /// dead object.
+    ///
+    /// A full IOKit test would need a real accessory to connect and disconnect
+    /// on cue, which is hardware QA, not a unit test. What is deterministic —
+    /// and what the safety actually rests on — is the box: it must never hand
+    /// back a provider that has been released or torn down.
+    @MainActor
+    func testTheNotificationContextNeverHandsBackAReleasedProvider() {
+        var provider: AppleAccessoryBatteryProvider? = AppleAccessoryBatteryProvider(
+            registrySource: FakeAccessorySource(devices: []),
+            profilerSource: nil
+        )
+        let context = AccessoryNotificationContext(provider: provider!)
+        XCTAssertNotNil(context.provider, "while the provider is alive the callback has to reach it")
+
+        provider = nil
+
+        XCTAssertNil(
+            context.provider,
+            "the box holds the provider weakly, so a late callback reads nil instead of a released object"
+        )
+    }
+
+    /// Teardown severs the box before anything else is released, so a callback
+    /// already queued behind it is inert even though the provider still exists.
+    @MainActor
+    func testInvalidatingTheContextSilencesCallbacksBeforeTheProviderGoesAway() {
+        let provider = AppleAccessoryBatteryProvider(
+            registrySource: FakeAccessorySource(devices: []),
+            profilerSource: nil
+        )
+        let context = AccessoryNotificationContext(provider: provider)
+
+        context.invalidate()
+        XCTAssertNil(context.provider, "teardown has begun, so delivery stops reaching the provider")
+
+        // Idempotent: `stop()` and `deinit` both run the teardown.
+        context.invalidate()
+        XCTAssertNil(context.provider)
+
+        // And it is a one-way transition — nothing puts the provider back.
+        withExtendedLifetime(provider) {
+            XCTAssertNil(context.provider, "an invalidated box never points at a provider again")
+        }
+    }
+
+    /// `stop()` and `deinit` both tear down, and the coordinator calls `stop()`
+    /// on every disable. Running the whole cycle twice must not trap on a
+    /// double release of the port, the iterators or the context.
+    @MainActor
+    func testStartingAndStoppingRepeatedlyIsSafe() {
+        let provider = AppleAccessoryBatteryProvider(
+            registrySource: FakeAccessorySource(devices: []),
+            profilerSource: nil
+        )
+
+        for _ in 0..<3 {
+            provider.start { _ in }
+            provider.stop()
+            // Second stop with nothing left to release.
+            provider.stop()
+        }
+
+        XCTAssertEqual(provider.status, .disabled)
+    }
+
     func testTheProviderPollsQuicklyOnlyWhileItsPanelIsActive() {
         let provider = AppleAccessoryBatteryProvider(registrySource: FakeAccessorySource(devices: []), profilerSource: nil)
 
