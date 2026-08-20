@@ -118,22 +118,42 @@ final class ClipboardStore: ObservableObject {
         retentionInterval = retention.timeInterval
 
         if enabled, !wasEnabled {
-            let restored = persistence?.load() ?? .loaded([])
-            merge(restored.items)
-            prune()
-            // An archive that could not be opened is left exactly as it is.
-            // Sealing the in-memory list over it here is what turned a history
-            // this build merely could not read — a newer build's archive, one
-            // over the size budget, a key the process could not fetch — into a
-            // permanent loss, triggered by nothing but a toggle.
-            guard !restored.isUnreadable else { return }
-            persist()
+            restoreFromArchive()
+        } else if enabled, persistence?.isBlockedByUnreadableArchive == true {
+            // Still latched from an earlier failed read. Retry it here rather
+            // than pruning and persisting into a write that cannot land: a
+            // login keychain unlocked since launch recovers at the next touch
+            // of the clipboard settings instead of staying blocked all session.
+            restoreFromArchive()
         } else if enabled {
             prune()
             persist()
         } else if wasEnabled {
             persistence?.delete()
         }
+    }
+
+    /// Reads the archive and folds it into whatever is already in memory.
+    ///
+    /// A read that fails leaves the file exactly as it is.
+    /// `ClipboardHistoryPersistence` latches on that failure and refuses every
+    /// write until a read succeeds, so neither this call nor any later
+    /// clipboard event, prune, retention change or shutdown flush can seal an
+    /// empty or partial list over a history this process merely could not open
+    /// — a newer build's archive, one over the size budget, a key the process
+    /// could not fetch. Items captured meanwhile stay in memory and are written
+    /// as soon as a read succeeds, which is what makes this the recovery path
+    /// rather than only a guard.
+    ///
+    /// `merge` is the existing union by payload equality, so recovery adds the
+    /// restored rows to the session's own without inventing a reconciliation
+    /// rule: the archive wins nothing, the session loses nothing.
+    private func restoreFromArchive() {
+        let restored = persistence?.load() ?? .loaded([])
+        merge(restored.items)
+        prune()
+        guard !restored.isUnreadable else { return }
+        persist()
     }
 
     func start() {
@@ -150,6 +170,13 @@ final class ClipboardStore: ObservableObject {
     func stop() {
         timer?.invalidate()
         timer = nil
+        // A read that failed at launch can succeed now — a login keychain
+        // unlocked during the session is the ordinary case. One last attempt,
+        // so this session's items are folded into the archive instead of being
+        // dropped at quit. Still unreadable means `persist`/`flush` below write
+        // nothing, which is the point: shutdown is not the moment the latch
+        // quietly gives up.
+        if persistence?.isBlockedByUnreadableArchive == true { restoreFromArchive() }
         persist()
         persistence?.flush()
     }
