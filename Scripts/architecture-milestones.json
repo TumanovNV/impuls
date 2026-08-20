@@ -96,6 +96,20 @@
         "knowledge-base/01-architecture/settings-onboarding-feedback.md"
       ],
       "adrs": []
+    },
+    {
+      "version": "1.4.13",
+      "id": "data-durability-and-lifecycle-hardening",
+      "category": "reliability-performance",
+      "summary": "Clipboard, Shelf, Snippets, Menu Bar, Actions, Web Music and Power ownership paths were hardened for data durability, bounded work and deterministic teardown.",
+      "release_note": "docs/releases/1.4.13.md",
+      "canonical_docs": [
+        "knowledge-base/01-architecture/storage-persistence.md",
+        "knowledge-base/01-architecture/state-and-ownership.md",
+        "knowledge-base/12-reference/background-concurrency-registry.md",
+        "knowledge-base/12-reference/resource-budget-registry.md"
+      ],
+      "adrs": []
     }
   ]
 }

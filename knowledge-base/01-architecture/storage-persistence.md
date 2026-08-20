@@ -3,7 +3,7 @@ title: Storage and Persistence
 type: architecture
 status: active
 documentation_version: 1.1
-app_version: 1.4.11
+app_version: 1.4.12
 last_reviewed: 2026-08-20
 tags: [impuls, storage, persistence, privacy]
 ---
