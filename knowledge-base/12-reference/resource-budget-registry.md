@@ -42,7 +42,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Screenshot vault | concurrent pending saves | 2 | `ScreenshotVault.maximumPendingSaves` |
 | Telemetry | response body | 1 KiB | `VersionTelemetryService.maximumResponseBytes` |
 | Telemetry | version string | 32 chars | `VersionTelemetryService.validVersion` |
-| Shelf | cards | 60 | `ShelfStore.limit` — enforced on `add` **and** on `load`, before any icon or thumbnail work |
+| Shelf | cards | 60 | `ShelfStore.limit` — enforced on `add` **and** on the restore's completion, before any icon or thumbnail work. The persisted `shelf.urls` list may exceed it *while a restore is running*: the unrestored tail has not been checked for existence yet, and clamping before knowing which entries still exist would drop live cards to keep dead ones. The completion clamps and writes back, and `load()` clamps too, so the overshoot heals and cannot accumulate |
 | Shelf | inline pasteboard payload | 64 MiB | `ShelfStore.maximumInlinePasteboardBytes` |
 | File tools | decoded image | 64,000,000 px | `FileToolsService.maximumDecodedImagePixels` — a pixel bound; the file itself is read through ImageIO and is not byte-bounded |
 | File tools | digest read | 512 MiB | `GeneratedFileRecord` streaming SHA-256 cap |

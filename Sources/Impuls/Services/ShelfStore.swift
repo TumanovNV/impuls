@@ -20,6 +20,13 @@ struct ShelfItem: Identifiable, Equatable {
     static func == (lhs: ShelfItem, rhs: ShelfItem) -> Bool { lhs.url == rhs.url }
 }
 
+/// Hands the shelf's existence sweep off the main actor.
+///
+/// A named alias rather than an inline closure type because it is part of
+/// `ShelfStore`'s initialiser contract: production passes the serial I/O queue,
+/// and a test passes a gate it can open on demand.
+typealias ShelfRestoreScheduler = @Sendable (@escaping @Sendable () -> Void) -> Void
+
 /// Drop zone contents. Files are referenced, never copied — the shelf is a
 /// holding area, so moving the original away simply removes it from the shelf.
 @MainActor
@@ -42,15 +49,41 @@ final class ShelfStore: ObservableObject {
     private let limit = 60
 
     /// Serial, and only ever used for the existence sweep in `load`.
-    private static let ioQueue = DispatchQueue(
+    nonisolated private static let ioQueue = DispatchQueue(
         label: "io.tumanov.impuls.shelf.io",
         qos: .userInitiated
     )
-    private var loadGeneration = 0
 
-    init(defaults: UserDefaults = .standard) {
+    /// Retires a sweep superseded by a later `load()`. Only `load()` advances
+    /// it. A user mutation deliberately does not: retiring the sweep on every
+    /// mutation is what made the unrestored list unrecoverable.
+    private var restoreGeneration = 0
+
+    /// Remembered paths a running restore has not turned into cards yet, or
+    /// `nil` when no restore is in flight.
+    ///
+    /// This is the piece that was missing. Between `load()` and its completion
+    /// the shelf's real contents are `items` **plus** this tail, and only the
+    /// two together may be persisted — see `persist()`. User removals prune it
+    /// so a card deleted mid-restore is not handed back a moment later.
+    private var unrestoredPaths: [String]?
+
+    init(
+        defaults: UserDefaults = .standard,
+        scheduleRestore: @escaping ShelfRestoreScheduler = { work in ShelfStore.ioQueue.async(execute: work) }
+    ) {
         self.defaults = defaults
+        self.scheduleRestore = scheduleRestore
     }
+
+    /// How the existence sweep leaves the main actor.
+    ///
+    /// Injectable for one reason: the window between `load()` and its
+    /// completion is where the whole restore/mutation contract lives, and a
+    /// test has to hold that window open deliberately instead of racing a real
+    /// queue for it. Production passes the serial I/O queue and nothing about
+    /// the shipped path changes.
+    private let scheduleRestore: ShelfRestoreScheduler
 
     /// Restores the shelf without stating every remembered path on the main
     /// actor first.
@@ -66,32 +99,68 @@ final class ShelfStore: ObservableObject {
     /// than by whatever the defaults happen to hold. `NSWorkspace.icon` stays
     /// on the main actor: AppKit does not promise it anywhere else, and it is
     /// the one step left that has to be there.
+    ///
+    /// The sweep does not own `items`. It reports which remembered paths are
+    /// still on disk, and `finishRestore` folds that answer into whatever the
+    /// user has done meanwhile — it never assigns over it. That is the
+    /// difference between this and the version that lost the shelf: a drop
+    /// during launch used to retire the sweep, and the list it was about to
+    /// restore was written away by the very next `persist()`.
     func load() {
-        loadGeneration += 1
-        let generation = loadGeneration
+        restoreGeneration += 1
+        let generation = restoreGeneration
         let paths = defaults.stringArray(forKey: defaultsKey) ?? []
-        let limit = self.limit
+        unrestoredPaths = paths
 
-        Self.ioQueue.async { [weak self] in
-            let existing = paths.filter { FileManager.default.fileExists(atPath: $0) }
-            let kept = Array(existing.prefix(limit))
-            let droppedOverflow = existing.count > kept.count
+        scheduleRestore { [weak self] in
+            let existing = Set(paths.filter { FileManager.default.fileExists(atPath: $0) })
 
             DispatchQueue.main.async {
                 MainActor.assumeIsolated {
                     // A shelf reloaded again while this one was still stating
                     // files must not be overwritten by the older answer.
-                    guard let self, self.loadGeneration == generation else { return }
-                    self.items = kept.map {
-                        ShelfItem(url: URL(fileURLWithPath: $0), icon: NSWorkspace.shared.icon(forFile: $0))
-                    }
-                    self.items.forEach(self.loadThumbnail)
-                    // Write the trimmed list back so an over-long remembered
-                    // shelf heals instead of being re-clamped on every launch.
-                    if droppedOverflow { self.persist() }
+                    guard let self, self.restoreGeneration == generation else { return }
+                    self.finishRestore(swept: paths, existing: existing)
                 }
             }
         }
+    }
+
+    /// Folds a finished sweep into the current shelf.
+    ///
+    /// Three rules, in order. A card whose remembered file has gone leaves —
+    /// but only if this sweep actually stated it, because anything added since
+    /// was never checked. What is still remembered, still on disk, not already
+    /// a card and not removed by the user meanwhile is appended, oldest below
+    /// the cards added during the restore. Then the limit is applied, and the
+    /// reconciled list is written back so an over-long or stale remembered
+    /// shelf heals instead of being re-clamped on every launch.
+    private func finishRestore(swept: [String], existing: Set<String>) {
+        let stillWanted = Set(unrestoredPaths ?? [])
+        unrestoredPaths = nil
+
+        let sweptPaths = Set(swept)
+        let vanished = Set(
+            items.filter { sweptPaths.contains($0.url.path) && !existing.contains($0.url.path) }.map(\.id)
+        )
+        if !vanished.isEmpty {
+            items.removeAll { vanished.contains($0.id) }
+            selection.subtract(vanished)
+        }
+
+        var known = Set(items.map(\.url.path))
+        var room = max(0, limit - items.count)
+        for path in swept where room > 0 {
+            guard stillWanted.contains(path), existing.contains(path), !known.contains(path) else { continue }
+            known.insert(path)
+            room -= 1
+            let item = ShelfItem(url: URL(fileURLWithPath: path), icon: NSWorkspace.shared.icon(forFile: path))
+            items.append(item)
+            loadThumbnail(item)
+        }
+
+        if items.count > limit { items.removeLast(items.count - limit) }
+        persist()
     }
 
     func add(_ urls: [URL]) {
@@ -130,12 +199,16 @@ final class ShelfStore: ObservableObject {
     func remove(_ item: ShelfItem) {
         items.removeAll { $0.id == item.id }
         selection.remove(item.id)
+        forget([item.url])
         persist()
     }
 
     func clear() {
         items.removeAll()
         selection.removeAll()
+        // Clearing the shelf means the whole shelf, including the part a
+        // running restore has not produced yet.
+        if unrestoredPaths != nil { unrestoredPaths = [] }
         persist()
     }
 
@@ -144,7 +217,19 @@ final class ShelfStore: ObservableObject {
         let removedIDs = Set(items.filter { removed.contains($0.url) }.map(\.id))
         items.removeAll { removed.contains($0.url) }
         selection.subtract(removedIDs)
+        forget(urls)
         persist()
+    }
+
+    /// Takes paths out of a running restore's tail.
+    ///
+    /// Removal has to reach the tail as well as the cards: a file deleted while
+    /// the sweep was still stating it is not in `items` to be removed from, and
+    /// without this the restore would hand it straight back.
+    private func forget(_ urls: [URL]) {
+        guard unrestoredPaths != nil else { return }
+        let paths = Set(urls.map(\.path))
+        unrestoredPaths?.removeAll { paths.contains($0) }
     }
 
     /// Files an operation started on `item` should use. It mirrors Finder:
@@ -276,11 +361,24 @@ final class ShelfStore: ObservableObject {
     }
 
     private func persist() {
-        // Any mutation retires a restore that is still stating files. `load()`
-        // became asynchronous, so a card dropped during launch would otherwise
-        // be overwritten a moment later by the sweep that started before it.
-        loadGeneration += 1
-        defaults.set(items.map(\.url.path), forKey: defaultsKey)
+        // While a restore is running the shelf is `items` plus the tail it has
+        // not produced yet, and both halves have to be written. Writing only
+        // `items` is exactly how a card dropped during launch used to take the
+        // whole remembered shelf with it: the sweep was retired, and the list
+        // it was about to restore existed nowhere else.
+        //
+        // The tail is not clamped here. It is what was already remembered, it
+        // has not been checked for existence yet, and dropping entries by a
+        // limit before knowing which of them still exist would discard live
+        // cards to keep dead ones. `finishRestore` applies `limit` to the
+        // reconciled list and writes it back, and `load()` clamps as well, so
+        // any transient overshoot heals rather than accumulating.
+        var paths = items.map(\.url.path)
+        if let unrestoredPaths {
+            let known = Set(paths)
+            paths.append(contentsOf: unrestoredPaths.filter { !known.contains($0) })
+        }
+        defaults.set(paths, forKey: defaultsKey)
     }
 }
 
