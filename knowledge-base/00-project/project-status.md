@@ -12,7 +12,7 @@ tags: [impuls, status, current]
 
 ## Baseline
 
-**Current release-candidate product baseline: 1.4.13.** Источник версии — `Scripts/version`.
+**Current production release: 1.4.13.** Источник версии — `Scripts/version`.
 
 **Current documentation baseline: 1.3.**
 
@@ -60,7 +60,8 @@ The knowledge base contains:
 - Documentation Guardian v2 with 11 semantic contract families, including privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and module topology in addition to the original background/resource/persistence/network/permission/dependency rules;
 - Git-history freshness guard with **20 curated canonical mappings**, including Menu Bar, Privacy Boundaries, Signing & Distribution, State & Ownership and the Core Type Reference;
 - weekly periodic review-age enforcement for curated high-risk docs;
-- explicit collector SQLite schema versioning and ordered migration boundary using `PRAGMA user_version`.
+- explicit collector SQLite schema versioning and ordered migration boundary using `PRAGMA user_version`;
+- production website architecture and design-system documentation for RU/EN GitHub Pages.
 
 ## Current architectural anchors
 
@@ -113,9 +114,9 @@ Release `1.4.11` has a truthful retrospective evidence record because the struct
 
 Starting with `1.4.12`, every version baseline must include `knowledge-base/13-qa/release-evidence/<version>.md`. Every `mixed`, `manual-macos`, `manual-hardware` and `manual-service` matrix scenario must be classified explicitly. A release may be `certified`, `ship-with-known-gaps` or `blocked`, but certification requires all manual/mixed rows to be `pass` or justified `not-applicable` and at least one real Mac environment. The CI shipping gate rejects `blocked` candidates.
 
-The 1.4.13 candidate intentionally uses `ship-with-known-gaps`: the current hardening build passed a release-owner smoke test on a real Mac, while scenario-specific manual/hardware/TCC/service checks that were not performed remain visible as `not-run`.
+The 1.4.13 release intentionally uses `ship-with-known-gaps`: the hardening build passed a release-owner smoke test on a real Mac, while scenario-specific manual/hardware/TCC/service checks that were not performed remain visible as `not-run`.
 
-The QA impact layer sits before that gate: it tells reviewers and agents which scenario IDs the candidate's changed source/tests may have affected and verifies that impacted manual/mixed IDs are represented in the candidate evidence. It does not change their result or claim they passed.
+The QA impact layer sits before that gate: it tells reviewers and agents which scenario IDs a candidate's changed source/tests may affect and verifies that impacted manual/mixed IDs are represented in the candidate evidence. It does not change their result or claim they passed.
 
 See [Behavioral QA Change Impact Traceability](../13-qa/change-impact-traceability.md) and [Release QA Evidence](../13-qa/release-evidence/README.md).
 

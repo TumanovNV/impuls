@@ -1,6 +1,6 @@
 # IMPULS Engineering Knowledge Base
 
-Documentation version **1.3**, product baseline **1.4.11**.
+Documentation version **1.3**, product baseline **1.4.13**.
 
 Эта папка — Markdown-first база знаний проекта. Её можно открыть как отдельный Obsidian vault, читать на GitHub или давать Claude/Codex как structured project context.
 
@@ -16,16 +16,19 @@ v1.1 зафиксировала lifecycle, state ownership, multi-display, stora
 
 v1.2 добавила precision/reference layer: Schema & Migration Registry, Core Type Reference, machine-checked Type → Tests → Docs Map и формальную Public / Private Operations Boundary.
 
-v1.3 добавляет anti-drift и performance/QA слой:
+v1.3 добавляет anti-drift, performance/QA и web-documentation слой:
 
 - единый [Background Work & Concurrency Registry](12-reference/background-concurrency-registry.md);
 - единый [Input & Resource Budget Registry](12-reference/resource-budget-registry.md);
 - [Behavioral QA Matrix](13-qa/behavioral-qa-matrix.md) для multi-display, TCC, hardware, data, media, UI и release edge cases;
-- [Documentation Guardian](10-ai/documentation-guardian.md);
+- [Documentation Guardian](10-ai/documentation-guardian.md) с semantic contract families;
 - machine-readable semantic rules `Scripts/documentation-guardian-rules.json`;
 - diff checker `Scripts/check-documentation-guardian.py`;
 - historical source→doc freshness mapping `Scripts/documentation-freshness.json`;
 - Git-history freshness checker `Scripts/check-documentation-freshness.py`;
+- source/test → Behavioral QA routing через `Scripts/check-qa-impact.py`;
+- per-release QA evidence и shipping gate через `Scripts/check-release-qa-evidence.py`;
+- [Website Architecture](07-web/website.md) и [Website Design System](07-web/design-system.md) для production GitHub Pages;
 - weekly lightweight freshness run for periodic high-risk documentation review.
 
 ## Автоматические проверки документации
@@ -35,11 +38,15 @@ python3 Scripts/check-knowledge-base.py
 python3 Scripts/generate-knowledge-map.py --check
 python3 Scripts/check-documentation-guardian.py --base <base-sha>
 python3 Scripts/check-documentation-freshness.py
+python3 Scripts/check-qa-impact.py --base <base-sha>
+python3 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-Первая проверка валидирует структуру/frontmatter/links/baseline. Вторая проверяет curated source→tests→docs map. Третья смотрит **изменённые строки кода** и требует review соответствующего канонического документа, если изменились timers/tasks/queues, resource budgets, persisted contracts, networking или permission paths. Четвёртая смотрит историю Git и не даёт canonical doc оставаться старее закреплённого за ним source.
+Первая проверка валидирует структуру/frontmatter/links/baseline. Вторая проверяет curated source→tests→docs map. Третья — Documentation Guardian v2: анализирует изменённые строки и требует review соответствующего canonical owner для contract-sensitive изменений, включая background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries и shipped module topology. Четвёртая использует историю Git и не даёт canonical doc оставаться старее закреплённого source.
 
-Guardian не генерирует текст из кода. Он создаёт обязательство пересмотреть документ и тем самым не даёт документации тихо отстать от реализации.
+Пятая маршрутизирует фактический diff к Behavioral QA IDs, падает на unmapped behavioral owners и проверяет связь source/test → QA. Шестая валидирует release-specific manual/mixed evidence и не позволяет shipping decision `blocked` пройти release gate.
+
+Guardian не генерирует текст из кода. Он создаёт обязательство пересмотреть документ и тем самым не даёт документации тихо отстать от реализации. QA impact и release evidence аналогично не подменяют реальные hardware/TCC/service проверки зелёным CI.
 
 По понедельникам GitHub Actions дополнительно запускает freshness check с `--enforce-review-age`: для критичных архитектурных/reference документов используется 180-дневный цикл review, для отдельных module docs — 365 дней. Обычный PR не краснеет только из-за возраста — age policy включается отдельно по расписанию.
 

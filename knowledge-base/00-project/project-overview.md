@@ -2,9 +2,9 @@
 title: Project Overview
 type: project
 status: active
-documentation_version: 1.0
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+documentation_version: 1.1
+app_version: 1.4.13
+last_reviewed: 2026-08-20
 tags: [impuls, project, product]
 related: [architecture, modules, security]
 ---
@@ -56,7 +56,7 @@ related: [architecture, modules, security]
 
 ## Текущая модель распространения
 
-На дату ревизии документации публичная версия — 1.4.11. Сборки распространяются через GitHub Releases; встроенный канал обновления использует Sparkle. Публичные сборки пока могут использовать ad-hoc подпись при отсутствии Developer ID, поэтому первая установка может требовать ручного разрешения Gatekeeper. Детали не должны дублироваться здесь как неизменяемые: перед релизными работами всегда проверять актуальные [`README.ru.md`](../../README.ru.md), [`SECURITY.md`](../../SECURITY.md) и release workflow.
+На дату ревизии документации публичная версия — 1.4.13. Сборки распространяются через GitHub Releases; встроенный канал обновления использует Sparkle. Публичные сборки пока могут использовать ad-hoc подпись при отсутствии Developer ID, поэтому первая установка может требовать ручного разрешения Gatekeeper. Детали не должны дублироваться здесь как неизменяемые: перед релизными работами всегда проверять актуальные [`README.ru.md`](../../README.ru.md), [`SECURITY.md`](../../SECURITY.md) и release workflow.
 
 ## Источники истины
 
