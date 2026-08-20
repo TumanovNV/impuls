@@ -8,8 +8,8 @@
 <meta name="author" content="Николай Туманов">
 <meta name="application-name" content="ИМПУЛЬС">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfd">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0d11">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fcfcfd">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#08090c">
 <meta name="color-scheme" content="light dark">
 <link rel="canonical" href="https://tumanovnv.github.io/impuls/">
 <link rel="alternate" hreflang="ru" href="https://tumanovnv.github.io/impuls/">
@@ -133,33 +133,49 @@
 </script>
 <style>
 /* ---------------------------------------------------------------------------
-   Impuls — design tokens.
+   Impuls — website design system.
 
-   Everything here comes from the application, not from taste. The accent is the
-   blue of the brand mark (assets/impuls-icon.svg). The radii are the panel's own
-   rungs from Sources/Impuls/UI/Theme.swift — 6 / 10 / 14, plus the 12-top and
-   22-bottom of the open panel. Spacing is the same 4 pt grid. The motion curves
-   are literally Theme.PanelMotionPlan: the site opens things the way the panel
-   opens itself.
+   The application's DNA, not the application's UI. The accent is the blue of the
+   brand mark (assets/impuls-icon.svg); the radii start from the panel's own rungs
+   in Sources/Impuls/UI/Theme.swift — 6 / 10 / 14 / 22 — and add two marketing
+   sizes above them, because a landing surface is not a 12 pt control. Spacing is
+   the same 4 pt grid extended upward: chapters need air a panel never has. The
+   motion curves are literally Theme.PanelMotionPlan.
+
+   The brand idea is a movement toward the top edge of the screen. It appears as
+   exactly three things and nowhere else: an accent halo above the fold, a 1 px
+   accent hairline on the top edge of every product surface, and the panel that
+   drops into the hero the way the app drops into a Mac. No neon, no glass tiles.
+
+   Full documentation: knowledge-base/07-web/design-system.md
 --------------------------------------------------------------------------- */
 :root{
   color-scheme:light dark;
 
+  /* Brand ---------------------------------------------------------------- */
   --accent:#0a5fd6;
   --accent-hover:#0850b6;
+  --accent-quiet:rgba(10,95,214,.11);
+  --accent-line:rgba(10,95,214,.55);
   --on-accent:#fff;
 
-  --bg:#fbfbfd;
-  --bg-sunken:#f2f3f7;
+  /* Neutral layers ------------------------------------------------------- */
+  --bg:#fcfcfd;
+  --bg-sunken:#f1f3f7;
   --surface:#ffffff;
-  --surface-2:#f6f7fa;
-  --text:#12141a;
-  --muted:#565c6b;
-  --faint:#666c7e;
-  --line:rgba(18,20,26,.10);
-  --line-strong:rgba(18,20,26,.18);
-  --shadow-panel:0 24px 60px -20px rgba(12,16,28,.30), 0 4px 14px -6px rgba(12,16,28,.14);
-  --shadow-card:0 1px 2px rgba(12,16,28,.05), 0 8px 24px -16px rgba(12,16,28,.20);
+  --surface-2:#f5f6fa;
+  --text:#0d0f14;
+  --muted:#545a68;
+  /* Not a lighter grey than this. `--faint` carries the eyebrows, the meta
+     line, the module notes and the footer — all of it normal-size body text —
+     and it has to clear 4.5:1 against BOTH `--bg` and `--bg-sunken`, which the
+     band sections put it on. #757c8c looked right and measured 4.08 / 3.77. */
+  --faint:#656c7b;
+  --line:rgba(13,15,20,.09);
+  --line-strong:rgba(13,15,20,.17);
+  --shadow-card:0 1px 2px rgba(12,16,28,.05), 0 10px 30px -20px rgba(12,16,28,.22);
+  --shadow-chip:0 1px 2px rgba(12,16,28,.09), 0 8px 18px -14px rgba(12,16,28,.34);
+  --shadow-scene:0 30px 70px -34px rgba(10,14,26,.42), 0 4px 14px -8px rgba(10,14,26,.14);
 
   /* The stage is a screen, and a screen is dark in either theme. The panel
      captures were taken with macOS in its dark appearance, so the surface
@@ -167,17 +183,24 @@
   --stage:linear-gradient(168deg,#252a35 0%,#161a22 58%,#10131a 100%);
   --stage-line:rgba(255,255,255,.10);
   --stage-ink:rgba(233,238,248,.62);
-  --stage-ink-dim:rgba(233,238,248,.58);
+  --stage-ink-dim:rgba(233,238,248,.55);
+  /* The accent hairline on a product surface sits on the stage, not on the
+     page, so it is judged against the stage and carries one value in both
+     themes. Deriving it from the page-level `--accent-line` made it
+     rgba(10,95,214,.55) over #252a35 in the light theme — a navy line on a
+     near-navy surface, which is where the brand mark quietly disappeared. */
+  --stage-accent-line:rgba(77,148,255,.7);
 
-  /* Radii — the panel's own scale. */
-  --r-s:6px; --r-m:10px; --r-l:14px; --r-xl:22px;
+  /* Radii — the panel's scale, plus two marketing sizes. */
+  --r-s:6px; --r-m:10px; --r-l:14px; --r-xl:22px; --r-2xl:30px; --r-pill:999px;
 
-  /* 4 px grid. */
+  /* 4 px grid, extended to chapter distances. */
   --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
-  --s7:48px; --s8:64px; --s9:96px; --s10:128px;
+  --s7:48px; --s8:64px; --s9:96px; --s10:128px; --s11:160px;
 
-  --page:1200px;
-  --page-wide:1500px;
+  --gutter:20px;
+  --page:1180px;
+  --page-wide:1440px;
   --measure:34rem;
 
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
@@ -189,23 +212,28 @@
   --dur-open:.22s;
   --dur-close:.16s;
 }
+@media(min-width:768px){:root{--gutter:40px}}
+@media(min-width:1280px){:root{--gutter:56px}}
 @media(prefers-color-scheme:dark){
   :root{
     --accent:#4d94ff;
     --accent-hover:#6ba6ff;
+    --accent-quiet:rgba(77,148,255,.13);
+    --accent-line:rgba(77,148,255,.6);
     --on-accent:#07101f;
 
-    --bg:#0b0d11;
-    --bg-sunken:#080a0d;
-    --surface:#14171d;
-    --surface-2:#191d25;
-    --text:#f0f2f7;
-    --muted:#a0a7b8;
-    --faint:#7d8494;
+    --bg:#08090c;
+    --bg-sunken:#0d0f14;
+    --surface:#13161c;
+    --surface-2:#181c23;
+    --text:#f2f4f8;
+    --muted:#a2a9ba;
+    --faint:#7b8292;
     --line:rgba(255,255,255,.10);
     --line-strong:rgba(255,255,255,.20);
-    --shadow-panel:0 30px 70px -24px rgba(0,0,0,.75), 0 4px 16px -8px rgba(0,0,0,.5);
-    --shadow-card:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.7);
+    --shadow-card:0 1px 2px rgba(0,0,0,.4), 0 12px 32px -22px rgba(0,0,0,.7);
+    --shadow-chip:0 1px 2px rgba(0,0,0,.5), 0 8px 20px -16px rgba(0,0,0,.8);
+    --shadow-scene:0 34px 80px -40px rgba(0,0,0,.85), 0 4px 16px -10px rgba(0,0,0,.6);
     --stage:linear-gradient(168deg,#1e222c 0%,#12161d 58%,#0c0f15 100%);
   }
 }
@@ -224,35 +252,57 @@ img,svg{display:block;max-width:100%}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:var(--r-s)}
 
-/* Type scale — seven steps, no more. */
-h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.022em;line-height:1.1;text-wrap:balance}
-h1{font-size:clamp(2.25rem,1.4rem + 3.6vw,3.7rem);letter-spacing:-.032em}
-h2{font-size:clamp(1.7rem,1.2rem + 2vw,2.6rem);letter-spacing:-.028em}
+/* --- Type scale — five steps, no more ----------------------------------- */
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.024em;line-height:1.1;text-wrap:balance}
+h1{font-size:clamp(2.4rem,1.5rem + 3.9vw,4.15rem);letter-spacing:-.036em;line-height:1.04}
+h2{font-size:clamp(1.85rem,1.15rem + 2.5vw,2.95rem);letter-spacing:-.032em;line-height:1.08}
 h3{font-size:1.125rem;letter-spacing:-.012em;line-height:1.35}
 p{margin:0}
-
-.wrap{width:100%;max-width:var(--page);margin-inline:auto;padding-inline:var(--s5)}
-/* The proof asset earns more width than the reading measure does. */
-.wrap-wide{max-width:1440px}
-/* Above 1800 px the page had been a 1440 layout centred in a void. */
-@media(min-width:1800px){
-  .wrap{max-width:var(--page-wide)}
-  .wrap-wide{max-width:1680px}
-  .statement-body{max-width:62rem}
-}
-@media(min-width:768px){.wrap{padding-inline:var(--s6)}}
-.measure{max-width:var(--measure)}
 .lead{color:var(--muted);font-size:1.0625rem;line-height:1.65;text-wrap:pretty}
 @media(min-width:768px){.lead{font-size:1.1875rem}}
 .eyebrow{
-  font-size:.75rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--faint);margin-bottom:var(--s3);
+  font-size:.75rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:var(--s4);
 }
 .vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
-section{padding-block:var(--s8)}
-@media(min-width:768px){section{padding-block:var(--s9)}}
-.rule{border:0;border-top:1px solid var(--line);margin:0}
+/* --- Containers ---------------------------------------------------------
+   Width is the page's main rhythmic device. Chapters alternate between the
+   reading column, the page column and the wide column instead of alternating
+   text-left / picture-right, which is the pattern that reads as generated. */
+.wrap{width:100%;max-width:var(--page);margin-inline:auto;padding-inline:var(--gutter)}
+.wrap-wide{max-width:var(--page-wide)}
+/* Above 1800 px the page had been a 1440 layout centred in a void. */
+@media(min-width:1800px){
+  .wrap{max-width:1340px}
+  .wrap-wide{max-width:1640px}
+}
+.measure{max-width:var(--measure)}
+
+/* --- Chapter rhythm -----------------------------------------------------
+   One chapter, one idea, and enough air that the eye has to travel to reach
+   the next one. There are no <hr> rules on this page: distance and the very
+   occasional tonal band do that job without drawing a line across the layout. */
+section{padding-block:clamp(80px,9vw,var(--s11))}
+.band{background:var(--bg-sunken)}
+
+/* The mark is the brand idea at its smallest: a 2 px impulse travelling up
+   into the chapter title. Static by design — it must never be the reason a
+   heading is invisible to somebody the observer skipped. */
+.chapter{max-width:46rem}
+.chapter.center{margin-inline:auto;text-align:center}
+.chapter .mark{
+  display:block;width:2px;height:40px;border-radius:1px;margin-bottom:var(--s5);
+  background:linear-gradient(to top,transparent,var(--accent));
+}
+.chapter.center .mark{margin-inline:auto}
+.chapter .lead{margin-top:var(--s5)}
+.chapter .standfirst{color:var(--text);font-size:clamp(1.1875rem,1rem + .7vw,1.5rem);margin-top:var(--s4);font-weight:500;letter-spacing:-.018em}
+.chapter-cta{margin-top:var(--s6);display:flex;flex-wrap:wrap;gap:var(--s3)}
+.chapter.center .chapter-cta{justify-content:center}
+/* A closing line under a chapter: quieter than a lead, still readable. */
+.closing{max-width:44rem;margin-top:clamp(56px,7vw,var(--s9))}
+.chapter.center+.closing,.center-closing{margin-inline:auto;text-align:center}
 
 /* --- Skip link ---------------------------------------------------------- */
 .skip{
@@ -263,20 +313,22 @@ section{padding-block:var(--s8)}
 }
 .skip:focus{top:var(--s4)}
 
-/* --- Header ------------------------------------------------------------- */
+/* --- Header -------------------------------------------------------------
+   56 px, and that number is a promise: the navigation must never take a
+   meaningful share of the first screen on a 390 px phone. */
 header{
   position:sticky;top:0;z-index:100;
-  background:color-mix(in srgb,var(--bg) 82%,transparent);
+  background:color-mix(in srgb,var(--bg) 78%,transparent);
   -webkit-backdrop-filter:saturate(180%) blur(20px);
   backdrop-filter:saturate(180%) blur(20px);
   border-bottom:1px solid transparent;
   transition:border-color var(--dur-open) var(--ease-open);
 }
 header.stuck{border-bottom-color:var(--line)}
-.nav{display:flex;align-items:center;gap:var(--s5);height:60px}
-.brand{display:flex;align-items:center;gap:var(--s2);font-weight:600;text-decoration:none;letter-spacing:-.015em;flex:none}
+.nav{display:flex;align-items:center;gap:var(--s5);height:56px}
+.brand{display:flex;align-items:center;gap:var(--s2);font-weight:600;text-decoration:none;letter-spacing:-.01em;flex:none}
 .brand img{width:26px;height:26px;border-radius:var(--r-s)}
-.nav-links{display:none;gap:var(--s5);margin-inline-start:var(--s3);flex:1}
+.nav-links{display:none;gap:var(--s5);margin-inline-start:var(--s5);flex:1}
 @media(min-width:1024px){.nav-links{display:flex}}
 .nav-links a{
   color:var(--muted);text-decoration:none;font-size:.9375rem;
@@ -296,65 +348,73 @@ header.stuck{border-bottom-color:var(--line)}
 /* --- Buttons ------------------------------------------------------------ */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);
-  min-height:44px;padding:0 var(--s5);border-radius:var(--r-m);
+  min-height:46px;padding:0 var(--s5);border-radius:var(--r-m);
   font:inherit;font-size:.9375rem;font-weight:500;text-decoration:none;
   border:1px solid transparent;cursor:pointer;white-space:nowrap;
-  transition:background var(--dur-open) var(--ease-open),border-color var(--dur-open) var(--ease-open),color var(--dur-open) var(--ease-open);
+  transition:background var(--dur-open) var(--ease-open),border-color var(--dur-open) var(--ease-open),color var(--dur-open) var(--ease-open),transform var(--dur-open) var(--ease-open);
 }
 .btn svg{width:17px;height:17px;flex:none}
-.btn-primary{background:var(--accent);color:var(--on-accent)}
+.btn-primary{background:var(--accent);color:var(--on-accent);box-shadow:0 1px 2px rgba(10,95,214,.24),0 14px 30px -18px rgba(10,95,214,.62)}
 .btn-primary:hover{background:var(--accent-hover)}
 .btn-ghost{border-color:var(--line-strong);color:var(--text);background:transparent}
 .btn-ghost:hover{background:var(--surface-2);border-color:var(--text)}
 .btn-sm{min-height:36px;padding:0 var(--s4);font-size:.875rem}
+.btn-lg{min-height:54px;padding:0 var(--s6);font-size:1rem}
+@media(prefers-reduced-motion:no-preference){.btn-lg:active{transform:translateY(1px)}}
 
-/* --- Hero --------------------------------------------------------------- */
-.hero{padding-block:var(--s7) 0;overflow:hidden}
+/* --- Hero ---------------------------------------------------------------
+   One idea, one headline, one primary action, then the product at full size.
+   Version, size and platform are deliberately below the product visual: a
+   reader who has not yet seen the app has no use for its file size. */
+.hero{position:relative;padding-top:var(--s8);overflow:hidden}
 @media(min-width:768px){.hero{padding-top:var(--s9)}}
-.hero-copy{max-width:50rem;margin-inline:auto;text-align:center}
+/* The impulse: a single accent halo hanging off the top edge of the page. */
+.hero::before{
+  content:"";position:absolute;top:-60px;left:50%;transform:translateX(-50%);
+  width:min(1120px,140vw);height:520px;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0,var(--accent-quiet) 0,transparent 68%);
+}
+.hero-copy{position:relative;max-width:54rem;margin-inline:auto;text-align:center}
 .kicker{
-  font-size:.8125rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-  color:var(--accent);margin-bottom:var(--s3);
+  font-size:.8125rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:var(--s4);
 }
 .hero h1{margin-bottom:var(--s5)}
-.hero .lead{max-width:52ch;margin-inline:auto;font-size:1.125rem}
-@media(min-width:768px){.hero .lead{font-size:1.3125rem}}
-.hero-cta{display:flex;flex-wrap:wrap;gap:var(--s3);margin-top:var(--s6);justify-content:center}
-.hero-meta{
-  display:flex;flex-wrap:wrap;gap:var(--s2) var(--s4);margin-top:var(--s5);
-  color:var(--faint);font-size:.875rem;justify-content:center;
+.hero .lead{max-width:56ch;margin-inline:auto;font-size:clamp(1.0625rem,.95rem + .55vw,1.3125rem)}
+.hero-cta{display:flex;flex-wrap:wrap;gap:var(--s3);margin-top:var(--s7);justify-content:center}
+/* On a phone two centred pills of different widths read as a ragged stack.
+   One column, full width, primary first: the action stays unmistakable. */
+@media(max-width:599px){
+  .hero-cta{flex-direction:column;align-items:stretch}
+  .hero-cta .btn{width:100%}
 }
-.hero-meta li{list-style:none}
-.hero-meta{padding:0;margin-block-end:0}
-.hero-meta li+li{position:relative;padding-inline-start:var(--s4)}
-.hero-facts{
-  list-style:none;margin:var(--s6) auto 0;padding:var(--s5) 0 0;max-width:44rem;
-  border-top:1px solid var(--line);
-  display:grid;gap:var(--s3);text-align:start;
-  color:var(--muted);font-size:.9375rem;
-}
-@media(min-width:760px){.hero-facts{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s5)}}
-.hero-facts li{min-width:0}
-.hero-meta li+li::before{content:"";position:absolute;left:0;top:50%;width:3px;height:3px;border-radius:50%;background:var(--line-strong);transform:translateY(-50%)}
 
-/* --- The stage: a Mac screen edge with the panel coming down ------------- */
+/* --- Product surfaces ---------------------------------------------------
+   Two shapes only. `.stage` is a Mac screen whose bottom edge runs off the
+   page; `.shot` is a self-contained scene. Both carry the same 1 px accent
+   hairline along their top edge — the panel's point of origin. */
 .stage{
-  position:relative;margin-top:var(--s7);
-  border-radius:var(--r-xl) var(--r-xl) 0 0;
+  position:relative;margin-top:clamp(40px,6vw,var(--s8));
+  border-radius:var(--r-2xl) var(--r-2xl) 0 0;
   background:var(--stage);
   border:1px solid var(--stage-line);border-bottom:0;
-  padding:0 var(--s3) var(--s5);
+  padding:0 var(--s3) var(--s6);
   overflow:hidden;
 }
-@media(min-width:768px){.stage{padding:0 var(--s4) var(--s6)}}
-@media(min-width:1280px){.stage{padding:0 var(--s5) var(--s7)}}
+@media(min-width:768px){.stage{padding:0 var(--s5) var(--s7)}}
+@media(min-width:1280px){.stage{padding:0 var(--s6) var(--s8)}}
+.stage::before,.shot::before{
+  content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:min(560px,66%);height:1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--stage-accent-line),transparent);
+}
 .menubar{
-  display:flex;align-items:center;gap:var(--s4);height:26px;
+  display:flex;align-items:center;gap:var(--s4);height:28px;
   padding-inline:var(--s3);font-size:.6875rem;color:var(--stage-ink);
   border-bottom:1px solid var(--stage-line);
   margin-inline:calc(var(--s3) * -1);
 }
-@media(min-width:768px){.menubar{margin-inline:calc(var(--s6) * -1);padding-inline:var(--s5)}}
+@media(min-width:768px){.menubar{margin-inline:calc(var(--s6) * -1);padding-inline:var(--s6)}}
 .menubar .spacer{margin-inline-start:auto}
 .stage-panel{
   max-width:1180px;margin:0 auto;
@@ -366,78 +426,90 @@ header.stuck{border-bottom-color:var(--line)}
   text-align:center;margin-top:var(--s5);color:var(--stage-ink-dim);font-size:.8125rem;
 }
 
-/* Panel entrance: the site opens it the way the app does. */
+/* Panel entrance: the site opens it the way the app does.
+
+   Transform only — the same rule the reveal below is written to. The keyframe
+   used to start at `opacity:0`, which makes the page's single most important
+   image invisible for as long as the animation has not run. That is fine until
+   something stops it running (a throttled background tab, a paused timeline),
+   and then the hero is an empty screen. Sliding out from behind the menu bar,
+   clipped by the stage's own overflow, is closer to what the app does anyway. */
 @media(prefers-reduced-motion:no-preference){
   .stage-panel{
     animation:panel-drop .5s var(--ease-open) both;
     animation-delay:.15s;
   }
   @keyframes panel-drop{
-    from{transform:translateY(-46%) scaleY(.62);opacity:0}
-    to{transform:none;opacity:1}
+    from{transform:translateY(-46%) scaleY(.62)}
+    to{transform:none}
   }
 }
 
-/* --- Section compositions -----------------------------------------------
-   Three deliberately different shapes, because a page where every chapter is
-   eyebrow -> two-line headline -> paragraph -> picture reads as generated even
-   when every individual section is fine.
-
-   `.statement`   — one wide block of argument, no picture.
-   `.header-split`— headline left, standfirst right, so the header itself is
-                    asymmetric instead of a centred stack.
-   `.split`       — the two-column story block below.                        */
-.statement-body{max-width:44rem;display:grid;gap:var(--s4)}
-.statement-body h2{margin-bottom:var(--s2)}
-.statement .lead{font-size:1.1875rem}
-@media(min-width:900px){
-  .statement .lead{font-size:1.375rem;line-height:1.55}
-  .statement-body{max-width:46rem}
-}
-.header-split{display:grid;gap:var(--s4);align-items:start}
-@media(min-width:900px){
-  .header-split{grid-template-columns:minmax(0,5fr) minmax(0,6fr);gap:var(--s8);align-items:end}
-  .header-split>*{min-width:0}
-}
-.standfirst{color:var(--muted);font-size:1.0625rem;margin-top:var(--s3);max-width:40ch}
-@media(min-width:768px){.standfirst{font-size:1.1875rem}}
-
-/* --- Two-column story block --------------------------------------------- */
-/* `minmax(0,1fr)` and `min-width:0`, both deliberate: a grid item defaults to
-   `min-width:auto`, so it refuses to shrink below its content's minimum. The
-   screenshot frames below carry `min-width:620px` on small screens to stay
-   readable, and without these two the track sized itself to that 620 px and
-   pushed the whole section off a 390 px screen — headlines clipped mid-word,
-   while the page's own scrollWidth still looked innocent. */
-.split{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s6);align-items:center}
-.split>*{min-width:0}
-@media(min-width:900px){
-  /* The screenshot always takes the wide column, whichever side it is on. */
-  .split{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:var(--s8)}
-  .split.reverse{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}
-  .split.reverse>:first-child{order:2}
-}
 .shot{
-  border-radius:var(--r-l);
+  position:relative;
+  border-radius:var(--r-2xl);
   background:var(--stage);
   border:1px solid var(--stage-line);
-  padding:var(--s5) var(--s5) 0;
+  padding:var(--s6) var(--s6) 0;
   overflow:hidden;
+  box-shadow:var(--shadow-scene);
 }
-.shot img{width:100%;height:auto;border-radius:var(--r-m) var(--r-m) 0 0}
-.shot-plain img{width:100%;height:auto}
+.shot img{width:100%;height:auto;border-radius:var(--r-l) var(--r-l) 0 0}
 
-/* --- Steps -------------------------------------------------------------- */
-.steps{list-style:none;margin:var(--s5) 0 0;padding:0;display:grid;gap:var(--s4)}
-.steps li{display:grid;grid-template-columns:auto 1fr;gap:var(--s3);align-items:start}
-.steps .n{
-  width:24px;height:24px;border-radius:50%;flex:none;
-  border:1px solid var(--line-strong);color:var(--faint);
-  font-size:.75rem;font-weight:600;font-variant-numeric:tabular-nums;
-  display:grid;place-items:center;margin-top:2px;
+/* --- Hairline columns ---------------------------------------------------
+   The page's one repeated block shape. A rule above the text, nothing else:
+   no card, no border box, no tinted surface. Used by the hero pillars, the
+   behaviour facts, the open-source facts, the power boundaries and the
+   install steps, so five different chapters share one visual rhythm. */
+.cols{list-style:none;margin:0;padding:0;display:grid;gap:var(--s6)}
+.cols>*{min-width:0;padding-top:var(--s4);border-top:1px solid var(--line-strong)}
+@media(min-width:640px){.cols{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s6) var(--s7)}}
+@media(min-width:1024px){.cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}}
+/* A three-item row stays one column until it can actually be three: two of
+   three side by side leaves an orphan in the second row, which reads as a
+   layout accident rather than a rhythm. */
+@media(min-width:640px){.cols-3{grid-template-columns:minmax(0,1fr)}}
+@media(min-width:840px){.cols-3{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s7)}}
+/* Direct children only: these blocks contain sentences with inline <span>s in
+   them, and a blanket `.cols span{display:block}` broke one install step into
+   three lines. */
+.cols>*>b,.cols>*>h3{display:block;font-weight:600;margin-bottom:var(--s2)}
+.cols>*>p,.cols>*>span{color:var(--muted);font-size:.9375rem;display:block}
+.cols .col-k{
+  display:block;font-size:.75rem;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--faint);margin-bottom:var(--s3);
 }
-.steps b{font-weight:600}
-.steps p{color:var(--muted);font-size:.9375rem;margin-top:2px}
+
+/* --- Hero pillars and the meta line -------------------------------------- */
+.pillars{margin-top:clamp(48px,6vw,var(--s9))}
+.pillars li{font-size:1.0625rem;color:var(--text);line-height:1.5;text-wrap:pretty}
+.meta{
+  display:flex;flex-wrap:wrap;gap:var(--s2) var(--s5);margin:var(--s7) 0 0;padding:0;
+  color:var(--faint);font-size:.875rem;justify-content:center;list-style:none;
+}
+.meta li+li{position:relative;padding-inline-start:var(--s5)}
+.meta li+li::before{content:"";position:absolute;left:0;top:50%;width:3px;height:3px;border-radius:50%;background:var(--line-strong);transform:translateY(-50%)}
+
+/* --- Statement ----------------------------------------------------------
+   The problem chapter. One column, large type, nothing to look at but the
+   argument — the only place on the page with no product surface at all. */
+.statement-body{max-width:56rem;display:grid;gap:var(--s5)}
+.statement-body h2{margin-bottom:var(--s2)}
+.statement-body p{color:var(--muted);font-size:clamp(1.125rem,1rem + .8vw,1.5rem);line-height:1.5;text-wrap:pretty}
+.statement-body p:first-of-type{color:var(--text)}
+
+/* --- Steps --------------------------------------------------------------- */
+.steps{list-style:none;margin:clamp(40px,5vw,var(--s8)) 0 0;padding:0;display:grid;gap:var(--s6)}
+.steps>li{display:grid;gap:var(--s3);align-content:start;min-width:0}
+@media(min-width:860px){.steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s7)}}
+.steps .n{
+  width:30px;height:30px;border-radius:50%;
+  background:var(--accent-quiet);color:var(--accent);
+  font-size:.8125rem;font-weight:600;font-variant-numeric:tabular-nums;
+  display:grid;place-items:center;
+}
+.steps b{font-weight:600;display:block;margin-bottom:var(--s2)}
+.steps p{color:var(--muted);font-size:.9375rem}
 
 kbd{
   font:inherit;font-size:.8125rem;font-weight:500;
@@ -445,119 +517,110 @@ kbd{
   border-radius:var(--r-s);padding:2px 7px;background:var(--surface);
   color:var(--text);display:inline-block;line-height:1.3;
 }
-.keys{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin-top:var(--s5);color:var(--muted);font-size:.9375rem}
+.keys{display:flex;flex-wrap:wrap;align-items:center;gap:var(--s2);margin-top:var(--s7);color:var(--muted);font-size:.9375rem}
 
-/* --- Module switcher: the app's own rail, as a control ------------------- */
-.modules{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s5)}
-.modules>*{min-width:0}
-@media(min-width:900px){.modules{grid-template-columns:220px minmax(0,1fr);gap:var(--s7);align-items:start}}
+/* --- Module gallery -----------------------------------------------------
+   The app's own rail is a settings surface; a landing page is not. The
+   selector is a calm centred strip of chips, and the module itself gets the
+   whole width of the page. Breadth in a glance, depth on one click. */
 .rail{
-  display:flex;gap:var(--s1);overflow-x:auto;padding-bottom:var(--s2);
-  scrollbar-width:none;-webkit-overflow-scrolling:touch;
-  margin-inline:calc(var(--s5) * -1);padding-inline:var(--s5);
+  display:flex;gap:var(--s2);flex:none;
+  overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  margin-inline:calc(var(--gutter) * -1);padding:0 var(--gutter) var(--s2);
+  margin-block:clamp(32px,4vw,var(--s7)) 0;
 }
 .rail::-webkit-scrollbar{display:none}
-/* Below 900 px the rail is a horizontal scroller. Hiding its scrollbar without
-   replacing the signal left two of six modules visible and no hint of the rest,
-   so the strip fades at its trailing edge instead. */
-@media(max-width:899px){
-  .modules{position:relative}
+/* Below 760 px the strip scrolls. Hiding its scrollbar without replacing the
+   signal left two of six modules visible and no hint of the rest, so the strip
+   fades at its trailing edge instead. From 760 px up the six chips wrap into
+   centred rows instead: a strip clipped mid-chip under a centred headline reads
+   as a broken row rather than as something you can scroll. */
+@media(max-width:759px){
   .rail{
     -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent 100%);
     mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent 100%);
   }
   .rail.at-end{-webkit-mask-image:none;mask-image:none}
 }
-@media(min-width:900px){
-  .rail{
-    flex-direction:column;overflow:visible;margin-inline:0;padding-inline:0;
-    position:sticky;top:84px;
-  }
+@media(min-width:760px){
+  .rail{flex-wrap:wrap;justify-content:center;overflow:visible;margin-inline:0;padding-inline:0}
 }
 .rail button{
-  display:flex;align-items:center;gap:var(--s3);flex:none;
-  min-height:44px;padding:0 var(--s3);border:0;border-radius:var(--r-m);
+  display:inline-flex;align-items:center;gap:var(--s2);flex:none;
+  min-height:42px;padding:0 var(--s4);
+  border:1px solid transparent;border-radius:var(--r-pill);
   background:transparent;color:var(--muted);cursor:pointer;
   font:inherit;font-size:.9375rem;text-align:start;white-space:nowrap;
-  transition:background var(--dur-open) var(--ease-open),color var(--dur-open) var(--ease-open);
+  transition:background var(--dur-open) var(--ease-open),color var(--dur-open) var(--ease-open),border-color var(--dur-open) var(--ease-open);
 }
-@media(min-width:900px){.rail button{width:100%}}
-.rail button svg{width:18px;height:18px;flex:none;opacity:.8}
+.rail button svg{width:17px;height:17px;flex:none;opacity:.75}
 .rail button:hover{color:var(--text);background:var(--surface-2)}
-.rail button[aria-selected=true]{background:var(--surface);color:var(--text);font-weight:500;box-shadow:var(--shadow-card)}
+.rail button[aria-selected=true]{background:var(--surface);color:var(--text);border-color:var(--line);box-shadow:var(--shadow-chip)}
 .rail button[aria-selected=true] svg{opacity:1;color:var(--accent)}
 
-.module-panel{min-width:0}
-.module-shot{
-  border-radius:var(--r-l);background:var(--stage);border:1px solid var(--stage-line);
-  padding:var(--s5) var(--s5) 0;overflow:hidden;
-}
-.module-shot img{width:100%;height:auto;border-radius:var(--r-m) var(--r-m) 0 0}
-.module-copy{margin-top:var(--s5);max-width:52ch}
-.module-copy h3{margin-bottom:var(--s2)}
+.module-panel{min-width:0;margin-top:clamp(28px,3.5vw,var(--s6))}
+.module-copy{margin:var(--s6) auto 0;max-width:58ch;text-align:center}
+.module-copy h3{font-size:1.375rem;margin-bottom:var(--s3);letter-spacing:-.02em}
 .module-copy p{color:var(--muted)}
-.module-note{margin-top:var(--s3);font-size:.875rem;color:var(--faint)}
+.module-note{margin-top:var(--s4);font-size:.9375rem;color:var(--faint)}
+/* Same reasoning as the hero: the switched-to module settles into place, it
+   does not fade in from nothing. A module that a stalled animation leaves at
+   `opacity:0` is a blank chapter with a selected chip above it. */
 @media(prefers-reduced-motion:no-preference){
-  .module-fade{animation:fade-in var(--dur-open) var(--ease-open) both}
-  @keyframes fade-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .module-fade{animation:module-settle var(--dur-open) var(--ease-open) both}
+  @keyframes module-settle{from{transform:translateY(6px)}to{transform:none}}
 }
 
-/* --- Facts / trust ------------------------------------------------------ */
-.facts{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s5);margin-top:var(--s6)}
-.facts>*{min-width:0}
-@media(min-width:700px){.facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s6)}}
-@media(min-width:1024px){.facts{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.open-facts .fact{display:flex;flex-direction:column}
-.open-facts .fact-action{margin-top:auto;padding-top:var(--s3)}
-@media(min-width:1024px){.open-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.fact h3{font-size:1rem;margin-bottom:var(--s2)}
-.fact p{color:var(--muted);font-size:.9375rem}
-.fact-k{
-  display:block;font-size:.75rem;font-weight:600;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--faint);margin-bottom:var(--s2);
-}
+/* --- Privacy ledger ------------------------------------------------------
+   A ledger, not a grid of cards: five boundaries read top to bottom, each one
+   a row you can point at. The accent lives in the glyphs. */
+/* Narrower than the page, but anchored to the same left edge as every other
+   chapter. Centring a left-aligned column instead makes the page's left rail
+   jump inward for one section, which reads as an indent, not a composition.
 
-.boundaries{list-style:none;margin:var(--s5) 0 0;padding:0;display:grid;gap:0}
-.boundaries-plain li{grid-template-columns:1fr}
+   The width is `.chapter`'s, not a wider one of its own: the ledger and the
+   headline above it are one chapter, and at 52rem their right edges parted by
+   about 150 px on a wide screen — close enough to look like a mistake rather
+   than a decision, and 87 characters a line is past comfortable anyway. */
+.boundaries{list-style:none;margin:clamp(40px,5vw,var(--s8)) 0 0;padding:0;display:grid;gap:0;max-width:46rem}
 .boundaries li{
-  display:grid;grid-template-columns:auto 1fr;gap:var(--s3);
-  padding-block:var(--s4);border-top:1px solid var(--line);align-items:start;
+  display:grid;grid-template-columns:auto 1fr;gap:var(--s4);
+  padding-block:var(--s5);border-top:1px solid var(--line);align-items:start;
 }
 .boundaries li:last-child{border-bottom:1px solid var(--line)}
-.boundaries svg{width:18px;height:18px;margin-top:3px;color:var(--faint);flex:none}
-.boundaries b{font-weight:600;display:block}
+.boundaries svg{width:20px;height:20px;margin-top:2px;color:var(--accent);flex:none}
+.boundaries b{font-weight:600;display:block;margin-bottom:var(--s1)}
 .boundaries span{color:var(--muted);font-size:.9375rem}
 
-/* --- Install ------------------------------------------------------------ */
-.install{background:var(--bg-sunken)}
-.install-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s6);margin-top:var(--s6)}
-.install-grid>*{min-width:0}
-@media(min-width:900px){.install-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s6)}}
-.install-step{border-top:2px solid var(--text);padding-top:var(--s4)}
-.install-step .n{font-size:.75rem;font-weight:600;color:var(--faint);letter-spacing:.08em}
+/* --- Install ------------------------------------------------------------- */
+.install-step .n{font-size:.75rem;font-weight:600;color:var(--accent);letter-spacing:.1em;display:block}
 .install-step h3{margin:var(--s2) 0}
-.install-step p{color:var(--muted);font-size:.9375rem}
 .hashbox{
-  margin-top:var(--s6);border:1px solid var(--line);border-radius:var(--r-l);
-  background:var(--surface);padding:var(--s4);
-  display:flex;flex-wrap:wrap;align-items:center;gap:var(--s3);
+  margin-top:clamp(40px,5vw,var(--s8));border:1px solid var(--line);border-radius:var(--r-l);
+  background:var(--surface);padding:var(--s5);
+  display:flex;flex-wrap:wrap;align-items:center;gap:var(--s4);
 }
 .hashbox code{
   font-family:var(--mono);font-size:.75rem;color:var(--muted);
   overflow-wrap:anywhere;flex:1;min-width:200px;
 }
+/* `nowrap` with the scroll it already had: this is a command to be copied, and
+   on a phone it was breaking at the hyphen inside Impuls-1.4.13.dmg, which
+   turns one line a reader can select into two they have to reassemble. The box
+   scrolls; the page does not. */
 .cmd{
   display:block;margin-top:var(--s3);font-family:var(--mono);font-size:.8125rem;
   color:var(--muted);overflow-x:auto;padding:var(--s3);border-radius:var(--r-m);
   background:var(--surface-2);border:1px solid var(--line);
+  white-space:nowrap;
 }
 
 /* --- FAQ ---------------------------------------------------------------- */
-.faq{margin-top:var(--s6);max-width:48rem}
+.faq{margin-top:clamp(40px,5vw,var(--s8));max-width:48rem;margin-inline:auto}
 .faq details{border-top:1px solid var(--line)}
 .faq details:last-of-type{border-bottom:1px solid var(--line)}
 .faq summary{
-  cursor:pointer;list-style:none;padding-block:var(--s4);
+  cursor:pointer;list-style:none;padding-block:var(--s5);
   font-weight:500;display:flex;gap:var(--s4);align-items:flex-start;
   min-height:44px;
 }
@@ -568,20 +631,38 @@ kbd{
   transform:rotate(45deg);transition:transform var(--dur-open) var(--ease-open);
 }
 .faq details[open] summary::after{transform:rotate(-135deg)}
-.faq .a{color:var(--muted);padding-bottom:var(--s5);max-width:60ch;font-size:.9375rem}
+.faq .a{color:var(--muted);padding-bottom:var(--s6);max-width:62ch;font-size:.9375rem}
 
-/* --- Final CTA & footer ------------------------------------------------- */
-.final{text-align:center;background:var(--bg-sunken)}
-.final .lead{margin-inline:auto;max-width:38ch}
-.final .hero-cta{justify-content:center}
-.final .hero-meta{justify-content:center}
-footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--faint);font-size:.875rem}
+/* --- Final CTA & footer --------------------------------------------------
+   The impulse closes the page the way it opened it: the same halo and the
+   same hairline, at the top edge of the last chapter. */
+.final{position:relative;text-align:center;background:var(--bg-sunken);overflow:hidden}
+.final::before{
+  content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:min(900px,130vw);height:420px;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 0,var(--accent-quiet) 0,transparent 70%);
+}
+.final::after{
+  content:"";position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:min(520px,60%);height:1px;pointer-events:none;
+  background:linear-gradient(90deg,transparent,var(--accent-line),transparent);
+}
+.final .wrap{position:relative}
+.final .lead{margin-inline:auto;max-width:40ch;margin-top:var(--s5)}
+footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--faint);font-size:.875rem}
 .foot{display:flex;flex-wrap:wrap;gap:var(--s4) var(--s5);align-items:center}
 /* padding-block, not a taller line: the footer links measured 22 px on a phone,
    under the 24 px minimum target size, and growing the line would open the row. */
 .foot a{color:var(--muted);text-decoration:none;display:inline-block;padding-block:5px}
 .foot a:hover{color:var(--text);text-decoration:underline}
 .foot .spacer{margin-inline-start:auto}
+/* On a phone the row already wraps, and pushing the licence to the right edge
+   of whichever line it landed on read as a stray fragment. Give it the full
+   width instead: it becomes a deliberate last line on the same left edge as
+   everything above it. The desktop right-alignment is untouched. */
+@media(max-width:599px){
+  .foot .spacer{margin-inline-start:0;width:100%}
+}
 
 /* At 320 px the English header row — RU · EN · Download — is 3 px wider than the
    viewport where the shorter Russian one fits. Tighten the row rather than drop a
@@ -596,29 +677,42 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
    stops being evidence of anything, so below 700 px the frame keeps the shot at
    a readable width and scrolls inside itself. The page never scrolls sideways;
    only the frame does. */
+/* Declared before the media query, not after it: an unconditional
+   `.pan-hint{display:none}` placed *below* the block that sets `display:flex`
+   has the same specificity and wins, which is why the hint never appeared on a
+   phone on any build before this one. */
+.pan-hint{display:none}
 @media(max-width:699px){
-  .stage-panel,.shot,.module-shot{
+  .stage-panel,.shot{
     overflow-x:auto;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
     -webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent 100%);
     mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 28px),transparent 100%);
   }
-  .stage-panel img,.shot img,.module-shot img{min-width:620px}
+  .stage-panel img,.shot img{min-width:620px}
   .stage-panel{filter:none}
-  .shot,.module-shot{padding-inline:0;padding-top:var(--s4)}
-  .shot img,.module-shot img{border-radius:0}
-  .pan-hint{
-    display:flex;align-items:center;gap:var(--s2);
-    margin-top:var(--s3);color:var(--faint);font-size:.8125rem;
+  /* Full-bleed on a phone: the scene is the widest thing on the page, so it
+     uses the whole viewport instead of sitting inside the reading gutter. */
+  .shot{
+    margin-inline:calc(var(--gutter) * -1);
+    padding:var(--s5) 0 0;border-radius:0;border-inline:0;box-shadow:none;
   }
-  .pan-hint svg{width:14px;height:14px}
+  .shot img{border-radius:0}
+  /* `flex-start`, not `center`: the hint wraps to two lines at this width, and
+     centring the arrow against the whole block leaves it floating between the
+     lines instead of pointing at the sentence it opens. The offset optically
+     centres it on the first line — (20.8 px line box - 14 px glyph) / 2. */
+  .pan-hint{
+    display:flex;align-items:flex-start;gap:var(--s2);
+    margin-top:var(--s4);color:var(--faint);font-size:.8125rem;
+  }
+  .pan-hint svg{width:14px;height:14px;flex:none;margin-top:3px}
 }
-.pan-hint{display:none}
 
-/* Without script every module is a stacked section; with script the rail
-   appears and the panels take turns. */
-.module+.module{margin-top:var(--s7);padding-top:var(--s7);border-top:1px solid var(--line)}
+/* Without script every module is a stacked section; with script the chips
+   appear and the panels take turns. */
+.module+.module{margin-top:var(--s8);padding-top:var(--s8);border-top:1px solid var(--line)}
 .js .module{display:none}
 .js .module.on{display:block}
 .js .module+.module{margin-top:0;padding-top:0;border-top:0}
@@ -673,32 +767,23 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 
 <main id="main">
 
-<!-- ===== HERO ===== -->
+<!-- ===== HERO =====
+     Brand, one headline, one line of support, one primary action, then the
+     product at the largest size the page ever shows it. Nothing else. -->
 <div class="hero" id="top">
   <div class="wrap hero-copy">
     <p class="kicker" data-i="hero.kicker">Нативное приложение для macOS</p>
     <h1 data-i="hero.h1">ИМПУЛЬС&nbsp;— всё нужное у верхней кромки экрана</h1>
     <p class="lead" data-i="hero.sub">Найти то, что копировали утром. Забрать файл из соседнего приложения. Вставить заготовку, перевести фразу. ИМПУЛЬС открывается поверх текущего окна, помогает за пару секунд и снова освобождает экран. Из документа выходить не нужно&nbsp;— и возвращаться в него тоже.</p>
     <div class="hero-cta">
-      <a class="btn btn-primary" data-conversion="download" data-placement="hero" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.13/Impuls-1.4.13.dmg">
+      <a class="btn btn-primary btn-lg" data-conversion="download" data-placement="hero" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.13/Impuls-1.4.13.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
         <span data-i="cta.mac">Скачать бесплатно для macOS</span>
       </a>
-      <a class="btn btn-ghost" data-conversion="demo" data-placement="hero" href="#modules">
+      <a class="btn btn-ghost btn-lg" data-conversion="demo" data-placement="hero" href="#modules">
         <span data-i="cta.see">Посмотреть модули</span>
       </a>
     </div>
-    <ul class="hero-facts">
-      <li data-i="hero.f1">Есть на всех подключённых экранах: встроенном, внешнем мониторе и Sidecar</li>
-      <li data-i="hero.f2">Буфер, файлы и заметки не покидают Mac</li>
-      <li data-i="hero.f3">Нативное приложение, без учётной записи и подписки</li>
-    </ul>
-    <ul class="hero-meta">
-      <li data-i="hero.m2">macOS 15 и новее</li>
-      <li><span data-release="version-label">Версия 1.4.13</span></li>
-      <li><span data-release="size">4,7 МБ</span></li>
-      <li data-i="hero.m3">Открытый код</li>
-    </ul>
   </div>
 
   <div class="wrap wrap-wide">
@@ -719,278 +804,329 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
       <p class="stage-caption" data-i="hero.cap">Панель Impuls на рабочем Mac. Данные в ней демонстрационные.</p>
     </div>
   </div>
+
+  <!-- The three things worth knowing before the argument starts, and the
+       technical facts underneath them — after the product, never before it. -->
+  <div class="wrap">
+    <ul class="cols cols-3 pillars">
+      <li data-i="hero.f1">Есть на всех подключённых экранах: встроенном, внешнем мониторе и Sidecar</li>
+      <li data-i="hero.f2">Буфер, файлы и заметки не покидают Mac</li>
+      <li data-i="hero.f3">Нативное приложение, без учётной записи и подписки</li>
+    </ul>
+    <ul class="meta">
+      <li data-i="hero.m1">Бесплатно</li>
+      <li data-i="hero.m2">macOS 15 и новее</li>
+      <li><span data-release="version-label">Версия 1.4.13</span></li>
+      <li><span data-release="size">4,7 МБ</span></li>
+      <li data-i="hero.m3">Открытый код</li>
+    </ul>
+  </div>
 </div>
 
-<!-- ===== WHY ===== -->
-<section id="why" class="statement">
+<!-- ===== WHY =====
+     The only chapter on the page with no product surface at all. -->
+<section id="why" class="band">
   <div class="wrap">
-    <div class="statement-body">
+    <div class="chapter statement-body">
+      <span class="mark" aria-hidden="true"></span>
+      <p class="eyebrow" data-i="why.eyebrow">Зачем</p>
       <h2 data-i="why.h2">Мелкое дело стоит дороже, чем кажется</h2>
-      <p class="lead" data-i="why.p1">Найти адрес, который присылали утром. Перенести файл из почты в редактор. А потом ещё вспомнить формулировку, которую уже писали однажды и никак не удаётся восстановить. Каждое такое дело занимает секунды — и каждое заставляет уйти из документа, искать нужное окно и возвращаться обратно.</p>
-      <p class="lead" data-i="why.p2">Impuls держит эти вещи на одной поверхности над текущим окном: историю буфера, полку для файлов, заготовки и заметки. Вместо перехода в другое приложение вы опускаете панель, берёте нужное и продолжаете с того же места.</p>
+      <p data-i="why.p1">Найти адрес, который присылали утром. Перенести файл из почты в редактор. А потом ещё вспомнить формулировку, которую уже писали однажды и никак не удаётся восстановить. Каждое такое дело занимает секунды — и каждое заставляет уйти из документа, искать нужное окно и возвращаться обратно.</p>
+      <p data-i="why.p2">Impuls держит эти вещи на одной поверхности над текущим окном: историю буфера, полку для файлов, заготовки и заметки. Вместо перехода в другое приложение вы опускаете панель, берёте нужное и продолжаете с того же места.</p>
     </div>
   </div>
 </section>
 
-<hr class="rule">
-
-<!-- ===== ACTIONS ===== -->
+<!-- ===== ACTIONS =====
+     Header, then the evidence at full width, then the mechanics as three
+     equal columns. Stacked rather than split: the panel is 2.7:1 and a
+     side-by-side column makes the one screenshot that matters small. -->
 <section id="actions">
   <div class="wrap">
-    <div class="split">
-      <div class="reveal">
-        <h2 data-i="a.h2">Один поиск по буферу, заготовкам и заметкам</h2>
-        <p class="lead" style="margin-top:var(--s4)" data-i="a.lead">История буфера обмена, заготовки и заметки ищутся одним запросом. Не нужно помнить, куда именно вы это положили.</p>
-        <ol class="steps">
-          <li><span class="n">1</span><div><b data-i="a.s1">Открываете панель</b><p data-i="a.s1d">Горячей клавишей из любого приложения или наведением на верхнюю кромку экрана.</p></div></li>
-          <li><span class="n">2</span><div><b data-i="a.s2">Пишете, что помните</b><p data-i="a.s2d">Поиск не зависит от регистра и диакритики, точные совпадения поднимаются выше. Индекс собирается из живых локальных данных и не хранится отдельной базой.</p></div></li>
-          <li><span class="n">3</span><div><b data-i="a.s3">Действуете, не выходя из панели</b><p data-i="a.s3d">Скопировать, сохранить в заготовки, создать заметку, перевести, открыть ссылку или показать файл в Finder.</p></div></li>
-        </ol>
-        <p class="keys"><kbd>↑</kbd><kbd>↓</kbd><span data-i="a.k1">выбирают результат,</span><kbd>Enter</kbd><span data-i="a.k2">копирует,</span><kbd>Esc</kbd><span data-i="a.k3">закрывает панель.</span></p>
-      </div>
-      <div class="reveal">
-        <div class="shot">
-          <picture>
-            <source type="image/avif" srcset="assets/screens/ru/actions-search.avif" data-shot="actions-search">
-            <img src="assets/screens/ru/actions-search.png" width="1372" height="504" loading="lazy" decoding="async"
-                 data-shot="actions-search"
-                 alt="Модуль «Действия» с запросом «git»: найдены заготовка и запись из истории буфера обмена, у каждой подписан её источник">
-          </picture>
-        </div>
-      </div>
+    <div class="chapter">
+      <span class="mark" aria-hidden="true"></span>
+      <p class="eyebrow" data-i="a.eyebrow">Действия</p>
+      <h2 data-i="a.h2">Один поиск по буферу, заготовкам и заметкам</h2>
+      <p class="lead" data-i="a.lead">История буфера обмена, заготовки и заметки ищутся одним запросом. Не нужно помнить, куда именно вы это положили.</p>
     </div>
+  </div>
+  <div class="wrap wrap-wide reveal" style="margin-top:clamp(40px,5vw,64px)">
+    <div class="shot">
+      <picture>
+        <source type="image/avif" srcset="assets/screens/ru/actions-search.avif" data-shot="actions-search">
+        <img src="assets/screens/ru/actions-search.png" width="1372" height="504" loading="lazy" decoding="async"
+             data-shot="actions-search"
+             alt="Модуль «Действия» с запросом «git»: найдены заготовка и запись из истории буфера обмена, у каждой подписан её источник">
+      </picture>
+    </div>
+    <p class="pan-hint" data-i="pan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
+  </div>
+  <div class="wrap">
+    <ol class="steps">
+      <li><span class="n">1</span><div><b data-i="a.s1">Открываете панель</b><p data-i="a.s1d">Горячей клавишей из любого приложения или наведением на верхнюю кромку экрана.</p></div></li>
+      <li><span class="n">2</span><div><b data-i="a.s2">Пишете, что помните</b><p data-i="a.s2d">Поиск не зависит от регистра и диакритики, точные совпадения поднимаются выше. Индекс собирается из живых локальных данных и не хранится отдельной базой.</p></div></li>
+      <li><span class="n">3</span><div><b data-i="a.s3">Действуете, не выходя из панели</b><p data-i="a.s3d">Скопировать, сохранить в заготовки, создать заметку, перевести, открыть ссылку или показать файл в Finder.</p></div></li>
+    </ol>
+    <p class="keys"><kbd>↑</kbd><kbd>↓</kbd><span data-i="a.k1">выбирают результат,</span><kbd>Enter</kbd><span data-i="a.k2">копирует,</span><kbd>Esc</kbd><span data-i="a.k3">закрывает панель.</span></p>
   </div>
 </section>
 
-<hr class="rule">
-
-<!-- ===== MODULES ===== -->
-<section id="modules">
+<!-- ===== MODULES =====
+     A calm centred chip strip and one module at the full width of the page.
+     The application's own 220 px rail belongs in the application. -->
+<section id="modules" class="band">
   <div class="wrap">
-    <div class="header-split" style="margin-bottom:var(--s7)">
+    <div class="chapter center">
+      <span class="mark" aria-hidden="true"></span>
+      <p class="eyebrow" data-i="m.eyebrow">Модули</p>
       <h2 data-i="m.h2">Девять модулей, один рейл</h2>
       <p class="lead" data-i="m.lead">Слева и справа от выреза — рейл из девяти значков, и задача у всех девяти одна: короткое дело, ради которого не стоит уходить из окна. Что не проходит этот критерий, в рейл не попадает. Каждый модуль включается, выключается и переставляется в настройках. «Действия» и «Аккумулятор» описаны выше и ниже, остальные — здесь.</p>
     </div>
+    <!-- Without JavaScript every module is simply visible in turn; the strip is
+         built by script and only then do the panels start hiding each other. -->
+    <div class="rail" id="rail" hidden></div>
+  </div>
 
-    <div class="modules">
-      <!-- Without JavaScript every module is simply visible in turn; the rail is
-           built by script and only then do the panels start hiding each other. -->
-      <div class="rail" id="rail" hidden></div>
-      <div class="module-panel" id="module-panels">
+  <div class="wrap wrap-wide">
+    <!-- The pan hint belongs to a screenshot, so it lives inside the module
+         next to its own `.shot` rather than once below the whole switcher,
+         where it ended up two paragraphs away from the capture it describes.
+         Six copies in the markup, never six on screen: with script exactly one
+         module is displayed, and without script each of the six stacked
+         modules carries the hint for the capture directly above it. -->
+    <div class="module-panel" id="module-panels">
 
-        <article class="module" id="mod-shelf" data-mod="shelf" data-icon="shelf">
-          <div class="module-shot">
-            <picture>
-              <source type="image/avif" srcset="assets/screens/ru/shelf.avif" data-shot="shelf">
-              <img src="assets/screens/ru/shelf.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="shelf"
-                   alt="Модуль «Полка»: четыре файла с миниатюрами — схема, договор, обложка и смета — и команды «Выбрать все» и «Очистить»">
-            </picture>
-          </div>
-          <div class="module-copy">
-            <h3 data-i="mod.shelf.t">Полка файлов</h3>
-            <p data-i="mod.shelf.d">Перетащите файл на панель, переключитесь в другое приложение и заберите его оттуда. Оригинал остаётся на месте: полка хранит ссылку, а не копию.</p>
-            <p class="module-note" data-i="mod.shelf.n">Здесь же локальные инструменты Apple Vision: распознать текст, удалить фон, сменить формат, уменьшить, собрать PDF из нескольких изображений. Результат — всегда новый файл рядом с исходным, а последнюю операцию можно отменить.</p>
-          </div>
-        </article>
+      <article class="module" id="mod-shelf" data-mod="shelf" data-icon="shelf">
+        <div class="shot">
+          <picture>
+            <source type="image/avif" srcset="assets/screens/ru/shelf.avif" data-shot="shelf">
+            <img src="assets/screens/ru/shelf.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="shelf"
+                 alt="Модуль «Полка»: четыре файла с миниатюрами — схема, договор, обложка и смета — и команды «Выбрать все» и «Очистить»">
+          </picture>
+        </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
+        <div class="module-copy">
+          <h3 data-i="mod.shelf.t">Полка файлов</h3>
+          <p data-i="mod.shelf.d">Перетащите файл на панель, переключитесь в другое приложение и заберите его оттуда. Оригинал остаётся на месте: полка хранит ссылку, а не копию.</p>
+          <p class="module-note" data-i="mod.shelf.n">Здесь же локальные инструменты Apple Vision: распознать текст, удалить фон, сменить формат, уменьшить, собрать PDF из нескольких изображений. Результат — всегда новый файл рядом с исходным, а последнюю операцию можно отменить.</p>
+        </div>
+      </article>
 
-        <article class="module" id="mod-clipboard" data-mod="clipboard" data-icon="clipboard">
-          <div class="module-shot">
-            <picture>
-              <source type="image/avif" srcset="assets/screens/ru/clipboard.avif" data-shot="clipboard">
-              <img src="assets/screens/ru/clipboard.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="clipboard"
-                   alt="Модуль «Буфер»: пять последних записей — ссылка, команда, адрес, фрагмент JSON и адрес почты, у каждой свой значок типа">
-            </picture>
-          </div>
-          <div class="module-copy">
-            <h3 data-i="mod.clip.t">История буфера обмена</h3>
-            <p data-i="mod.clip.d">То, что вы копировали час назад, никуда не делось. Impuls различает текст, ссылки, почту, телефоны, цвета, JSON, код, файлы и изображения и подписывает тип каждой записи.</p>
-            <p class="module-note" data-i="mod.clip.n">Нужное закрепляется и переживает срок хранения. Мониторинг ставится на паузу, отдельные приложения исключаются, а скрытые записи менеджеров паролей не попадают в историю вообще.</p>
-          </div>
-        </article>
+      <article class="module" id="mod-clipboard" data-mod="clipboard" data-icon="clipboard">
+        <div class="shot">
+          <picture>
+            <source type="image/avif" srcset="assets/screens/ru/clipboard.avif" data-shot="clipboard">
+            <img src="assets/screens/ru/clipboard.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="clipboard"
+                 alt="Модуль «Буфер»: пять последних записей — ссылка, команда, адрес, фрагмент JSON и адрес почты, у каждой свой значок типа">
+          </picture>
+        </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
+        <div class="module-copy">
+          <h3 data-i="mod.clip.t">История буфера обмена</h3>
+          <p data-i="mod.clip.d">То, что вы копировали час назад, никуда не делось. Impuls различает текст, ссылки, почту, телефоны, цвета, JSON, код, файлы и изображения и подписывает тип каждой записи.</p>
+          <p class="module-note" data-i="mod.clip.n">Нужное закрепляется и переживает срок хранения. Мониторинг ставится на паузу, отдельные приложения исключаются, а скрытые записи менеджеров паролей не попадают в историю вообще.</p>
+        </div>
+      </article>
 
-        <article class="module" id="mod-snippets" data-mod="snippets" data-icon="snippets">
-          <div class="module-shot">
-            <picture>
-              <source type="image/avif" srcset="assets/screens/ru/snippets.avif" data-shot="snippets">
-              <img src="assets/screens/ru/snippets.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="snippets"
-                   alt="Модуль «Заготовки»: поле поиска и список сохранённых заготовок с названиями «адрес», «созвон», «git» и «трек»">
-            </picture>
-          </div>
-          <div class="module-copy">
-            <h3 data-i="mod.snip.t">Заготовки</h3>
-            <p data-i="mod.snip.d">Тексты, которые вы пишете снова и снова: адрес, реквизиты, команда, ссылка на созвон. Каждой можно дать короткое имя и находить по нему.</p>
-            <p class="module-note" data-i="mod.snip.n">Заготовки попадают и в общий поиск «Действий», так что помнить, где именно лежит нужный текст, не обязательно.</p>
-          </div>
-        </article>
+      <article class="module" id="mod-snippets" data-mod="snippets" data-icon="snippets">
+        <div class="shot">
+          <picture>
+            <source type="image/avif" srcset="assets/screens/ru/snippets.avif" data-shot="snippets">
+            <img src="assets/screens/ru/snippets.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="snippets"
+                 alt="Модуль «Заготовки»: поле поиска и список сохранённых заготовок с названиями «адрес», «созвон», «git» и «трек»">
+          </picture>
+        </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
+        <div class="module-copy">
+          <h3 data-i="mod.snip.t">Заготовки</h3>
+          <p data-i="mod.snip.d">Тексты, которые вы пишете снова и снова: адрес, реквизиты, команда, ссылка на созвон. Каждой можно дать короткое имя и находить по нему.</p>
+          <p class="module-note" data-i="mod.snip.n">Заготовки попадают и в общий поиск «Действий», так что помнить, где именно лежит нужный текст, не обязательно.</p>
+        </div>
+      </article>
 
-        <article class="module" id="mod-notes" data-mod="notes" data-icon="notes">
-          <div class="module-shot">
-            <picture>
-              <source type="image/avif" srcset="assets/screens/ru/notes.avif" data-shot="notes">
-              <img src="assets/screens/ru/notes.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="notes"
-                   alt="Модуль «Заметки»: слева список из двух заметок и кнопка «Новая заметка», справа открытый текст выбранной заметки">
-            </picture>
-          </div>
-          <div class="module-copy">
-            <h3 data-i="mod.notes.t">Заметки</h3>
-            <p data-i="mod.notes.d">Место для мысли, которая нужна на час: номер из разговора, половина ссылки, идея. Заметка создаётся пустой и мгновенно, а пустые убираются сами.</p>
-            <p class="module-note" data-i="mod.notes.n">Это не замена текстовому редактору — здесь нет папок, форматирования и поиска внутри модуля. Ровно тот черновик, который иначе живёт несохранённой вкладкой.</p>
-          </div>
-        </article>
+      <article class="module" id="mod-notes" data-mod="notes" data-icon="notes">
+        <div class="shot">
+          <picture>
+            <source type="image/avif" srcset="assets/screens/ru/notes.avif" data-shot="notes">
+            <img src="assets/screens/ru/notes.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="notes"
+                 alt="Модуль «Заметки»: слева список из двух заметок и кнопка «Новая заметка», справа открытый текст выбранной заметки">
+          </picture>
+        </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
+        <div class="module-copy">
+          <h3 data-i="mod.notes.t">Заметки</h3>
+          <p data-i="mod.notes.d">Место для мысли, которая нужна на час: номер из разговора, половина ссылки, идея. Заметка создаётся пустой и мгновенно, а пустые убираются сами.</p>
+          <p class="module-note" data-i="mod.notes.n">Это не замена текстовому редактору — здесь нет папок, форматирования и поиска внутри модуля. Ровно тот черновик, который иначе живёт несохранённой вкладкой.</p>
+        </div>
+      </article>
 
-        <article class="module" id="mod-translate" data-mod="translate" data-icon="translate">
-          <div class="module-shot">
-            <picture>
-              <source type="image/avif" srcset="assets/screens/ru/translate.avif" data-shot="translate">
-              <img src="assets/screens/ru/translate.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="translate"
-                   alt="Модуль «Перевод»: слева русская фраза, справа её английский перевод, язык каждой колонки выбирается в её заголовке">
-            </picture>
-          </div>
-          <div class="module-copy">
-            <h3 data-i="mod.tr.t">Перевод</h3>
-            <p data-i="mod.tr.d">Переводчик macOS прямо в панели. Язык меняется в заголовке колонки, а направление определяется по алфавиту введённого текста.</p>
-            <p class="module-note" data-i="mod.tr.n">Доступны все языки системного переводчика. Если языковой пакет не скачан или пара невозможна, это видно в меню заранее — вариант показан серым, а не спрятан.</p>
-          </div>
-        </article>
+      <article class="module" id="mod-translate" data-mod="translate" data-icon="translate">
+        <div class="shot">
+          <picture>
+            <source type="image/avif" srcset="assets/screens/ru/translate.avif" data-shot="translate">
+            <img src="assets/screens/ru/translate.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="translate"
+                 alt="Модуль «Перевод»: слева русская фраза, справа её английский перевод, язык каждой колонки выбирается в её заголовке">
+          </picture>
+        </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
+        <div class="module-copy">
+          <h3 data-i="mod.tr.t">Перевод</h3>
+          <p data-i="mod.tr.d">Переводчик macOS прямо в панели. Язык меняется в заголовке колонки, а направление определяется по алфавиту введённого текста.</p>
+          <p class="module-note" data-i="mod.tr.n">Доступны все языки системного переводчика. Если языковой пакет не скачан или пара невозможна, это видно в меню заранее — вариант показан серым, а не спрятан.</p>
+        </div>
+      </article>
 
-        <article class="module" id="mod-media" data-mod="media" data-icon="media">
-          <div class="module-shot">
-            <picture>
-              <source type="image/avif" srcset="assets/screens/ru/media.avif" data-shot="media">
-              <img src="assets/screens/ru/media.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="media"
-                   alt="Модуль «Музыка» с выбранным источником «Яндекс Музыка» и кнопкой «Открыть веб-плеер»">
-            </picture>
-          </div>
-          <div class="module-copy">
-            <h3 data-i="mod.media.t">Музыка</h3>
-            <p data-i="mod.media.d">Источник выбирается явно. Apple Music читается нативно через её сценарный интерфейс; Яндекс Музыка, VK Музыка и YouTube Music открываются своими официальными сайтами в системном окне WebKit.</p>
-            <p class="module-note" data-i="mod.media.n">Выбор источника не создаёт запросов — соединение появляется только после кнопки «Открыть веб-плеер». Вместо общего «Ничего не играет» панель называет причину: приложение не открыто, трек не запущен или нужно разрешение.</p>
-          </div>
-        </article>
+      <article class="module" id="mod-media" data-mod="media" data-icon="media">
+        <div class="shot">
+          <picture>
+            <source type="image/avif" srcset="assets/screens/ru/media.avif" data-shot="media">
+            <img src="assets/screens/ru/media.png" width="1372" height="504" loading="lazy" decoding="async" data-shot="media"
+                 alt="Модуль «Музыка» с выбранным источником «Яндекс Музыка» и кнопкой «Открыть веб-плеер»">
+          </picture>
+        </div>
+        <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
+        <div class="module-copy">
+          <h3 data-i="mod.media.t">Музыка</h3>
+          <p data-i="mod.media.d">Источник выбирается явно. Apple Music читается нативно через её сценарный интерфейс; Яндекс Музыка, VK Музыка и YouTube Music открываются своими официальными сайтами в системном окне WebKit.</p>
+          <p class="module-note" data-i="mod.media.n">Выбор источника не создаёт запросов — соединение появляется только после кнопки «Открыть веб-плеер». Вместо общего «Ничего не играет» панель называет причину: приложение не открыто, трек не запущен или нужно разрешение.</p>
+        </div>
+      </article>
 
-      </div>
-      <p class="pan-hint" data-i="pan2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
     </div>
-    <p class="lead measure" style="margin-top:var(--s7)" data-i="m.cal">Остаётся «Календарь»: ближайшая встреча, время до неё и кнопка подключения к звонку, если он есть в приглашении. Доступ к календарю запрашивается системным диалогом macOS и нужен только этому модулю.</p>
+  </div>
+
+  <div class="wrap">
+    <p class="lead closing center-closing" data-i="m.cal">Остаётся «Календарь»: ближайшая встреча, время до неё и кнопка подключения к звонку, если он есть в приглашении. Доступ к календарю запрашивается системным диалогом macOS и нужен только этому модулю.</p>
   </div>
 </section>
-
-<hr class="rule">
 
 <!-- ===== DEVICES ===== -->
 <section id="devices">
   <div class="wrap">
-    <div class="split reverse">
-      <div class="reveal">
-        <h2 data-i="d.h2">Питание</h2>
-        <p class="standfirst" data-i="d.stand">Заряд Mac и всего, что к нему подключено.</p>
-        <p class="lead" style="margin-top:var(--s4)" data-i="d.lead">Mac, AirPods, iPhone и iPad — в одной вкладке, без отдельной утилиты. Impuls показывает только то, что система действительно сообщает: недостающее остаётся пустым и не превращается в ноль или догадку.</p>
-        <ul class="boundaries boundaries-plain">
-          <li><div><b data-i="d.b1">Mac</b><span data-i="d.b1d">Заряд, режим питания, время до разрядки или полной зарядки, а также ёмкость, напряжение, температура и циклы — там, где macOS их публикует. На десктопных Mac модуль называется «Питание».</span></div></li>
-          <li><div><b data-i="d.b2">AirPods и аксессуары</b><span data-i="d.b2d">По данным, которые публикует сама macOS. Доступность зависит от модели и текущего состояния системы.</span></div></li>
-          <li><div><b data-i="d.b3">iPhone и iPad — Beta</b><span data-i="d.b3d">Через уже существующее доверие устройства к этому Mac: по кабелю или через синхронизацию Finder по Wi-Fi. Impuls не создаёт пары, не сканирует сеть и не подключается к устройству напрямую.</span></div></li>
-          <li><div><b data-i="d.b4">Выключено, пока вы не включите</b><span data-i="d.b4d">Поиск устройств включается одним переключателем в настройках. Пока он выключен, Impuls не открывает соединение и ничего не читает. Идентификаторы устройств не показываются, не пишутся в логи и не попадают в резервные копии.</span></div></li>
-        </ul>
-      </div>
-      <div class="reveal">
-        <div class="shot">
-          <picture>
-            <source type="image/avif" srcset="assets/screens/ru/power.avif" data-shot="power">
-            <img src="assets/screens/ru/power.png" width="1372" height="504" loading="lazy" decoding="async"
-                 data-shot="power"
-                 alt="Модуль «Аккумулятор»: вкладки этого Mac и подключённого iPhone, крупный процент заряда, режим питания, оставшееся время, потребление, температура и число циклов">
-          </picture>
-        </div>
-      </div>
+    <div class="chapter">
+      <span class="mark" aria-hidden="true"></span>
+      <!-- The nav label, not `d.eyebrow`: that key is the word "Power" again,
+           and an eyebrow that repeats its own headline says nothing. -->
+      <p class="eyebrow" data-i="nav.devices">Устройства</p>
+      <h2 data-i="d.h2">Питание</h2>
+      <p class="standfirst" data-i="d.stand">Заряд Mac и всего, что к нему подключено.</p>
+      <p class="lead" data-i="d.lead">Mac, AirPods, iPhone и iPad — в одной вкладке, без отдельной утилиты. Impuls показывает только то, что система действительно сообщает: недостающее остаётся пустым и не превращается в ноль или догадку.</p>
     </div>
+  </div>
+  <div class="wrap wrap-wide reveal" style="margin-top:clamp(40px,5vw,64px)">
+    <div class="shot">
+      <picture>
+        <source type="image/avif" srcset="assets/screens/ru/power.avif" data-shot="power">
+        <img src="assets/screens/ru/power.png" width="1372" height="504" loading="lazy" decoding="async"
+             data-shot="power"
+             alt="Модуль «Аккумулятор»: вкладки этого Mac и подключённого iPhone, крупный процент заряда, режим питания, оставшееся время, потребление, температура и число циклов">
+      </picture>
+    </div>
+    <p class="pan-hint" data-i="pan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m0 0-4-4m4 4-4 4"/></svg>Проведите по снимку, чтобы увидеть панель целиком</p>
+  </div>
+  <div class="wrap">
+    <ul class="cols cols-4" style="margin-top:clamp(40px,5vw,64px)">
+      <li class="reveal"><b data-i="d.b1">Mac</b><span data-i="d.b1d">Заряд, режим питания, время до разрядки или полной зарядки, а также ёмкость, напряжение, температура и циклы — там, где macOS их публикует. На десктопных Mac модуль называется «Питание».</span></li>
+      <li class="reveal"><b data-i="d.b2">AirPods и аксессуары</b><span data-i="d.b2d">По данным, которые публикует сама macOS. Доступность зависит от модели и текущего состояния системы.</span></li>
+      <li class="reveal"><b data-i="d.b3">iPhone и iPad — Beta</b><span data-i="d.b3d">Через уже существующее доверие устройства к этому Mac: по кабелю или через синхронизацию Finder по Wi-Fi. Impuls не создаёт пары, не сканирует сеть и не подключается к устройству напрямую.</span></li>
+      <li class="reveal"><b data-i="d.b4">Выключено, пока вы не включите</b><span data-i="d.b4d">Поиск устройств включается одним переключателем в настройках. Пока он выключен, Impuls не открывает соединение и ничего не читает. Идентификаторы устройств не показываются, не пишутся в логи и не попадают в резервные копии.</span></li>
+    </ul>
   </div>
 </section>
 
-<hr class="rule">
-
 <!-- ===== DISPLAYS & BEHAVIOUR ===== -->
-<section id="behaviour">
+<section id="behaviour" class="band">
   <div class="wrap">
-    <div class="header-split">
+    <div class="chapter center">
+      <span class="mark" aria-hidden="true"></span>
+      <p class="eyebrow" data-i="b.eyebrow">Поведение</p>
       <h2 data-i="b.h2">На каждом экране</h2>
       <p class="lead" data-i="b.stand">Встроенный экран, внешний монитор, iPad в режиме Sidecar. Панель открывается там, где курсор, и сворачивается обратно в кромку, когда она больше не нужна.</p>
     </div>
-    <div class="facts">
-      <div class="fact reveal">
-        <span class="fact-k" data-i="b.k1">Экраны</span>
+    <ul class="cols cols-4" style="margin-top:clamp(40px,5vw,64px)">
+      <li class="reveal">
+        <span class="col-k" data-i="b.k1">Экраны</span>
         <h3 data-i="b.h31">На каждом дисплее</h3>
         <p data-i="b.p1">Встроенный экран с вырезом, внешний монитор, iPad в режиме Sidecar. Панель открывается на том экране, где курсор, а развёрнута всегда только одна — с теми же данными.</p>
-      </div>
-      <div class="fact reveal">
-        <span class="fact-k" data-i="b.k2">Без выреза</span>
+      </li>
+      <li class="reveal">
+        <span class="col-k" data-i="b.k2">Без выреза</span>
         <h3 data-i="b.h32">Не только MacBook</h3>
         <p data-i="b.p2">На MacBook панель использует геометрию выреза. На экране без него Impuls рисует компактный чёрный якорь 120 × 12 pt у верхней кромки; строка меню слева и справа от него работает как обычно.</p>
-      </div>
-      <div class="fact reveal">
-        <span class="fact-k" data-i="b.k3">Вызов</span>
+      </li>
+      <li class="reveal">
+        <span class="col-k" data-i="b.k3">Вызов</span>
         <h3 data-i="b.h33">Наведение или горячая клавиша</h3>
         <p data-i="b.p3">Режим открытия, задержка наведения и сочетание клавиш выбираются в настройках. Горячая клавиша открывает панель на экране под курсором.</p>
-      </div>
-      <div class="fact reveal">
-        <span class="fact-k" data-i="b.k4">Уход</span>
+      </li>
+      <li class="reveal">
+        <span class="col-k" data-i="b.k4">Уход</span>
         <h3 data-i="b.h34">Esc или увести курсор</h3>
         <p data-i="b.p4">Impuls не становится ещё одним постоянным окном: панель сворачивается обратно в кромку экрана и не занимает место в Dock-переключении.</p>
-      </div>
-    </div>
-    <p class="lead measure" style="margin-top:var(--s7)" data-i="b.a11y">Панель управляется с клавиатуры и читается VoiceOver: у каждой строки есть имя, значение и действия, у значков рейла — названия модулей. Impuls учитывает системные настройки «Уменьшение движения», «Увеличение контраста» и «Уменьшение прозрачности».</p>
+      </li>
+    </ul>
+    <p class="lead closing center-closing" data-i="b.a11y">Панель управляется с клавиатуры и читается VoiceOver: у каждой строки есть имя, значение и действия, у значков рейла — названия модулей. Impuls учитывает системные настройки «Уменьшение движения», «Увеличение контраста» и «Уменьшение прозрачности».</p>
   </div>
 </section>
-
-<hr class="rule">
 
 <!-- ===== PRIVACY ===== -->
 <section id="privacy">
   <div class="wrap">
-    <div class="measure">
+    <div class="chapter">
+      <span class="mark" aria-hidden="true"></span>
+      <p class="eyebrow" data-i="p.eyebrow">Приватность</p>
       <h2 data-i="p.h2">Данные остаются на Mac</h2>
-      <p class="lead" style="margin-top:var(--s4)" data-i="p.lead">В Impuls нет учётной записи, рекламы, удалённой конфигурации и идентификации устройства. Буфер обмена, заметки, заготовки, файлы и календарь никуда не отправляются. У приложения три раздельные сетевые границы, и каждая требует отдельного действия или согласия.</p>
-      <ul class="boundaries">
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><div><b data-i="p.b1">Проверка обновлений</b><span data-i="p.b1d">Спрашивается при первом запуске и остаётся выключаемой. Обращается только к подписанному каналу Impuls на GitHub. Профилирование системы в Sparkle отключено, автоматическая установка — отдельный выбор.</span></div></li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg><div><b data-i="p.b2">Веб-плеер</b><span data-i="p.b2d">Выбор источника в модуле «Музыка» не создаёт ни одного запроса. Соединение появляется только после кнопки «Открыть веб-плеер», и открывается официальный сайт выбранного сервиса в системном окне WebKit.</span></div></li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 17h3V9H4zm6 0h3V5h-3zm6 0h3v-6h-3z"/><path d="M3 20h18"/></svg><div><b data-i="p.b5">Статистика версии</b><span data-i="p.b5d">Выключена до отдельного согласия. Не чаще раза в час отправляет случайный псевдоним установки и версию Impuls, а при корректно определённом обновлении — предыдущую версию. Содержимого приложения, имени, контактов и аппаратных идентификаторов в запросе нет.</span></div></li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg><div><b data-i="p.b3">Локальные данные</b><span data-i="p.b3d">История буфера по умолчанию живёт только в памяти. Если включить её сохранение, архив шифруется AES-GCM, а ключ хранится в Связке ключей macOS. Скрытые записи менеджеров паролей в историю не попадают.</span></div></li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h9l5 5v11H5z"/><path d="M8 12.5h8M8 16.5h5"/></svg><div><b data-i="p.b4">Обратная связь</b><span data-i="p.b4d">Отчёт формируется локально и полностью показывается до отправки. Impuls его не загружает: по нажатию кнопки текст копируется в буфер, а браузер открывает форму на GitHub. В отчёт не попадают буфер, заметки, имена файлов, календарь, серийные номера и идентификаторы.</span></div></li>
-      </ul>
-      <p style="margin-top:var(--s6)"><a class="btn btn-ghost btn-sm" href="site-privacy.html"><span data-i="p.doc">Политика обработки персональных данных</span></a></p>
+      <p class="lead" data-i="p.lead">В Impuls нет учётной записи, рекламы, удалённой конфигурации и идентификации устройства. Буфер обмена, заметки, заготовки, файлы и календарь никуда не отправляются. У приложения три раздельные сетевые границы, и каждая требует отдельного действия или согласия.</p>
     </div>
+    <ul class="boundaries">
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v10m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><div><b data-i="p.b1">Проверка обновлений</b><span data-i="p.b1d">Спрашивается при первом запуске и остаётся выключаемой. Обращается только к подписанному каналу Impuls на GitHub. Профилирование системы в Sparkle отключено, автоматическая установка — отдельный выбор.</span></div></li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg><div><b data-i="p.b2">Веб-плеер</b><span data-i="p.b2d">Выбор источника в модуле «Музыка» не создаёт ни одного запроса. Соединение появляется только после кнопки «Открыть веб-плеер», и открывается официальный сайт выбранного сервиса в системном окне WebKit.</span></div></li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 17h3V9H4zm6 0h3V5h-3zm6 0h3v-6h-3z"/><path d="M3 20h18"/></svg><div><b data-i="p.b5">Статистика версии</b><span data-i="p.b5d">Выключена до отдельного согласия. Не чаще раза в час отправляет случайный псевдоним установки и версию Impuls, а при корректно определённом обновлении — предыдущую версию. Содержимого приложения, имени, контактов и аппаратных идентификаторов в запросе нет.</span></div></li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6z"/><path d="m9 12 2 2 4-4"/></svg><div><b data-i="p.b3">Локальные данные</b><span data-i="p.b3d">История буфера по умолчанию живёт только в памяти. Если включить её сохранение, архив шифруется AES-GCM, а ключ хранится в Связке ключей macOS. Скрытые записи менеджеров паролей в историю не попадают.</span></div></li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M5 4h9l5 5v11H5z"/><path d="M8 12.5h8M8 16.5h5"/></svg><div><b data-i="p.b4">Обратная связь</b><span data-i="p.b4d">Отчёт формируется локально и полностью показывается до отправки. Impuls его не загружает: по нажатию кнопки текст копируется в буфер, а браузер открывает форму на GitHub. В отчёт не попадают буфер, заметки, имена файлов, календарь, серийные номера и идентификаторы.</span></div></li>
+    </ul>
+    <p style="margin-top:var(--s7)"><a class="btn btn-ghost btn-sm" href="site-privacy.html"><span data-i="p.doc">Политика обработки персональных данных</span></a></p>
   </div>
 </section>
 
-<hr class="rule">
-
 <!-- ===== OPEN ===== -->
-<section id="open">
+<section id="open" class="band">
   <div class="wrap">
-    <div class="header-split">
+    <div class="chapter">
+      <span class="mark" aria-hidden="true"></span>
+      <p class="eyebrow" data-i="o.eyebrow">Проверка</p>
       <h2 data-i="o.h2">Код, сборка и контрольные суммы открыты</h2>
       <p class="lead" data-i="o.lead">Исходный код, история изменений и модель безопасности открыты. У каждой сборки есть контрольная сумма, а обновления приходят по подписанному каналу с проверкой подписи до распаковки.</p>
     </div>
-    <div class="facts open-facts">
-      <div class="fact reveal"><span class="fact-k" data-i="o.k1">Код</span><h3 data-i="o.h31">Открытый репозиторий</h3><p data-i="o.p1">Реализация, тесты и вся история релизов — на GitHub, лицензия GPL-3.0-or-later.</p><p class="fact-action"><a class="btn btn-ghost btn-sm" data-conversion="github" data-placement="open" href="https://github.com/TumanovNV/impuls" rel="noopener"><span data-i="o.a1">Открыть исходный код</span></a></p></div>
-      <div class="fact reveal"><span class="fact-k" data-i="o.k2">Сборка</span><h3 data-i="o.h32">Проверки до релиза</h3><p data-i="o.p2">CI запускает тесты, проверяет границы приватности и убеждается, что запуск приложения не открывает ни одного сокета.</p></div>
-      <div class="fact reveal"><span class="fact-k" data-i="o.k3">Файл</span><h3 data-i="o.h33">SHA-256 каждой сборки</h3><p data-i="o.p3">Контрольная сумма публикуется рядом с DMG, и её можно сверить до установки.</p></div>
-      <div class="fact reveal"><span class="fact-k" data-i="o.k4">История</span><h3 data-i="o.h34">Что менялось</h3><p data-i="o.p4">Каждая версия описана отдельно, на русском и английском.</p><p class="fact-action"><a class="btn btn-ghost btn-sm" data-conversion="releases" data-placement="open" href="https://github.com/TumanovNV/impuls/releases" rel="noopener"><span data-i="o.a2">История релизов</span></a></p></div>
-    </div>
+    <ul class="cols cols-4" style="margin-top:clamp(40px,5vw,64px)">
+      <li class="reveal"><span class="col-k" data-i="o.k1">Код</span><h3 data-i="o.h31">Открытый репозиторий</h3><p data-i="o.p1">Реализация, тесты и вся история релизов — на GitHub, лицензия GPL-3.0-or-later.</p><p style="margin-top:var(--s4)"><a class="btn btn-ghost btn-sm" data-conversion="github" data-placement="open" href="https://github.com/TumanovNV/impuls" rel="noopener"><span data-i="o.a1">Открыть исходный код</span></a></p></li>
+      <li class="reveal"><span class="col-k" data-i="o.k2">Сборка</span><h3 data-i="o.h32">Проверки до релиза</h3><p data-i="o.p2">CI запускает тесты, проверяет границы приватности и убеждается, что запуск приложения не открывает ни одного сокета.</p></li>
+      <li class="reveal"><span class="col-k" data-i="o.k3">Файл</span><h3 data-i="o.h33">SHA-256 каждой сборки</h3><p data-i="o.p3">Контрольная сумма публикуется рядом с DMG, и её можно сверить до установки.</p></li>
+      <li class="reveal"><span class="col-k" data-i="o.k4">История</span><h3 data-i="o.h34">Что менялось</h3><p data-i="o.p4">Каждая версия описана отдельно, на русском и английском.</p><p style="margin-top:var(--s4)"><a class="btn btn-ghost btn-sm" data-conversion="releases" data-placement="open" href="https://github.com/TumanovNV/impuls/releases" rel="noopener"><span data-i="o.a2">История релизов</span></a></p></li>
+    </ul>
   </div>
 </section>
 
 <!-- ===== INSTALL ===== -->
-<section id="install" class="install">
+<section id="install">
   <div class="wrap">
-    <div class="measure">
+    <div class="chapter">
+      <span class="mark" aria-hidden="true"></span>
+      <p class="eyebrow" data-i="i.eyebrow">Установка</p>
       <h2 data-i="i.h2">Установка за три шага</h2>
-      <p class="lead" style="margin-top:var(--s4)"><span data-i="i.lead">Impuls пока подписан ad-hoc и не нотаризован Apple, поэтому первый запуск требует подтверждения. Дальнейшие обновления ставятся из самого приложения по подписанному каналу.</span></p>
+      <p class="lead"><span data-i="i.lead">Impuls пока подписан ad-hoc и не нотаризован Apple, поэтому первый запуск требует подтверждения. Дальнейшие обновления ставятся из самого приложения по подписанному каналу.</span></p>
+      <p class="chapter-cta">
+        <a class="btn btn-primary" data-conversion="download" data-placement="install" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.13/Impuls-1.4.13.dmg">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
+          <span data-i="cta.mac3">Скачать для macOS</span>
+        </a>
+      </p>
     </div>
-    <div class="install-grid">
-      <div class="install-step"><div class="n">01</div><h3 data-i="i.h31">Скачайте и перенесите</h3><p><span data-i="i.p1">Откройте</span> <span data-release="filename">Impuls-1.4.13.dmg</span> <span data-i="i.p1b">и перетащите Impuls в «Программы».</span></p></div>
-      <div class="install-step"><div class="n">02</div><h3 data-i="i.h32">Разрешите первый запуск</h3><p data-i="i.p2">Если macOS откажется открыть приложение, откройте «Системные настройки» → «Конфиденциальность и безопасность» и нажмите «Всё равно открыть». Это нужно один раз.</p></div>
-      <div class="install-step"><div class="n">03</div><h3 data-i="i.h33">Настройте под себя</h3><p data-i="i.p3">Выберите горячую клавишу, размер панели, состав и порядок модулей. Обновления и поиск устройств Apple включаются отдельно.</p></div>
-    </div>
+    <ul class="cols cols-3" style="margin-top:clamp(40px,5vw,64px)">
+      <li class="install-step"><span class="n">01</span><h3 data-i="i.h31">Скачайте и перенесите</h3><p><span data-i="i.p1">Откройте</span> <span data-release="filename">Impuls-1.4.13.dmg</span> <span data-i="i.p1b">и перетащите Impuls в «Программы».</span></p></li>
+      <li class="install-step"><span class="n">02</span><h3 data-i="i.h32">Разрешите первый запуск</h3><p data-i="i.p2">Если macOS откажется открыть приложение, откройте «Системные настройки» → «Конфиденциальность и безопасность» и нажмите «Всё равно открыть». Это нужно один раз.</p></li>
+      <li class="install-step"><span class="n">03</span><h3 data-i="i.h33">Настройте под себя</h3><p data-i="i.p3">Выберите горячую клавишу, размер панели, состав и порядок модулей. Обновления и поиск устройств Apple включаются отдельно.</p></li>
+    </ul>
     <div class="hashbox">
       <div style="flex:1;min-width:200px">
         <b style="font-size:.875rem" data-i="i.hash">SHA-256 текущего DMG</b>
@@ -1002,12 +1138,11 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
   </div>
 </section>
 
-<hr class="rule">
-
 <!-- ===== FAQ ===== -->
 <section id="faq">
   <div class="wrap">
-    <div class="measure">
+    <div class="chapter center">
+      <span class="mark" aria-hidden="true"></span>
       <h2 data-i="f.h2">Вопросы</h2>
     </div>
     <div class="faq">
@@ -1027,17 +1162,17 @@ footer{padding-block:var(--s6);border-top:1px solid var(--line);color:var(--fain
 <section class="final">
   <div class="wrap">
     <h2 data-i="fin.h2">Попробуйте на своём Mac</h2>
-    <p class="lead" style="margin-top:var(--s4)" data-i="fin.lead">Бесплатно, без учётной записи и без обязательств. Не подойдёт — перетащите в Корзину, и следа не останется.</p>
+    <p class="lead" data-i="fin.lead">Бесплатно, без учётной записи и без обязательств. Не подойдёт — перетащите в Корзину, и следа не останется.</p>
     <div class="hero-cta">
-      <a class="btn btn-primary" data-conversion="download" data-placement="final" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.13/Impuls-1.4.13.dmg">
+      <a class="btn btn-primary btn-lg" data-conversion="download" data-placement="final" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.13/Impuls-1.4.13.dmg">
         <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.9-.9-3.1-.8-1.6 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 3 2.3 1.2-.05 1.6-.8 3.1-.8 1.4 0 1.8.8 3.1.75 1.3-.02 2.1-1.1 2.9-2.3.9-1.3 1.3-2.6 1.3-2.7-.03-.01-2.5-1-2.5-3.8zM14.1 5.4c.6-.8 1.1-1.9 1-3-.9.04-2.1.6-2.8 1.4-.6.7-1.2 1.8-1 2.9 1 .07 2.1-.5 2.8-1.3z"/></svg>
         <span data-i="cta.mac2">Скачать для macOS</span>
       </a>
-      <a class="btn btn-ghost" data-conversion="feedback" data-placement="final" href="https://github.com/TumanovNV/impuls/issues/new/choose" rel="noopener">
+      <a class="btn btn-ghost btn-lg" data-conversion="feedback" data-placement="final" href="https://github.com/TumanovNV/impuls/issues/new/choose" rel="noopener">
         <span data-i="cta.fb">Написать разработчику</span>
       </a>
     </div>
-    <ul class="hero-meta">
+    <ul class="meta">
       <li><span data-release="version-label">Версия 1.4.13</span></li>
       <li><span data-release="size">4,7 МБ</span></li>
       <li data-i="fin.m1">macOS 15 и новее</li>
