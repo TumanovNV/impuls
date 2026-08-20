@@ -245,10 +245,7 @@ struct MobileDeviceClient: Sendable {
     }
 
     static func integer(_ value: Any?) -> Int? {
-        guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }
-        let doubleValue = number.doubleValue
-        guard doubleValue.isFinite, abs(doubleValue) <= Double(Int32.max) else { return nil }
-        return Int(doubleValue.rounded())
+        RegistryNumber.integer(value)
     }
 
     static func boolean(_ value: Any?) -> Bool? {

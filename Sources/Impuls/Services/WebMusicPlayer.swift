@@ -158,6 +158,10 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
     private(set) var currentState: WebMusicState?
 
     private var webView: WKWebView?
+    /// Whether a web view is currently held. Opening one is a user action, so
+    /// the shutdown path is checked for the absence of one rather than by
+    /// driving a real page load.
+    var hasWebView: Bool { webView != nil }
     private var windowController: NSWindowController?
     private var messageProxy: WeakScriptMessageHandler?
     private var popups: [ObjectIdentifier: NSWindowController] = [:]
@@ -272,6 +276,52 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
         windowController?.window?.orderOut(nil)
         currentState = nil
         requestedArtworkKey = nil
+    }
+
+    /// Releases the web view and everything it keeps running.
+    ///
+    /// The injected bridge installs `setInterval(..., 1000)` and a
+    /// `MutationObserver`, and nothing used to stop them: `deactivate` only
+    /// ordered the window out, and `MediaController.stop()` did not reach here
+    /// at all. So the page kept pushing state once a second — with the panel
+    /// folded, and past `NotchController.teardown()` — until the process exited.
+    ///
+    /// Idempotent, and it leaves the object usable. `show(source:)` builds the
+    /// web view through `webView ?? makeWebView()`, so the next explicit user
+    /// action reconstructs a working player. Nothing here creates a web view or
+    /// loads a URL: opening one is the user's decision, and this is the path
+    /// that runs at shutdown.
+    func teardown() {
+        for controller in popups.values {
+            controller.window?.orderOut(nil)
+            controller.window?.contentView = nil
+        }
+        popups.removeAll()
+
+        if let webView {
+            // Stops the pump at the source, then removes the only route the
+            // page has back into the app. Order matters: the handler must
+            // outlive the scripts that may still be mid-callback.
+            webView.evaluateJavaScript("window.__impulsMusicBridge?.stop?.()") { _, _ in }
+            webView.stopLoading()
+            webView.navigationDelegate = nil
+            webView.uiDelegate = nil
+            let controller = webView.configuration.userContentController
+            controller.removeAllUserScripts()
+            controller.removeScriptMessageHandler(forName: "impulsMusic")
+        }
+
+        windowController?.window?.orderOut(nil)
+        windowController?.window?.contentView = nil
+        windowController = nil
+        messageProxy = nil
+        webView = nil
+
+        currentState = nil
+        requestedArtworkKey = nil
+        source = nil
+        isPresentingFailure = false
+        playbackIntent += 1
     }
 
     private func evaluate(_ source: String) {
@@ -897,7 +947,12 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
 
       let lastSignature = '';
       let lastSentAt = 0;
+      // Set by `stop()` when Impuls is releasing the web view. The event
+      // listeners and the MutationObserver outlive the timers, so they need a
+      // way to fall silent too.
+      let stopped = false;
       const push = force => {
+        if (stopped) return;
         const payload = snapshot();
         const signature = [payload.title, payload.artist, payload.album, payload.playing,
                            Math.round(payload.duration), payload.artworkKey].join('|');
@@ -1149,7 +1204,17 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
         describe();
       }, 1000);
 
-      setInterval(() => push(true), 1000);
+      const pump = setInterval(() => push(true), 1000);
+      // Impuls calls this before it releases the web view. Releasing it would
+      // take the timers with it, but a pump that is still pushing while the
+      // message handler is being removed logs failures for no reason, and a
+      // bridge that cannot be stopped is the kind of thing that outlives the
+      // next refactor.
+      window.__impulsMusicBridge.stop = () => {
+        clearInterval(pump);
+        clearInterval(describeOnPlay);
+        stopped = true;
+      };
       push(true);
     })();
     """#

@@ -4,7 +4,7 @@ type: platform
 status: active
 documentation_version: 1.1
 app_version: 1.4.11
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, macos, tcc, permissions]
 ---
 
@@ -38,7 +38,12 @@ Status check is non-prompting. If not determined, user action may request Automa
 
 Without stable Developer ID identity, macOS may treat replaced builds in ways that require permissions to be granted again. Это distribution/signing limitation, а не повод обходить TCC или автоматически повторять prompts.
 
+## Изменения 1.4.12-hardening
+
+TCC-контракт не менялся. Правка в `PlayerBridge` касалась только безопасного преобразования позиции воспроизведения; ни один вызов, вызывающий системный запрос, не добавлен и не перемещён.
+
 ## Entitlements
+
 
 CI проверяет calendar and automation entitlements в built app. Изменение entitlement требует security/privacy review.
 

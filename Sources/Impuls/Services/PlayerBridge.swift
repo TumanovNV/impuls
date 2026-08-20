@@ -220,8 +220,15 @@ enum PlayerBridge {
     static func next(_ app: PlayerApp) { command("next track", on: app) }
     static func previous(_ app: PlayerApp) { command("back track", on: app) }
 
+    /// The position is clamped against a duration the app did not compute — for
+    /// the web player it is whatever the provider's page reported. `Int(_:)` is
+    /// a trap outside `Int`'s range, and it is the value that ends up spliced
+    /// into an AppleScript source string, so a non-finite or oversized seek is
+    /// dropped rather than converted.
     static func seek(_ app: PlayerApp, to seconds: TimeInterval) {
-        command("set player position to \(Int(seconds))", on: app)
+        guard seconds.isFinite, seconds >= 0,
+              let position = Int(exactly: seconds.rounded(.down)) else { return }
+        command("set player position to \(position)", on: app)
     }
 
     private static func command(_ body: String, on app: PlayerApp) {

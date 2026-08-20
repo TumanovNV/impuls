@@ -39,9 +39,18 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
     private let registrySource: DeviceBatterySource
     private let profilerSource: SystemProfilerAccessorySource?
     private var onUpdate: ((DeviceProviderUpdate) -> Void)?
-    private var notificationPort: IONotificationPortRef?
-    private var matchedIterator: io_iterator_t = 0
-    private var terminatedIterator: io_iterator_t = 0
+    // The IOKit state `deinit` has to reach: two iterators, a port, and the
+    // callback context. Created on the main actor by `installNotifications` and
+    // released by `stop`; `deinit` is the one other writer, and it runs when
+    // nothing else can still hold a reference. Declared `nonisolated(unsafe)` so
+    // the release path does not have to assert an actor it may not be running
+    // on — see the note on `deinit`.
+    private nonisolated(unsafe) var notificationPort: IONotificationPortRef?
+    private nonisolated(unsafe) var matchedIterator: io_iterator_t = 0
+    private nonisolated(unsafe) var terminatedIterator: io_iterator_t = 0
+    /// The retained box IOKit was handed as its callback context. Released only
+    /// after delivery has been stopped — see `teardownNotifications`.
+    private nonisolated(unsafe) var notificationContext: Unmanaged<AccessoryNotificationContext>?
     private var readTask: Task<Void, Never>?
     private var wakeObserver: NSObjectProtocol?
     private var lastDevices: [AppleDeviceSnapshot] = []
@@ -58,7 +67,12 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
         // The task holds `self` weakly and the observers are removed in `stop`,
         // which the coordinator always calls. This is the belt for the braces:
         // an iterator left registered would keep delivering into a dead object.
-        MainActor.assumeIsolated { teardownNotifications() }
+        //
+        // `deinit` is nonisolated, so it cannot assume the main actor: the last
+        // reference being released from anywhere else would have turned this
+        // safety net into the crash it exists to prevent. The teardown touches
+        // only C handles and is nonisolated for that reason.
+        teardownNotifications()
     }
 
     func start(onUpdate: @escaping (DeviceProviderUpdate) -> Void) {
@@ -185,7 +199,16 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
         notificationPort = port
         IONotificationPortSetDispatchQueue(port, DispatchQueue.main)
 
-        let context = Unmanaged.passUnretained(self).toOpaque()
+        // IOKit keeps this pointer for as long as the registration lives and has
+        // no way to learn that the provider went away, so the pointer must not
+        // be the provider. The box is retained on IOKit's behalf and holds the
+        // provider weakly; teardown invalidates it before the port is
+        // destroyed, so a notification already queued resolves `nil` and does
+        // nothing instead of resurrecting a released object.
+        let box = AccessoryNotificationContext(provider: self)
+        let retained = Unmanaged.passRetained(box)
+        notificationContext = retained
+        let context = retained.toOpaque()
         // Each registration consumes a reference to its matching dictionary, so
         // the two calls cannot share one.
         if let matching = IOServiceMatching(IORegistryAccessoryMapper.serviceClass) {
@@ -212,7 +235,31 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
         }
     }
 
-    private func teardownNotifications() {
+    /// Stops delivery reaching this provider, then releases the IOKit objects.
+    ///
+    /// The order is the point. Invalidating the context first is what makes the
+    /// rest safe: from that instant a callback — one running right now on the
+    /// main queue, or one already queued behind it — resolves `nil` and returns,
+    /// so nothing downstream can touch a provider that is being deallocated.
+    /// Only then are the iterators and the port released.
+    ///
+    /// `IONotificationPortSetDispatchQueue` is deliberately *not* called with
+    /// `nil` here. `IOKitLib.h` carries no nullability annotations and documents
+    /// no NULL behaviour for that parameter, and `IONotificationPortDestroy`
+    /// documents only that it destroys the mach port and run-loop source. Rather
+    /// than depend on an undocumented argument, the guarantee is built from
+    /// behaviour that is documented: the box, and the ordering below.
+    ///
+    /// The box's own release is handed to the main queue because that is the
+    /// queue notifications are delivered on, so FIFO puts the release after any
+    /// callback already waiting there. That ordering comes from libdispatch, not
+    /// from IOKit, which offers none.
+    private nonisolated func teardownNotifications() {
+        if let notificationContext {
+            notificationContext.takeUnretainedValue().invalidate()
+            self.notificationContext = nil
+            DispatchQueue.main.async { notificationContext.release() }
+        }
         if matchedIterator != 0 {
             IOObjectRelease(matchedIterator)
             matchedIterator = 0
@@ -231,7 +278,13 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
         // The iterator must be drained or the notification never fires again.
         drain(iterator)
         guard let context else { return }
-        let provider = Unmanaged<AppleAccessoryBatteryProvider>.fromOpaque(context).takeUnretainedValue()
+        // `nil` here means teardown has begun. The box outlives this callback,
+        // so reading it is safe even then; the provider it used to point at is
+        // simply no longer anyone's business.
+        guard let provider = Unmanaged<AccessoryNotificationContext>
+            .fromOpaque(context)
+            .takeUnretainedValue()
+            .provider else { return }
         Task { @MainActor in provider.refresh() }
     }
 
@@ -256,5 +309,44 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
         }
+    }
+}
+
+/// The pointer IOKit is given as a notification callback's context.
+///
+/// A C callback context has no lifetime relationship with the object it stands
+/// for. Handing IOKit the provider itself — `Unmanaged.passUnretained(self)` —
+/// meant a notification delivered while the provider was being deallocated
+/// resolved a released object, and IOKit offers no way to be sure delivery has
+/// stopped before that happens. Retaining the provider instead would work and
+/// would also mean it could never be deallocated at all.
+///
+/// So the context is this box: retained for IOKit, pointing at the provider
+/// weakly, and invalidated by teardown before anything else is released. A
+/// callback that arrives late reads `nil` and returns.
+///
+/// The lock is not decoration. `invalidate()` can run on whatever thread
+/// released the last reference to the provider, while a callback is reading
+/// `provider` on the main queue.
+final class AccessoryNotificationContext: @unchecked Sendable {
+    private let lock = NSLock()
+    private weak var storedProvider: AppleAccessoryBatteryProvider?
+
+    init(provider: AppleAccessoryBatteryProvider) {
+        storedProvider = provider
+    }
+
+    var provider: AppleAccessoryBatteryProvider? {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedProvider
+    }
+
+    /// Severs the box from its provider. Idempotent, and the only transition:
+    /// a box never points at a provider again once this has run.
+    func invalidate() {
+        lock.lock()
+        storedProvider = nil
+        lock.unlock()
     }
 }

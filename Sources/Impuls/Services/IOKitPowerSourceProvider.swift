@@ -174,8 +174,14 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
         }
     }
 
+    /// Shares the registry coercion rather than `intValue`: the power-source
+    /// dictionary is another system-owned bag of `CFNumber`s, and `intValue`
+    /// would read a `CFBoolean` flag as `1` and saturate a value too large for
+    /// `Int` instead of reporting it as absent. The keys read here
+    /// (`CurrentCapacity`, `MaxCapacity`, `DesignCapacity`, `Voltage`,
+    /// `Current`) are integral, so rounding cannot move a real reading.
     private func integer(_ value: Any?) -> Int? {
-        (value as? NSNumber)?.intValue
+        RegistryNumber.integer(value)
     }
 
     private func number(_ value: Any?) -> Double? {

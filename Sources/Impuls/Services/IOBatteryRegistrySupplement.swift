@@ -55,17 +55,20 @@ enum IOBatteryRegistrySupplement {
     }
 
     private static func integer(for key: String, service: io_registry_entry_t) -> Int? {
-        number(for: key, service: service).map { Int($0) }
+        RegistryNumber.integer(property(for: key, service: service))
     }
 
     private static func number(for key: String, service: io_registry_entry_t) -> Double? {
-        guard let value = IORegistryEntryCreateCFProperty(
+        RegistryNumber.double(property(for: key, service: service))
+    }
+
+    private static func property(for key: String, service: io_registry_entry_t) -> Any? {
+        IORegistryEntryCreateCFProperty(
             service,
             key as CFString,
             kCFAllocatorDefault,
             0
-        )?.takeRetainedValue() as? NSNumber else { return nil }
-        return value.doubleValue
+        )?.takeRetainedValue()
     }
 
     private static func celsius(fromSmartBatteryTemperature value: Double?) -> Double? {

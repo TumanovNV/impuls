@@ -4,7 +4,7 @@ type: presentation-module
 documentation_version: 1.3
 status: production
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, menu-bar, workspace, presentation]
 ---
 
@@ -49,7 +49,16 @@ For battery content:
 
 The deterministic threshold/symbol/bolt contract is covered by `MenuBarStatusItemPresentationTests.swift`. The release-specific light/dark + Retina visual acceptance is recorded independently as Behavioral QA `UI-06` in the 1.4.12 Release QA Evidence.
 
+## Стоимость пересборки
+
+Статус-элемент собирается из Combine fan-in, куда входит `media.objectWillChange`, а `MediaController.position` публикуется 4 раза в секунду во время воспроизведения — и только при открытой панели, то есть ровно тогда, когда идут её анимации. Раньше каждое такое уведомление пересобирало весь `NSMenu` и перечитывало PNG иконки с диска.
+
+Иконка — константный ресурс бандла и читается один раз. Пересборка ограничена сравнением `MenuBarMenuFingerprint`: configuration, разрешённое состояние (батарея Mac, видимые устройства, плеер, выбранное устройство), enabled tabs, возможность управлять плеером и доступность проверки обновлений. `position` не входит намеренно — меню его не показывает. `menuWillOpen` пересобирает принудительно, потому что в момент показа правдивость важнее экономии.
+
+Добавление поля в меню обязывает добавить его и в fingerprint, иначе меню окажется устаревшим.
+
 ## Persistence
+
 
 Generic workspace config входит в settings snapshot/backup. Selected physical-device key хранится отдельно local-only и не переносится между Mac.
 

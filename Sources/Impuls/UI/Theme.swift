@@ -391,8 +391,16 @@ extension View {
     }
 }
 
+/// Total for every `TimeInterval`, including values this app did not produce.
+///
+/// A track length can arrive from the embedded web player, which reports
+/// whatever the provider's page puts in `duration`. `Int(someDouble)` is a trap
+/// rather than an overflow outside `Int`'s range, so a page reporting `1e30`
+/// used to abort the process the moment the media pane drew — including from
+/// `accessibilityValue`, so VoiceOver reached it too. A duration that cannot be
+/// rendered reads as unknown instead.
 func formatTime(_ seconds: TimeInterval) -> String {
-    guard seconds.isFinite, seconds >= 0 else { return "--:--" }
-    let total = Int(seconds.rounded())
+    guard seconds.isFinite, seconds >= 0,
+          let total = Int(exactly: seconds.rounded()) else { return "--:--" }
     return String(format: "%d:%02d", total / 60, total % 60)
 }

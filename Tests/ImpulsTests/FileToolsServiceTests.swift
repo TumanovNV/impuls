@@ -1,3 +1,4 @@
+import Combine
 import CoreGraphics
 import ImageIO
 import PDFKit
@@ -157,6 +158,192 @@ final class FileToolsServiceTests: XCTestCase {
         }
     }
 
+    // MARK: - The shelf across an asynchronous restore
+    //
+    // `load()` stats remembered paths off the main actor, so there is a window
+    // in which the shelf is `items` plus a tail the sweep has not produced yet.
+    // These four pin what may happen in that window. The gate holds it open on
+    // purpose — the previous version of this test raced a real queue with a
+    // sleep, and asserted the loss it was supposed to catch as correct.
+
+    /// A: a card added mid-restore survives, and so does everything the restore
+    /// had not got to yet. This is the regression: the drop used to retire the
+    /// sweep, and the remembered list was written away by the drop's own
+    /// `persist()` — eight cards gone, from `defaults` as well as the shelf.
+    func testACardAddedDuringRestoreJoinsTheRememberedShelfRatherThanReplacingIt() async throws {
+        let remembered = try (0..<8).map { try makeImage(named: "remembered-\($0).png", width: 4, height: 4) }
+        let dropped = try makeImage(named: "dropped-during-restore.png", width: 4, height: 4)
+        defer { (remembered + [dropped]).forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        let (defaults, suite) = try Self.temporaryDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(remembered.map(\.path), forKey: "shelf.urls")
+
+        let gate = ManualRestoreGate()
+        let store = await MainActor.run { ShelfStore(defaults: defaults, scheduleRestore: gate.schedule) }
+
+        await MainActor.run {
+            store.load()
+            store.add([dropped])
+            XCTAssertEqual(store.items.map(\.url), [dropped], "the sweep has not run yet")
+            XCTAssertEqual(
+                defaults.stringArray(forKey: "shelf.urls"),
+                [dropped.path] + remembered.map(\.path),
+                "a persist during the restore has to carry the tail it cannot see yet"
+            )
+        }
+
+        await Self.runGateAndDrain(gate, in: self)
+
+        await MainActor.run {
+            XCTAssertEqual(
+                store.items.map(\.url),
+                [dropped] + remembered,
+                "the new card stays on top and every remembered card comes back below it"
+            )
+            XCTAssertEqual(defaults.stringArray(forKey: "shelf.urls"), ([dropped] + remembered).map(\.path))
+            store.clear()
+        }
+    }
+
+    /// B: the other direction. A card the user removes mid-restore must not be
+    /// handed back by the sweep that was already stating it.
+    func testACardRemovedDuringRestoreIsNotResurrectedByTheSweep() async throws {
+        let remembered = try (0..<4).map { try makeImage(named: "kept-or-removed-\($0).png", width: 4, height: 4) }
+        defer { remembered.forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        let (defaults, suite) = try Self.temporaryDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(remembered.map(\.path), forKey: "shelf.urls")
+
+        let gate = ManualRestoreGate()
+        let store = await MainActor.run { ShelfStore(defaults: defaults, scheduleRestore: gate.schedule) }
+
+        await MainActor.run {
+            store.load()
+            // The card is not in `items` yet, so removal has to reach the
+            // restore's tail rather than the card list.
+            store.remove(urls: [remembered[1]])
+        }
+
+        await Self.runGateAndDrain(gate, in: self)
+
+        await MainActor.run {
+            XCTAssertEqual(
+                store.items.map(\.url),
+                [remembered[0], remembered[2], remembered[3]],
+                "a removal during the restore is a removal, not a pause"
+            )
+            XCTAssertFalse(defaults.stringArray(forKey: "shelf.urls")!.contains(remembered[1].path))
+            store.clear()
+        }
+    }
+
+    /// C: a sweep superseded by a later `load()` must not apply. Only `load()`
+    /// advances the generation now, so this is the case that still has to hold.
+    func testAStaleRestoreCompletionCannotOverwriteNewerState() async throws {
+        let first = try (0..<3).map { try makeImage(named: "first-load-\($0).png", width: 4, height: 4) }
+        let second = try makeImage(named: "second-load.png", width: 4, height: 4)
+        defer { (first + [second]).forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        let (defaults, suite) = try Self.temporaryDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(first.map(\.path), forKey: "shelf.urls")
+
+        let gate = ManualRestoreGate()
+        let store = await MainActor.run { ShelfStore(defaults: defaults, scheduleRestore: gate.schedule) }
+
+        await MainActor.run {
+            store.load()
+            defaults.set([second.path], forKey: "shelf.urls")
+            store.load()
+        }
+
+        // Both sweeps run, oldest first. The first is already superseded.
+        await Self.runGateAndDrain(gate, in: self)
+
+        await MainActor.run {
+            XCTAssertEqual(
+                store.items.map(\.url),
+                [second],
+                "the retired sweep must not put the first load's shelf back"
+            )
+            store.clear()
+        }
+    }
+
+    /// D: `add` clamped to the limit and `load` did not, so a remembered shelf
+    /// longer than the limit came back in full — and paid for an icon and a
+    /// thumbnail request for every one of those cards on the main actor. The
+    /// limit still holds through the reconciled restore.
+    func testRestoringAnOverlongShelfClampsToTheLimitAndHealsWhatItRemembers() async throws {
+        let files = try (0..<70).map { try makeImage(named: "shelf-\($0).png", width: 4, height: 4) }
+        defer { files.forEach { try? FileManager.default.removeItem(at: $0) } }
+
+        let (defaults, suite) = try Self.temporaryDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(files.map(\.path), forKey: "shelf.urls")
+
+        let gate = ManualRestoreGate()
+        let store = await MainActor.run { ShelfStore(defaults: defaults, scheduleRestore: gate.schedule) }
+        await MainActor.run { store.load() }
+        await Self.runGateAndDrain(gate, in: self)
+
+        await MainActor.run {
+            XCTAssertEqual(store.items.count, 60, "the limit has to hold on the way back in, not only on the way in")
+            XCTAssertEqual(
+                defaults.stringArray(forKey: "shelf.urls")?.count,
+                60,
+                "the trimmed shelf is written back, so it is not re-clamped on every launch"
+            )
+            store.clear()
+        }
+    }
+
+    /// A card whose remembered file has gone still leaves the shelf — the
+    /// reason `reloadShelf()` exists after the screenshots folder is emptied.
+    /// Reconciling rather than assigning must not cost that.
+    func testARestoreStillDropsCardsWhoseFilesAreGone() async throws {
+        let kept = try makeImage(named: "still-there.png", width: 4, height: 4)
+        let deleted = try makeImage(named: "deleted-before-reload.png", width: 4, height: 4)
+        defer { try? FileManager.default.removeItem(at: kept) }
+
+        let (defaults, suite) = try Self.temporaryDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set([kept.path, deleted.path], forKey: "shelf.urls")
+
+        let gate = ManualRestoreGate()
+        let store = await MainActor.run { ShelfStore(defaults: defaults, scheduleRestore: gate.schedule) }
+        await MainActor.run { store.load() }
+        await Self.runGateAndDrain(gate, in: self)
+        await MainActor.run { XCTAssertEqual(store.items.map(\.url), [kept, deleted]) }
+
+        try FileManager.default.removeItem(at: deleted)
+        await MainActor.run { store.load() }
+        await Self.runGateAndDrain(gate, in: self)
+
+        await MainActor.run {
+            XCTAssertEqual(store.items.map(\.url), [kept], "a card whose file is gone leaves on reload")
+            XCTAssertEqual(defaults.stringArray(forKey: "shelf.urls"), [kept.path])
+            store.clear()
+        }
+    }
+
+    private static func temporaryDefaults() throws -> (UserDefaults, String) {
+        let suite = "io.tumanov.impuls.tests.\(UUID().uuidString)"
+        return (try XCTUnwrap(UserDefaults(suiteName: suite)), suite)
+    }
+
+    /// Runs the sweeps the gate is holding, then waits for their main-queue
+    /// completions. The main queue is FIFO, so a block enqueued after them runs
+    /// after them — no sleep, and nothing to race.
+    private static func runGateAndDrain(_ gate: ManualRestoreGate, in testCase: XCTestCase) async {
+        gate.runPending()
+        let drained = testCase.expectation(description: "restore completions ran")
+        DispatchQueue.main.async { drained.fulfill() }
+        await testCase.fulfillment(of: [drained], timeout: 5)
+    }
+
     private func makeImage(named name: String, width: Int, height: Int) throws -> URL {
         let context = try XCTUnwrap(CGContext(
             data: nil,
@@ -180,5 +367,33 @@ final class FileToolsServiceTests: XCTestCase {
         CGImageDestinationAddImage(destination, image, nil)
         XCTAssertTrue(CGImageDestinationFinalize(destination))
         return url
+    }
+}
+
+/// Holds the shelf's existence sweep until a test lets it through.
+///
+/// The window between `load()` and its completion is where the restore
+/// contract lives. Racing a real queue for it needs a sleep, and a sleep is
+/// how the previous test both flaked and enshrined the wrong answer.
+final class ManualRestoreGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var pending: [@Sendable () -> Void] = []
+
+    /// Matches `ShelfRestoreScheduler`.
+    var schedule: ShelfRestoreScheduler {
+        { [self] work in
+            lock.lock()
+            pending.append(work)
+            lock.unlock()
+        }
+    }
+
+    /// Runs everything held, oldest first, on the calling thread.
+    func runPending() {
+        lock.lock()
+        let work = pending
+        pending = []
+        lock.unlock()
+        work.forEach { $0() }
     }
 }

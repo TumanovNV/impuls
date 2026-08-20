@@ -519,3 +519,32 @@ extension MenuBarBattery.State {
         }
     }
 }
+
+/// Everything the menu-bar item and its menu actually read.
+///
+/// The status item is rebuilt from a Combine fan-in that includes
+/// `MediaController.objectWillChange`, and `MediaController.position` is
+/// republished four times a second while a track plays. That rebuilt the whole
+/// `NSMenu` and re-read the status icon from disk at that rate — while the
+/// panel was open, which is exactly when its animations run.
+///
+/// The menu never shows a playback position, so comparing this before
+/// rebuilding turns those four rebuilds a second into none. `position` is
+/// absent by design and is the only omission that matters:
+/// `MenuBarWorkspaceState` already narrows the player to title, artist and
+/// `isPlaying`.
+///
+/// Everything the menu's content or enabled state depends on has to be here, or
+/// the menu goes stale. Adding a field to the menu means adding it here too.
+struct MenuBarMenuFingerprint: Equatable {
+    /// Widgets, status mode and the configured quick actions.
+    let configuration: MenuBarWorkspaceConfiguration
+    /// Mac battery, visible devices, player identity and the selected device.
+    let state: MenuBarWorkspaceState
+    /// Filters which quick actions are offered.
+    let enabledTabs: [NotchViewModel.Tab]
+    /// Whether the transport controls are exposed at all.
+    let canControlPlayer: Bool
+    /// The enabled state of the "Check for Updates…" item.
+    let canCheckForUpdates: Bool
+}

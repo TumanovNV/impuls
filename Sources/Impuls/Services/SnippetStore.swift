@@ -124,13 +124,28 @@ final class SnippetStore: ObservableObject {
         let resourceIdentifier: String?
     }
 
+    private static let writeQueue = DispatchQueue(
+        label: "io.tumanov.impuls.snippets.writer",
+        qos: .utility
+    )
+
     private var hasLoaded = false
     private var loadedSignature: FileSignature?
+    private var writeGeneration = 0
+    /// True between handing a snapshot to the writer and that write landing.
+    /// The file is behind the list in memory for that moment, and re-reading it
+    /// would undo the change that is still on its way to disk.
+    private var pendingWrite = false
 
     /// Re-read on every visit to the tab. The file is edited from outside the
     /// app, so the only sensible moment to trust what is in memory is the
     /// moment before it is shown.
     func reload() {
+        // A write is still on its way to disk, so the file is behind the list in
+        // memory. Reading it here would publish the state this store is in the
+        // middle of replacing.
+        guard !pendingWrite else { return }
+
         let initialSignature = fileSignature()
         if hasLoaded, initialSignature == loadedSignature { return }
         guard initialSignature != nil else {
@@ -160,8 +175,16 @@ final class SnippetStore: ObservableObject {
                 loadedSignature = after
                 return
             } catch {
-                NSLog("Impuls: snippets.json is not readable: \(error.localizedDescription)")
-                return
+                // An editor replacing the file mid-read is exactly what the
+                // retry is for, and it surfaces as a read or decode failure
+                // rather than as a clean signature mismatch. Returning here
+                // meant the one case the loop was written for never retried.
+                // A file that did not move underneath us has a real problem.
+                guard fileSignature() != before else {
+                    NSLog("Impuls: snippets.json is not readable: \(error.localizedDescription)")
+                    return
+                }
+                continue
             }
         }
         NSLog("Impuls: snippets.json changed while it was being read")
@@ -197,19 +220,60 @@ final class SnippetStore: ObservableObject {
         persist()
     }
 
+    /// Hands the snapshot to the writer and returns.
+    ///
+    /// Encoding up to 5 000 snippets and writing them atomically used to happen
+    /// on the main actor, on every add, remove and import — the interface waited
+    /// for the disk. `NoteStore` already writes from its own queue; this is the
+    /// same arrangement, without the typing debounce, because a snippet changes
+    /// on a deliberate action rather than on every keystroke.
+    ///
+    /// While a write is in flight the copy in memory is newer than the file, so
+    /// `reload()` must not read over it — see `pendingWrite`.
+    private func persist() {
+        writeGeneration += 1
+        let generation = writeGeneration
+        pendingWrite = true
+        let snapshot = items
+        let fileURL = self.fileURL
+
+        Self.writeQueue.async { [weak self] in
+            let signature = Self.write(snapshot, to: fileURL)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    guard let self, self.writeGeneration == generation else { return }
+                    self.pendingWrite = false
+                    self.hasLoaded = true
+                    self.loadedSignature = signature
+                }
+            }
+        }
+    }
+
+    /// Shutdown is the one path where durability outranks a short wait. The
+    /// serial queue drains older snapshots first, then this one lands before the
+    /// process exits.
+    func flushSynchronously() {
+        writeGeneration += 1
+        let snapshot = items
+        let fileURL = self.fileURL
+        Self.writeQueue.sync { _ = Self.write(snapshot, to: fileURL) }
+        pendingWrite = false
+    }
+
     /// Pretty-printed, and slashes left alone: the file is meant to be opened
     /// and edited by hand, and `\/` in every URL would be the app making that
     /// harder for its own convenience.
-    private func persist() {
+    nonisolated private static func write(_ snippets: [Snippet], to fileURL: URL) -> FileSignature? {
         ApplicationSupport.ensureParentDirectory(for: fileURL)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .withoutEscapingSlashes]
         do {
-            try encoder.encode(items).write(to: fileURL, options: .atomic)
-            hasLoaded = true
-            loadedSignature = fileSignature()
+            try encoder.encode(snippets).write(to: fileURL, options: .atomic)
+            return fileSignature(of: fileURL)
         } catch {
             NSLog("Impuls: cannot write snippets.json: \(error.localizedDescription)")
+            return nil
         }
     }
 
@@ -237,7 +301,7 @@ final class SnippetStore: ObservableObject {
 
     private func fileSignature() -> FileSignature? { Self.fileSignature(of: fileURL) }
 
-    private static func fileSignature(of file: URL) -> FileSignature? {
+    nonisolated private static func fileSignature(of file: URL) -> FileSignature? {
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
               let size = (attributes[.size] as? NSNumber)?.uint64Value,
               let modificationDate = attributes[.modificationDate] as? Date else { return nil }

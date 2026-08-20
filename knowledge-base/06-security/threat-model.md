@@ -4,7 +4,7 @@ type: security
 status: active
 documentation_version: 1.1
 app_version: 1.4.11
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, security, threat-model]
 ---
 
@@ -60,6 +60,20 @@ flowchart LR
 ## T9 — Test contamination
 
 Риск: tests read/write real notes, snippets or Keychain clipboard key. Mitigations: explicit `StorageEnvironment`, no defaults for sensitive persistence constructors, nil clipboard persistence in tests.
+
+## T10 — Известное слепое пятно CI-проверки сетевой границы
+
+**Статус: принятый defense-in-depth риск, зафиксирован аудитом 1.4.12. Код не менялся намеренно.**
+
+Шаг «Enforce the network boundary» в `.github/workflows/build.yml` ищет
+`URLSession|NSURLSession|URLRequest|NSURLConnection|NWConnection|NWListener|webSocketTask|CFStreamCreatePairWithSocketToHost`
+вне трёх файлов-владельцев. Этот паттерн **не** покрывает `socket(`, `Darwin.connect` и `SSLCreateContext`.
+
+Существующий транспорт устройств поэтому для проверки невидим: `MobileDeviceTransport.swift` открывает `AF_UNIX` socket к `/var/run/usbmuxd`, `LockdownTLSChannel.swift` использует Secure Transport. Это легитимная и уже задокументированная архитектура — локальный сокет, а не выход в интернет; discovery выключен до явного согласия (`showsExternalAppleDevices`, default `false`); TLS пришпилен к сертификатам pair record; кадры ограничены 512 KiB, дедлайны 5 с на сокет и 10 с на handshake. Инвариант «три Internet-владельца» фактически соблюдается.
+
+Остаточный риск не в сегодняшнем коде, а в будущем: **новый** socket-based путь наружу в любом месте `Sources` прошёл бы эту проверку молча. Ловят его сейчас только review и PR-смоук-тест `lsof`, который проверяет лишь первые 10 секунд после запуска.
+
+Расширение паттерна рассматривалось и сознательно отложено: оно потребовало бы узкого allowlist на два файла транспорта и честной переформулировки инварианта в ADR-003 («три Internet-владельца **плюс** один локальный socket-владелец»). Это архитектурно-документационное решение, а не правка проверки. До тех пор любое добавление сокета, Secure Transport или иного низкоуровневого сетевого API — обязательный триггер security review, независимо от того, что скажет CI.
 
 ## Security review trigger
 

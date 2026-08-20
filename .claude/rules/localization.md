@@ -11,7 +11,25 @@ so do not switch to symbolic keys.
 
 Every `localized("…")` call in `Sources` must have an entry in **both**
 `Resources/en.lproj/Localizable.strings` and `Resources/ru.lproj/Localizable.strings`.
-CI extracts the calls and diffs them against each table; a missing key fails the build.
+`Scripts/check-localization.py` extracts the calls and diffs them against each table;
+a missing key fails the build. Run it locally with `python3 Scripts/check-localization.py`.
+
+It also requires the tables to carry the **same** set of keys. A key present in one
+language and absent in the other used to pass whenever it had also fallen out of the
+code, which is how a reworded string leaves one translation behind.
+
+## Keys that are not literals
+
+A key does not have to be written at the call site: `AppFeature` stores `titleKey` and
+`detailKey` and resolves them later. A literal-only scan cannot see those, and in 1.4.11
+two reworded catalogue keys shipped with no table entry at all — Russian users read them
+in English while CI stayed green.
+
+So the checker refuses to guess. A `localized(...)` whose argument is not a literal must
+be covered by an entry in `DECLARED_EXTRACTORS`, naming the file and the pattern that
+produces its keys; otherwise the build fails and says which file to declare. Prefer
+passing a literal. If indirection is genuinely right, declare it in the same change —
+do not widen an existing extractor to cover an unrelated file.
 
 ## Adding a string
 

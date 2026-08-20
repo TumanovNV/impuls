@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 1.3
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-20
 tags: [impuls, schemas, migrations, persistence, compatibility]
 ---
 
@@ -123,7 +123,16 @@ flowchart LR
 
 Tests: [`ClipboardHistoryPersistenceTests.swift`](../../Tests/ImpulsTests/ClipboardHistoryPersistenceTests.swift).
 
+## Изменения 1.4.12-hardening
+
+Persisted-контракт не менялся. `ClipboardHistoryPersistence` service/account стали инжектируемыми параметрами со значениями по умолчанию `io.tumanov.impuls.clipboard-history` / `archive-key.v1` — те же строки, что и раньше; смысл в том, чтобы тест пути записи не мог создать или удалить настоящий ключ. Формат архива, версия и путь файла не тронуты.
+
+`SnippetStore` перешёл на запись из serial queue с синхронным flush на выходе. Формат `snippets.json` и его границы не изменились.
+
+**Forward compatibility архива — write latch.** Формат не менялся, но правило замены файла — да, и это часть контракта совместимости. `EncryptedClipboardArchive.open` отвергает `version != currentVersion`, поэтому архив, записанный более новой сборкой, для текущей нечитаем. Раньше это заканчивалось перезаписью: `load()` возвращал пустой результат, и первое же копирование запечатывало его поверх — понижение версии уничтожало историю. Теперь неудачное чтение переводит `ClipboardHistoryPersistence` в состояние, в котором `saveImmediately` — единственная точка записи файла — не пишет ничего, пока чтение не удастся. То же покрывает архив сверх бюджета 64 MiB и недоступный ключ. Единственное исключение — `delete()`, то есть явное выключение persistence пользователем. Подробности жизненного цикла и восстановления — в [Clipboard](../02-modules/clipboard.md).
+
 ## Legacy product migration
+
 
 `LegacyMigration.runIfNeeded()` is the explicit Cyclop → Impuls bridge.
 

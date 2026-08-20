@@ -164,6 +164,52 @@ final class IORegistryAccessoryTests: DeviceIdentityTestCase {
         XCTAssertNil(IORegistryAccessoryMapper.integer(NSNumber(value: false)))
     }
 
+    /// The coercion every system-dictionary reader shares.
+    ///
+    /// `Int(someDouble)` is a trap rather than an overflow outside `Int`'s
+    /// range, so a driver publishing an unexpected magnitude under a key we read
+    /// would abort the process. Each class below has to read as absent instead.
+    func testRegistryNumberIsTotalForEveryValueASystemDictionaryCanPublish() {
+        XCTAssertNil(RegistryNumber.integer(Double.nan))
+        XCTAssertNil(RegistryNumber.integer(Double.infinity))
+        XCTAssertNil(RegistryNumber.integer(-Double.infinity))
+        // A flag read as a number would be a wrong value, not a missing one.
+        XCTAssertNil(RegistryNumber.integer(NSNumber(value: true)))
+        XCTAssertNil(RegistryNumber.integer(NSNumber(value: false)))
+        // Beyond `Int`, in both directions: the trap this guard exists for.
+        XCTAssertNil(RegistryNumber.integer(1e30))
+        XCTAssertNil(RegistryNumber.integer(-1e30))
+        XCTAssertNil(RegistryNumber.integer(Double.greatestFiniteMagnitude))
+        XCTAssertNil(RegistryNumber.integer(-Double.greatestFiniteMagnitude))
+        XCTAssertNil(RegistryNumber.integer(nil))
+        XCTAssertNil(RegistryNumber.integer("61"))
+
+        // Ordinary battery readings still convert, including the fractional
+        // ones a driver may publish.
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 61)), 61)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 0)), 0)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 100)), 100)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 4_311)), 4_311)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 12_486)), 12_486)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 342)), 342)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 60.6)), 61)
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: -20)), -20)
+
+        // `double` shares the rejections but keeps the fraction.
+        XCTAssertNil(RegistryNumber.double(Double.nan))
+        XCTAssertNil(RegistryNumber.double(NSNumber(value: true)))
+        XCTAssertEqual(RegistryNumber.double(NSNumber(value: 3_041.5)), 3_041.5)
+    }
+
+    /// The generic helper carries no range of its own, so the domain owner has
+    /// to keep rejecting values that are numerically fine but not battery levels.
+    func testWideningTheCoercionDidNotWidenWhatCountsAsAPercentage() {
+        XCTAssertEqual(RegistryNumber.integer(NSNumber(value: 5_000)), 5_000)
+        XCTAssertNil(AppleDeviceNormalizer.percentage(fromPercent: 5_000))
+        XCTAssertNil(AppleDeviceNormalizer.percentage(fromPercent: -1))
+        XCTAssertEqual(AppleDeviceNormalizer.percentage(fromPercent: 61), 61)
+    }
+
     func testImpossiblePercentagesAreDroppedRatherThanClamped() {
         for impossible in [-1, 101, 255, Int.max] {
             var properties = Fixture.magicMouse(percent: 61).properties
@@ -482,6 +528,78 @@ final class AppleAccessoryBatteryProviderTests: DeviceIdentityTestCase {
                 .joined(separator: " ")
             print("PROBE   \(device.kind.rawValue) \"\(device.displayName)\" — \(components)")
         }
+    }
+
+    // MARK: - The notification callback's context outlives the provider
+
+    /// The residual risk behind the teardown change: IOKit keeps the callback
+    /// context pointer for the life of the registration and cannot be told the
+    /// provider has gone. It used to be `Unmanaged.passUnretained(self)`, so a
+    /// notification delivered while the provider was being released resolved a
+    /// dead object.
+    ///
+    /// A full IOKit test would need a real accessory to connect and disconnect
+    /// on cue, which is hardware QA, not a unit test. What is deterministic —
+    /// and what the safety actually rests on — is the box: it must never hand
+    /// back a provider that has been released or torn down.
+    @MainActor
+    func testTheNotificationContextNeverHandsBackAReleasedProvider() {
+        var provider: AppleAccessoryBatteryProvider? = AppleAccessoryBatteryProvider(
+            registrySource: FakeAccessorySource(devices: []),
+            profilerSource: nil
+        )
+        let context = AccessoryNotificationContext(provider: provider!)
+        XCTAssertNotNil(context.provider, "while the provider is alive the callback has to reach it")
+
+        provider = nil
+
+        XCTAssertNil(
+            context.provider,
+            "the box holds the provider weakly, so a late callback reads nil instead of a released object"
+        )
+    }
+
+    /// Teardown severs the box before anything else is released, so a callback
+    /// already queued behind it is inert even though the provider still exists.
+    @MainActor
+    func testInvalidatingTheContextSilencesCallbacksBeforeTheProviderGoesAway() {
+        let provider = AppleAccessoryBatteryProvider(
+            registrySource: FakeAccessorySource(devices: []),
+            profilerSource: nil
+        )
+        let context = AccessoryNotificationContext(provider: provider)
+
+        context.invalidate()
+        XCTAssertNil(context.provider, "teardown has begun, so delivery stops reaching the provider")
+
+        // Idempotent: `stop()` and `deinit` both run the teardown.
+        context.invalidate()
+        XCTAssertNil(context.provider)
+
+        // And it is a one-way transition — nothing puts the provider back.
+        withExtendedLifetime(provider) {
+            XCTAssertNil(context.provider, "an invalidated box never points at a provider again")
+        }
+    }
+
+    /// `stop()` and `deinit` both tear down, and the coordinator calls `stop()`
+    /// on every disable. Running the whole cycle twice must not trap on a
+    /// double release of the port, the iterators or the context.
+    @MainActor
+    func testStartingAndStoppingRepeatedlyIsSafe() {
+        let provider = AppleAccessoryBatteryProvider(
+            registrySource: FakeAccessorySource(devices: []),
+            profilerSource: nil
+        )
+
+        for _ in 0..<3 {
+            provider.start { _ in }
+            provider.stop()
+            // Second stop with nothing left to release.
+            provider.stop()
+        }
+
+        XCTAssertEqual(provider.status, .disabled)
     }
 
     func testTheProviderPollsQuicklyOnlyWhileItsPanelIsActive() {

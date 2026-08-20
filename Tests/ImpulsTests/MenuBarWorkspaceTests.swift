@@ -269,6 +269,90 @@ final class MenuBarWorkspaceTests: XCTestCase {
         }
     }
 
+    // MARK: - What may and may not skip a menu rebuild
+
+    /// The saving: the status item is rebuilt from a fan-in that includes
+    /// `MediaController.objectWillChange`, and `position` is republished four
+    /// times a second while a track plays. The menu shows no position, so an
+    /// identical fingerprint means an identical menu.
+    func testAPlaybackTickAloneDoesNotChangeTheMenuFingerprint() {
+        let first = fingerprint()
+        let second = fingerprint()
+
+        XCTAssertEqual(
+            first,
+            second,
+            "nothing the menu shows changed, so a position tick must not rebuild it"
+        )
+    }
+
+    /// The correctness side, and the one that matters more. Each of these does
+    /// change what the menu says, so each must invalidate — a fingerprint that
+    /// missed one would leave a stale menu on screen.
+    func testEveryFieldTheMenuShowsInvalidatesTheFingerprint() {
+        let base = fingerprint()
+
+        XCTAssertNotEqual(base, fingerprint(isPlaying: false), "playback state is shown")
+        XCTAssertNotEqual(base, fingerprint(track: "Another Track"), "the track title is shown")
+        XCTAssertNotEqual(base, fingerprint(artist: "Another Artist"), "the artist is shown")
+        XCTAssertNotEqual(base, fingerprint(hasPlayer: false), "losing the player removes its controls")
+        XCTAssertNotEqual(base, fingerprint(canControlPlayer: false), "transport controls appear on this")
+        XCTAssertNotEqual(base, fingerprint(canCheckForUpdates: false), "the update item's enabled state")
+        XCTAssertNotEqual(base, fingerprint(enabledTabs: [.actions]), "enabled tabs filter the quick actions")
+        XCTAssertNotEqual(
+            base,
+            fingerprint(macBattery: battery("local-mac", "This Mac", 41, .discharging)),
+            "the Mac battery percentage is shown"
+        )
+        XCTAssertNotEqual(
+            base,
+            fingerprint(devices: [battery("device-a", "Magic Mouse", 12, .discharging)]),
+            "a device battery level is shown"
+        )
+        XCTAssertNotEqual(base, fingerprint(devices: []), "losing a device removes its row")
+        XCTAssertNotEqual(base, fingerprint(selectedDevice: "device-b"), "the selected device is marked")
+        XCTAssertNotEqual(
+            base,
+            fingerprint(configuration: MenuBarWorkspaceConfiguration(primaryWidget: .player)),
+            "the widget configuration decides what is shown at all"
+        )
+        XCTAssertNotEqual(
+            base,
+            fingerprint(configuration: MenuBarWorkspaceConfiguration(quickActions: [.notes])),
+            "the configured quick actions are the menu's items"
+        )
+    }
+
+    private func fingerprint(
+        configuration: MenuBarWorkspaceConfiguration = MenuBarWorkspaceConfiguration(),
+        macBattery: MenuBarBattery? = nil,
+        devices: [MenuBarBattery]? = nil,
+        hasPlayer: Bool = true,
+        track: String = "A Track",
+        artist: String = "An Artist",
+        isPlaying: Bool = true,
+        selectedDevice: String? = "device-a",
+        enabledTabs: [NotchViewModel.Tab] = NotchViewModel.Tab.allCases,
+        canControlPlayer: Bool = true,
+        canCheckForUpdates: Bool = true
+    ) -> MenuBarMenuFingerprint {
+        let resolvedPlayer = hasPlayer
+            ? MenuBarPlayer(title: track, subtitle: artist, isPlaying: isPlaying)
+            : nil
+        return MenuBarMenuFingerprint(
+            configuration: configuration,
+            state: MenuBarWorkspaceState(
+                macBattery: macBattery ?? battery("local-mac", "This Mac", 62, .discharging),
+                visibleDevices: devices ?? [battery("device-a", "Magic Mouse", 55, .discharging)],
+                player: resolvedPlayer,
+                selectedDeviceIdentifier: selectedDevice
+            ),
+            enabledTabs: enabledTabs,
+            canControlPlayer: canControlPlayer,
+            canCheckForUpdates: canCheckForUpdates
+        )
+    }
+
     private func battery(
         _ identifier: String,
         _ title: String,

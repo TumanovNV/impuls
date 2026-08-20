@@ -245,4 +245,94 @@ final class MusicSourceTests: XCTestCase {
         XCTAssertEqual(controller.selectedSource, .appleMusic)
         XCTAssertEqual(controller.emptyReason, .appleMusicNotRunning)
     }
+
+    // MARK: - The web player's background work has an owner
+
+    /// The injected bridge installs `setInterval(..., 1000)` and a
+    /// `MutationObserver`. Nothing stopped them: `deactivate()` only ordered the
+    /// window out, and `MediaController.stop()` never reached the player at all,
+    /// so the page kept pushing state past panel teardown until the process
+    /// exited. `stop()` now tears it down.
+    @MainActor
+    func testStoppingReleasesTheWebPlayerAndStaysReusable() throws {
+        let suite = "MusicSourceTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let player = WebMusicPlayer()
+        player.teardown()
+        XCTAssertNil(player.source, "teardown leaves nothing selected")
+        XCTAssertNil(player.currentState)
+
+        // Idempotent: shutdown runs it, and a second pass must not trap.
+        player.teardown()
+
+        // And it does not construct a web view or reach the network by itself —
+        // the "launching Impuls must not build a WKWebView" invariant covers
+        // the shutdown path too.
+        XCTAssertFalse(player.hasWebView, "teardown must not leave or create a web view")
+    }
+
+    /// A torn-down player must stay a safe object, not a dead one.
+    ///
+    /// Reuse itself is not driven here on purpose: `show(source:)` opens a
+    /// window and loads the provider's page, and a unit test must not put this
+    /// app on the network — the suite is the same one CI checks with `lsof` for
+    /// exactly that. What is checked instead is every precondition reuse
+    /// depends on: no web view is held, so `webView ?? makeWebView()` builds a
+    /// fresh one, and meanwhile every command is an inert no-op rather than a
+    /// call into released state.
+    @MainActor
+    func testATornDownWebPlayerIsInertRatherThanBroken() throws {
+        let player = WebMusicPlayer()
+        player.teardown()
+
+        XCTAssertFalse(player.hasWebView, "the next open has to build a new view, not revive a dead one")
+
+        player.command(.playPause)
+        player.command(.next)
+        player.command(.previous)
+        player.seek(to: 42)
+        player.requestSnapshot()
+        player.deactivate()
+
+        XCTAssertNil(player.source)
+        XCTAssertNil(player.currentState)
+        XCTAssertFalse(player.hasWebView)
+    }
+
+    // MARK: - Durations the app did not produce
+
+    /// `duration` arrives from the provider's page through the web bridge, so
+    /// its magnitude is not the app's to trust. `Int(_:)` is a trap rather than
+    /// an overflow outside `Int`'s range, and the media pane formats the value
+    /// on every draw — including from `accessibilityValue`, so VoiceOver reached
+    /// the same conversion.
+    func testFormatTimeIsTotalForADurationReportedByAWebPage() {
+        XCTAssertEqual(formatTime(.nan), "--:--")
+        XCTAssertEqual(formatTime(.infinity), "--:--")
+        XCTAssertEqual(formatTime(-.infinity), "--:--")
+        XCTAssertEqual(formatTime(-1), "--:--")
+        XCTAssertEqual(formatTime(1e30), "--:--")
+        XCTAssertEqual(formatTime(.greatestFiniteMagnitude), "--:--")
+
+        // Real durations keep formatting exactly as before.
+        XCTAssertEqual(formatTime(0), "0:00")
+        XCTAssertEqual(formatTime(9), "0:09")
+        XCTAssertEqual(formatTime(61), "1:01")
+        XCTAssertEqual(formatTime(241), "4:01")
+        XCTAssertEqual(formatTime(3_600), "60:00")
+    }
+
+    /// The same value reaches AppleScript as a spliced-in integer. The guard has
+    /// to hold before the conversion, not after.
+    func testSeekingToAnUnrepresentablePositionIsDroppedRatherThanConverted() {
+        // Apple Music is not running under test, so `command` is a no-op; what
+        // is being proven is that the conversion in front of it cannot trap.
+        PlayerBridge.seek(.music, to: .infinity)
+        PlayerBridge.seek(.music, to: .nan)
+        PlayerBridge.seek(.music, to: 1e30)
+        PlayerBridge.seek(.music, to: -1)
+        PlayerBridge.seek(.music, to: 241)
+    }
 }

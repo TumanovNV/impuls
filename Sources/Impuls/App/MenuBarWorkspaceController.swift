@@ -65,13 +65,27 @@ final class MenuBarWorkspaceController: NSObject, NSMenuDelegate {
         // A menu can remain open across a source update. Rebuild at the moment
         // of presentation so its disabled/enabled state is truthful without a
         // periodic refresh loop.
-        refresh()
+        refresh(force: true)
     }
 
-    private func refresh() {
+    private var lastFingerprint: MenuBarMenuFingerprint?
+
+    /// `force` is for the moment of presentation, where being truthful outranks
+    /// the saving: `canCheckForUpdates` can change without publishing anything.
+    private func refresh(force: Bool = false) {
         guard let item = statusItem else { return }
         let state = workspaceState()
         let configuration = settings.menuBarWorkspace
+        let fingerprint = MenuBarMenuFingerprint(
+            configuration: configuration,
+            state: state,
+            enabledTabs: settings.enabledTabs,
+            canControlPlayer: canControlPlayer,
+            canCheckForUpdates: updateService.canCheckForUpdates
+        )
+        guard force || fingerprint != lastFingerprint else { return }
+        lastFingerprint = fingerprint
+
         let content = MenuBarWorkspaceResolver.resolve(
             mode: configuration.statusMode,
             configuration: configuration,
@@ -402,13 +416,18 @@ final class MenuBarWorkspaceController: NSObject, NSMenuDelegate {
         return image
     }
 
+    /// The bundled template is a constant, so it is read once rather than on
+    /// every refresh. Reading and decoding it per refresh was disk work on the
+    /// main actor at the rate the player republishes.
+    private static let cachedStatusIcon: NSImage? = {
+        guard let url = Bundle.main.url(forResource: "ImpulsStatusTemplate", withExtension: "png"),
+              let image = NSImage(contentsOf: url) else { return nil }
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = true
+        return image
+    }()
+
     private func statusIcon() -> NSImage? {
-        if let url = Bundle.main.url(forResource: "ImpulsStatusTemplate", withExtension: "png"),
-           let image = NSImage(contentsOf: url) {
-            image.size = NSSize(width: 18, height: 18)
-            image.isTemplate = true
-            return image
-        }
-        return statusImage(named: "waveform.path.ecg")
+        Self.cachedStatusIcon ?? statusImage(named: "waveform.path.ecg")
     }
 }

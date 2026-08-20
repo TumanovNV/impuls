@@ -181,6 +181,23 @@ final class NotchViewModel: ObservableObject {
                 .store(in: &cancellables)
         }
 
+        // Actions searches over the clipboard, snippets and notes, and folds
+        // every row to do it. That corpus is now built once and kept until one
+        // of those three announces a change, instead of being rebuilt on every
+        // keystroke. This subscription is the invalidation, and it is separate
+        // from the fan-in above on purpose: it republishes nothing, so it does
+        // not bring back the per-letter panel redraw that list deliberately
+        // avoids.
+        for source in [
+            clipboard.objectWillChange,
+            snippets.objectWillChange,
+            notes.objectWillChange,
+        ] {
+            source
+                .sink { [weak actions] _ in actions?.invalidateCorpus() }
+                .store(in: &cancellables)
+        }
+
         settings.$modules
             .dropFirst()
             .sink { [weak self] preferences in
@@ -412,6 +429,9 @@ final class NotchViewModel: ObservableObject {
         devices.stop()
         // Whatever was typed makes it to disk even when quitting mid-thought.
         notes.flushSynchronously()
+        // Snippets write from their own queue now, so a snippet added moments
+        // before quitting has the same claim on landing as a note does.
+        snippets.flushSynchronously()
     }
 
     func accept(urls: [URL]) -> Bool {
