@@ -419,8 +419,15 @@ final class MenuBarWorkspaceController: NSObject, NSMenuDelegate {
     /// The bundled template is a constant, so it is read once rather than on
     /// every refresh. Reading and decoding it per refresh was disk work on the
     /// main actor at the rate the player republishes.
+    ///
+    /// The source is a PDF rather than a raster: AppKit keeps its `NSPDFImageRep`
+    /// and rasterises on demand for whatever scale the status bar draws at, so
+    /// the glyph stays sharp on Retina without a second asset. The 24×24 vector
+    /// canvas (`Resources/ImpulsMenuBarTemplate.svg` is the editable master) is
+    /// square, so setting a square point size here cannot distort its aspect
+    /// ratio.
     private static let cachedStatusIcon: NSImage? = {
-        guard let url = Bundle.main.url(forResource: "ImpulsStatusTemplate", withExtension: "png"),
+        guard let url = Bundle.main.url(forResource: "ImpulsMenuBarTemplate", withExtension: "pdf"),
               let image = NSImage(contentsOf: url) else { return nil }
         image.size = NSSize(width: 18, height: 18)
         image.isTemplate = true
