@@ -2,9 +2,9 @@
 title: Settings, Onboarding and Feedback
 type: architecture
 status: active
-documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+documentation_version: 1.2
+app_version: 1.4.13
+last_reviewed: 2026-08-21
 tags: [impuls, settings, onboarding, feedback]
 ---
 
@@ -46,6 +46,10 @@ Portable `ImpulsSettingsSnapshot` сознательно уже полного l
 
 Full flow: welcome → features → Menu Bar → quick actions → permissions → privacy → ready. Feature cards берутся из `AppFeatureCatalog`, то есть onboarding не должен рекламировать несуществующий module.
 
+### What's New content
+
+Заголовок и текст What's New берутся из `WhatsNewCatalog.content(forVersion:)`, вызываемого с реальным `Bundle.main.shortVersion` — не из захардкоженной строки в `OnboardingFlow`. До 1.4.14 заголовок и описание были буквально вписаны в `OnboardingFlow.whatsNew`, поэтому апгрейд на 1.4.12/1.4.13 продолжал показывать заметки 1.4.11. Каталог хранит bullet-список изменений по каждой версии; версия без записи получает generic fallback с настоящим номером версии, а не текст соседней версии. Добавление new entry для будущего релиза — единственное, что должно понадобиться в `WhatsNewCatalog.swift`.
+
 ## Telemetry offer
 
 Version-statistics offer встроен как отдельный choice. Unknown consent может быть предложен, allowed/denied не переопрашиваются бесконечно. `Not now` не превращается скрыто в allow.
@@ -67,6 +71,7 @@ Clipboard contents, notes, filenames/paths, calendar, device identifiers и logs
 - `Sources/Impuls/Settings/SettingsStore.swift`
 - `Sources/Impuls/Settings/SettingsWindow.swift`
 - `Sources/Impuls/UI/OnboardingFlow.swift`
+- `Sources/Impuls/Services/WhatsNewCatalog.swift`
 - `Sources/Impuls/Services/AppFeatureCatalog.swift`
 - `Sources/Impuls/Services/FeedbackService.swift`
 - `Sources/Impuls/Settings/FeedbackWindow.swift`
@@ -74,6 +79,7 @@ Clipboard contents, notes, filenames/paths, calendar, device identifiers и logs
 ## Инварианты
 
 - onboarding never invents product features;
+- What's New content always matches the running `Bundle.main.shortVersion`; a version with no curated entry gets a generic version-accurate fallback, never a previous version's copy;
 - update install must not replay full first-run tour;
 - portable settings exclude local physical-device identity;
 - feedback does not perform HTTP request itself;
