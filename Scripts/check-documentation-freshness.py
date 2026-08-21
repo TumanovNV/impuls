@@ -5,6 +5,11 @@ Unlike the diff-oriented Documentation Guardian, this check uses repository
 history. A canonical document is fresh only when the latest commit touching its
 tracked source is an ancestor of the latest commit touching the document and
 its `last_reviewed` date is not older than that source change.
+
+The `last_reviewed` half is skipped when the source and the document share their
+latest commit: the two travelled together, so there is no history gap to measure,
+and comparing a local-calendar commit day against a hand-written review date only
+produces timezone false positives.
 """
 
 from __future__ import annotations
@@ -113,11 +118,21 @@ def freshness_reasons(
     today: date,
     max_review_age_days: int,
     enforce_review_age: bool,
+    source_is_doc_commit: bool = False,
 ) -> list[str]:
     reasons: list[str] = []
     if reviewed_date > today:
         reasons.append(f"last_reviewed {reviewed_date.isoformat()} is in the future")
-    if source_date > reviewed_date:
+    # A document whose latest commit *is* the latest commit of its tracked source
+    # travelled with that source. There is no history gap left to measure, and the
+    # date comparison below would answer a question that no longer exists: `%cs`
+    # renders the committer's local calendar day, so a change written and reviewed
+    # late on one day in a positive UTC offset commits as the next day and fails a
+    # `last_reviewed` that was correct when it was written. That is exactly what
+    # PR #75 hit. Same-commit review is the Documentation Guardian's territory —
+    # it inspects the diff itself — and this checker exists for the other case:
+    # source that moved on in a *later* commit than its canonical document.
+    if source_date > reviewed_date and not source_is_doc_commit:
         reasons.append(
             f"tracked source changed on {source_date.isoformat()} after last_reviewed {reviewed_date.isoformat()}"
         )
@@ -143,6 +158,7 @@ def check_entry(entry: dict, *, enforce_review_age: bool, today: date) -> list[s
         today=today,
         max_review_age_days=entry["max_review_age_days"],
         enforce_review_age=enforce_review_age,
+        source_is_doc_commit=source_sha == doc_sha,
     )
     if not reasons:
         return []

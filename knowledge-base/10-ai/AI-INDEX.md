@@ -4,7 +4,7 @@ type: ai-index
 status: active
 documentation_version: 1.3
 app_version: 1.4.14
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-22
 tags: [impuls, ai, agents, index, qa]
 ---
 
@@ -21,6 +21,7 @@ tags: [impuls, ai, agents, index, qa]
 - [Architecture](../01-architecture/architecture-overview.md)
 - [System Diagrams](../01-architecture/system-diagrams.md)
 - [Module Catalog](../02-modules/README.md)
+- [Settings, Onboarding and Feedback](../01-architecture/settings-onboarding-feedback.md)
 - [Security Model](../06-security/security-model.md)
 - [Dependency / Supply Chain](../06-security/supply-chain.md)
 - [Release Pipeline](../05-release/release-pipeline.md)
@@ -51,6 +52,10 @@ tags: [impuls, ai, agents, index, qa]
 
 ### Module
 Read exact module page → generated type map → source + mapped tests. Include schema/permission/network/performance/security docs when those contracts change. Before finishing a behavioral source/test diff, run QA impact traceability against the real PR base and review the reported scenario IDs.
+
+### Settings / onboarding / feedback
+
+Read [Settings, Onboarding and Feedback](../01-architecture/settings-onboarding-feedback.md) first — it is the canonical owner of every surface outside the notch panel, and finding it should not require grepping the repository. It covers `SettingsStore` and the Settings window, the first-run tour and What's New, the version-statistics offer and the feedback report path. Those surfaces share one rule: they present already-owned state and consent, and none of them may become a provider, poller, permission owner or network owner merely in order to display something. Feedback opens an allow-listed HTTPS URL in the user's browser after an explicit click; Impuls performs no HTTP request for it, so it is not a fourth network owner. Persistence for these surfaces is registered in [Storage and Persistence](../01-architecture/storage-persistence.md) and the [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
 
 ### Performance / concurrency / background work
 Read Background Work & Concurrency Registry before timers, pollers, debounce/retry, Tasks, observers/sockets or queue/actor changes. For limits/timeouts/backpressure also read Resource Budget Registry. Then use the QA impact checker to see which behavioral contracts inherit the change.

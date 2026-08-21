@@ -2,9 +2,9 @@
 title: Documentation Standard
 type: development-standard
 status: active
-documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+documentation_version: 1.2
+app_version: 1.4.14
+last_reviewed: 2026-08-22
 tags: [impuls, documentation, obsidian, ai]
 ---
 
@@ -21,16 +21,47 @@ Knowledge base — Markdown-first Obsidian-compatible vault. Использую�
 ```yaml
 ---
 title: Human readable title
-type: module | architecture | security | decision | development | release
-status: active | production | accepted | historical | draft
-documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+type: architecture
+status: active
+documentation_version: 1.3
+app_version: 1.4.14
+last_reviewed: 2026-08-22
 tags: [impuls, ...]
 ---
 ```
 
-`app_version` — версия продукта, на которой документ был фактически сверён. Только baseline entrypoints (`INDEX`, project status, AI index) обязаны всегда совпадать с `Scripts/version`; historical/deep documents обновляют review metadata при реальной сверке, а не механически.
+Все семь ключей обязательны — их проверяет `Scripts/check-knowledge-base.py`.
+
+### `type`
+
+`type` описывает **вид документа**, а не тему. Это свободная строка: валидатор требует, чтобы ключ присутствовал, но не сверяет значение со списком. Так и задумано — vault растёт быстрее любого закрытого перечисления, и механическое расширение валидатора ради одного нового документа добавляет ceremony, не добавляя правды.
+
+Правило вместо перечисления: **возьми `type` уже существующего документа того же вида**, а новый вводи только тогда, когда вида действительно ещё нет.
+
+Практически используемые сегодня значения (для ориентира, не как whitelist):
+
+| Вид | Значения |
+| --- | --- |
+| Тематические страницы | `module`, `architecture`, `security`, `reference`, `release`, `development`, `platform`, `web`, `operations`, `history` |
+| Индексы разделов | `index`, `module-index`, `reference-index`, `decision-index`, `qa-index` |
+| Решения | `decision`, `adr` |
+| Baseline и статус | `status`, `project`, `project-baseline` |
+| AI-слой | `ai-index`, `ai-rules`, `ai-reference`, `ai-map` |
+| QA | `qa-reference`, `qa-evidence`, `qa-evidence-template` |
+| Генерируемые файлы | `generated-reference`, `generated-history` |
+| Прочее специализированное | `development-standard`, `development-sop`, `security-reference`, `architecture-diagrams`, `presentation-module`, `known-limitations` |
+
+Смысл поля — навигация и фильтрация в Obsidian/скриптах: по `type` видно, читать документ как контракт, как индекс, как исторический след или как машинно-сгенерированный артефакт. Документ, который нельзя честно отнести ни к одному существующему виду, скорее всего должен быть частью существующего документа.
+
+### `status`
+
+`status` описывает жизненный цикл: `active` — текущий контракт; `production` — описывает работающую production-поверхность; `accepted` — принятое ADR-решение; `historical` — сохранено как evidence, не как current state; `draft` — ещё не контракт.
+
+### Версии и сверка
+
+`app_version` — версия продукта, на которой документ был фактически сверён. Только baseline entrypoints — `knowledge-base/INDEX.md`, `00-project/project-status.md`, `10-ai/AI-INDEX.md`, `12-reference/README.md`, `13-qa/README.md` — обязаны совпадать с `Scripts/version`; их список зафиксирован в checker'е. Historical/deep documents обновляют review metadata при реальной сверке, а не механически.
+
+`documentation_version` — версия самого стандарта документации; текущий baseline `1.3` проверяется checker'ом у тех же baseline entrypoints.
 
 ## Module docs
 

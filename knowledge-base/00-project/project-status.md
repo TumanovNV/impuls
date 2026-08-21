@@ -4,7 +4,7 @@ type: status
 status: active
 documentation_version: 1.3
 app_version: 1.4.14
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-22
 tags: [impuls, status, current]
 ---
 
@@ -12,11 +12,15 @@ tags: [impuls, status, current]
 
 ## Baseline
 
-**Current production release: 1.4.14 (release candidate).** Источник версии — `Scripts/version`.
+**Current production release: 1.4.14, published.** Источник версии — `Scripts/version`.
 
 **Current documentation baseline: 1.3.**
 
-Release `1.4.14` packages the merged PR #72 Power Center redesign, Magic Keyboard/Magic Mouse/Magic Trackpad Bluetooth detection fixes, the Impuls branding refresh (app icon and Menu Bar glyph), the version-aware What's New fix and the version-aware/periodic voluntary version-statistics follow-up. Automated Swift/Python validation and PR CI passed (509 Swift tests, 0 failures, 3 hardware-dependent skips; 82 Python tests). The release owner additionally completed a manual Power Center pass on a real Mac mini confirming Magic Keyboard, Magic Mouse, Magic Trackpad and AirPods detection with real battery data. Its release-specific QA decision remains `ship-with-known-gaps`: unperformed manual hardware, TCC, translation, web-player and update-check scenarios stay explicit `not-run` rather than being inferred from green CI. Developer ID signing and notarization are not claimed. As of this writing the release PR has not been merged and no production tag/GitHub Release/appcast has been published for 1.4.14.
+Release `1.4.14` packages the merged PR #72 Power Center redesign, Magic Keyboard/Magic Mouse/Magic Trackpad Bluetooth detection fixes, the Impuls branding refresh (app icon and Menu Bar glyph), the version-aware What's New fix and the version-aware/periodic voluntary version-statistics follow-up. Automated Swift/Python validation and PR CI passed (509 Swift tests, 0 failures, 3 hardware-dependent skips; 82 Python tests). The release owner additionally completed a manual Power Center pass on a real Mac mini confirming Magic Keyboard, Magic Mouse, Magic Trackpad and AirPods detection with real battery data. Its release-specific QA decision remains `ship-with-known-gaps`: unperformed manual hardware, TCC, translation, web-player and update-check scenarios stay explicit `not-run` rather than being inferred from green CI. Developer ID signing and notarization are not claimed.
+
+Tag `v1.4.14` and its public GitHub Release exist and are not a draft or pre-release; the release carries the DMG, ZIP, their SHA-256 files and the signed `appcast.xml`. The earlier statement that no tag/Release/appcast had been published described the moment the candidate record was written and is no longer current.
+
+`main` has since moved past the release. Merged PR #75 (localization wave 1) added five more languages, the in-app language setting and its self-relaunch path **without** bumping the version, so `Scripts/version` still reads `1.4.14` while `main` already contains post-release product work. Do not read the shipped 1.4.14 artifact as equal to current `main`.
 
 ## Current product surface
 
@@ -30,7 +34,8 @@ Release `1.4.14` packages the merged PR #72 Power Center redesign, Magic Keyboar
 - opt-in signed Sparkle updates;
 - separate opt-in version statistics;
 - Power/Battery center with explicitly enabled external Apple devices;
-- RU/EN localization.
+- seven interface localizations — `en`, `ru`, `de`, `fr`, `es`, `zh-Hans`, `ja` — each carrying both `Localizable.strings` and `InfoPlist.strings`;
+- an in-app interface-language setting owned by `AppLanguageService`, applied on the next launch through a confirmed self-relaunch.
 
 ## Documentation coverage 1.3
 
@@ -58,7 +63,7 @@ The knowledge base contains:
 - per-release QA evidence records that bind manual/mixed scenarios to real environments, outcomes and known gaps;
 - a machine-checked release QA policy that requires an evidence file whenever the version baseline changes and forbids historical `not-recorded` results from 1.4.12 onward;
 - Documentation Guardian v2 with 11 semantic contract families, including privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and module topology in addition to the original background/resource/persistence/network/permission/dependency rules;
-- Git-history freshness guard with **20 curated canonical mappings**, including Menu Bar, Privacy Boundaries, Signing & Distribution, State & Ownership and the Core Type Reference;
+- Git-history freshness guard with **21 curated canonical mappings**, including Menu Bar, Privacy Boundaries, Signing & Distribution, State & Ownership and the Core Type Reference;
 - weekly periodic review-age enforcement for curated high-risk docs;
 - explicit collector SQLite schema versioning and ordered migration boundary using `PRAGMA user_version`;
 - production website architecture and design-system documentation for RU/EN GitHub Pages.
@@ -96,7 +101,7 @@ Scripts/check-qa-impact.py --base <base-sha>
 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files; the current map contains 34 verified owners. The third is Documentation Guardian v2: it inspects added and removed source lines across 11 narrow semantic contract families and requires the appropriate canonical owner in the same diff. The protected families include background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and shipped module topology. The fourth uses full Git history to prove that 20 curated canonical mappings are not older than their tracked implementation.
+The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files; the current map contains 34 verified owners. The third is Documentation Guardian v2: it inspects added and removed source lines across 11 narrow semantic contract families and requires the appropriate canonical owner in the same diff. The protected families include background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and shipped module topology. The fourth uses full Git history to prove that 21 curated canonical mappings are not older than their tracked implementation. When a document and its tracked source share their latest commit they travelled together, so only the ancestry and review-age rules apply; a `last_reviewed` written before a commit that lands after midnight in a positive UTC offset is a timezone artefact, not drift.
 
 The fifth maps the actual Git diff through `Scripts/qa-impact-rules.json`, reports impacted Behavioral QA IDs, fails when a changed tracked behavioral source has no route, requires every matrix scenario to be covered by the map, requires automated QA IDs to have a mapped test route, and on version-bump diffs verifies that impacted non-automated IDs exist in that version's Release QA Evidence. The sixth validates the full release evidence contract and rejects a release candidate whose decision is `blocked`.
 
@@ -126,6 +131,6 @@ Production telemetry runtime/topology is intentionally not duplicated here. The 
 
 ## Next documentation work
 
-The broad documentation foundation, release evidence, source/test→QA traceability, Guardian v2, 34-owner Type→Tests→Docs map and 20 high-risk freshness mappings are now in place. There is no value in expanding these registries by file count alone.
+The broad documentation foundation, release evidence, source/test→QA traceability, Guardian v2, 34-owner Type→Tests→Docs map and 21 high-risk freshness mappings are now in place. There is no value in expanding these registries by file count alone.
 
 Future documentation work should primarily travel with product changes. Add a new curated type/freshness owner only when a new subsystem gains durable architectural responsibility or an actual drift incident exposes a missing route. Preserve concrete real-Mac release evidence for future versions and refine Guardian/QA matchers only when a real product change exposes a gap or false-positive pattern.
