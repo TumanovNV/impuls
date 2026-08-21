@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 1.3
 app_version: 1.4.14
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-22
 tags: [impuls, schemas, migrations, persistence, compatibility]
 ---
 
@@ -47,6 +47,7 @@ The registry records **ownership and compatibility policy**, not secret values.
 | Low-battery alert preference | `appleDevices.lowBatteryAlerts.enabled` | `SettingsStore` / alert service | local `UserDefaults` bool | Excluded | macOS notification authorization and this preference are machine-local. |
 | Interface language preference | `app.language.v1` | `AppLanguageService` | local `UserDefaults` string | Excluded | The only persistent record of the in-app language choice; `SettingsStore` holds the service by composition and keeps no second copy. An absent, unparsable or no-longer-shipped value degrades to `system` in memory without writing. Both keys are flushed synchronously on selection, because a confirmed change restarts the app moments later and the next process has to read the new value. |
 | Interface language system override | `AppleLanguages` (app domain) | `AppLanguageService` | local `UserDefaults` string array | Excluded | Not an Impuls key: this is the macOS per-app language mechanism, and the user may have set it from macOS itself. Written only on an explicit choice in Settings, and removed only when the user returns to `system` after Impuls had set it. Reading state never writes or clears it. |
+| Project-support prompt state | `projectSupport.prompt.v1` | `ProjectSupportPromptService` | local `UserDefaults` Codable blob | Excluded | Anti-nag bookkeeping for the GitHub-star/feedback prompt: first meaningful use, last active day, active-day count, meaningful-use count, last counted use, last prompt, shown count and state. Counts only, never a history of what was used. Machine-local because the thresholds describe how this Mac was used, and restoring a backup elsewhere must not import somebody else's eligibility or their answer. Decoding is tolerant and fails **towards fewer prompts**: absent fields take fresh-install values, counts clamp to `>= 0`, and an unrecognised `state` decodes as `dismissedForever` rather than as permission to ask. A corrupt blob degrades to the empty record, which is not eligible. |
 | Clipboard image setting legacy key | `saveClipboardImages` | `SettingsStore` / `LegacyMigration` | `UserDefaults` | represented in main snapshot | Legacy Cyclop value may be copied during one-time migration when the new value is absent. |
 | Shelf references | `shelf.urls` | `ShelfStore` | `UserDefaults` string array | Excluded | References only; missing files are removed on load. Legacy Cyclop value can be migrated once. |
 | Notes | `notes.json` | `NoteStore` | `~/Library/Application Support/Impuls/` | Included | JSON `[Note]`, bounded read and maximum item count; writes are atomic and isolated through `StorageEnvironment`. |
@@ -192,6 +193,7 @@ For any schema change:
 - [`AppleDeviceIdentity.swift`](../../Sources/Impuls/Services/AppleDeviceIdentity.swift)
 - [`LegacyMigration.swift`](../../Sources/Impuls/Services/LegacyMigration.swift)
 - [`VersionTelemetryService.swift`](../../Sources/Impuls/Services/VersionTelemetryService.swift)
+- [`ProjectSupportPromptService.swift`](../../Sources/Impuls/Services/ProjectSupportPromptService.swift)
 - [`collector.py`](../../Collector/version-statistics/collector.py)
 
 ## Verification references
@@ -203,5 +205,6 @@ For any schema change:
 - [`BackupDocumentTests.swift`](../../Tests/ImpulsTests/BackupDocumentTests.swift)
 - [`ClipboardHistoryPersistenceTests.swift`](../../Tests/ImpulsTests/ClipboardHistoryPersistenceTests.swift)
 - [`VersionTelemetryServiceTests.swift`](../../Tests/ImpulsTests/VersionTelemetryServiceTests.swift)
+- [`ProjectSupportPromptServiceTests.swift`](../../Tests/ImpulsTests/ProjectSupportPromptServiceTests.swift)
 - [`test_collector_database_migrations.py`](../../Tests/PythonTests/test_collector_database_migrations.py)
 - [`test_version_statistics.py`](../../Tests/PythonTests/test_version_statistics.py)

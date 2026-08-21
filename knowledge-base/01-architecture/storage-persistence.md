@@ -4,7 +4,7 @@ type: architecture
 status: active
 documentation_version: 1.1
 app_version: 1.4.14
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-22
 tags: [impuls, storage, persistence, privacy]
 ---
 
@@ -19,6 +19,7 @@ flowchart TD
     UD --> MEDIA[Selected music source]
     UD --> TR[Translation language pair]
     UD --> LANG[Interface language\napp.language.v1 + AppleLanguages]
+    UD --> SUP[Project-support prompt state\nprojectSupport.prompt.v1]
 
     AS[Application Support / Impuls] --> NOTES[notes.json]
     AS --> SNIP[snippets.json]
@@ -50,6 +51,18 @@ flowchart TD
 Запись сбрасывается на диск сразу при выборе языка, а не откладывается до выхода из приложения. Причина конкретная: подтверждённая смена языка завершает процесс почти сразу после записи, и следующий процесс должен прочитать уже новое значение. Это единственное место, где Impuls форсирует flush `UserDefaults`; в остальном порядок записи обычный.
 
 Подробности и политика совместимости — в [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
+
+## Состояние project-support prompt
+
+`ProjectSupportPromptService` хранит под `projectSupport.prompt.v1` минимум, необходимый для anti-nag политики: дату первого meaningful use, последний active day, счётчики active days и meaningful uses, время последнего засчитанного use, время последнего показа, число показов и состояние конечного автомата.
+
+Это **счётчики, а не история**. Ни названий модулей, ни поисковых запросов, ни содержимого буфера, заметок, полки, календаря, ни имён файлов и путей, ни идентификаторов устройств здесь нет и быть не должно: решение «пора ли один раз спросить» их не требует, а собрать их означало бы превратить политику показа в журнал использования.
+
+Данные машинно-локальные и в portable backup не входят. Причина не формальная: пороги описывают, как пользовались **этим** Mac, и восстановление бэкапа на другой машине не должно ни импортировать чужую eligibility, ни отменять уже данный ответ. Ключ поэтому живёт отдельно и не входит в `ImpulsSettingsSnapshot`.
+
+Ничего из этого наружу не отправляется. Это не telemetry: у функции нет ни события «prompt shown», ни «star clicked», ни сервера, у которого можно было бы спросить про звезду.
+
+Декодирование толерантное и смещено **в сторону меньшего числа показов**: отсутствующие поля берут значения свежей установки, счётчики зажимаются в `>= 0`, а нераспознанный `state` читается как `dismissedForever`, а не как разрешение спросить. Подробности — в [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
 
 ## Notes
 
@@ -86,7 +99,7 @@ Backup schema v2 содержит:
 - notes;
 - metadata schema/app version/date.
 
-Не содержит clipboard history, encrypted keys, raw device identities, local selected-device key или содержимое Shelf files. Максимум backup — 10 MiB.
+Не содержит clipboard history, encrypted keys, raw device identities, local selected-device key, состояние project-support prompt или содержимое Shelf files. Максимум backup — 10 MiB.
 
 ## Правило
 
