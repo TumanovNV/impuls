@@ -52,6 +52,7 @@ flowchart LR
 | `NotchDisplaySurface` | window, root view, geometry, visual presentation | shared services |
 | `MenuBarWorkspaceController` | one AppKit Menu Bar presentation/menu/status item over existing shared state | provider startup, networking, permission prompts, independent polling/service graph |
 | `MenuBarStatusItemPresentation` | pure formatting of already-resolved logo/player/battery status content | provider selection, domain state, AppKit lifecycle |
+| `AppLanguageService` | the interface-language preference `app.language.v1`, its validation, and the `AppleLanguages` override written on an explicit choice | a mirrored copy in `SettingsStore`, any attempt to switch the running process's language |
 | module store/service | domain state | panel geometry |
 | pane | presentation + user interaction | прямой filesystem/network ownership |
 
@@ -76,6 +77,8 @@ The 1.4.14 `VersionTelemetryScheduler` addition is a concrete instance of `AppDe
 - what prevents duplicate work or a main-thread stall.
 
 These boundaries are guarded by Documentation Guardian and the Background Work & Concurrency Registry.
+
+`AppLanguageService` is `@MainActor` for the ordinary reason — it is an `ObservableObject` a Settings pane binds to — and answers the questions above narrowly. It protects one published value, `selection`, plus the two `UserDefaults` keys described in the [Schema & Migration Registry](../12-reference/schema-migration-registry.md). Only the main actor reaches it; the pane observes the service directly rather than through `SettingsStore`, which holds it by composition and publishes no copy of its own. Nothing suspends: the service performs synchronous `UserDefaults` reads and writes and starts no task, timer or observer, so it adds no background work and cannot stall the main thread. It never mutates state on initialisation — reading the preference must not change what language the user's Mac is in — and it never changes the *running* process's language, only what the next launch will resolve.
 
 ## Published-state budget
 
