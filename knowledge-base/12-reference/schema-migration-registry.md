@@ -3,8 +3,8 @@ title: Schema & Migration Registry
 type: reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.13
-last_reviewed: 2026-08-21
+app_version: 1.4.14
+last_reviewed: 2026-08-22
 tags: [impuls, schemas, migrations, persistence, compatibility]
 ---
 
@@ -45,7 +45,7 @@ The registry records **ownership and compatibility policy**, not secret values.
 | External-device presentation prefs | `appleDevices.presentation.v1` | `SettingsStore` | local `UserDefaults` Codable blob | Excluded | Contains HMAC-derived local preference keys only; bounded/normalized before use. Never promote to exported settings. |
 | Menu Bar selected-device pref | `menuBarWorkspace.presentation.v1` | `SettingsStore` | local `UserDefaults` Codable blob | Excluded | Physical-device selection is meaningful only on the current Mac. Generic Menu Bar configuration lives in the main snapshot. |
 | Low-battery alert preference | `appleDevices.lowBatteryAlerts.enabled` | `SettingsStore` / alert service | local `UserDefaults` bool | Excluded | macOS notification authorization and this preference are machine-local. |
-| Interface language preference | `app.language.v1` | `AppLanguageService` | local `UserDefaults` string | Excluded | The only persistent record of the in-app language choice; `SettingsStore` holds the service by composition and keeps no second copy. An absent, unparsable or no-longer-shipped value degrades to `system` in memory without writing. |
+| Interface language preference | `app.language.v1` | `AppLanguageService` | local `UserDefaults` string | Excluded | The only persistent record of the in-app language choice; `SettingsStore` holds the service by composition and keeps no second copy. An absent, unparsable or no-longer-shipped value degrades to `system` in memory without writing. Both keys are flushed synchronously on selection, because a confirmed change restarts the app moments later and the next process has to read the new value. |
 | Interface language system override | `AppleLanguages` (app domain) | `AppLanguageService` | local `UserDefaults` string array | Excluded | Not an Impuls key: this is the macOS per-app language mechanism, and the user may have set it from macOS itself. Written only on an explicit choice in Settings, and removed only when the user returns to `system` after Impuls had set it. Reading state never writes or clears it. |
 | Clipboard image setting legacy key | `saveClipboardImages` | `SettingsStore` / `LegacyMigration` | `UserDefaults` | represented in main snapshot | Legacy Cyclop value may be copied during one-time migration when the new value is absent. |
 | Shelf references | `shelf.urls` | `ShelfStore` | `UserDefaults` string array | Excluded | References only; missing files are removed on load. Legacy Cyclop value can be migrated once. |
