@@ -3,19 +3,30 @@ title: Localization
 type: development
 status: active
 documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-19
-tags: [impuls, localization, russian, english]
+app_version: 1.4.14
+last_reviewed: 2026-08-21
+tags: [impuls, localization, russian, english, german, french, spanish, chinese, japanese]
 ---
 
 # Localization
 
 ## Supported languages
 
-Product resources содержат English и Russian localization tables:
+Product resources содержат семь localization tables под `Resources/`:
 
-- `Resources/en.lproj/Localizable.strings`
-- `Resources/ru.lproj/Localizable.strings`
+| `.lproj` | Language |
+| --- | --- |
+| `en` | English |
+| `ru` | Русский |
+| `de` | Deutsch |
+| `fr` | Français |
+| `es` | Español |
+| `zh-Hans` | 简体中文 |
+| `ja` | 日本語 |
+
+Каждая папка содержит `Localizable.strings` и `InfoPlist.strings`. Вторая — это тексты системных диалогов разрешений: macOS предпочитает значение из подходящей `.lproj/InfoPlist.strings`, когда она существует.
+
+Языки должны быть перечислены в `CFBundleLocalizations` (`Scripts/bundle.sh`). `.lproj` без записи в этом массиве попадёт в bundle, но macOS не сочтёт язык поддерживаемым: он не появится в выборе языка и его нельзя выбрать в настройках Impuls. `build.yml` проверяет и наличие обеих таблиц в собранном `.app`, и объявление каждого языка.
 
 ## Key model
 
@@ -23,12 +34,56 @@ Product resources содержат English и Russian localization tables:
 
 ## CI contract
 
-Каждый literal `localized("key")` в Swift должен существовать в обеих tables. `build.yml` автоматически собирает keys из source и падает при missing entry.
+Каждый literal `localized("key")` в Swift должен существовать во **всех** таблицах, и все таблицы обязаны нести одинаковый набор ключей. `Scripts/check-localization.py` берёт таблицы через `Resources/*.lproj/Localizable.strings`, поэтому новый язык попадает под проверку автоматически, как только появляется папка. Частичный перевод технически невозможен: таблица либо полная, либо CI красный.
+
+Проверка на **дублирующиеся** ключи внутри одной таблицы живёт отдельно — в `Tests/PythonTests/test_version_statistics.py`. Сравнение множеств ключей дубликат не ловит, потому что он схлопывается в множество.
 
 ## Change rule
 
-Новый user-facing string добавляется в RU и EN в том же change set. Не добавлять direct hard-coded copy в pane, если оно должно локализоваться. Проверять plural/format arguments и визуальную длину русского текста.
+Новый user-facing string добавляется во все семь таблиц в том же change set. Не добавлять direct hard-coded copy в pane, если оно должно локализоваться. Проверять plural/format arguments и визуальную длину: панель узкая, немецкий длиннее английского, а в `PowerPane` уже зафиксирован предел 127 pt.
+
+Порядок и секционные комментарии новых таблиц повторяют `en.lproj`, чтобы диффы между языками читались построчно.
+
+## Format specifiers, dates and case
+
+- Состав и порядок спецификаторов сохраняются. Если язык требует другого порядка — позиционные `%1$@`/`%2$@`, а не другое количество аргументов.
+- `%%` — литеральный процент. Голый `%` в строке, которую читает только `localized(_:)` без аргументов, безопасен: форматирование там не выполняется.
+- Ключи-паттерны даты (`"yyyy-MM-dd 'at' HH.mm.ss"`) остаются валидными для `DateFormatter`: переводится текст в кавычках, не паттерн-символы.
+- Countdown-фразы хранятся со строчной буквы — заглавную добавляет `sentenceCased` на месте вызова.
+- `ja`/`zh-Hans`: без пробелов между словами, полноширинная пунктуация.
+
+## App Language setting
+
+Settings → General → Language позволяет выбрать язык интерфейса. По умолчанию — «Системный»: Impuls следует `Bundle.main.preferredLocalizations`, то есть выбору macOS.
+
+Канонич­ная схема одна:
+
+```text
+Settings UI → AppLanguageService → app.language.v1 → AppleLanguages
+```
+
+`AppLanguageService` — единственный владелец: ему принадлежат ключ `app.language.v1`, валидация локали, установка/удаление `AppleLanguages` и вычисление `requiresRelaunch`. `SettingsStore` держит сервис по композиции и **не** хранит второй копии предпочтения.
+
+Различайте два ключа: `app.language.v1` — выбор, сделанный внутри Impuls; `AppleLanguages` — системный механизм per-app языка, тот же самый, который использует macOS в «Настройки → Язык и регион → Программы». Поэтому:
+
+- инициализация сервиса **никогда** не пишет и не удаляет `AppleLanguages`. Отсутствующее, `system` или повреждённое значение `app.language.v1` просто трактуется как «выбора нет»;
+- `AppleLanguages` устанавливается только при явном выборе конкретного языка в настройках Impuls;
+- удаляется только при явном возврате на «Системный» **после** собственного override Impuls. Если Impuls этот ключ не создавал, он остаётся нетронутым.
+
+Список доступных локализаций инжектится в сервис (по умолчанию из бандла приложения), потому что под `swift test` `Bundle.main` — это xctest-раннер, а не `Impuls.app`.
+
+### Почему переключение применяется после перезапуска
+
+`localized(…)` покрывает 439 ключей, но ещё 108 call sites локализует сам SwiftUI: `Text`, `Button`, `Toggle`, `Section`, `Picker`, `Label` принимают `LocalizedStringKey` и резолвятся через `Bundle.main` внутри SwiftUI. Перенаправление одного только helper'а дало бы интерфейс наполовину на одном языке и наполовину на другом. Достать вторую половину можно лишь подменой класса `Bundle.main` или отказом от литеральной локализации SwiftUI — оба варианта отвергнуты.
+
+Поэтому выбор сохраняется и применяется при следующем запуске. Это шире, чем override внутри helper'а: на выбранный язык переходят и литералы SwiftUI, и `appLanguage` (а с ним форматтеры дат), и `InfoPlist.strings`.
+
+Автоматического relaunch нет намеренно. Глобальный хоткей регистрируется однократно через `RegisterEventHotKey` без повторной попытки, защиты от второго экземпляра в проекте нет, а межпроцессной координации записи у сторов тоже нет. Запуск нового экземпляра до завершения старого оставил бы приложение с неработающим основным способом открыть панель и с гонкой за локальные файлы. Вместо этого выбор сохраняется сразу, показывается локализованное сообщение и предлагается кнопка «Завершить Impuls»; пользователь может закрыть приложение и сам.
+
+`requiresRelaunch` означает «предпочтение изменено в текущей сессии», а не «enum отличается от фактического языка»: под `system` фактическая локаль всегда конкретна, и прямое сравнение показывало бы сообщение о перезапуске после каждого обычного старта. Сервис запоминает `selectionAtLaunch` в памяти процесса — это не второй persistent preference.
+
+Ручной сценарий записан как `UI-07` в [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md).
 
 ## Website
 
-Website localization отделена от app string tables. RU page — `docs/index.html`; EN page генерируется/проверяется отдельным site script. Не смешивать две системы автоматического generation.
+Website localization отделена от app string tables. RU page — `docs/index.html`; EN page генерируется/проверяется отдельным site script. Не смешивать две системы автоматического generation. Волна локализации приложения сайт не затрагивает.

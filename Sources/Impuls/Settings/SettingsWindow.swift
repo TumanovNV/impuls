@@ -171,7 +171,7 @@ private struct SettingsView: View {
         SettingsDetailPage(title: section.title) {
             switch section {
             case .general:
-                GeneralSettingsPane(settings: settings)
+                GeneralSettingsPane(settings: settings, appLanguage: settings.appLanguage)
             case .menuBar:
                 MenuBarSettingsPane(settings: settings, onShowOnboarding: onShowOnboarding)
             case .updates:
@@ -281,8 +281,25 @@ private struct UpdateSettingsPane: View {
 
 private struct GeneralSettingsPane: View {
     @ObservedObject var settings: SettingsStore
+    /// Observed in its own right: the preference lives in the service, not in a
+    /// mirrored `SettingsStore` field, so the picker redraws only if the view is
+    /// subscribed to the object that actually publishes the change.
+    @ObservedObject var appLanguage: AppLanguageService
+    /// Injected so the pane's own behaviour can be exercised without terminating
+    /// the test process. Quitting is the whole of the "apply" step: Impuls does
+    /// not relaunch itself, because a second instance would fail to register the
+    /// global shortcut while this one still holds it and both would write to the
+    /// same local stores.
+    var quit: () -> Void = { NSApp.terminate(nil) }
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var launchError = ""
+
+    private var language: Binding<AppLanguage> {
+        Binding(
+            get: { appLanguage.selection },
+            set: { appLanguage.select($0) }
+        )
+    }
 
     var body: some View {
         Form {
@@ -332,6 +349,30 @@ private struct GeneralSettingsPane: View {
                 Text("On All Displays, Impuls appears on every connected display and opens on the one your pointer is on. Choose a display to keep it there only. Mirrored displays count as one.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("Language") {
+                Picker("Interface Language", selection: language) {
+                    ForEach(appLanguage.selectableLanguages) { option in
+                        if option == .system {
+                            Text("System Default").tag(option)
+                        } else {
+                            // Verbatim on purpose: a language is named in itself,
+                            // and a plain literal would become a LocalizedStringKey
+                            // lookup for a key no table carries.
+                            Text(verbatim: option.endonym).tag(option)
+                        }
+                    }
+                }
+                Text("Impuls follows the macOS language unless you choose one here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if appLanguage.requiresRelaunch {
+                    Text("Quit and open Impuls again to switch to the selected language.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Quit Impuls", action: quit)
+                }
             }
 
             Section("Startup and Storage") {

@@ -106,6 +106,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | UI-04 | Reduce Motion enabled | mixed | transitions use reduced-motion contract rather than full animation |
 | UI-05 | Keyboard handoff between displays/text modules | mixed | keyboard ownership follows active surface without stealing focus from another app |
 | UI-06 | Menu Bar battery status in light/dark on Retina display | manual-macos | native battery glyph, percentage and charging bolt remain legible, aligned and semantically coloured in both appearances at Retina scale |
+| UI-07 | Interface language chosen in Settings, then relaunch | manual-macos | the choice persists, the relaunched app renders its own UI in that language, and Impuls's own usage-description string is read from the chosen localization; returning to System Default restores macOS language selection, and a per-app language set from macOS itself survives a launch untouched. System-supplied permission-dialog chrome staying in the macOS language is not an Impuls defect; a missing or wrong-locale usage description is |
 
 ## Release and update
 

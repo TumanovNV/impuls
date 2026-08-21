@@ -604,3 +604,11 @@
 "Open the Impuls panel." = "Открыть панель Impuls.";
 "Reveal the locally stored clipboard screenshots in Finder." = "Показать локально сохранённые снимки буфера обмена в Finder.";
 "Remove locally stored clipboard screenshots." = "Удалить локально сохранённые снимки буфера обмена.";
+
+/* Язык интерфейса. Названий самих языков здесь нет: язык называется на себе же
+   в любой таблице, поэтому они остаются verbatim на месте вызова. */
+"Interface Language" = "Язык интерфейса";
+"System Default" = "Системный";
+"Impuls follows the macOS language unless you choose one here." = "Impuls следует языку macOS, пока вы не выберете язык здесь.";
+"Quit and open Impuls again to switch to the selected language." = "Завершите и снова откройте Impuls, чтобы перейти на выбранный язык.";
+"Quit Impuls" = "Завершить Impuls";

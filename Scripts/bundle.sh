@@ -51,7 +51,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>Impuls</string>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleLocalizations</key>
-    <array><string>en</string><string>ru</string></array>
+    <array><string>en</string><string>ru</string><string>de</string><string>fr</string><string>es</string><string>zh-Hans</string><string>ja</string></array>
     <key>CFBundleDisplayName</key><string>Impuls</string>
     <key>CFBundleIdentifier</key><string>io.tumanov.impuls</string>
     <key>CFBundleExecutable</key><string>Impuls</string>

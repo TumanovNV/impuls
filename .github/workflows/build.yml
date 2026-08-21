@@ -190,8 +190,15 @@ jobs:
           test -s "$APP/Contents/Resources/AppIcon.icns"
           test -s "$APP/Contents/Resources/ImpulsMenuBarTemplate.pdf"
           test -s "$APP/Contents/Resources/ThirdPartyNotices.md"
-          test -f "$APP/Contents/Resources/en.lproj/Localizable.strings"
-          test -f "$APP/Contents/Resources/ru.lproj/Localizable.strings"
+          # A shipped .lproj that Info.plist does not declare is invisible to
+          # macOS: the folder is copied, the language is never offered, and the
+          # app's own language preference cannot select it.
+          for LPROJ in en ru de fr es zh-Hans ja; do
+            test -f "$APP/Contents/Resources/$LPROJ.lproj/Localizable.strings"
+            test -f "$APP/Contents/Resources/$LPROJ.lproj/InfoPlist.strings"
+            /usr/libexec/PlistBuddy -c 'Print CFBundleLocalizations' "$APP/Contents/Info.plist" \
+              | grep -q "^ *$LPROJ$"
+          done
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Contents/Info.plist")" = io.tumanov.impuls
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")" = "$VERSION"
           test "$(/usr/libexec/PlistBuddy -c 'Print SUFeedURL' "$APP/Contents/Info.plist")" = 'https://github.com/TumanovNV/impuls/releases/latest/download/appcast.xml'

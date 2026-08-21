@@ -1,0 +1,7 @@
+/* Impuls — システムのアクセス権ダイアログ、日本語。対応する
+   `.lproj/InfoPlist.strings` があるとき、macOSはその値を優先します。 */
+
+"NSAppleEventsUsageDescription" = "Impulsは再生中の曲名を読み取り、Apple Musicアプリの再生を操作します。";
+"NSCalendarsFullAccessUsageDescription" = "Impulsは今後の会議と、会議に参加するためのボタンを表示します。";
+"NSCalendarsUsageDescription" = "Impulsは今後の会議と、会議に参加するためのボタンを表示します。";
+"CFBundleDisplayName" = "Impuls";

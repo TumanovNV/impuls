@@ -1,0 +1,7 @@
+/* Impuls — Systemdialoge für Berechtigungen, Deutsch. macOS bevorzugt den Wert
+   aus der passenden `.lproj/InfoPlist.strings`, sobald eine existiert. */
+
+"NSAppleEventsUsageDescription" = "Impuls liest den Namen des aktuellen Titels und steuert die Wiedergabe in der Apple-Music-App.";
+"NSCalendarsFullAccessUsageDescription" = "Impuls zeigt deine nächsten Termine und eine Taste zum Beitreten.";
+"NSCalendarsUsageDescription" = "Impuls zeigt deine nächsten Termine und eine Taste zum Beitreten.";
+"CFBundleDisplayName" = "Impuls";

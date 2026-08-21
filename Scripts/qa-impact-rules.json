@@ -23,8 +23,8 @@
       "reason": "Feedback URL construction has no platform/hardware Behavioral QA row; it is governed by FeedbackServiceTests and the feedback privacy boundary."
     },
     {
-      "source_globs": ["Sources/Impuls/App/Localization.swift"],
-      "reason": "Localization key plumbing is enforced by localization CI rather than a hardware/TCC Behavioral QA scenario."
+      "source_globs": ["Sources/Impuls/App/Strings.swift"],
+      "reason": "Localization key plumbing is enforced by localization CI rather than a hardware/TCC Behavioral QA scenario. The path was corrected from a file that does not exist, so the exemption now applies to the real lookup helper. That helper carries no language policy of its own; the in-app language choice lives in AppLanguageService and is routed to UI-07."
     }
   ],
   "rules": [
@@ -218,6 +218,16 @@
       "source_globs": ["Sources/Impuls/Services/AppFeatureCatalog.swift"],
       "test_globs": ["Tests/PythonTests/test_project_manifest.py"],
       "qa_ids": ["REL-01", "UI-01", "UI-02"]
+    },
+    {
+      "id": "interface-language",
+      "description": "In-app interface language preference, its persistence or the Settings picker changed",
+      "source_globs": [
+        "Sources/Impuls/Services/AppLanguageService.swift",
+        "Sources/Impuls/Settings/SettingsWindow.swift"
+      ],
+      "test_globs": ["Tests/ImpulsTests/AppLanguageServiceTests.swift"],
+      "qa_ids": ["UI-07"]
     }
   ]
 }
