@@ -35,7 +35,8 @@ Tag `v1.4.14` and its public GitHub Release exist and are not a draft or pre-rel
 - separate opt-in version statistics;
 - Power/Battery center with explicitly enabled external Apple devices;
 - seven interface localizations — `en`, `ru`, `de`, `fr`, `es`, `zh-Hans`, `ja` — each carrying both `Localizable.strings` and `InfoPlist.strings`;
-- an in-app interface-language setting owned by `AppLanguageService`, applied on the next launch through a confirmed self-relaunch.
+- an in-app interface-language setting owned by `AppLanguageService`, applied on the next launch through a confirmed self-relaunch;
+- a local-first project-support prompt: eligibility is computed entirely on the Mac, it appears only after sustained deliberate use and only once Impuls has returned to idle, it is capped at two automatic appearances for the lifetime of the local state, GitHub and Feedback open only after an explicit user action, and it adds no telemetry and no network boundary. Canonical owner: [Settings, Onboarding, Feedback and Project Support](../01-architecture/settings-onboarding-feedback.md).
 
 ## Documentation coverage 1.3
 

@@ -64,6 +64,7 @@ open build/Impuls.app
 14. **Resource budgets are contracts.** Raising/removing size/count/cadence/timeout/backpressure limits requires explicit review and tests, not a magic-number edit.
 15. **QA inventory is not pass evidence.** A Behavioral QA row, unit test or historical screenshot does not prove a particular release passed real hardware/TCC. A `pass`/`fail`/`blocked` manual result must be tied to a truthful release-specific environment without serials, UDIDs or secrets.
 16. **Behavioral source/test ownership is traceable.** `Scripts/qa-impact-rules.json` maps product owners and verification tests to Behavioral QA IDs. Run `Scripts/check-qa-impact.py --base <base-sha>` for real diffs. A changed tracked behavioral source with no route must be mapped or receive a narrow documented exemption; broad exemptions are forbidden in spirit and must not be used to silence CI.
+17. **Project-support eligibility is machine-local, never telemetry or network, and automatic prompting is capped at two lifetime appearances for the local state.** See `knowledge-base/01-architecture/settings-onboarding-feedback.md` for the full contract.
 
 ## Device and power invariants
 

@@ -16,7 +16,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var feedbackWindowController = FeedbackWindowController()
     private var settingsWindowController: SettingsWindowController?
     private var onboardingController: OnboardingWindowController?
-    /// Machine-local eligibility for the one thing Impuls ever asks of the user.
+    /// Machine-local eligibility for the app's only proactive project-support
+    /// ask. Impuls does put other requests to the user — update consent, the
+    /// version-statistics offer, macOS permission flows — but each of those is
+    /// tied to a feature being set up or used. This one asks for a favour, so it
+    /// is the one that has to earn its appearance and then stop.
+    ///
     /// Shares the settings defaults so a test suite pointing Settings at its own
     /// domain cannot reach the real counters either.
     private lazy var projectSupportPrompt = ProjectSupportPromptService(defaults: settings.defaults)
@@ -164,6 +169,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// ordinary titled windows, and so would a future one be. The notch panels
     /// and the status item are borderless, so neither is mistaken for something
     /// the user is busy with.
+    ///
+    /// The limit is worth stating plainly: `NSApp.windows` contains only this
+    /// process's windows. A macOS permission (TCC) dialog belongs to a system
+    /// process and is **not** visible here, so this check does not by itself
+    /// prove the prompt cannot appear alongside one. What covers that in
+    /// practice is where TCC prompts come from — Impuls only triggers one from
+    /// an explicit user action, and those happen either in Settings or in the
+    /// open panel, both of which are already blocking. The residual case is a
+    /// system dialog that outlives the surface that triggered it; the eight
+    /// seconds are measured from the fold, so this is narrow rather than
+    /// impossible. `SUP-01` is where it gets checked on real hardware.
     private var showsTitledWindow: Bool {
         NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) }
     }

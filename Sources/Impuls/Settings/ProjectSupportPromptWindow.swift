@@ -1,12 +1,15 @@
 import AppKit
 import SwiftUI
 
-/// The one window Impuls opens on its own initiative.
+/// The unobtrusive project-support window: a star on GitHub, or feedback.
 ///
-/// A small ordinary window rather than a modal alert or a macOS notification: an
-/// alert would seize the keyboard from whatever the user was doing, and a
-/// notification would put a request for a favour in the same tray as their
-/// messages. This can be ignored, moved or closed like any window.
+/// Not the only window Impuls can present by itself — onboarding and What's New
+/// appear on their own too — but the only one asking for a favour rather than
+/// setting the app up. That is why it is a small ordinary window instead of a
+/// modal alert or a macOS notification: an alert would seize the keyboard from
+/// whatever the user was doing, and a notification would put a request for a
+/// favour in the same tray as their messages. This can be ignored, moved or
+/// closed like any window.
 ///
 /// Everything about *when* it may appear lives in `AppDelegate` and
 /// `ProjectSupportPromptService`. This type only presents and reports back.

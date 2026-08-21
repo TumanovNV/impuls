@@ -523,8 +523,13 @@ final class ProjectSupportPromptServiceTests: XCTestCase {
     }
 
     @MainActor
-    func testTwoServicesOnTheSameStateCannotBothPresent() throws {
-        // Stands in for a race: whatever asks second sees the recorded prompt.
+    func testNewServiceReloadsRecordedDeclineAndDoesNotPresent() throws {
+        // Sequential, not concurrent: the second service is built *after* the
+        // first recorded its outcome, which is the real shape of the question —
+        // production has one service, owned by AppDelegate, and the state it
+        // must not contradict is the one already on disk. Two live instances
+        // sharing a preloaded record is not a case this models, and it is not a
+        // case worth building cross-process locking for.
         let (defaults, suite) = try makeDefaults()
         defer { defaults.removePersistentDomain(forName: suite) }
         let clock = TestClock(Self.epoch)
