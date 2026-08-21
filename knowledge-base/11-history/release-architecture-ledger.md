@@ -3,7 +3,7 @@ title: Release Architecture Ledger
 type: generated-history
 status: active
 documentation_version: 1.3
-app_version: 1.4.13
+app_version: 1.4.14
 last_reviewed: 2026-08-19
 tags: [impuls, history, releases, architecture, generated]
 ---
@@ -25,6 +25,7 @@ This is not a user-facing changelog. It records verified release points where a 
 | 1.4.10 | `privacy-network` | Opt-in version statistics introduced a separate first-party collector and the third explicit Internet network owner. | [networking.md](../01-architecture/networking.md)<br>[version-statistics-collector.md](../07-web/version-statistics-collector.md) | [ADR-003-three-network-owners.md](../08-decisions/ADR-003-three-network-owners.md) | [release note](../../docs/releases/1.4.10.md) |
 | 1.4.11 | `presentation` | First-run/What's New split and a configurable Menu Bar workspace that consumes existing shared state without starting new work. | [menu-bar.md](../02-modules/menu-bar.md)<br>[settings-onboarding-feedback.md](../01-architecture/settings-onboarding-feedback.md) | — | [release note](../../docs/releases/1.4.11.md) |
 | 1.4.13 | `reliability-performance` | Clipboard, Shelf, Snippets, Menu Bar, Actions, Web Music and Power ownership paths were hardened for data durability, bounded work and deterministic teardown. | [storage-persistence.md](../01-architecture/storage-persistence.md)<br>[state-and-ownership.md](../01-architecture/state-and-ownership.md)<br>[background-concurrency-registry.md](../12-reference/background-concurrency-registry.md)<br>[resource-budget-registry.md](../12-reference/resource-budget-registry.md) | — | [release note](../../docs/releases/1.4.13.md) |
+| 1.4.14 | `presentation` | Power Center moved to a master-detail Device Navigator, Bluetooth Magic Keyboard/Mouse/Trackpad recognition was fixed by accepting the Apple Bluetooth SIG vendor ID, the app icon and Menu Bar glyph were rebranded, What's New now always derives from the running bundle version instead of stale copy, and version-statistics proposals moved from a single delayed one-shot to an hourly in-process scheduler. | [power.md](../02-modules/power.md)<br>[settings-onboarding-feedback.md](../01-architecture/settings-onboarding-feedback.md)<br>[background-concurrency-registry.md](../12-reference/background-concurrency-registry.md)<br>[resource-budget-registry.md](../12-reference/resource-budget-registry.md) | — | [release note](../../docs/releases/1.4.14.md) |
 
 ## Maintenance contract
 

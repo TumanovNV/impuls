@@ -3,8 +3,8 @@ title: IMPULS AI Index
 type: ai-index
 status: active
 documentation_version: 1.3
-app_version: 1.4.13
-last_reviewed: 2026-08-20
+app_version: 1.4.14
+last_reviewed: 2026-08-21
 tags: [impuls, ai, agents, index, qa]
 ---
 

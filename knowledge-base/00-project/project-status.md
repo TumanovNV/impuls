@@ -3,8 +3,8 @@ title: Project Status
 type: status
 status: active
 documentation_version: 1.3
-app_version: 1.4.13
-last_reviewed: 2026-08-20
+app_version: 1.4.14
+last_reviewed: 2026-08-21
 tags: [impuls, status, current]
 ---
 
@@ -12,11 +12,11 @@ tags: [impuls, status, current]
 
 ## Baseline
 
-**Current production release: 1.4.13.** Источник версии — `Scripts/version`.
+**Current production release: 1.4.14 (release candidate).** Источник версии — `Scripts/version`.
 
 **Current documentation baseline: 1.3.**
 
-Release `1.4.13` packages the merged PR #66 security, performance and reliability hardening as a patch release. Automated Swift/Python validation, PR CI and the release-owner real-Mac smoke test passed. Its release-specific QA decision remains `ship-with-known-gaps`: unperformed manual hardware, TCC and service scenarios stay explicit `not-run` rather than being inferred from green CI. Developer ID signing and notarization are not claimed.
+Release `1.4.14` packages the merged PR #72 Power Center redesign, Magic Keyboard/Magic Mouse/Magic Trackpad Bluetooth detection fixes, the Impuls branding refresh (app icon and Menu Bar glyph), the version-aware What's New fix and the version-aware/periodic voluntary version-statistics follow-up. Automated Swift/Python validation and PR CI passed (509 Swift tests, 0 failures, 3 hardware-dependent skips; 82 Python tests). The release owner additionally completed a manual Power Center pass on a real Mac mini confirming Magic Keyboard, Magic Mouse, Magic Trackpad and AirPods detection with real battery data. Its release-specific QA decision remains `ship-with-known-gaps`: unperformed manual hardware, TCC, translation, web-player and update-check scenarios stay explicit `not-run` rather than being inferred from green CI. Developer ID signing and notarization are not claimed. As of this writing the release PR has not been merged and no production tag/GitHub Release/appcast has been published for 1.4.14.
 
 ## Current product surface
 
@@ -114,7 +114,7 @@ Release `1.4.11` has a truthful retrospective evidence record because the struct
 
 Starting with `1.4.12`, every version baseline must include `knowledge-base/13-qa/release-evidence/<version>.md`. Every `mixed`, `manual-macos`, `manual-hardware` and `manual-service` matrix scenario must be classified explicitly. A release may be `certified`, `ship-with-known-gaps` or `blocked`, but certification requires all manual/mixed rows to be `pass` or justified `not-applicable` and at least one real Mac environment. The CI shipping gate rejects `blocked` candidates.
 
-The 1.4.13 release intentionally uses `ship-with-known-gaps`: the hardening build passed a release-owner smoke test on a real Mac, while scenario-specific manual/hardware/TCC/service checks that were not performed remain visible as `not-run`.
+The 1.4.13 release used `ship-with-known-gaps`: the hardening build passed a release-owner smoke test on a real Mac, while scenario-specific manual/hardware/TCC/service checks that were not performed remained visible as `not-run`. The 1.4.14 candidate also uses `ship-with-known-gaps`: a real Mac mini manual pass confirms the new Power Center's Apple accessory detection (Magic Keyboard, Magic Mouse, Magic Trackpad, AirPods) and desktop no-battery handling, while remaining scenario-specific manual/hardware/TCC/translation/web-player/update checks stay explicit `not-run`.
 
 The QA impact layer sits before that gate: it tells reviewers and agents which scenario IDs a candidate's changed source/tests may affect and verifies that impacted manual/mixed IDs are represented in the candidate evidence. It does not change their result or claim they passed.
 
