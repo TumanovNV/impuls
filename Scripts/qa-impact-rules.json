@@ -224,9 +224,13 @@
       "description": "In-app interface language preference, its persistence or the Settings picker changed",
       "source_globs": [
         "Sources/Impuls/Services/AppLanguageService.swift",
+        "Sources/Impuls/Services/AppRelaunchService.swift",
         "Sources/Impuls/Settings/SettingsWindow.swift"
       ],
-      "test_globs": ["Tests/ImpulsTests/AppLanguageServiceTests.swift"],
+      "test_globs": [
+        "Tests/ImpulsTests/AppLanguageServiceTests.swift",
+        "Tests/ImpulsTests/AppRelaunchServiceTests.swift"
+      ],
       "qa_ids": ["UI-07"]
     }
   ]

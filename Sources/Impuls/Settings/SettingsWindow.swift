@@ -285,20 +285,33 @@ private struct GeneralSettingsPane: View {
     /// mirrored `SettingsStore` field, so the picker redraws only if the view is
     /// subscribed to the object that actually publishes the change.
     @ObservedObject var appLanguage: AppLanguageService
-    /// Injected so the pane's own behaviour can be exercised without terminating
-    /// the test process. Quitting is the whole of the "apply" step: Impuls does
-    /// not relaunch itself, because a second instance would fail to register the
-    /// global shortcut while this one still holds it and both would write to the
-    /// same local stores.
-    var quit: () -> Void = { NSApp.terminate(nil) }
+    /// Restarting is orchestration, not presentation: the pane asks, the service
+    /// decides the order in which the helper starts and this process quits.
+    var relaunchService = AppRelaunchService()
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var launchError = ""
+    @State private var confirmingRestart = false
+    @State private var restartFailed = false
 
     private var language: Binding<AppLanguage> {
         Binding(
             get: { appLanguage.selection },
-            set: { appLanguage.select($0) }
+            set: { selected in
+                appLanguage.select(selected)
+                // Only ask when something is actually pending. Picking the
+                // language the process already started with is a no-op, and
+                // choosing back and forth must not leave a stale prompt.
+                confirmingRestart = appLanguage.requiresRelaunch
+            }
         )
+    }
+
+    private func restart() {
+        // Cancelling does not undo the choice — it is already persisted, and it
+        // applies at the next ordinary launch either way.
+        if relaunchService.relaunch(pendingChange: appLanguage.requiresRelaunch) == .failed {
+            restartFailed = true
+        }
     }
 
     var body: some View {
@@ -368,10 +381,12 @@ private struct GeneralSettingsPane: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if appLanguage.requiresRelaunch {
-                    Text("Quit and open Impuls again to switch to the selected language.")
+                    // Kept visible after a cancelled prompt: the choice stands,
+                    // so the way to apply it has to stand with it.
+                    Text("The selected language will be applied after Impuls restarts.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Button("Quit Impuls", action: quit)
+                    Button("Restart Impuls") { confirmingRestart = true }
                 }
             }
 
@@ -389,6 +404,17 @@ private struct GeneralSettingsPane: View {
         }
         .formStyle(.grouped)
         .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
+        .alert("Restart Impuls?", isPresented: $confirmingRestart) {
+            Button("Cancel", role: .cancel) { }
+            Button("Restart") { restart() }
+        } message: {
+            Text("Restart Impuls to apply the selected language.")
+        }
+        .alert("Could Not Restart Impuls", isPresented: $restartFailed) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Impuls could not restart automatically. The selected language will be applied the next time it starts.")
+        }
     }
 
     private func updateLaunchAtLogin(_ enabled: Bool) {

@@ -610,5 +610,10 @@
 "Interface Language" = "界面语言";
 "System Default" = "跟随系统";
 "Impuls follows the macOS language unless you choose one here." = "除非你在此处指定，否则 Impuls 会跟随 macOS 的语言。";
-"Quit and open Impuls again to switch to the selected language." = "请退出并重新打开 Impuls，以切换到所选语言。";
-"Quit Impuls" = "退出 Impuls";
+"Restart Impuls?" = "要重新启动 Impuls 吗？";
+"Restart Impuls to apply the selected language." = "重新启动 Impuls 以应用所选语言。";
+"Restart" = "重新启动";
+"Restart Impuls" = "重新启动 Impuls";
+"The selected language will be applied after Impuls restarts." = "所选语言将在 Impuls 重新启动后生效。";
+"Could Not Restart Impuls" = "无法重新启动 Impuls";
+"Impuls could not restart automatically. The selected language will be applied the next time it starts." = "Impuls 无法自动重新启动。所选语言将在下次启动时生效。";

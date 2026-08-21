@@ -53,6 +53,7 @@ flowchart LR
 | `MenuBarWorkspaceController` | one AppKit Menu Bar presentation/menu/status item over existing shared state | provider startup, networking, permission prompts, independent polling/service graph |
 | `MenuBarStatusItemPresentation` | pure formatting of already-resolved logo/player/battery status content | provider selection, domain state, AppKit lifecycle |
 | `AppLanguageService` | the interface-language preference `app.language.v1`, its validation, and the `AppleLanguages` override written on an explicit choice | a mirrored copy in `SettingsStore`, any attempt to switch the running process's language |
+| `AppRelaunchService` | the order of a restart — start the one-shot helper, and only then terminate | the language preference itself, any path that could leave two instances running |
 | module store/service | domain state | panel geometry |
 | pane | presentation + user interaction | прямой filesystem/network ownership |
 

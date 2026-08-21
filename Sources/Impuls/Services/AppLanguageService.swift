@@ -137,6 +137,12 @@ final class AppLanguageService: ObservableObject {
         } else if previous.localizationCode != nil {
             defaults.removeObject(forKey: Self.systemLanguagesKey)
         }
+
+        // The next process has to read this, and it may start seconds from now:
+        // a restart quits this app almost immediately after the write. Normally
+        // the flush would happen on exit anyway; forcing it here removes the
+        // question rather than relying on that ordering.
+        defaults.synchronize()
     }
 
     private static func storedSelection(in defaults: UserDefaults, available: [String]) -> AppLanguage {

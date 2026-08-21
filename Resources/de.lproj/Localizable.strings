@@ -611,5 +611,10 @@
 "Interface Language" = "Sprache der Oberfläche";
 "System Default" = "Systemsprache";
 "Impuls follows the macOS language unless you choose one here." = "Impuls folgt der Sprache von macOS, solange du hier keine wählst.";
-"Quit and open Impuls again to switch to the selected language." = "Beende Impuls und öffne es erneut, um zur gewählten Sprache zu wechseln.";
-"Quit Impuls" = "Impuls beenden";
+"Restart Impuls?" = "Impuls neu starten?";
+"Restart Impuls to apply the selected language." = "Starte Impuls neu, um die gewählte Sprache anzuwenden.";
+"Restart" = "Neu starten";
+"Restart Impuls" = "Impuls neu starten";
+"The selected language will be applied after Impuls restarts." = "Die gewählte Sprache wird nach dem Neustart von Impuls angewendet.";
+"Could Not Restart Impuls" = "Impuls konnte nicht neu gestartet werden";
+"Impuls could not restart automatically. The selected language will be applied the next time it starts." = "Impuls konnte nicht automatisch neu gestartet werden. Die gewählte Sprache wird beim nächsten Start angewendet.";
