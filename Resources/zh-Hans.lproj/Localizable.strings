@@ -617,3 +617,15 @@
 "The selected language will be applied after Impuls restarts." = "所选语言将在 Impuls 重新启动后生效。";
 "Could Not Restart Impuls" = "无法重新启动 Impuls";
 "Impuls could not restart automatically. The selected language will be applied the next time it starts." = "Impuls 无法自动重新启动。所选语言将在下次启动时生效。";
+
+/* Project support prompt. Shown at most twice, only after long real use,
+   and only when Impuls is idle. Not a star rating: a GitHub star is not five
+   stars out of five. */
+"Support the Project" = "支持项目";
+"Impuls is developed in the open. A star on GitHub helps other people find it, and your feedback shapes what comes next." = "Impuls 以开放方式开发。在 GitHub 上点星能帮助更多人找到它，你的反馈则决定接下来会做什么。";
+"Support Impuls on GitHub" = "在 GitHub 上支持 Impuls";
+"Support Impuls" = "支持 Impuls";
+"How is Impuls working for you?" = "Impuls 用得还顺手吗？";
+"If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "如果 Impuls 帮到了你，可以在 GitHub 上点个星来支持这个项目。如果还有可以改进的地方，也欢迎告诉我们。";
+"Support on GitHub" = "在 GitHub 上支持";
+"Share Feedback" = "提交反馈";

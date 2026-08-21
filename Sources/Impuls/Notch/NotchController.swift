@@ -118,6 +118,31 @@ final class NotchController {
     /// the answer there would always be one assignment behind.
     private var keyboardIsClaimed = false
 
+    /// Whether this open session has seen a deliberate action from the user.
+    ///
+    /// Cleared when the signal is delivered, so one folded session produces at
+    /// most one idle notification however many times the panel was touched.
+    private var sessionHadMeaningfulUse = false
+
+    /// The app's single signal that somebody deliberately reached for Impuls.
+    ///
+    /// Deliberately narrow. Five entrances qualify — the global shortcut, a
+    /// click on the collapsed tab, the two Menu Bar workspace commands and a
+    /// click on a notification — plus a click landing on the panel body, which
+    /// is what separates "the user came here to do something" from "the pointer
+    /// passed the notch". Hover alone does **not** qualify: the sampler opens
+    /// the panel from proximity, and proximity is not intent.
+    ///
+    /// Background work, timers, update checks, Menu Bar redraws and launch are
+    /// not use of any kind and never reach this.
+    var onMeaningfulUse: (() -> Void)?
+
+    /// Called once after a session that contained deliberate use has finished
+    /// folding — Impuls back to its collapsed anchor, nothing in flight.
+    ///
+    /// This is the only moment the app offers anything of its own accord.
+    var onReturnedToIdle: (() -> Void)?
+
     /// Read by the suite to assert that exactly one display owns the panel.
     var activeDisplayID: UInt32? { coordinator.activeDisplayID }
     var presentedDisplayIDs: [UInt32] { coordinator.order }
@@ -235,6 +260,10 @@ final class NotchController {
         viewModel?.stop()
         servicesAreActive = false
         keyboardIsClaimed = false
+        // Teardown is not a quiet transition. Dropping the flag here keeps a
+        // torn-down controller from reporting an idle moment into an app that
+        // is on its way out.
+        sessionHadMeaningfulUse = false
         coordinator.teardown()
         for observer in menuTrackingObservers {
             NotificationCenter.default.removeObserver(observer)
@@ -249,6 +278,13 @@ final class NotchController {
         lifetimeCancellables.removeAll()
     }
 
+    /// Records one deliberate entrance. The single funnel for `onMeaningfulUse`,
+    /// so the signal cannot quietly acquire a sixth or seventh source.
+    private func noteDeliberateUse() {
+        sessionHadMeaningfulUse = true
+        onMeaningfulUse?()
+    }
+
     func toggle() {
         if settings.activationMode == .shortcutOnly {
             toggleFromKeyboard()
@@ -259,6 +295,7 @@ final class NotchController {
             setOpen(false)
             pointer.setInside(false)
         } else {
+            noteDeliberateUse()
             activateDisplayUnderPointer()
             setOpen(true)
             pointer.setInside(true, display: coordinator.activeDisplayID)
@@ -274,6 +311,7 @@ final class NotchController {
             pointer.setInside(false)
             setOpen(false)
         } else {
+            noteDeliberateUse()
             activateDisplayUnderPointer()
             pointer.setInside(false)
             vm.prepareActionsForKeyboard()
@@ -286,6 +324,7 @@ final class NotchController {
     /// request to close an already-visible workspace.
     func open() {
         guard let vm = viewModel else { return }
+        noteDeliberateUse()
         activateDisplayUnderPointer()
         vm.keyboardNavigationActive = true
         pointer.setInside(false)
@@ -297,6 +336,7 @@ final class NotchController {
     /// notification payload or exposing a hardware identifier.
     func openPower() {
         guard let vm = viewModel, vm.visibleTabs.contains(.power) else { return }
+        noteDeliberateUse()
         activateDisplayUnderPointer()
         vm.select(.power, requestKeyboard: false)
         // Like a global-shortcut open, this is an intentional entrance rather
@@ -310,6 +350,7 @@ final class NotchController {
     /// path as a notification and never creates a second view model or window.
     func open(tab: NotchViewModel.Tab) {
         guard let vm = viewModel, vm.visibleTabs.contains(tab) else { return }
+        noteDeliberateUse()
         activateDisplayUnderPointer()
         vm.select(tab, requestKeyboard: tab.needsKeyboard)
         vm.keyboardNavigationActive = true
@@ -445,6 +486,11 @@ final class NotchController {
         // a click back into the panel has to be able to ask for it again.
         surface.onPress = { [weak self] in
             guard let self, let vm = self.viewModel else { return }
+            // A click inside the panel is the hover user's expression of
+            // intent. Counting it is what keeps somebody who works entirely by
+            // hover from being invisible to the support prompt, without letting
+            // a pointer that merely crossed the notch count as use.
+            self.noteDeliberateUse()
             self.moveActivation(to: displayID)
             guard vm.tab.needsKeyboard else { return }
             vm.wantsKeyboard = true
@@ -588,6 +634,10 @@ final class NotchController {
         // than inferred: the two flags above may already have been false, in
         // which case their publisher says nothing at all.
         keyboardIsClaimed = false
+        // The display went away mid-session. That is a disappearance, not the
+        // user finishing something, so the session is dropped without reporting
+        // an idle moment.
+        sessionHadMeaningfulUse = false
         applyKeyboardOwnership()
         pointer.setInside(false)
         coordinator.activeSurface?.setExpanded(false)
@@ -783,6 +833,10 @@ final class NotchController {
             self.isClosing = false
             self.applyActiveRect(open: false)
             self.refreshPointerZones(open: false)
+            // The panel is folded and its hit region has shrunk back to the
+            // anchor: Impuls is out of the user's way. Anything the app wants to
+            // say for itself belongs here and nowhere else in this file.
+            self.notifyReturnedToIdle()
         }
         let plan = coordinator.activeSurface?.motionPlan ?? currentPanelMotionPlan()
         let delay = plan.closeDuration
@@ -804,6 +858,15 @@ final class NotchController {
         } else {
             environment.scheduleAfter(plan.contentCloseDuration, finishContent)
         }
+    }
+
+    /// Reports one quiet transition, and only for a session the user actually
+    /// worked in. A panel that opened on hover and folded again untouched says
+    /// nothing: there was no interaction to have finished.
+    private func notifyReturnedToIdle() {
+        guard sessionHadMeaningfulUse else { return }
+        sessionHadMeaningfulUse = false
+        onReturnedToIdle?()
     }
 
     private func deactivateServices(_ vm: NotchViewModel) {

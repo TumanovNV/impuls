@@ -330,10 +330,24 @@ final class ProjectSupportPromptService {
     /// window appearing on somebody's screen.
     @discardableResult
     func openProjectPage(using open: (URL) -> Bool = { NSWorkspace.shared.open($0) }) -> Bool {
-        let url = Self.projectURL
-        guard Self.isAllowedProjectURL(url), open(url) else { return false }
+        guard Self.openProjectPageInBrowser(using: open) else { return false }
         recordOpenedGitHub()
         return true
+    }
+
+    /// The same hand-off without any prompt bookkeeping.
+    ///
+    /// Settings offers "Support Impuls on GitHub" permanently, and that path
+    /// must keep working after the automatic prompt has ended for good. It is
+    /// deliberately stateless: choosing it in Settings is not an answer to a
+    /// question Impuls asked, so it neither consumes nor revives the prompt.
+    @discardableResult
+    static func openProjectPageInBrowser(
+        using open: (URL) -> Bool = { NSWorkspace.shared.open($0) }
+    ) -> Bool {
+        let url = projectURL
+        guard isAllowedProjectURL(url) else { return false }
+        return open(url)
     }
 
     // MARK: - URL

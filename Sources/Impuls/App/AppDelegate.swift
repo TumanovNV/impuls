@@ -16,6 +16,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var feedbackWindowController = FeedbackWindowController()
     private var settingsWindowController: SettingsWindowController?
     private var onboardingController: OnboardingWindowController?
+    /// Machine-local eligibility for the one thing Impuls ever asks of the user.
+    /// Shares the settings defaults so a test suite pointing Settings at its own
+    /// domain cannot reach the real counters either.
+    private lazy var projectSupportPrompt = ProjectSupportPromptService(defaults: settings.defaults)
+    private lazy var projectSupportPromptWindowController = ProjectSupportPromptWindowController(
+        service: projectSupportPrompt,
+        onFeedback: { [weak self] in self?.feedbackWindowController.show() }
+    )
+    /// The single pending "ask after the dust settles" item.
+    ///
+    /// Not a timer and not a repeating anything: it is created only by a quiet
+    /// transition, replaced by nothing, cancelled by the user starting work
+    /// again, and cancelled once more on termination.
+    private var projectSupportPromptWork: DispatchWorkItem?
+    private var didPresentProjectSupportPrompt = false
+    /// When this process started, so a prompt can never be part of launch.
+    private let launchedAt = Date()
+
+    /// How long Impuls stays quiet after the panel folds before it considers
+    /// asking. Long enough that the prompt is clearly not a reaction to the
+    /// action just taken, short enough to still belong to the same sitting.
+    private static let projectSupportPromptQuietDelay: TimeInterval = 8
     private lazy var menuBarWorkspaceController = MenuBarWorkspaceController(
         settings: settings,
         updateService: updateService,
@@ -36,6 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         LegacyMigration.runIfNeeded()
         controller = NotchController(settings: settings, environment: .live)
+        installProjectSupportPrompt()
         controller?.install()
         installWindowControllers()
         settings.lowBatteryAlerts.onOpenPowerCenter = { [weak self] in
@@ -67,7 +90,82 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         hotKey.onPress = nil
         versionTelemetryScheduler.stop()
+        cancelProjectSupportPrompt()
         controller?.teardown()
+    }
+
+    // MARK: - Project support prompt
+
+    private func installProjectSupportPrompt() {
+        controller?.onMeaningfulUse = { [weak self] in
+            guard let self else { return }
+            // Work resuming retires anything waiting to be asked: the quiet
+            // moment the prompt was queued for has ended, and the next fold
+            // will offer a new one.
+            self.cancelProjectSupportPrompt()
+            self.projectSupportPrompt.recordMeaningfulUse()
+        }
+        controller?.onReturnedToIdle = { [weak self] in
+            self?.scheduleProjectSupportPrompt()
+        }
+    }
+
+    /// Queues the single delayed check that may put the prompt on screen.
+    ///
+    /// Eligibility is consulted before anything is scheduled, so the ordinary
+    /// case — somebody who has not been using Impuls for a month, or who already
+    /// answered — creates no work at all.
+    private func scheduleProjectSupportPrompt() {
+        guard projectSupportPromptWork == nil,
+              !didPresentProjectSupportPrompt,
+              projectSupportPrompt.isEligible else { return }
+
+        let work = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated { self?.presentProjectSupportPromptIfQuiet() }
+        }
+        projectSupportPromptWork = work
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + Self.projectSupportPromptQuietDelay,
+            execute: work
+        )
+    }
+
+    private func cancelProjectSupportPrompt() {
+        projectSupportPromptWork?.cancel()
+        projectSupportPromptWork = nil
+    }
+
+    /// The last gate. Everything is re-read here rather than captured when the
+    /// work was queued: eight seconds is long enough for the user to have opened
+    /// Settings, started an update, or chosen a new language.
+    private func presentProjectSupportPromptIfQuiet() {
+        projectSupportPromptWork = nil
+
+        let moment = ProjectSupportPromptMoment(
+            timeSinceLaunch: Date().timeIntervalSince(launchedAt),
+            isPanelOpen: controller?.viewModel?.isOpen ?? false,
+            showsAnotherWindow: showsTitledWindow,
+            isAwaitingLanguageRelaunch: settings.appLanguage.requiresRelaunch,
+            didPresentInThisSession: didPresentProjectSupportPrompt
+        )
+        guard projectSupportPrompt.shouldPresent(in: moment) else { return }
+
+        // Recorded before the window exists. If presentation somehow fails, the
+        // safe outcome is one fewer prompt, not a loop that keeps trying.
+        didPresentProjectSupportPrompt = true
+        projectSupportPrompt.recordPresented()
+        projectSupportPromptWindowController.show()
+    }
+
+    /// Whether any Impuls window with a title bar is on screen.
+    ///
+    /// One rule instead of a list of controllers to keep in step: onboarding,
+    /// What's New, Settings, Feedback and Sparkle's update dialogs are all
+    /// ordinary titled windows, and so would a future one be. The notch panels
+    /// and the status item are borderless, so neither is mistaken for something
+    /// the user is busy with.
+    private var showsTitledWindow: Bool {
+        NSApp.windows.contains { $0.isVisible && $0.styleMask.contains(.titled) }
     }
 
     private func installWindowControllers() {
@@ -84,6 +182,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onExport: { [weak self] in self?.exportData() },
             onImport: { [weak self] in self?.importData() },
             onFeedback: { [weak self] in self?.feedbackWindowController.show() },
+            // Stateless on purpose: Settings must keep offering this path after
+            // the automatic prompt has ended for good, and choosing it there is
+            // not an answer to a question Impuls asked.
+            onSupportProject: { ProjectSupportPromptService.openProjectPageInBrowser() },
             onShowOnboarding: { [weak self] in self?.onboardingController?.showFullTour() }
         )
     }

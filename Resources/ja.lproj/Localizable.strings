@@ -617,3 +617,15 @@
 "The selected language will be applied after Impuls restarts." = "選んだ言語はImpulsの再起動後に適用されます。";
 "Could Not Restart Impuls" = "Impulsを再起動できませんでした";
 "Impuls could not restart automatically. The selected language will be applied the next time it starts." = "Impulsを自動的に再起動できませんでした。選んだ言語は次回の起動時に適用されます。";
+
+/* Project support prompt. Shown at most twice, only after long real use,
+   and only when Impuls is idle. Not a star rating: a GitHub star is not five
+   stars out of five. */
+"Support the Project" = "プロジェクトを応援";
+"Impuls is developed in the open. A star on GitHub helps other people find it, and your feedback shapes what comes next." = "Impuls はオープンに開発しています。GitHub のスターは他の人が見つける助けになり、いただいた声が次に作るものを決めます。";
+"Support Impuls on GitHub" = "GitHub で Impuls を応援";
+"Support Impuls" = "Impuls を応援";
+"How is Impuls working for you?" = "Impuls の使い心地はいかがですか？";
+"If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "Impuls がお役に立てているなら、GitHub のスターでプロジェクトを応援できます。改善できる点があれば、ぜひお聞かせください。";
+"Support on GitHub" = "GitHub で応援";
+"Share Feedback" = "フィードバックを送る";

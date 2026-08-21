@@ -618,3 +618,15 @@
 "The selected language will be applied after Impuls restarts." = "Die gewählte Sprache wird nach dem Neustart von Impuls angewendet.";
 "Could Not Restart Impuls" = "Impuls konnte nicht neu gestartet werden";
 "Impuls could not restart automatically. The selected language will be applied the next time it starts." = "Impuls konnte nicht automatisch neu gestartet werden. Die gewählte Sprache wird beim nächsten Start angewendet.";
+
+/* Project support prompt. Shown at most twice, only after long real use,
+   and only when Impuls is idle. Not a star rating: a GitHub star is not five
+   stars out of five. */
+"Support the Project" = "Projekt unterstützen";
+"Impuls is developed in the open. A star on GitHub helps other people find it, and your feedback shapes what comes next." = "Impuls wird offen entwickelt. Ein Stern auf GitHub hilft anderen, die App zu finden, und Ihr Feedback bestimmt, was als Nächstes kommt.";
+"Support Impuls on GitHub" = "Impuls auf GitHub unterstützen";
+"Support Impuls" = "Impuls unterstützen";
+"How is Impuls working for you?" = "Wie läuft Impuls bei Ihnen?";
+"If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "Wenn Impuls Ihnen nützlich war, können Sie das Projekt mit einem Stern auf GitHub unterstützen. Wenn etwas besser sein könnte, hören wir gern Ihr Feedback.";
+"Support on GitHub" = "Auf GitHub unterstützen";
+"Share Feedback" = "Feedback geben";
