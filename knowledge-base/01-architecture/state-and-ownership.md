@@ -3,7 +3,7 @@ title: State and Ownership
 type: architecture
 status: active
 documentation_version: 1.3
-app_version: 1.4.12
+app_version: 1.4.13
 last_reviewed: 2026-08-21
 tags: [impuls, architecture, state, ownership]
 ---
@@ -60,6 +60,8 @@ flowchart LR
 До multi-display разделение geometry и stores было недостаточным: перестройка экрана могла создать второй view model, а вместе с ним второй `ClipboardStore`, `PowerMonitor` и таймеры. Нынешняя архитектура делает это структурно невозможным при соблюдении ownership rules.
 
 Menu Bar follows the same principle. It is a second **presentation surface**, not a second service graph: selecting a battery/player/status mode must read the state the application already owns rather than creating another provider, timer, permission path or network owner.
+
+The 1.4.14 `VersionTelemetryScheduler` addition is a concrete instance of `AppDelegate`'s "teardown order" ownership above: `AppDelegate` starts it after the existing launch deferrals and stops it in `applicationWillTerminate`, but the scheduler itself owns no consent/endpoint/throttle policy — that stays inside `VersionTelemetryService`, per [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md).
 
 ## MainActor and isolation
 
