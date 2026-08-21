@@ -58,6 +58,7 @@ iPhone/iPad trust — не macOS TCC permission. Provider проверяет exi
 - update не создаёт новый prompt сам;
 - opening tab может refresh status, но prompt требует button/action;
 - denied/restricted state отображается честно;
+- смена языка интерфейса prompt не вызывает: она меняет только то, из какой `InfoPlist.strings` macOS возьмёт **текст** usage description, когда запрос всё-таки инициирует пользователь (см. [macOS Permissions and TCC](../03-macos/permissions-and-tcc.md));
 - новые permissions требуют обновить `PRIVACY.md`, `SECURITY.md`, entitlements, CI, knowledge base и security audit.
 
 ## Связано
