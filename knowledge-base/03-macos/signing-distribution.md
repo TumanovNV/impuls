@@ -3,7 +3,7 @@ title: Signing and Distribution
 type: platform
 status: active
 documentation_version: 1.3
-app_version: 1.4.12
+app_version: 1.4.14
 last_reviewed: 2026-08-21
 tags: [impuls, macos, signing, gatekeeper, distribution]
 ---
@@ -50,10 +50,12 @@ Notarization belongs only to a Developer ID path when Apple credentials are actu
 - bundle ID: `io.tumanov.impuls`;
 - minimum macOS: 15.0;
 - UI element app (`LSUIElement`);
-- RU/EN resources;
-- calendar + Apple Events usage descriptions;
+- development region `en`, и семь поставляемых локализаций: `en`, `ru`, `de`, `fr`, `es`, `zh-Hans`, `ja`. Каждая объявлена в `CFBundleLocalizations` и лежит в `Contents/Resources/<lang>.lproj`; вместе с `Localizable.strings` в той же папке поставляется локализованный `InfoPlist.strings`;
+- calendar + Apple Events usage descriptions. Базовые значения лежат в `Info.plist` на русском, а язык, который пользователь фактически прочитает в системном диалоге, macOS берёт из подходящего `.lproj/InfoPlist.strings`. Поэтому добавление языка — это одновременно новая `.lproj` **и** запись в `CFBundleLocalizations`: папка без записи попадёт в bundle, но останется невидимой для macOS;
 - Sparkle public key/feed embedded in Info.plist;
 - signed-feed and verify-before-extraction flags remain enabled independently of ad-hoc vs Developer ID host signing.
+
+Проверки распределены между двумя workflow: `build.yml` проверяет в собранном `.app` наличие обеих таблиц каждого из семи языков и то, что каждый язык объявлен в `CFBundleLocalizations`; `release.yml` проверяет непустой `NSAppleEventsUsageDescription` в самом `Info.plist`.
 
 ## Release artifact integrity
 
@@ -61,11 +63,12 @@ The normal release workflow verifies more than the `.app` code signature:
 
 1. build/test the candidate;
 2. create DMG and ZIP artifacts;
-3. verify the expected version/release metadata;
-4. generate the Sparkle appcast with the configured EdDSA key;
-5. verify the appcast references the candidate version;
-6. verify the ZIP signature through Sparkle `sign_update` tooling;
-7. publish SHA-256 checksums together with the release artifacts.
+3. verify the expected version/release metadata, the bundle's own signature and entitlements, and `hdiutil verify` on the DMG;
+4. unpack the ZIP again and re-run `codesign --verify --deep --strict` on the extracted app — the archive users actually receive is verified, not only the build directory;
+5. generate the Sparkle appcast with the configured EdDSA key;
+6. verify the appcast references the candidate version, and that its enclosure `length` equals the ZIP's byte size;
+7. verify the appcast and the ZIP signature through Sparkle `sign_update --verify`;
+8. publish SHA-256 checksums together with the release artifacts.
 
 The EdDSA private key is a CI secret and must never be committed. The public key embedded in the application must match the private signing key used by the release workflow; a mismatch is a release blocker rather than a reason to bypass verification.
 
