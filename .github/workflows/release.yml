@@ -217,7 +217,7 @@ jobs:
           ditto -c -k --keepParent "$APP" "$ZIP"
           codesign --verify --deep --strict "$APP"
           test -s "$APP/Contents/Resources/AppIcon.icns"
-          test -s "$APP/Contents/Resources/ImpulsStatusTemplate.png"
+          test -s "$APP/Contents/Resources/ImpulsMenuBarTemplate.pdf"
           test -s "$APP/Contents/Resources/ThirdPartyNotices.md"
           test -n "$(/usr/libexec/PlistBuddy -c 'Print NSAppleEventsUsageDescription' "$APP/Contents/Info.plist")"
           ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
