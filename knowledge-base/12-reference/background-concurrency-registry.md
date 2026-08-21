@@ -3,8 +3,8 @@ title: Background Work & Concurrency Registry
 type: reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.13
-last_reviewed: 2026-08-21
+app_version: 1.4.14
+last_reviewed: 2026-08-22
 tags: [impuls, performance, concurrency, timers, background-work, ai]
 ---
 
@@ -55,6 +55,8 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 | `LowBatteryAlertService` | Background alert cadence override | `60 s` when a device is low and discharging, otherwise `300 s` | `@MainActor` policy only; feeds `DeviceRefreshScheduler` | returns `nil` when alerts are disabled, which removes the override entirely |
 | `SystemProfilerAccessorySource` | `system_profiler` subprocess | on accessory refresh, not on a timer of its own | `BoundedProcess`: two `DispatchQueue.global(.utility)` drains, fixed executable path, empty environment | `5 s` deadline then `terminate()` and `SIGKILL` after a grace period; stdout bounded to `1 MiB`, stderr `8 KiB`; truncation is an error, never a partial parse |
 | `NotchController` | Collapse-if-pointer-away, topology refresh | collapse check `0.6 s` after intent; topology refresh coalesced onto the next main turn | `@MainActor` delayed work items | generation counters discard superseded intents; `topologyRefreshWork` is cancelled by `teardown()`; sleep stops the pointer sampler, wake refreshes topology **before** restarting it |
+| `AppDelegate` | Project-support prompt quiet deferral | none by default; one `+8 s` one-shot per quiet transition, and only when `ProjectSupportPromptService.isEligible` already holds | `@MainActor` `DispatchWorkItem` on the main queue | at most one item exists: it is created only by `NotchController.onReturnedToIdle`, cancelled when the user resumes work (`onMeaningfulUse`), cancelled in `applicationWillTerminate`, and cleared when it fires. Not a timer and not a poller — an ineligible or already-answered install schedules nothing at all, and the feature is capped at two presentations for the lifetime of the local state |
+| `NotchController` | Return-to-idle signal | event driven; fires from the existing collapse completion, no work of its own | `@MainActor` | one report per folded session that contained deliberate use; the flag is cleared on delivery, on `teardown()` and on `foldImmediately()`, so a torn-down controller or a vanished display reports nothing |
 | `AppDelegate` | Launch-time deferrals | update consent `+0.75 s`; version heartbeat first attempt `+2 s`, then starts `VersionTelemetryScheduler` for the hourly follow-ups | main queue delayed callbacks | one-shot deferrals; consent prompt is skipped under `CI=true`; neither opens a socket at launch, which CI verifies with `lsof`; the scheduler itself is stopped in `applicationWillTerminate` |
 | `FileToolsCoordinator` | File batches and status auto-clear | user-initiated; status clears after `3 s` | `Task.detached(.userInitiated)` per batch, `autoreleasepool` per item | status writes guarded by a generation. **Known gap:** batch tasks keep no handle, so they are not cancelled on teardown — see `09-known-issues/current-limitations.md` |
 | `NotchContentView` | Rail hover dwell | `150 ms` before a hover switches module | SwiftUI `.task(id:)` | id change cancels; hover is an affordance and must not become selection |

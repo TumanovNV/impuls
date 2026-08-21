@@ -3,8 +3,8 @@ title: Behavioral QA Matrix
 type: qa-reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.12
-last_reviewed: 2026-08-19
+app_version: 1.4.14
+last_reviewed: 2026-08-22
 tags: [impuls, qa, scenarios, hardware, permissions, release]
 ---
 
@@ -107,6 +107,12 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | UI-05 | Keyboard handoff between displays/text modules | mixed | keyboard ownership follows active surface without stealing focus from another app |
 | UI-06 | Menu Bar battery status in light/dark on Retina display | manual-macos | native battery glyph, percentage and charging bolt remain legible, aligned and semantically coloured in both appearances at Retina scale |
 | UI-07 | Interface language chosen in Settings, confirmed restart | manual-macos | confirming the restart prompt quits and reopens Impuls by itself — no manual relaunch, no logout, no reboot — and the returning UI is in the chosen language with no pending-restart message. The old instance is fully gone before the new one starts: exactly one Impuls runs at any moment, the global shortcut works after the restart, and notes, clipboard history and shelf survive. The new process comes from the same bundle URL that was running. Impuls's own usage-description string is read from the chosen localization; returning to System Default restores macOS language selection, and a per-app language set from macOS itself survives a launch untouched. Cancelling keeps the language and leaves the restart offered. System-supplied permission-dialog chrome staying in the macOS language is not an Impuls defect; a missing or wrong-locale usage description is |
+
+## Project support prompt
+
+| ID | Scenario | Mode | Expected contract |
+| --- | --- | --- | --- |
+| SUP-01 | Long-term user reaches support-prompt eligibility | manual-macos | The prompt appears only from an idle transition after real use — never at launch, never over the open panel, onboarding, What's New, Settings, Feedback, a permission dialog or a Sparkle update dialog, and never while a language restart is pending. It is a window, not a macOS notification. `Not now` does not bring it back in the same session, and the next automatic appearance is no sooner than 60 days later and only after further real use. `Support on GitHub` opens exactly `https://github.com/TumanovNV/impuls` in the default browser and nothing else; Impuls makes no request of its own and claims nothing about whether a star was given. `Share Feedback` opens the existing Feedback window rather than a second feedback path. After a second decline the automatic prompt never appears again, while Settings → Feedback → Support the Project keeps working. Deterministic tests own the thresholds and the state machine; what needs a real Mac is that the window arrives at a genuinely quiet moment, is readable in the current interface language, and that the browser and Feedback hand-offs work outside a test process. |
 
 ## Release and update
 

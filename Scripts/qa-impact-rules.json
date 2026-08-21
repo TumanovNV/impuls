@@ -19,11 +19,15 @@
       "reason": "Version-only telemetry has no user-facing Behavioral QA row; it is governed by VersionTelemetryServiceTests/VersionTelemetrySchedulerTests, network/privacy docs and the private operations boundary. The scheduler only proposes an attempt on a bounded cadence and carries no policy of its own."
     },
     {
-      "source_globs": ["Sources/Impuls/Services/FeedbackService.swift"],
+      "source_globs": [
+        "Sources/Impuls/Services/FeedbackService.swift"
+      ],
       "reason": "Feedback URL construction has no platform/hardware Behavioral QA row; it is governed by FeedbackServiceTests and the feedback privacy boundary."
     },
     {
-      "source_globs": ["Sources/Impuls/App/Strings.swift"],
+      "source_globs": [
+        "Sources/Impuls/App/Strings.swift"
+      ],
       "reason": "Localization key plumbing is enforced by localization CI rather than a hardware/TCC Behavioral QA scenario. The path was corrected from a file that does not exist, so the exemption now applies to the real lookup helper. That helper carries no language policy of its own; the in-app language choice lives in AppLanguageService and is routed to UI-07."
     }
   ],
@@ -40,11 +44,22 @@
         "Tests/ImpulsTests/MultiDisplayControllerTests.swift",
         "Tests/ImpulsTests/MultiDisplayHoverTests.swift",
         "Tests/ImpulsTests/PanelTransitionTests.swift",
-        "Tests/ImpulsTests/NotchGeometryTests.swift"
+        "Tests/ImpulsTests/NotchGeometryTests.swift",
+        "Tests/ImpulsTests/ProjectSupportPromptLifecycleTests.swift"
       ],
       "qa_ids": [
-        "DISP-01", "DISP-02", "DISP-03", "DISP-04", "DISP-05",
-        "DISP-06", "DISP-07", "DISP-08", "DISP-09", "DISP-10", "UI-05"
+        "DISP-01",
+        "DISP-02",
+        "DISP-03",
+        "DISP-04",
+        "DISP-05",
+        "DISP-06",
+        "DISP-07",
+        "DISP-08",
+        "DISP-09",
+        "DISP-10",
+        "UI-05",
+        "SUP-01"
       ]
     },
     {
@@ -55,7 +70,12 @@
         "Sources/ImpulsLauncher/*.swift"
       ],
       "test_globs": [],
-      "qa_ids": ["PERM-01", "REL-01", "REL-06"]
+      "qa_ids": [
+        "PERM-01",
+        "REL-01",
+        "REL-06",
+        "SUP-01"
+      ]
     },
     {
       "id": "calendar-permissions",
@@ -64,8 +84,15 @@
         "Sources/Impuls/Services/CalendarStore.swift",
         "Sources/Impuls/UI/*Calendar*.swift"
       ],
-      "test_globs": ["Tests/ImpulsTests/CalendarStoreTests.swift"],
-      "qa_ids": ["PERM-02", "PERM-03", "PERM-04", "REL-06"]
+      "test_globs": [
+        "Tests/ImpulsTests/CalendarStoreTests.swift"
+      ],
+      "qa_ids": [
+        "PERM-02",
+        "PERM-03",
+        "PERM-04",
+        "REL-06"
+      ]
     },
     {
       "id": "music-and-web",
@@ -83,8 +110,15 @@
         "Tests/ImpulsTests/PlayerBridgeTests.swift"
       ],
       "qa_ids": [
-        "PERM-05", "PERM-06",
-        "MUS-01", "MUS-02", "MUS-03", "MUS-04", "MUS-05", "MUS-06", "MUS-07"
+        "PERM-05",
+        "PERM-06",
+        "MUS-01",
+        "MUS-02",
+        "MUS-03",
+        "MUS-04",
+        "MUS-05",
+        "MUS-06",
+        "MUS-07"
       ]
     },
     {
@@ -112,9 +146,19 @@
         "Tests/ImpulsTests/PowerMonitorTests.swift"
       ],
       "qa_ids": [
-        "PERM-07", "PERM-08",
-        "PWR-01", "PWR-02", "PWR-03", "PWR-04", "PWR-05", "PWR-06",
-        "PWR-07", "PWR-08", "PWR-09", "PWR-10", "PWR-11"
+        "PERM-07",
+        "PERM-08",
+        "PWR-01",
+        "PWR-02",
+        "PWR-03",
+        "PWR-04",
+        "PWR-05",
+        "PWR-06",
+        "PWR-07",
+        "PWR-08",
+        "PWR-09",
+        "PWR-10",
+        "PWR-11"
       ]
     },
     {
@@ -141,8 +185,18 @@
         "Tests/ImpulsTests/StorageIsolationTests.swift"
       ],
       "qa_ids": [
-        "DATA-01", "DATA-02", "DATA-03", "DATA-04", "DATA-05", "DATA-06",
-        "DATA-07", "DATA-08", "DATA-09", "DATA-10", "DATA-11", "REL-05"
+        "DATA-01",
+        "DATA-02",
+        "DATA-03",
+        "DATA-04",
+        "DATA-05",
+        "DATA-06",
+        "DATA-07",
+        "DATA-08",
+        "DATA-09",
+        "DATA-10",
+        "DATA-11",
+        "REL-05"
       ]
     },
     {
@@ -157,7 +211,11 @@
         "Tests/ImpulsTests/ImpulsActionsStoreTests.swift",
         "Tests/ImpulsTests/FileToolsServiceTests.swift"
       ],
-      "qa_ids": ["ACT-01", "ACT-02", "ACT-03"]
+      "qa_ids": [
+        "ACT-01",
+        "ACT-02",
+        "ACT-03"
+      ]
     },
     {
       "id": "translation",
@@ -166,8 +224,15 @@
         "Sources/Impuls/Services/Translator.swift",
         "Sources/Impuls/UI/*Translat*.swift"
       ],
-      "test_globs": ["Tests/ImpulsTests/TranslatorTests.swift"],
-      "qa_ids": ["TR-01", "TR-02", "TR-03", "TR-04"]
+      "test_globs": [
+        "Tests/ImpulsTests/TranslatorTests.swift"
+      ],
+      "qa_ids": [
+        "TR-01",
+        "TR-02",
+        "TR-03",
+        "TR-04"
+      ]
     },
     {
       "id": "appearance-accessibility",
@@ -185,7 +250,14 @@
         "Tests/ImpulsTests/MenuBarWorkspaceTests.swift",
         "Tests/ImpulsTests/PanelTransitionTests.swift"
       ],
-      "qa_ids": ["UI-01", "UI-02", "UI-03", "UI-04", "UI-06"]
+      "qa_ids": [
+        "UI-01",
+        "UI-02",
+        "UI-03",
+        "UI-04",
+        "UI-06",
+        "SUP-01"
+      ]
     },
     {
       "id": "release-update",
@@ -196,8 +268,17 @@
         "Scripts/dmg.sh",
         ".github/workflows/release.yml"
       ],
-      "test_globs": ["Tests/ImpulsTests/UpdateServiceTests.swift"],
-      "qa_ids": ["REL-01", "REL-02", "REL-03", "REL-04", "REL-05", "REL-06"]
+      "test_globs": [
+        "Tests/ImpulsTests/UpdateServiceTests.swift"
+      ],
+      "qa_ids": [
+        "REL-01",
+        "REL-02",
+        "REL-03",
+        "REL-04",
+        "REL-05",
+        "REL-06"
+      ]
     },
     {
       "id": "tcc-entitlements",
@@ -208,16 +289,31 @@
       ],
       "test_globs": [],
       "qa_ids": [
-        "PERM-01", "PERM-02", "PERM-03", "PERM-04",
-        "PERM-05", "PERM-06", "PERM-07", "PERM-08", "REL-06"
+        "PERM-01",
+        "PERM-02",
+        "PERM-03",
+        "PERM-04",
+        "PERM-05",
+        "PERM-06",
+        "PERM-07",
+        "PERM-08",
+        "REL-06"
       ]
     },
     {
       "id": "feature-catalog",
       "description": "Shipped feature/module catalog changed",
-      "source_globs": ["Sources/Impuls/Services/AppFeatureCatalog.swift"],
-      "test_globs": ["Tests/PythonTests/test_project_manifest.py"],
-      "qa_ids": ["REL-01", "UI-01", "UI-02"]
+      "source_globs": [
+        "Sources/Impuls/Services/AppFeatureCatalog.swift"
+      ],
+      "test_globs": [
+        "Tests/PythonTests/test_project_manifest.py"
+      ],
+      "qa_ids": [
+        "REL-01",
+        "UI-01",
+        "UI-02"
+      ]
     },
     {
       "id": "interface-language",
@@ -231,7 +327,24 @@
         "Tests/ImpulsTests/AppLanguageServiceTests.swift",
         "Tests/ImpulsTests/AppRelaunchServiceTests.swift"
       ],
-      "qa_ids": ["UI-07"]
+      "qa_ids": [
+        "UI-07"
+      ]
+    },
+    {
+      "id": "project-support-prompt",
+      "description": "Local project-support prompt policy, its meaningful-use owner, its idle presentation moment or its window changed",
+      "source_globs": [
+        "Sources/Impuls/Services/ProjectSupportPromptService.swift",
+        "Sources/Impuls/Settings/ProjectSupportPromptWindow.swift"
+      ],
+      "test_globs": [
+        "Tests/ImpulsTests/ProjectSupportPromptServiceTests.swift",
+        "Tests/ImpulsTests/ProjectSupportPromptLifecycleTests.swift"
+      ],
+      "qa_ids": [
+        "SUP-01"
+      ]
     }
   ]
 }
