@@ -4,7 +4,7 @@ type: presentation-module
 documentation_version: 1.3
 status: production
 app_version: 1.4.12
-last_reviewed: 2026-08-20
+last_reviewed: 2026-08-21
 tags: [impuls, menu-bar, workspace, presentation]
 ---
 

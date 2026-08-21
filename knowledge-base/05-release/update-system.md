@@ -4,7 +4,7 @@ type: release
 status: active
 documentation_version: 1.1
 app_version: 1.4.12
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-21
 tags: [impuls, updates, sparkle, security]
 ---
 
