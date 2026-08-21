@@ -37,6 +37,7 @@ final class VersionTelemetryService: @unchecked Sendable {
 
     static let consentKey = "versionStatistics.consent.v1"
     static let lastAttemptKey = "versionStatistics.lastAttempt.v1"
+    static let lastAttemptVersionKey = "versionStatistics.lastAttemptVersion.v1"
     static let lastObservedVersionKey = "versionStatistics.lastObservedVersion.v1"
     static let pendingPreviousVersionKey = "versionStatistics.pendingPreviousVersion.v1"
     static let endpointInfoKey = "ImpulsVersionStatisticsEndpoint"
@@ -99,6 +100,15 @@ final class VersionTelemetryService: @unchecked Sendable {
 
     /// Records the attempt before suspension. A failed server must not turn
     /// each relaunch into another request and exceed the once-per-hour promise.
+    ///
+    /// The throttle is scoped to `(appVersion, hour)` rather than a bare
+    /// timestamp: `lastAttemptVersionKey` is compared alongside `lastAttemptKey`,
+    /// so a fresh app version always gets one immediate attempt even when the
+    /// previous version attempted minutes ago. Without this, an update that
+    /// lands inside a still-cooling-down hour would report the old version to
+    /// the dashboard until the next manual relaunch. A version that keeps
+    /// failing still gets only one attempt per hour, because both keys are
+    /// written together before every attempt, failed or not.
     func sendHeartbeatIfNeeded() async -> SendResult {
         let request: URLRequest
         let previousVersion: String?
@@ -110,7 +120,9 @@ final class VersionTelemetryService: @unchecked Sendable {
                 guard let currentVersion = validVersion(appVersion) else { throw Preparation.invalidState }
 
                 let attemptDate = now()
-                if let lastAttempt = defaults.object(forKey: Self.lastAttemptKey) as? Date,
+                let lastAttemptVersion = defaults.string(forKey: Self.lastAttemptVersionKey)
+                if lastAttemptVersion == currentVersion,
+                   let lastAttempt = defaults.object(forKey: Self.lastAttemptKey) as? Date,
                    attemptDate.timeIntervalSince(lastAttempt) < Self.heartbeatInterval {
                     throw Preparation.throttled
                 }
@@ -133,6 +145,7 @@ final class VersionTelemetryService: @unchecked Sendable {
                 prepared.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 prepared.setValue("application/json", forHTTPHeaderField: "Accept")
                 defaults.set(attemptDate, forKey: Self.lastAttemptKey)
+                defaults.set(currentVersion, forKey: Self.lastAttemptVersionKey)
                 return (prepared, previous)
             }
         } catch Preparation.notAllowed {

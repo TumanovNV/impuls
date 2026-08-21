@@ -3,8 +3,8 @@ title: Version Statistics Collector
 type: operations
 status: active
 documentation_version: 1.3
-app_version: 1.4.12
-last_reviewed: 2026-08-19
+app_version: 1.4.13
+last_reviewed: 2026-08-21
 tags: [impuls, telemetry, collector, dashboard, sqlite]
 ---
 
@@ -45,8 +45,16 @@ The client:
 - has consent independent from Sparkle update networking;
 - validates the configured endpoint before transport is touched;
 - permits only HTTPS with exact `/v1/heartbeat` path and no credentials/query/fragment/port;
-- sends at most one attempt per one-hour interval; the attempt timestamp is
-  persisted before transport, so failures and relaunches share the same limit;
+- sends at most one attempt per one-hour interval **for the same app version**;
+  both the attempt timestamp and the app version it was attempted for are
+  persisted before transport, so failures and relaunches of the *same* version
+  share the limit, while an app version that differs from the one last
+  attempted always gets one immediate attempt — this is what lets an update
+  report itself without waiting out the previous version's cooldown;
+- a `VersionTelemetryScheduler` proposes an attempt roughly once an hour for as
+  long as the app keeps running, not only once at launch; it never bypasses
+  the throttle above, since `VersionTelemetryService` alone decides whether a
+  proposal becomes a request;
 - uses an ephemeral URLSession without cookies/cache;
 - rejects HTTP redirects;
 - isolates failure from launch and user-facing app behavior.
@@ -158,7 +166,10 @@ Dashboard design contract:
 The dashboard resolver, not the browser, refreshes its latest-version label
 from the fixed GitHub latest-release API. It accepts only a stable `vN.N.N`
 release tag, atomically stores the validated result, and keeps the last
-successful cache when GitHub is unavailable.
+successful cache when GitHub is unavailable. The refresh interval defaults to
+300 seconds (5 minutes) as of 1.4.14, constrained to 300–86400 seconds by
+`IMPULS_DASHBOARD_GITHUB_REFRESH_INTERVAL`; this is a server-side scheduling
+default on the private dashboard process, not a new client network request.
 
 Tests: [`test_version_statistics_dashboard.py`](../../Tests/PythonTests/test_version_statistics_dashboard.py).
 

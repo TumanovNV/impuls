@@ -3,8 +3,8 @@ title: Core Type Reference
 type: reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.12
-last_reviewed: 2026-08-20
+app_version: 1.4.13
+last_reviewed: 2026-08-21
 tags: [impuls, reference, swift, ownership, ai]
 ---
 
@@ -337,7 +337,9 @@ Owns:
 
 - independent consent;
 - endpoint validation;
-- **once-per-hour maximum attempt cadence** in 1.4.12;
+- **once-per-hour maximum attempt cadence for the running app version**, so an
+  app version that differs from the last attempted one is not throttled by an
+  older version's cooldown (1.4.14);
 - version transition state;
 - device-local installation UUID in Keychain;
 - exact JSON payload schema;
@@ -346,6 +348,8 @@ Owns:
 - best-effort failure isolation from app behavior.
 
 The installation UUID is not an Apple-device identifier and the collector stores an HMAC digest rather than the raw value.
+
+`VersionTelemetryScheduler` (1.4.14) is a small `@MainActor` companion that proposes an attempt roughly once an hour for as long as `AppDelegate` runs. It owns no throttle/consent/endpoint policy of its own — every proposal still goes through `VersionTelemetryService.sendHeartbeatIfNeeded()`, which decides whether it becomes a request.
 
 Canonical docs: [Version Statistics Collector](../07-web/version-statistics-collector.md), [Networking](../01-architecture/networking.md), [Privacy Boundaries](../06-security/privacy-boundaries.md), [Operations Boundary](operations-boundary.md).
 

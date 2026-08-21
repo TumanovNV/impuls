@@ -403,13 +403,30 @@ struct OnboardingFlow: View {
     }
 
     private var whatsNew: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let content = WhatsNewCatalog.content(forVersion: Bundle.main.shortVersion)
+        return VStack(alignment: .leading, spacing: 18) {
             OnboardingPageHeader(
-                symbol: "menubar.rectangle",
-                title: localized("What’s new in Impuls 1.4.11"),
-                detail: localized("The Menu Bar is now a configurable workspace: choose a status mode, one or two live widgets, and up to four quick actions. Existing settings and permissions were kept unchanged.")
+                symbol: "sparkles",
+                title: content.title,
+                detail: content.detail
             )
-            Button(localized("Open Menu Bar Settings")) {
+            if !content.highlights.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(content.highlights, id: \.self) { highlight in
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.callout)
+                                .foregroundStyle(.tint)
+                                .accessibilityHidden(true)
+                            Text(highlight)
+                                .font(.callout)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+                .accessibilityElement(children: .contain)
+            }
+            Button(localized("Open Settings")) {
                 onOpenSettings()
                 onFinish(presentation)
             }

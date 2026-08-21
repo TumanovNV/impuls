@@ -113,7 +113,7 @@ export IMPULS_DASHBOARD_PORT=8090
 export IMPULS_DASHBOARD_DATABASE=/var/lib/impuls-statistics/version-statistics.sqlite3
 export IMPULS_DASHBOARD_LATEST_VERSION=1.4.11
 export IMPULS_DASHBOARD_LATEST_VERSION_CACHE=/var/lib/impuls-statistics/latest-version.json
-export IMPULS_DASHBOARD_GITHUB_REFRESH_INTERVAL=3600
+export IMPULS_DASHBOARD_GITHUB_REFRESH_INTERVAL=300
 export IMPULS_DASHBOARD_ALLOWED_CIDR=10.0.0.0/24
 python3 dashboard.py
 ```
@@ -121,7 +121,8 @@ python3 dashboard.py
 The host defaults to `127.0.0.1`, the port to `8090`, and the allowed network
 to `127.0.0.0/8`. Database and bootstrap latest-version values are required.
 The cache path defaults to `latest-version.json` alongside the database, and the
-refresh interval defaults to 3600 seconds; it is constrained to 300 through
+refresh interval defaults to 300 seconds (5 minutes), so the latest-published-version
+label does not lag an update by up to an hour; it is constrained to 300 through
 86400 seconds. In production, bind to the WireGuard address only and set the
 CIDR to the VPN peer network. The handler checks the socket peer address directly
 and deliberately ignores proxy headers.

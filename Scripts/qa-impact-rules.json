@@ -12,8 +12,11 @@
   ],
   "exemptions": [
     {
-      "source_globs": ["Sources/Impuls/Services/VersionTelemetryService.swift"],
-      "reason": "Version-only telemetry has no user-facing Behavioral QA row; it is governed by version-statistics tests, network/privacy docs and the private operations boundary."
+      "source_globs": [
+        "Sources/Impuls/Services/VersionTelemetryService.swift",
+        "Sources/Impuls/Services/VersionTelemetryScheduler.swift"
+      ],
+      "reason": "Version-only telemetry has no user-facing Behavioral QA row; it is governed by VersionTelemetryServiceTests/VersionTelemetrySchedulerTests, network/privacy docs and the private operations boundary. The scheduler only proposes an attempt on a bounded cadence and carries no policy of its own."
     },
     {
       "source_globs": ["Sources/Impuls/Services/FeedbackService.swift"],
@@ -95,6 +98,7 @@
         "Sources/Impuls/Services/MobileDevice*.swift",
         "Sources/Impuls/Services/IORegistry*.swift",
         "Sources/Impuls/Services/RegistryNumber.swift",
+        "Sources/Impuls/Services/SystemProfilerAccessory*.swift",
         "Sources/Impuls/UI/*Power*.swift"
       ],
       "test_globs": [
@@ -173,6 +177,7 @@
         "Sources/Impuls/App/MenuBarStatusItemPresentation.swift",
         "Sources/Impuls/App/MenuBarWorkspaceController.swift",
         "Sources/Impuls/Services/MenuBarWorkspace.swift",
+        "Sources/Impuls/Services/WhatsNewCatalog.swift",
         "Sources/Impuls/Settings/*.swift"
       ],
       "test_globs": [

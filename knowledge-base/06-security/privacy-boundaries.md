@@ -3,8 +3,8 @@ title: Privacy Boundaries
 type: security
 status: active
 documentation_version: 1.3
-app_version: 1.4.12
-last_reviewed: 2026-08-20
+app_version: 1.4.13
+last_reviewed: 2026-08-21
 tags: [impuls, privacy, boundaries]
 ---
 
@@ -44,7 +44,7 @@ External Apple-device data remains a local presentation/provider domain. Battery
 
 Update consent, web-player action и version-statistics consent — три разных решения пользователя. Consent одной boundary не переносится на другую.
 
-Version statistics remain off until their own opt-in. In 1.4.12 the client may attempt the narrow heartbeat no more than once per hour; a failed collector does not convert application launch or user-facing work into retry traffic.
+Version statistics remain off until their own opt-in. The client may attempt the narrow heartbeat no more than once per hour for the same app version; a failed collector does not convert application launch or user-facing work into retry traffic. As of 1.4.14, an app version that differs from the version of the last attempt is not held back by that limit — this closes a real gap where an update landing inside a still-cooling-down hour kept reporting the old version until the next manual relaunch. A best-effort in-process scheduler also proposes an attempt roughly hourly for the life of the run rather than only once at launch; it does not change what is sent or how often a single version may actually attempt.
 
 ## Identity separation
 

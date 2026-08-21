@@ -133,6 +133,7 @@
 "Permissions" = "Permissions";
 "Data" = "Data";
 "Data and Privacy" = "Data and Privacy";
+"Enabled" = "Enabled";
 "Disabled" = "Disabled";
 "Hover and keyboard shortcut" = "Hover and keyboard shortcut";
 "Keyboard shortcut only" = "Keyboard shortcut only";
@@ -401,6 +402,7 @@
 "Apple Devices" = "Apple Devices";
 "Discovery" = "Discovery";
 "Devices" = "Devices";
+"Updated" = "Updated";
 "Show Connected Apple Devices" = "Show Connected Apple Devices";
 "External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested." = "External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested.";
 "Find Devices" = "Find Devices";
@@ -548,7 +550,6 @@
 "Now Playing" = "Now Playing";
 "Onboarding progress" = "Onboarding progress";
 "Open Impuls" = "Open Impuls";
-"Open Menu Bar Settings" = "Open Menu Bar Settings";
 "Open the panel from the Menu Bar, hover the notch when hover activation is enabled, or use your global shortcut. Reopen this tour from Settings → Menu Bar whenever you want a refresher." = "Open the panel from the Menu Bar, hover the notch when hover activation is enabled, or use your global shortcut. Reopen this tour from Settings → Menu Bar whenever you want a refresher.";
 "Opens the privacy policy in your default browser." = "Opens the privacy policy in your default browser.";
 "Permissions stay in your control" = "Permissions stay in your control";
@@ -571,13 +572,19 @@
 "Smart" = "Smart";
 "Smart Priorities" = "Smart Priorities";
 "Status Item" = "Status Item";
-"The Menu Bar is now a configurable workspace: choose a status mode, one or two live widgets, and up to four quick actions. Existing settings and permissions were kept unchanged." = "The Menu Bar is now a configurable workspace: choose a status mode, one or two live widgets, and up to four quick actions. Existing settings and permissions were kept unchanged.";
 "This choice changes no other setting. Impuls will use the configured collector only after you explicitly allow it." = "This choice changes no other setting. Impuls will use the configured collector only after you explicitly allow it.";
 "Use Mac Fallback" = "Use Mac Fallback";
 "Version statistics are separate from feedback and updates. They are off until you explicitly allow them, and ‘Not now’ keeps the decision unknown so you can choose later." = "Version statistics are separate from feedback and updates. They are off until you explicitly allow them, and ‘Not now’ keeps the decision unknown so you can choose later.";
 "Version statistics are unavailable in this local build because no collector endpoint is configured. You can still decide later in Settings." = "Version statistics are unavailable in this local build because no collector endpoint is configured. You can still decide later in Settings.";
 "Welcome to Impuls" = "Welcome to Impuls";
-"What’s new in Impuls 1.4.11" = "What’s new in Impuls 1.4.11";
+"What’s new in Impuls %@" = "What’s new in Impuls %@";
+"Here’s what changed in this update:" = "Here’s what changed in this update:";
+"This update includes reliability and compatibility improvements. See the release notes for the full list." = "This update includes reliability and compatibility improvements. See the release notes for the full list.";
+"A redesigned Power Center with a device navigator and real details for every connected Mac, iPhone and iPad." = "A redesigned Power Center with a device navigator and real details for every connected Mac, iPhone and iPad.";
+"More reliable detection for Magic Keyboard, Magic Mouse and Magic Trackpad." = "More reliable detection for Magic Keyboard, Magic Mouse and Magic Trackpad.";
+"Clearer status for the Apple devices connected to this Mac." = "Clearer status for the Apple devices connected to this Mac.";
+"A new Impuls app icon and Menu Bar glyph." = "A new Impuls app icon and Menu Bar glyph.";
+"General reliability and compatibility improvements." = "General reliability and compatibility improvements.";
 "When Status Item or a widget is Automatic, the first available priority wins." = "When Status Item or a widget is Automatic, the first available priority wins.";
 "Widgets" = "Widgets";
 "Work" = "Work";

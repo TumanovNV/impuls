@@ -30,11 +30,18 @@ fi
 echo "==> Sparkle 2 framework"
 ditto "$SPARKLE_FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
 
-echo "==> application and menu-bar icons"
-swift "$ROOT/Scripts/make-icon.swift" \
-    "$ROOT/Resources/ImpulsAppIcon.png" \
-    "$APP/Contents/Resources/AppIcon.icns" \
-    "$APP/Contents/Resources/ImpulsStatusTemplate.png"
+echo "==> application icon"
+# The iconset holds Apple's own per-size renders of the approved icon, not a
+# single master resampled down: iconutil is the officially supported way to
+# turn a folder of exact-size PNGs into the .icns Finder/Dock/About read, and
+# it needs no Xcode project to run.
+iconutil -c icns "$ROOT/Resources/AppIcon.iconset" -o "$APP/Contents/Resources/AppIcon.icns"
+
+echo "==> menu-bar icon"
+# The approved vector mark, loaded as a template image at runtime — see
+# MenuBarWorkspaceController.cachedStatusIcon. Resources/ImpulsMenuBarTemplate.svg
+# is the editable master and is not bundled.
+cp "$ROOT/Resources/ImpulsMenuBarTemplate.pdf" "$APP/Contents/Resources/ImpulsMenuBarTemplate.pdf"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

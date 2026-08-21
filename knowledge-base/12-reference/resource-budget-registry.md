@@ -3,8 +3,8 @@ title: Input & Resource Budget Registry
 type: reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.12
-last_reviewed: 2026-08-20
+app_version: 1.4.13
+last_reviewed: 2026-08-21
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
 
@@ -85,7 +85,8 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Device topology reconnect | 1 s doubling to 60 s | unbounded in attempts by design, bounded in interval |
 | Low-battery background override | 60 s low / 300 s otherwise | only while alerts are enabled |
 | Rail hover dwell | 150 ms | hover is an affordance, not a selection |
-| Version telemetry | max one attempt per 1 h | timestamp is recorded before request, including failures; 10 s request/resource timeout |
+| Version telemetry attempt | max one attempt per `(app version, 1 h)` | both the timestamp and the attempted app version are recorded before request, including failures; a different app version is not throttled by an older version's cooldown; 10 s request/resource timeout |
+| Version telemetry proposal | `VersionTelemetryScheduler` fires every 1 h, tolerance 15 min (`interval / 4`) | proposes an attempt only; `VersionTelemetryService`'s cap above still applies, so this never raises the effective send rate |
 | Sparkle scheduled check | 86,400 s | only after user enables automatic checks |
 
 ## Budget change rules

@@ -99,10 +99,17 @@ because no Bluetooth accessory was connected during the inspection.
 Implemented in 1.4.6 by `IORegistryAccessoryProvider` (phase 03). What the
 implementation commits to, and what it refuses to do:
 
-- an accessory is listed only when it is **Apple by vendor identifier**
-  (`VendorID == 0x05AC`), falling back to a `Manufacturer` string only where no
-  numeric identifier exists. The word "Apple" in a product name proves nothing
-  and is never used as evidence;
+- an accessory is listed only when it is **Apple by vendor identifier**,
+  falling back to a `Manufacturer` string only where no numeric identifier
+  exists. The word "Apple" in a product name proves nothing and is never used
+  as evidence.
+  > **Correction, 2026-08-21:** this section originally required
+  > `VendorID == 0x05AC` (the USB-IF identifier) only. Hardware QA on a Mac
+  > mini found that Bluetooth Magic Keyboard/Mouse/Trackpad publish
+  > `VendorID == 0x004C` (the Bluetooth SIG identifier) instead, which silently
+  > dropped every one of them. `IORegistryAccessoryMapper` now accepts both
+  > namespaces — see `knowledge-base/02-modules/power.md` for the current
+  > implementation, not this research note;
 - an accessory is listed only when it has a **stable hardware identifier**
   (`DeviceAddress` or `SerialNumber`) to derive its identity from. The registry
   entry ID is not used: it is reassigned on every reconnect, so it cannot
