@@ -133,6 +133,7 @@
 "Permissions" = "Permissions";
 "Data" = "Data";
 "Data and Privacy" = "Data and Privacy";
+"Enabled" = "Enabled";
 "Disabled" = "Disabled";
 "Hover and keyboard shortcut" = "Hover and keyboard shortcut";
 "Keyboard shortcut only" = "Keyboard shortcut only";
@@ -401,6 +402,7 @@
 "Apple Devices" = "Apple Devices";
 "Discovery" = "Discovery";
 "Devices" = "Devices";
+"Updated" = "Updated";
 "Show Connected Apple Devices" = "Show Connected Apple Devices";
 "External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested." = "External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested.";
 "Find Devices" = "Find Devices";
