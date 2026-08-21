@@ -51,6 +51,10 @@ WebKit создаётся только после явного `Open Web Player`
 
 `build.yml` и `release.yml` ищут `URLSession`, `URLRequest`, Network.framework/socket helpers и запрещают их во всех остальных Swift-файлах. Добавление четвёртого владельца сети должно быть ADR-level решением.
 
+## Не путать с локализацией
+
+Поставка семи языков и настройка «Язык приложения» сетевой поверхности не добавляют. Таблицы строк лежат в bundle, а `AppLanguageService` пишет только два локальных ключа `UserDefaults` — `app.language.v1` и `AppleLanguages`. Никакого языкового пакета Impuls не загружает. Владельцев сети по-прежнему трое.
+
 ## Не путать с локальным device I/O
 
 iPhone/iPad provider использует локальные macOS/device transport mechanisms, а не Internet product networking. Его privacy boundary — explicit external-device switch; hardware I/O также документируется и тестируется отдельно.
