@@ -6,10 +6,14 @@ history. A canonical document is fresh only when the latest commit touching its
 tracked source is an ancestor of the latest commit touching the document and
 its `last_reviewed` date is not older than that source change.
 
-The `last_reviewed` half is skipped when the source and the document share their
-latest commit: the two travelled together, so there is no history gap to measure,
-and comparing a local-calendar commit day against a hand-written review date only
-produces timezone false positives.
+Every date this check compares is UTC: commit dates are read as timestamps and
+converted, `last_reviewed` is pinned to the repository's UTC day by the
+Documentation Standard, and CI runners are UTC. Mixing a committer's local
+calendar day into that produced drift reports for documents that had not drifted.
+
+The `last_reviewed` half is skipped entirely when the source and the document
+share their latest commit: the two travelled together, so there is no history gap
+left to measure.
 """
 
 from __future__ import annotations
@@ -18,7 +22,7 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,11 +98,20 @@ def load_manifest() -> list[dict]:
 
 
 def latest_commit(paths: list[str]) -> tuple[str, date]:
-    _, output = git("log", "-1", "--format=%H%x09%cs", "--", *paths)
+    # `%ct` — the committer date as a Unix timestamp — rather than `%cs`, which
+    # renders the committer's *local* calendar day. Everything else this check
+    # compares is UTC: `date.today()` on a UTC CI runner, and `last_reviewed`,
+    # which the Documentation Standard pins to the repository's UTC day. A
+    # committer east of UTC working in the evening stamps a commit with
+    # tomorrow's local day, and the comparison then reports drift that does not
+    # exist. One timestamp, one time zone, no calendar arithmetic across three
+    # different frames.
+    _, output = git("log", "-1", "--format=%H%x09%ct", "--", *paths)
     if not output or "\t" not in output:
         raise ValueError(f"no git history for tracked path(s): {', '.join(paths)}")
-    sha, raw_date = output.split("\t", 1)
-    return sha, date.fromisoformat(raw_date)
+    sha, raw_timestamp = output.split("\t", 1)
+    committed = datetime.fromtimestamp(int(raw_timestamp), tz=timezone.utc)
+    return sha, committed.date()
 
 
 def is_ancestor(ancestor: str, descendant: str) -> bool:
@@ -124,14 +137,13 @@ def freshness_reasons(
     if reviewed_date > today:
         reasons.append(f"last_reviewed {reviewed_date.isoformat()} is in the future")
     # A document whose latest commit *is* the latest commit of its tracked source
-    # travelled with that source. There is no history gap left to measure, and the
-    # date comparison below would answer a question that no longer exists: `%cs`
-    # renders the committer's local calendar day, so a change written and reviewed
-    # late on one day in a positive UTC offset commits as the next day and fails a
-    # `last_reviewed` that was correct when it was written. That is exactly what
-    # PR #75 hit. Same-commit review is the Documentation Guardian's territory —
-    # it inspects the diff itself — and this checker exists for the other case:
-    # source that moved on in a *later* commit than its canonical document.
+    # travelled with that source, so there is no history gap left to measure and
+    # the comparison below answers a question that no longer exists. Same-commit
+    # review is the Documentation Guardian's territory — it inspects the diff
+    # itself — and this checker exists for the other case: source that moved on in
+    # a *later* commit than its canonical document. This also absorbs the
+    # remaining calendar edge, where a review written just before midnight UTC is
+    # committed just after it.
     if source_date > reviewed_date and not source_is_doc_commit:
         reasons.append(
             f"tracked source changed on {source_date.isoformat()} after last_reviewed {reviewed_date.isoformat()}"

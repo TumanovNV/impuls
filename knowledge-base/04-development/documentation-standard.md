@@ -4,7 +4,7 @@ type: development-standard
 status: active
 documentation_version: 1.2
 app_version: 1.4.14
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-21
 tags: [impuls, documentation, obsidian, ai]
 ---
 
@@ -25,7 +25,7 @@ type: architecture
 status: active
 documentation_version: 1.3
 app_version: 1.4.14
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-21
 tags: [impuls, ...]
 ---
 ```
@@ -62,6 +62,10 @@ tags: [impuls, ...]
 `app_version` — версия продукта, на которой документ был фактически сверён. Только baseline entrypoints — `knowledge-base/INDEX.md`, `00-project/project-status.md`, `10-ai/AI-INDEX.md`, `12-reference/README.md`, `13-qa/README.md` — обязаны совпадать с `Scripts/version`; их список зафиксирован в checker'е. Historical/deep documents обновляют review metadata при реальной сверке, а не механически.
 
 `documentation_version` — версия самого стандарта документации; текущий baseline `1.3` проверяется checker'ом у тех же baseline entrypoints.
+
+**`last_reviewed` ставится на UTC-день репозитория, а не на локальный день автора.** `check-documentation-freshness.py` сравнивает дату с `date.today()` на CI-раннере, который работает в UTC. Автор восточнее UTC, правящий документ вечером, локально видит уже следующее число — и такая дата отвергается как «in the future», хотя сверка действительно произошла. Проверяйте `date -u`, а не `date`. Это соглашение, а не обход проверки: правило «дата ревью не может быть в будущем» остаётся в силе, и ослаблять его в checker'е ради одного часового пояса не нужно.
+
+Обратная сторона того же расхождения календарей решена в самом checker'е: документ, попавший в один коммит со своим tracked source, дату не сверяет вовсе — они уехали вместе, и историческому разрыву взяться неоткуда.
 
 ## Module docs
 

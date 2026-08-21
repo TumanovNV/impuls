@@ -4,7 +4,7 @@ type: architecture
 status: active
 documentation_version: 1.2
 app_version: 1.4.14
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-21
 tags: [impuls, architecture, displays, notch]
 ---
 
