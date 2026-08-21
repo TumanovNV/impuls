@@ -106,6 +106,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | UI-04 | Reduce Motion enabled | mixed | transitions use reduced-motion contract rather than full animation |
 | UI-05 | Keyboard handoff between displays/text modules | mixed | keyboard ownership follows active surface without stealing focus from another app |
 | UI-06 | Menu Bar battery status in light/dark on Retina display | manual-macos | native battery glyph, percentage and charging bolt remain legible, aligned and semantically coloured in both appearances at Retina scale |
+| UI-07 | Interface language chosen in Settings, confirmed restart | manual-macos | confirming the restart prompt quits and reopens Impuls by itself — no manual relaunch, no logout, no reboot — and the returning UI is in the chosen language with no pending-restart message. The old instance is fully gone before the new one starts: exactly one Impuls runs at any moment, the global shortcut works after the restart, and notes, clipboard history and shelf survive. The new process comes from the same bundle URL that was running. Impuls's own usage-description string is read from the chosen localization; returning to System Default restores macOS language selection, and a per-app language set from macOS itself survives a launch untouched. Cancelling keeps the language and leaves the restart offered. System-supplied permission-dialog chrome staying in the macOS language is not an Impuls defect; a missing or wrong-locale usage description is |
 
 ## Release and update
 

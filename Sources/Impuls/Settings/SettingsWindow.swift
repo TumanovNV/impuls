@@ -171,7 +171,7 @@ private struct SettingsView: View {
         SettingsDetailPage(title: section.title) {
             switch section {
             case .general:
-                GeneralSettingsPane(settings: settings)
+                GeneralSettingsPane(settings: settings, appLanguage: settings.appLanguage)
             case .menuBar:
                 MenuBarSettingsPane(settings: settings, onShowOnboarding: onShowOnboarding)
             case .updates:
@@ -281,8 +281,38 @@ private struct UpdateSettingsPane: View {
 
 private struct GeneralSettingsPane: View {
     @ObservedObject var settings: SettingsStore
+    /// Observed in its own right: the preference lives in the service, not in a
+    /// mirrored `SettingsStore` field, so the picker redraws only if the view is
+    /// subscribed to the object that actually publishes the change.
+    @ObservedObject var appLanguage: AppLanguageService
+    /// Restarting is orchestration, not presentation: the pane asks, the service
+    /// decides the order in which the helper starts and this process quits.
+    var relaunchService = AppRelaunchService()
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var launchError = ""
+    @State private var confirmingRestart = false
+    @State private var restartFailed = false
+
+    private var language: Binding<AppLanguage> {
+        Binding(
+            get: { appLanguage.selection },
+            set: { selected in
+                appLanguage.select(selected)
+                // Only ask when something is actually pending. Picking the
+                // language the process already started with is a no-op, and
+                // choosing back and forth must not leave a stale prompt.
+                confirmingRestart = appLanguage.requiresRelaunch
+            }
+        )
+    }
+
+    private func restart() {
+        // Cancelling does not undo the choice — it is already persisted, and it
+        // applies at the next ordinary launch either way.
+        if relaunchService.relaunch(pendingChange: appLanguage.requiresRelaunch) == .failed {
+            restartFailed = true
+        }
+    }
 
     var body: some View {
         Form {
@@ -334,6 +364,32 @@ private struct GeneralSettingsPane: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Language") {
+                Picker("Interface Language", selection: language) {
+                    ForEach(appLanguage.selectableLanguages) { option in
+                        if option == .system {
+                            Text("System Default").tag(option)
+                        } else {
+                            // Verbatim on purpose: a language is named in itself,
+                            // and a plain literal would become a LocalizedStringKey
+                            // lookup for a key no table carries.
+                            Text(verbatim: option.endonym).tag(option)
+                        }
+                    }
+                }
+                Text("Impuls follows the macOS language unless you choose one here.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if appLanguage.requiresRelaunch {
+                    // Kept visible after a cancelled prompt: the choice stands,
+                    // so the way to apply it has to stand with it.
+                    Text("The selected language will be applied after Impuls restarts.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("Restart Impuls") { confirmingRestart = true }
+                }
+            }
+
             Section("Startup and Storage") {
                 Toggle("Launch at Login", isOn: Binding(
                     get: { launchAtLogin },
@@ -348,6 +404,17 @@ private struct GeneralSettingsPane: View {
         }
         .formStyle(.grouped)
         .onAppear { launchAtLogin = SMAppService.mainApp.status == .enabled }
+        .alert("Restart Impuls?", isPresented: $confirmingRestart) {
+            Button("Cancel", role: .cancel) { }
+            Button("Restart") { restart() }
+        } message: {
+            Text("Restart Impuls to apply the selected language.")
+        }
+        .alert("Could Not Restart Impuls", isPresented: $restartFailed) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("Impuls could not restart automatically. The selected language will be applied the next time it starts.")
+        }
     }
 
     private func updateLaunchAtLogin(_ enabled: Bool) {

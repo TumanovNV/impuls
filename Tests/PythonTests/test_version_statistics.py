@@ -213,7 +213,14 @@ class ReleaseStatsTests(unittest.TestCase):
 
 
 class LocalizationTests(unittest.TestCase):
-    def test_russian_and_english_keys_are_identical_and_cover_localized_calls(self):
+    def test_every_table_has_the_same_keys_once_and_covers_localized_calls(self):
+        """Duplicate keys are only caught here.
+
+        `check-localization.py` compares key *sets*, so a key written twice in one
+        table disappears into the set and passes. This test walks every shipped
+        table rather than just English and Russian: with seven of them, a duplicate
+        introduced in a newly translated table would otherwise go unnoticed.
+        """
         def keys(path):
             found = re.findall(
                 r'^"((?:[^"\\]|\\.)*)"\s*=',
@@ -227,9 +234,12 @@ class LocalizationTests(unittest.TestCase):
             )
             return set(found)
 
+        tables = sorted((ROOT / "Resources").glob("*.lproj/Localizable.strings"))
+        self.assertTrue(tables, "no Localizable.strings tables were found")
+
         english = keys(ROOT / "Resources/en.lproj/Localizable.strings")
-        russian = keys(ROOT / "Resources/ru.lproj/Localizable.strings")
-        self.assertEqual(english, russian)
+        for table in tables:
+            self.assertEqual(english, keys(table), f"{table} disagrees with English")
 
         used = set()
         for path in (ROOT / "Sources").rglob("*.swift"):

@@ -3,8 +3,8 @@ title: Storage and Persistence
 type: architecture
 status: active
 documentation_version: 1.1
-app_version: 1.4.12
-last_reviewed: 2026-08-20
+app_version: 1.4.14
+last_reviewed: 2026-08-21
 tags: [impuls, storage, persistence, privacy]
 ---
 
@@ -18,6 +18,7 @@ flowchart TD
     UD --> SH[Shelf URL references]
     UD --> MEDIA[Selected music source]
     UD --> TR[Translation language pair]
+    UD --> LANG[Interface language\napp.language.v1 + AppleLanguages]
 
     AS[Application Support / Impuls] --> NOTES[notes.json]
     AS --> SNIP[snippets.json]
@@ -39,6 +40,16 @@ flowchart TD
 ## Settings
 
 `SettingsStore` хранит persisted preferences в UserDefaults. Export snapshot включает переносимые настройки, но **не включает local-only device keys** и selected physical device identity.
+
+## Язык интерфейса
+
+Выбор языка персистится отдельно от snapshot'а и в backup не попадает: он машинно-локален, потому что применяется через `AppleLanguages` в домене конкретного Mac. Владелец — `AppLanguageService`; `SettingsStore` держит его по композиции и второй копии не хранит.
+
+Ключей два и роли у них разные. `app.language.v1` — выбор, сделанный внутри Impuls. `AppleLanguages` — системный механизм per-app языка, который пользователь мог задать и средствами самой macOS, поэтому Impuls пишет его только при явном выборе языка и удаляет только при явном возврате на «Системный» поверх собственного override. Чтение состояния не имеет побочных эффектов: отсутствующее, `system` или нераспознанное значение деградирует в памяти, ничего не записывая.
+
+Запись сбрасывается на диск сразу при выборе языка, а не откладывается до выхода из приложения. Причина конкретная: подтверждённая смена языка завершает процесс почти сразу после записи, и следующий процесс должен прочитать уже новое значение. Это единственное место, где Impuls форсирует flush `UserDefaults`; в остальном порядок записи обычный.
+
+Подробности и политика совместимости — в [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
 
 ## Notes
 

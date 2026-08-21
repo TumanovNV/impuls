@@ -3,7 +3,7 @@ title: macOS Permissions and TCC
 type: platform
 status: active
 documentation_version: 1.1
-app_version: 1.4.11
+app_version: 1.4.14
 last_reviewed: 2026-08-21
 tags: [impuls, macos, tcc, permissions]
 ---
@@ -33,6 +33,14 @@ Status check is non-prompting. If not determined, user action may request Automa
 ## Notifications
 
 `PermissionCenter` treats `.authorized` / `.provisional` as allowed. `notDetermined` is still not granted. Low-battery alert code may ask only when the user enables the feature with request authorization intent.
+
+## Prompt text and language
+
+Тексты usage description живут в `Resources/<lang>.lproj/InfoPlist.strings` — по одной таблице на каждый из семи поставляемых языков. macOS предпочитает значение из подходящей `.lproj/InfoPlist.strings`, когда она существует, поэтому строка, которую пользователь читает в системном диалоге, следует языку приложения, включая выбор в Settings → General → Language (он применяется со следующего запуска).
+
+Границу нужно понимать точно: Impuls владеет **своей** строкой usage description, но не остальной частью диалога. Кнопки, заголовки и прочий chrome остаются на языке macOS, и это не дефект Impuls. Дефект — отсутствие локализованной usage description или показ строки не той локали. Ручная проверка записана как `UI-07` в [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md).
+
+Добавление языка требует новой `InfoPlist.strings` **и** записи в `CFBundleLocalizations` (`Scripts/bundle.sh`); CI проверяет и то, и другое в собранном `.app`.
 
 ## Update/reinstall caveat
 

@@ -300,6 +300,11 @@ final class SettingsStore: ObservableObject {
     /// never instantiate macOS Notification Center outside an application.
     lazy var lowBatteryAlerts: LowBatteryAlertService =
         lowBatteryAlertsOverride ?? LowBatteryAlertService(defaults: defaults)
+    /// Held by composition, not copied. The interface language has exactly one
+    /// owner — see `AppLanguageService` — and a `@Published` mirror here would be
+    /// a second source of truth for the same preference. Settings only forwards
+    /// this to the picker.
+    let appLanguage: AppLanguageService
     private var isApplying = false
     private var currentAppleDevicePreferenceKeys = Set<String>()
     private var refreshExternalAppleDevicesAction: (() -> Void)?
@@ -308,6 +313,7 @@ final class SettingsStore: ObservableObject {
     init(defaults: UserDefaults = .standard, lowBatteryAlerts: LowBatteryAlertService? = nil) {
         self.defaults = defaults
         lowBatteryAlertsOverride = lowBatteryAlerts
+        appLanguage = AppLanguageService(defaults: defaults)
         let fallback = Self.defaultSnapshot(defaults: defaults)
         let stored = defaults.data(forKey: Self.storageKey)
             .flatMap { try? JSONDecoder().decode(ImpulsSettingsSnapshot.self, from: $0) }

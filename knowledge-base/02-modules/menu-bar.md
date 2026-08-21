@@ -76,7 +76,7 @@ Intentional entrance points: open panel, screenshot folder actions и перех
 - `Sources/Impuls/App/MenuBarStatusItemPresentation.swift` — status-item formatting and battery presentation;
 - `Sources/Impuls/App/MenuBarWorkspaceController.swift` — AppKit presentation/controller glue over existing state;
 - `Sources/Impuls/Services/AppFeatureCatalog.swift` — shipped quick-action/module catalogue;
-- `Sources/Impuls/Settings/SettingsStore.swift` — persisted generic workspace config + local-only selected device preference;
+- `Sources/Impuls/Settings/SettingsStore.swift` — persisted generic workspace config + local-only selected device preference; оно же держит `AppLanguageService` по композиции, но язык интерфейса не персистит и к Menu Bar отношения не имеет;
 - `Tests/ImpulsTests/MenuBarWorkspaceTests.swift` — resolver/configuration/persistence behavior;
 - `Tests/ImpulsTests/MenuBarStatusItemPresentationTests.swift` — battery glyph, percentage and charging presentation contract.
 

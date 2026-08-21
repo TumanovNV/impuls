@@ -605,3 +605,16 @@
 "Open the Impuls panel." = "Open the Impuls panel.";
 "Reveal the locally stored clipboard screenshots in Finder." = "Reveal the locally stored clipboard screenshots in Finder.";
 "Remove locally stored clipboard screenshots." = "Remove locally stored clipboard screenshots.";
+
+/* Interface language. The language names themselves are not here: a language is
+   named in itself in every table, so they stay verbatim at the call site. */
+"Interface Language" = "Interface Language";
+"System Default" = "System Default";
+"Impuls follows the macOS language unless you choose one here." = "Impuls follows the macOS language unless you choose one here.";
+"Restart Impuls?" = "Restart Impuls?";
+"Restart Impuls to apply the selected language." = "Restart Impuls to apply the selected language.";
+"Restart" = "Restart";
+"Restart Impuls" = "Restart Impuls";
+"The selected language will be applied after Impuls restarts." = "The selected language will be applied after Impuls restarts.";
+"Could Not Restart Impuls" = "Could Not Restart Impuls";
+"Impuls could not restart automatically. The selected language will be applied the next time it starts." = "Impuls could not restart automatically. The selected language will be applied the next time it starts.";
