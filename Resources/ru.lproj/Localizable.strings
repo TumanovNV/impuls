@@ -132,6 +132,7 @@
 "Permissions" = "Разрешения";
 "Data" = "Данные";
 "Data and Privacy" = "Данные и конфиденциальность";
+"Enabled" = "Включено";
 "Disabled" = "Отключено";
 "Hover and keyboard shortcut" = "Наведение и горячая клавиша";
 "Keyboard shortcut only" = "Только горячая клавиша";
@@ -400,6 +401,7 @@
 "Apple Devices" = "Устройства Apple";
 "Discovery" = "Обнаружение";
 "Devices" = "Устройства";
+"Updated" = "Обновлено";
 "Show Connected Apple Devices" = "Показывать подключённые устройства Apple";
 "External device discovery is off by default. Device data is never sent over the internet; processing stays local to this Mac and its connected devices. Bluetooth permission is not requested." = "Обнаружение внешних устройств по умолчанию выключено. Данные об устройствах не отправляются в интернет: обработка выполняется локально на этом Mac и подключённых к нему устройствах. Доступ к Bluetooth не запрашивается.";
 "Find Devices" = "Найти устройства";

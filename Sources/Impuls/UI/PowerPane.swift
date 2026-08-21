@@ -43,49 +43,80 @@ struct PowerPane: View {
     /// device's own detail card on the right. Replaces the old horizontal
     /// switcher-plus-card stack, which read as a row of chips rather than a
     /// list of the person's devices.
+    ///
+    /// Refresh sits above the split rather than inside `NotchContentView`'s
+    /// shared header: that row leaves a hit-testing gap for menu-bar
+    /// utilities and is documented as accepting nothing interactive.
+    /// Anchoring the button to the top of Power's own content gives the same
+    /// "title row with an action" read without touching it.
     private var multiDeviceCenter: some View {
-        GeometryReader { geo in
-            HStack(spacing: Theme.Space.m) {
-                deviceNavigator
-                    .frame(width: navigatorWidth(in: geo.size.width))
-
-                Rectangle()
-                    .fill(Theme.hairline)
-                    .frame(width: 1)
-                    .padding(.vertical, Theme.Space.xs)
-
-                detail
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        VStack(spacing: Theme.Space.xs) {
+            HStack {
+                Spacer(minLength: 0)
+                refreshButton
             }
-            .frame(width: geo.size.width, height: geo.size.height)
+
+            GeometryReader { geo in
+                if geo.size.width < Self.narrowLayoutThreshold {
+                    VStack(spacing: Theme.Space.s) {
+                        deviceNavigator
+                            .frame(height: min(110, geo.size.height * 0.42))
+                        Rectangle()
+                            .fill(Theme.hairline)
+                            .frame(height: 1)
+                        detail
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                } else {
+                    HStack(spacing: Theme.Space.m) {
+                        deviceNavigator
+                            .frame(width: navigatorWidth(in: geo.size.width))
+
+                        Rectangle()
+                            .fill(Theme.hairline)
+                            .frame(width: 1)
+                            .padding(.vertical, Theme.Space.xs)
+
+                        detail
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                }
+            }
         }
         .padding(.horizontal, 4)
     }
 
-    /// The navigator is a fixed fraction of the pane, clamped so it never
-    /// swallows the detail column on Compact nor thins out to nothing on
-    /// Large. 150…210 pt holds a device name and a percentage at every preset
-    /// the panel ships.
+    /// Below this the two columns stop being able to hold a device name and a
+    /// readable detail card at once. No shipping preset reaches it — Compact's
+    /// content area is already ~470 pt after the rails — but a future or
+    /// unusually narrow display gets a stacked fallback instead of a squeeze.
+    private static let narrowLayoutThreshold: CGFloat = 420
+
+    /// The navigator is a fraction of the pane rather than a flat number:
+    /// Standard and Large use the fraction directly, and only Compact's floor
+    /// ever clamps it. 176…250 pt is what "Magic Keyboard (Николай)" needs to
+    /// sit across two lines without shrinking below the type scale's floor.
     private func navigatorWidth(in paneWidth: CGFloat) -> CGFloat {
-        min(210, max(150, paneWidth * 0.3))
+        min(250, max(176, paneWidth * 0.36))
+    }
+
+    private var refreshButton: some View {
+        Button {
+            devices.refreshExternalDevices()
+        } label: {
+            Image(systemName: "arrow.clockwise")
+        }
+        .buttonStyle(NotchButtonStyle(size: Theme.Size.touchTarget))
+        .help(localized("Refresh Devices"))
+        .accessibilityLabel(localized("Refresh Devices"))
     }
 
     private var deviceNavigator: some View {
         VStack(alignment: .leading, spacing: Theme.Space.xs) {
-            HStack {
-                Spacer(minLength: 0)
-                Button {
-                    devices.refreshExternalDevices()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .buttonStyle(NotchButtonStyle(size: Theme.Size.touchTarget))
-                .help(localized("Refresh Devices"))
-                .accessibilityLabel(localized("Refresh Devices"))
-            }
-
             ScrollView(showsIndicators: false) {
-                VStack(spacing: Theme.Space.xs - 2) {
+                VStack(spacing: Theme.Space.xs) {
                     ForEach(navigatorEntries) { entry in
                         navigatorRow(entry)
                     }
@@ -97,27 +128,44 @@ struct PowerPane: View {
                     .font(Theme.Typo.caption)
                     .foregroundStyle(Theme.tertiary)
                     .lineLimit(2)
-                    .minimumScaleFactor(0.85)
                     .help(externalStatusMessage)
             }
         }
     }
+
+    /// Fixed so every row's percentage lands in the same column instead of
+    /// drifting sideways with its digit count.
+    private static let navigatorTrailingWidth: CGFloat = 32
 
     private func navigatorRow(_ entry: NavigatorEntry) -> some View {
         let selected = effectiveSelectedDeviceKey == entry.key
         return Button {
             selectedDeviceKey = entry.key
         } label: {
-            HStack(spacing: Theme.Space.s) {
+            HStack(spacing: Theme.Space.xs) {
+                // The selection accent lives here, as a slim bar, rather than
+                // in a full-bleed fill: every row already rests on
+                // `Theme.surface`, so a heavier fill would only repeat what
+                // `Theme.selection` already says about the row underneath it.
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(selected ? Theme.focusRing : Color.clear)
+                    .frame(width: 2, height: 15)
+
                 Image(systemName: entry.symbol)
                     .font(Theme.Glyph.medium)
                     .foregroundStyle(Theme.primary.opacity(0.82))
-                    .frame(width: 18)
+                    .frame(width: 16)
+
+                // Two lines rather than a truncated one: a clipped "Magic
+                // Keyboar…" tells a person nothing they didn't already know
+                // from the icon. `layoutPriority` keeps the name the last
+                // thing to give ground if the row is ever squeezed.
                 VStack(alignment: .leading, spacing: Theme.Space.hair) {
                     Text(entry.title)
                         .font(Theme.Typo.labelStrong)
                         .foregroundStyle(Theme.primary)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .layoutPriority(1)
                     HStack(spacing: Theme.Space.xs - 2) {
                         if let dotColor = entry.dotColor {
                             Circle()
@@ -130,17 +178,21 @@ struct PowerPane: View {
                             .lineLimit(1)
                     }
                 }
+
                 Spacer(minLength: Theme.Space.xs)
+
                 if let trailingValue = entry.trailingValue {
                     Text(trailingValue)
                         .font(Theme.Typo.captionDigits)
                         .foregroundStyle(entry.trailingColor ?? Theme.secondary)
                         .lineLimit(1)
+                        .frame(width: Self.navigatorTrailingWidth, alignment: .trailing)
                 }
             }
             .padding(.horizontal, Theme.Space.s)
-            .frame(height: Theme.Size.rowDetailed)
-            .background(selected ? Theme.selection : Color.clear)
+            .padding(.vertical, Theme.Space.xs)
+            .frame(minHeight: Theme.Size.rowDetailed)
+            .background(selected ? Theme.selection : Theme.surface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
@@ -185,7 +237,7 @@ struct PowerPane: View {
         let severity = deviceSeverity(device)
         return NavigatorEntry(
             key: device.identity.localPreferenceKey,
-            symbol: AppleDevicePresentation.symbol(for: device.kind),
+            symbol: navigatorSymbol(for: device.kind),
             title: device.displayName,
             subtitle: navigatorSubtitle(for: device),
             dotColor: severityColor(severity) ?? (device.externalPower == .connected ? Color.green : nil),
@@ -193,6 +245,20 @@ struct PowerPane: View {
             trailingColor: severityColor(severity),
             accessibilityValue: AppleDevicePresentation.accessibilityValue(for: device)
         )
+    }
+
+    /// The shared `AppleDevicePresentation.symbol(for:)` picks the Bluetooth
+    /// pairing glyph for a trackpad — a hand mid-gesture, not the device — and
+    /// a generic mouse outline for Magic Mouse. The Navigator needs a shape a
+    /// glance can tell apart from its neighbours, so those two kinds get a
+    /// symbol of their own here instead of widening the shared vocabulary for
+    /// one screen's sake.
+    private func navigatorSymbol(for kind: AppleDeviceKind) -> String {
+        switch kind {
+        case .magicTrackpad: return "rectangle.roundedtop.fill"
+        case .magicMouse: return "magicmouse.fill"
+        default: return AppleDevicePresentation.symbol(for: kind)
+        }
     }
 
     private func navigatorSubtitle(for device: AppleDeviceSnapshot) -> String {
@@ -278,6 +344,16 @@ struct PowerPane: View {
 
     // MARK: - Detail
 
+    /// What the header's own big reading is, when the selected device has
+    /// one. A device with several real components — AirPods' two ears and
+    /// their case — shows each of them large instead of collapsing them into
+    /// one figure that would describe neither.
+    private enum PrimaryReading {
+        case percentage(Int, tint: Color?)
+        case status(String, tint: Color?)
+        case components([MetricItem])
+    }
+
     @ViewBuilder
     private var detail: some View {
         if let selectedExternalDevice {
@@ -293,62 +369,118 @@ struct PowerPane: View {
             title: localized("This Mac"),
             subtitle: snapshot.deviceKind == .portable ? stateTitle : desktopStateTitle,
             isBeta: false,
+            primary: localPrimary,
             metrics: localDetailMetrics
         )
     }
 
-    /// The desktop branch never invents a percentage: a Mac mini or Studio has
-    /// no internal battery, so `snapshot.batteryPercentage` is `nil` and stays
-    /// out of this list entirely rather than being shown as a fabricated 100%.
+    /// `nil` on desktop rather than a fabricated 0% or 100%: a Mac mini or
+    /// Studio has no internal battery to read a number from.
+    private var localPrimary: PrimaryReading? {
+        guard snapshot.deviceKind == .portable, let percentage = snapshot.batteryPercentage else { return nil }
+        return .percentage(percentage, tint: severityColor(localMacSeverity))
+    }
+
+    /// The desktop branch shows only what a Mac without a battery actually
+    /// has: its power source, its adapter if the system reports one, how many
+    /// other devices are visible, and whether low-battery notifications are
+    /// on. No battery percentage, no health, no fabricated wattage — those
+    /// stay entirely out of the list rather than being shown as invented
+    /// values.
     private var localDetailMetrics: [MetricItem] {
         guard snapshot.deviceKind == .portable else {
             var items = [MetricItem(value: powerSourceValue, title: localized("Source"))]
             if snapshot.adapterRatedPowerWatts != nil {
                 items.append(MetricItem(value: adapterValue, title: localized("Power Adapter")))
             }
+            items.append(contentsOf: sharedMacFacts)
             return items
         }
-        var items = [
-            MetricItem(value: batteryPercentage, title: localized("Battery"), tint: severityColor(localMacSeverity)),
-            MetricItem(value: timeValue, title: timeTitle),
-        ]
+        var items = [MetricItem(value: timeValue, title: timeTitle)]
         items.append(contentsOf: batteryMetrics)
+        items.append(contentsOf: sharedMacFacts)
         return items
+    }
+
+    /// Facts that exist regardless of battery hardware. Both come straight
+    /// from state that already drives real behaviour elsewhere in the app —
+    /// `DevicePowerCenter`'s own device list and the low-battery alert
+    /// setting — never invented for this card.
+    private var sharedMacFacts: [MetricItem] {
+        [
+            MetricItem(value: "\(externalDevices.count)", title: localized("Devices")),
+            MetricItem(
+                value: settings.lowBatteryAlertsEnabled ? localized("Enabled") : localized("Disabled"),
+                title: localized("Notifications")
+            ),
+        ]
     }
 
     private func externalDetail(_ device: AppleDeviceSnapshot) -> some View {
         detailCard(
-            symbol: AppleDevicePresentation.symbol(for: device.kind),
+            symbol: navigatorSymbol(for: device.kind),
             title: device.displayName,
             subtitle: externalDetailSubtitle(for: device),
             isBeta: AppleDevicePresentation.isBeta(device.kind),
-            metrics: externalDetailMetrics(for: device)
+            primary: externalPrimary(for: device),
+            metrics: externalDetailFacts(for: device)
         )
     }
 
     private func externalDetailSubtitle(for device: AppleDeviceSnapshot) -> String {
-        let freshness = AppleDevicePresentation.freshness(for: device)
-        let age = AppleDevicePresentation.ageTitle(
-            since: device.lastUpdated,
-            freshness: freshness,
-            source: device.source
-        )
-        return "\(AppleDevicePresentation.connectionTitle(device.connection)) · \(age)"
+        "\(AppleDevicePresentation.connectionTitle(device.connection)) · \(availabilityTitle(device.availability))"
     }
 
-    private func externalDetailMetrics(for device: AppleDeviceSnapshot) -> [MetricItem] {
-        device.components.map { component in
-            var value = AppleDevicePresentation.readingTitle(component)
-            if let charging = AppleDevicePresentation.chargingTitle(component.chargingState),
-               charging != value {
-                value += " · \(charging)"
-            }
-            return MetricItem(
-                value: value,
-                title: AppleDevicePresentation.componentTitle(component.kind),
-                tint: severityColor(severity(for: component))
-            )
+    private func availabilityTitle(_ availability: DeviceAvailability) -> String {
+        availability == .connected ? localized("Connected") : localized("Unavailable")
+    }
+
+    /// One real reading becomes the header's big number; several real
+    /// components become one large figure each, never an average that would
+    /// describe none of them.
+    private func externalPrimary(for device: AppleDeviceSnapshot) -> PrimaryReading? {
+        let readable = device.components.filter(\.hasReading)
+        if readable.count > 1 {
+            return .components(readable.map(componentMetric))
         }
+        guard let only = readable.first else { return nil }
+        if let percentage = only.percentage {
+            return .percentage(percentage, tint: severityColor(severity(for: only)))
+        }
+        return .status(AppleDevicePresentation.readingTitle(only), tint: severityColor(severity(for: only)))
+    }
+
+    private func componentMetric(_ component: DeviceBatteryComponent) -> MetricItem {
+        var value = AppleDevicePresentation.readingTitle(component)
+        if let charging = AppleDevicePresentation.chargingTitle(component.chargingState), charging != value {
+            value += " · \(charging)"
+        }
+        return MetricItem(
+            value: value,
+            title: AppleDevicePresentation.componentTitle(component.kind),
+            tint: severityColor(severity(for: component))
+        )
+    }
+
+    private func externalDetailFacts(for device: AppleDeviceSnapshot) -> [MetricItem] {
+        var items = [
+            MetricItem(value: AppleDevicePresentation.connectionTitle(device.connection), title: localized("Connection")),
+            MetricItem(value: availabilityTitle(device.availability), title: localized("State")),
+            MetricItem(
+                value: AppleDevicePresentation.ageTitle(
+                    since: device.lastUpdated,
+                    freshness: AppleDevicePresentation.freshness(for: device),
+                    source: device.source,
+                    abbreviated: true
+                ),
+                title: localized("Updated")
+            ),
+        ]
+        let representative = device.components.first(where: { $0.kind == .primary }) ?? device.components.first
+        if let representative, let charging = AppleDevicePresentation.chargingTitle(representative.chargingState) {
+            items.append(MetricItem(value: charging, title: localized("Charging")))
+        }
+        return items
     }
 
     private func detailCard(
@@ -356,10 +488,11 @@ struct PowerPane: View {
         title: String,
         subtitle: String,
         isBeta: Bool,
+        primary: PrimaryReading?,
         metrics: [MetricItem]
     ) -> some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: Theme.Space.s) {
+            VStack(alignment: .leading, spacing: Theme.Space.m) {
                 HStack(spacing: Theme.Space.s) {
                     Image(systemName: symbol)
                         .font(Theme.Glyph.heroStrong)
@@ -370,7 +503,6 @@ struct PowerPane: View {
                                 .font(Theme.Typo.title)
                                 .foregroundStyle(Theme.primary)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.8)
                             if isBeta {
                                 Text(localized("Beta"))
                                     .font(Theme.Typo.captionSemibold)
@@ -383,26 +515,31 @@ struct PowerPane: View {
                         Text(subtitle)
                             .font(Theme.Typo.caption)
                             .foregroundStyle(Theme.secondary)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.85)
+                            .lineLimit(1)
                     }
                     Spacer(minLength: 0)
                 }
 
-                Rectangle()
-                    .fill(Theme.hairline)
-                    .frame(height: 1)
+                if let primary {
+                    primaryReadingView(primary)
+                }
 
-                LazyVGrid(
-                    columns: [
-                        GridItem(.flexible(minimum: 80), spacing: Theme.Space.l),
-                        GridItem(.flexible(minimum: 80), spacing: Theme.Space.l),
-                    ],
-                    alignment: .leading,
-                    spacing: Theme.Space.s
-                ) {
-                    ForEach(metrics) { item in
-                        metric(item.value, title: item.title, tint: item.tint)
+                if !metrics.isEmpty {
+                    Rectangle()
+                        .fill(Theme.hairline)
+                        .frame(height: 1)
+
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(minimum: 80), spacing: Theme.Space.l),
+                            GridItem(.flexible(minimum: 80), spacing: Theme.Space.l),
+                        ],
+                        alignment: .leading,
+                        spacing: Theme.Space.s
+                    ) {
+                        ForEach(metrics) { item in
+                            metric(item.value, title: item.title, tint: item.tint)
+                        }
                     }
                 }
             }
@@ -410,6 +547,52 @@ struct PowerPane: View {
             .padding(.bottom, Theme.Space.xs)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private func primaryReadingView(_ primary: PrimaryReading) -> some View {
+        switch primary {
+        case .percentage(let value, let tint):
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
+                Text("\(value)%")
+                    .font(Theme.Typo.hero)
+                    .foregroundStyle(tint ?? Theme.primary)
+                batteryBar(percentage: value, tint: tint)
+                    .frame(maxWidth: 180)
+            }
+        case .status(let text, let tint):
+            Text(text)
+                .font(Theme.Typo.title)
+                .foregroundStyle(tint ?? Theme.primary)
+        case .components(let items):
+            HStack(alignment: .top, spacing: Theme.Space.l) {
+                ForEach(items) { item in
+                    VStack(alignment: .leading, spacing: Theme.Space.hair) {
+                        Text(item.value)
+                            .font(Theme.Typo.bodyDigits)
+                            .foregroundStyle(item.tint ?? Theme.primary)
+                            .lineLimit(2)
+                        Text(item.title)
+                            .font(Theme.Typo.caption)
+                            .foregroundStyle(Theme.tertiary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+        }
+    }
+
+    private func batteryBar(percentage: Int, tint: Color?) -> some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Theme.surface)
+                Capsule()
+                    .fill(tint ?? Theme.focusRing)
+                    .frame(width: geo.size.width * CGFloat(min(100, max(0, percentage))) / 100)
+            }
+        }
+        .frame(height: 6)
+        .accessibilityHidden(true)
     }
 
     private var externalStatusMessage: String? {
