@@ -161,4 +161,26 @@ enum AppleAccessoryNaming {
         if name.contains("magic trackpad") { return .magicTrackpad }
         return .unknown
     }
+
+    /// Bluetooth SIG product IDs for Apple accessories, consulted only when a
+    /// device publishes no product name at all.
+    ///
+    /// Confirmed on real hardware (Mac mini, macOS Tahoe 26, 2026-08): these
+    /// three values are exactly what `AppleDeviceManagementHIDEventService`
+    /// published for a Magic Keyboard, Magic Mouse and Magic Trackpad in the
+    /// same session where `system_profiler` reported the same physical
+    /// accessories by name, at the same vendor identifier. Not a guess, and not
+    /// extended past what was actually observed — an accessory with a product
+    /// ID outside this table is shown as an unrecognised device rather than
+    /// assigned a category nobody measured.
+    private static let bluetoothProductIDs: [Int: AppleDeviceKind] = [
+        0x0265: .magicTrackpad,
+        0x0267: .magicKeyboard,
+        0x0269: .magicMouse,
+    ]
+
+    static func kind(fromBluetoothProductID productID: Int?) -> AppleDeviceKind {
+        guard let productID else { return .unknown }
+        return bluetoothProductIDs[productID] ?? .unknown
+    }
 }

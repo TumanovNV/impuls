@@ -95,6 +95,7 @@
         "Sources/Impuls/Services/MobileDevice*.swift",
         "Sources/Impuls/Services/IORegistry*.swift",
         "Sources/Impuls/Services/RegistryNumber.swift",
+        "Sources/Impuls/Services/SystemProfilerAccessory*.swift",
         "Sources/Impuls/UI/*Power*.swift"
       ],
       "test_globs": [

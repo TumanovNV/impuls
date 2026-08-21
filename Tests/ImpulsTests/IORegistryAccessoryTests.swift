@@ -48,6 +48,133 @@ final class IORegistryAccessoryTests: DeviceIdentityTestCase {
         XCTAssertEqual(device?.headlinePercentage, 44)
     }
 
+    // MARK: - Real Mac mini hardware (sanitised)
+    //
+    // The exact property shape `AppleDeviceManagementHIDEventService`
+    // published for a Magic Keyboard, Magic Mouse and Magic Trackpad on a real
+    // Mac mini (macOS Tahoe 26, 2026-08): `VendorID = 76` (Bluetooth SIG,
+    // `0x004C`, not the USB-IF `0x05AC` this mapper used to require), `Product`
+    // present but an empty string, and a stable `ProductID`. No address,
+    // serial number or other identifier from that machine appears below.
+
+    func testMagicKeyboardFromRealMacMiniHardwareIsRecognisedByProductID() {
+        let device = map(.realMacMiniAccessory(productID: 0x0267, percent: 24))
+
+        XCTAssertEqual(device?.kind, .magicKeyboard)
+        XCTAssertEqual(device?.displayName, "Magic Keyboard", "an empty Product string still earns a real name")
+        XCTAssertEqual(device?.headlinePercentage, 24)
+        XCTAssertEqual(device?.connection, .bluetooth)
+        XCTAssertEqual(device?.source, .ioRegistryAccessory)
+    }
+
+    func testMagicMouseFromRealMacMiniHardwareIsRecognisedByProductID() {
+        let device = map(.realMacMiniAccessory(productID: 0x0269, percent: 85))
+
+        XCTAssertEqual(device?.kind, .magicMouse)
+        XCTAssertEqual(device?.displayName, "Magic Mouse")
+        XCTAssertEqual(device?.headlinePercentage, 85)
+    }
+
+    func testMagicTrackpadFromRealMacMiniHardwareIsRecognisedByProductID() {
+        let device = map(.realMacMiniAccessory(productID: 0x0265, percent: 63))
+
+        XCTAssertEqual(device?.kind, .magicTrackpad)
+        XCTAssertEqual(device?.displayName, "Magic Trackpad")
+        XCTAssertEqual(device?.headlinePercentage, 63)
+    }
+
+    func testAnEmptyProductStringIsTreatedTheSameAsAMissingOne() {
+        var properties = Fixture.realMacMiniAccessory(productID: 0x0269, percent: 61).properties
+        properties[IORegistryAccessoryMapper.Key.product] = ""
+
+        let device = IORegistryAccessoryMapper.device(from: properties, now: now, resolver: resolver)
+
+        XCTAssertEqual(device?.kind, .magicMouse)
+        XCTAssertNil(device?.modelName)
+    }
+
+    func testABluetoothProductIDOutsideTheKnownTableStaysUnknownRatherThanGuessed() {
+        var properties = Fixture.realMacMiniAccessory(productID: 0x0269, percent: 61).properties
+        properties[IORegistryAccessoryMapper.Key.productID] = NSNumber(value: 0x9999)
+
+        let device = IORegistryAccessoryMapper.device(from: properties, now: now, resolver: resolver)
+
+        XCTAssertEqual(device?.kind, .unknown, "an unmeasured product ID is not evidence of anything")
+        XCTAssertEqual(device?.displayName, "Apple device")
+    }
+
+    func testTheBluetoothProductIDFallbackNeverAppliesInTheUSBVendorNamespace() {
+        var properties = Fixture.realMacMiniAccessory(productID: 0x0269, percent: 61).properties
+        properties[IORegistryAccessoryMapper.Key.vendorID] = NSNumber(value: IORegistryAccessoryMapper.appleUSBVendorID)
+
+        let device = IORegistryAccessoryMapper.device(from: properties, now: now, resolver: resolver)
+
+        XCTAssertEqual(
+            device?.kind,
+            .unknown,
+            "the same numeric product ID means something else in the USB namespace"
+        )
+    }
+
+    // MARK: - Vendor identifier namespaces
+
+    func testTheAppleBluetoothVendorIdentifierIsAccepted() {
+        XCTAssertTrue(
+            IORegistryAccessoryMapper.isAppleAccessory(Fixture.magicMouse(percent: 61).properties)
+        )
+        XCTAssertEqual(IORegistryAccessoryMapper.appleBluetoothVendorID, 0x004C)
+    }
+
+    func testTheExistingAppleUSBVendorIdentifierStillWorks() {
+        var properties = Fixture.accessory(product: "Magic Keyboard", percent: 88).properties
+        properties[IORegistryAccessoryMapper.Key.vendorID] = NSNumber(value: IORegistryAccessoryMapper.appleUSBVendorID)
+
+        let device = IORegistryAccessoryMapper.device(from: properties, now: now, resolver: resolver)
+
+        XCTAssertEqual(device?.kind, .magicKeyboard, "a wired accessory in the USB vendor namespace must keep working")
+        XCTAssertEqual(device?.headlinePercentage, 88)
+    }
+
+    func testANonAppleBluetoothHIDDeviceIsIgnored() {
+        var properties = Fixture.realMacMiniAccessory(productID: 0x0269, percent: 61).properties
+        properties[IORegistryAccessoryMapper.Key.vendorID] = NSNumber(value: 0x046D) // Logitech
+        properties[IORegistryAccessoryMapper.Key.manufacturer] = "Logitech"
+
+        XCTAssertNil(IORegistryAccessoryMapper.device(from: properties, now: now, resolver: resolver))
+    }
+
+    // MARK: - The explicit Built-In flag
+
+    func testAnExplicitBuiltInFlagRejectsTheAccessoryEvenOverBluetoothTransport() {
+        var properties = Fixture.realMacMiniAccessory(productID: 0x0269, percent: 61).properties
+        properties[IORegistryAccessoryMapper.Key.builtIn] = NSNumber(value: true)
+
+        XCTAssertNil(
+            IORegistryAccessoryMapper.device(from: properties, now: now, resolver: resolver),
+            "Apple's own Built-In flag is a stronger signal than the transport string"
+        )
+    }
+
+    func testAnExplicitBuiltInFalseFlagDoesNotRejectAnOtherwiseValidAccessory() {
+        var properties = Fixture.realMacMiniAccessory(productID: 0x0269, percent: 61).properties
+        properties[IORegistryAccessoryMapper.Key.builtIn] = NSNumber(value: false)
+
+        XCTAssertNotNil(IORegistryAccessoryMapper.device(from: properties, now: now, resolver: resolver))
+    }
+
+    func testAnIntegerBoxedValueUnderBuiltInDoesNotFalselyReadAsTrue() {
+        var properties = Fixture.realMacMiniAccessory(productID: 0x0269, percent: 61).properties
+        // Not a real shape this key takes, but the coercion must stay total:
+        // an Int8-boxed NSNumber(1) bridges to `true` through a naive `as?
+        // Bool` and must not be mistaken for the real CFBoolean this key uses.
+        properties[IORegistryAccessoryMapper.Key.builtIn] = NSNumber(value: Int8(1))
+
+        XCTAssertNotNil(
+            IORegistryAccessoryMapper.device(from: properties, now: now, resolver: resolver),
+            "a non-boolean value under Built-In must fall back to the transport check, not be read as true"
+        )
+    }
+
     // MARK: - AirPods components
 
     func testAirPodsWithSeparateComponentsKeepThemSeparate() {
@@ -289,7 +416,7 @@ final class IORegistryAccessoryTests: DeviceIdentityTestCase {
         ) -> Fixture {
             var properties: [String: Any] = [
                 IORegistryAccessoryMapper.Key.product: product,
-                IORegistryAccessoryMapper.Key.vendorID: NSNumber(value: IORegistryAccessoryMapper.appleVendorID),
+                IORegistryAccessoryMapper.Key.vendorID: NSNumber(value: IORegistryAccessoryMapper.appleBluetoothVendorID),
                 IORegistryAccessoryMapper.Key.transport: "Bluetooth",
                 IORegistryAccessoryMapper.Key.deviceAddress: address,
             ]
@@ -299,6 +426,27 @@ final class IORegistryAccessoryTests: DeviceIdentityTestCase {
 
         static func magicMouse(percent: Int) -> Fixture {
             accessory(product: "Magic Mouse", percent: percent)
+        }
+
+        /// The exact shape a real Mac mini's registry publishes for a Magic
+        /// Keyboard, Magic Mouse or Magic Trackpad: `VendorID` in the
+        /// Bluetooth SIG namespace, `Product` present but empty, and the
+        /// kind carried only by `ProductID`. No address from real hardware.
+        static func realMacMiniAccessory(
+            productID: Int,
+            percent: Int,
+            address: String = "AA:BB:CC:00:11:22"
+        ) -> Fixture {
+            Fixture(properties: [
+                IORegistryAccessoryMapper.Key.product: "",
+                IORegistryAccessoryMapper.Key.productID: NSNumber(value: productID),
+                IORegistryAccessoryMapper.Key.vendorID: NSNumber(value: IORegistryAccessoryMapper.appleBluetoothVendorID),
+                IORegistryAccessoryMapper.Key.manufacturer: "Apple Inc.",
+                IORegistryAccessoryMapper.Key.transport: "Bluetooth",
+                IORegistryAccessoryMapper.Key.deviceAddress: address,
+                IORegistryAccessoryMapper.Key.builtIn: NSNumber(value: false),
+                IORegistryAccessoryMapper.Key.batteryPercent: NSNumber(value: percent),
+            ])
         }
 
         static func airPods(left: Int?, right: Int?, chargingCase: Int?, overall: Int?) -> Fixture {

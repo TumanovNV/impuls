@@ -11,10 +11,22 @@ import Foundation
 /// Nothing here is a promise. A missing key is a normal Tuesday, not an error,
 /// and the only outcome of an unrecognised node is `nil`.
 enum IORegistryAccessoryMapper {
-    /// Apple's USB/Bluetooth vendor identifier. Used instead of matching the
-    /// word "Apple" in a product string, which any third-party accessory is
-    /// free to put there.
-    static let appleVendorID = 0x05AC
+    /// Apple's Bluetooth SIG company identifier. Confirmed on real hardware
+    /// (Magic Keyboard, Magic Mouse, Magic Trackpad, macOS Tahoe 26, 2026-08):
+    /// every Bluetooth accessory publishes `VendorID = 76` on this service,
+    /// which is `0x004C`, not the USB-IF identifier below.
+    static let appleBluetoothVendorID = 0x004C
+
+    /// Apple's USB-IF vendor identifier. A wired accessory reaching this same
+    /// service class (a USB Magic Keyboard, for instance) publishes this one
+    /// instead. Used instead of matching the word "Apple" in a product string,
+    /// which any third-party accessory is free to put there.
+    static let appleUSBVendorID = 0x05AC
+
+    /// Both namespaces this service class has been observed to use. Bluetooth
+    /// and USB Apple accessories share the property schema but not the vendor
+    /// identifier space, so both are accepted rather than picking one.
+    static let appleVendorIDs: Set<Int> = [appleBluetoothVendorID, appleUSBVendorID]
 
     /// The service class carrying accessory battery state. Public IOKit reaches
     /// it; the property names on it are the undocumented part.
@@ -26,11 +38,13 @@ enum IORegistryAccessoryMapper {
         static let batteryPercentRight = "BatteryPercentRight"
         static let batteryPercentCase = "BatteryPercentCase"
         static let product = "Product"
+        static let productID = "ProductID"
         static let vendorID = "VendorID"
         static let manufacturer = "Manufacturer"
         static let transport = "Transport"
         static let deviceAddress = "DeviceAddress"
         static let serialNumber = "SerialNumber"
+        static let builtIn = "Built-In"
     }
 
     /// Transports that mean "this is part of the Mac", not "this is an
@@ -40,7 +54,9 @@ enum IORegistryAccessoryMapper {
     ///
     /// A second guard rather than the only one: internal devices do not publish
     /// a battery percentage either, so they are already excluded by the time
-    /// this is consulted.
+    /// this is consulted. `Key.builtIn` is checked first when the service
+    /// publishes it, because it is Apple's own explicit statement rather than a
+    /// transport string this code has to interpret.
     private static let internalTransports: Set<String> = ["spi", "spu", "fifo", "i2c", "bus", "internal"]
 
     static func device(
@@ -51,6 +67,8 @@ enum IORegistryAccessoryMapper {
         guard isAppleAccessory(properties) else { return nil }
         guard !isBuiltIn(properties) else { return nil }
 
+        let resolvedKind = kind(from: properties)
+
         // Identity comes from hardware, or the device is not listed at all.
         //
         // The registry entry ID would always be available and is tempting, but
@@ -60,7 +78,7 @@ enum IORegistryAccessoryMapper {
         // identifier and is not used as one.
         guard let rawIdentifier = string(properties[Key.deviceAddress])
                 ?? string(properties[Key.serialNumber]),
-              let identity = resolver.identity(forRawIdentifier: rawIdentifier, kind: kind(from: properties))
+              let identity = resolver.identity(forRawIdentifier: rawIdentifier, kind: resolvedKind)
         else { return nil }
 
         let components = components(from: properties, now: now)
@@ -69,10 +87,19 @@ enum IORegistryAccessoryMapper {
         guard !components.isEmpty else { return nil }
 
         let productName = string(properties[Key.product])
+        // The product name this Mac's registry publishes may be an empty
+        // string rather than absent — confirmed on real hardware — in which
+        // case `productName` is already `nil` and the fallback below is what a
+        // person actually sees. A kind resolved from the product ID table is
+        // real evidence, not a guess, so it earns a real name instead of the
+        // generic one.
+        let fallbackDisplayName = resolvedKind == .unknown
+            ? "Apple device"
+            : AppleDevicePresentation.kindTitle(resolvedKind)
         return AppleDeviceSnapshot(
             identity: identity,
-            kind: kind(from: properties),
-            displayName: AppleDeviceNormalizer.displayName(productName, fallback: "Apple device"),
+            kind: resolvedKind,
+            displayName: AppleDeviceNormalizer.displayName(productName, fallback: fallbackDisplayName),
             modelName: productName,
             connection: .bluetooth,
             availability: .connected,
@@ -123,12 +150,23 @@ enum IORegistryAccessoryMapper {
     /// a number is believed. An accessory whose name is not recognised is still
     /// a real Apple accessory with a real battery, so it is shown as itself
     /// rather than dropped or guessed into a category.
+    ///
+    /// Some macOS releases publish `Product` as an empty string on this service
+    /// for Bluetooth Magic accessories rather than omitting it — confirmed on
+    /// real hardware. When that happens, the Bluetooth product ID is used
+    /// instead: it is a stable field this project has cross-referenced against
+    /// `system_profiler`'s own name for the same physical devices, not a guess.
+    /// It is consulted only in the Bluetooth vendor namespace, because the same
+    /// numeric ID means something else in the USB one.
     static func kind(from properties: [String: Any]) -> AppleDeviceKind {
-        AppleAccessoryNaming.kind(fromProductName: string(properties[Key.product]))
+        let named = AppleAccessoryNaming.kind(fromProductName: string(properties[Key.product]))
+        guard named == .unknown else { return named }
+        guard integer(properties[Key.vendorID]) == appleBluetoothVendorID else { return .unknown }
+        return AppleAccessoryNaming.kind(fromBluetoothProductID: integer(properties[Key.productID]))
     }
 
     static func isAppleAccessory(_ properties: [String: Any]) -> Bool {
-        if let vendor = integer(properties[Key.vendorID]) { return vendor == appleVendorID }
+        if let vendor = integer(properties[Key.vendorID]) { return appleVendorIDs.contains(vendor) }
         // Only when the numeric marker is absent. Some services publish a
         // manufacturer string and no vendor identifier at all.
         guard let manufacturer = string(properties[Key.manufacturer])?.lowercased() else { return false }
@@ -136,6 +174,7 @@ enum IORegistryAccessoryMapper {
     }
 
     static func isBuiltIn(_ properties: [String: Any]) -> Bool {
+        if let builtIn = bool(properties[Key.builtIn]) { return builtIn }
         guard let transport = string(properties[Key.transport])?.lowercased() else { return false }
         return internalTransports.contains(transport)
     }
@@ -148,6 +187,18 @@ enum IORegistryAccessoryMapper {
     /// something else — reads as absent rather than as a battery level.
     static func integer(_ value: Any?) -> Int? {
         RegistryNumber.integer(value)
+    }
+
+    /// `Built-In` arrives as a genuine `CFBoolean` — confirmed on real
+    /// hardware, where it read `false` for every external accessory. Checked
+    /// the same defensive way `RegistryNumber` checks for one: plain `as?
+    /// Bool` also accepts an `Int8`-boxed `NSNumber`, which would make a
+    /// battery-percentage-shaped value of `1` misread as `true`. Anything that
+    /// is not actually `CFBooleanGetTypeID()` reads as absent, so the
+    /// transport-string fallback in `isBuiltIn` still applies.
+    static func bool(_ value: Any?) -> Bool? {
+        guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+        return number.boolValue
     }
 
     static func string(_ value: Any?) -> String? {
