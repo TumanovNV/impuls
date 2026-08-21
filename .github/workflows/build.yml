@@ -188,7 +188,7 @@ jobs:
           test -d "$APP/Contents/Frameworks/Sparkle.framework"
           test ! -e "$APP/Contents/Resources/libcyclopmedia.dylib"
           test -s "$APP/Contents/Resources/AppIcon.icns"
-          test -s "$APP/Contents/Resources/ImpulsStatusTemplate.pdf"
+          test -s "$APP/Contents/Resources/ImpulsMenuBarTemplate.pdf"
           test -s "$APP/Contents/Resources/ThirdPartyNotices.md"
           test -f "$APP/Contents/Resources/en.lproj/Localizable.strings"
           test -f "$APP/Contents/Resources/ru.lproj/Localizable.strings"
