@@ -129,6 +129,46 @@ class DashboardTests(unittest.TestCase):
             self.assertIn("Переходов пока нет.", empty_page)
             self.assertIn("Пока нет данных", empty_page)
 
+    def test_default_github_refresh_interval_is_five_minutes(self):
+        # 1.4.14 follow-up: the previous one-hour default meant the
+        # latest-published-version label on the dashboard could lag a fresh
+        # GitHub release by up to an hour even though the heartbeat data itself
+        # was already current.
+        self.assertEqual(dashboard.DEFAULT_GITHUB_REFRESH_INTERVAL_SECONDS, 5 * 60)
+        self.assertGreaterEqual(
+            dashboard.DEFAULT_GITHUB_REFRESH_INTERVAL_SECONDS,
+            dashboard.MINIMUM_GITHUB_REFRESH_INTERVAL_SECONDS,
+        )
+
+    def test_dashboard_reflects_a_new_version_heartbeat_without_restarting_the_server(self):
+        # Proves there is no dashboard-side cache of installations_by_app_version:
+        # a heartbeat recorded after the server started must show up on the very
+        # next request, with no second Impuls launch and no server restart.
+        with tempfile.TemporaryDirectory() as directory:
+            database = self.create_database(directory)
+            server = self.running_server(database)
+
+            before = self.request(server, "GET", "/")[2].decode("utf-8")
+            self.assertIn("1.4.10", before)
+            self.assertNotIn("1.4.14", before)
+
+            collector.record_heartbeat(
+                database,
+                b"a production secret with more than thirty two bytes",
+                {
+                    "schema": 1,
+                    "installation_id": str(uuid.uuid4()),
+                    "app_version": "1.4.14",
+                    "previous_version": "1.4.13",
+                },
+                datetime.now(timezone.utc),
+            )
+
+            after = self.request(server, "GET", "/")[2].decode("utf-8")
+            self.assertIn("1.4.14", after)
+            self.assertIn("1.4.9", after)
+            self.assertIn("1.4.13", after)
+
     def test_dashboard_has_no_external_assets(self):
         page = dashboard.render_dashboard(self.sample_report())
         self.assertNotIn("http://", page)

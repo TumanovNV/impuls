@@ -9,6 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
     private let updateService = UpdateService()
     private let versionTelemetryService = VersionTelemetryService()
+    private lazy var versionTelemetryScheduler = VersionTelemetryScheduler { [weak self] in
+        guard let self else { return }
+        _ = await self.versionTelemetryService.sendHeartbeatIfNeeded()
+    }
     private lazy var feedbackWindowController = FeedbackWindowController()
     private var settingsWindowController: SettingsWindowController?
     private var onboardingController: OnboardingWindowController?
@@ -48,16 +52,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         // Consent and endpoint checks happen before the network transport is touched.
         // Delaying the best-effort heartbeat also keeps it outside the launch
-        // path that builds the panel, status item, and global shortcut.
+        // path that builds the panel, status item, and global shortcut. The
+        // scheduler then keeps proposing an attempt roughly hourly for the rest
+        // of the run — VersionTelemetryService still owns whether any of those
+        // proposals actually becomes a request.
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             guard let self else { return }
             Task { _ = await self.versionTelemetryService.sendHeartbeatIfNeeded() }
+            self.versionTelemetryScheduler.start()
         }
         onboardingController?.presentIfNeeded()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         hotKey.onPress = nil
+        versionTelemetryScheduler.stop()
         controller?.teardown()
     }
 

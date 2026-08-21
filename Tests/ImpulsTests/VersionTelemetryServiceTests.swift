@@ -103,6 +103,154 @@ final class VersionTelemetryServiceTests: XCTestCase {
         XCTAssertEqual(secondCount, 2)
     }
 
+    func testAnAttemptFromAnOlderVersionDoesNotThrottleAFreshVersionsFirstAttempt() async {
+        // The exact scenario this throttle change exists to fix: 1.4.13 attempts,
+        // the Mac updates to 1.4.14 minutes later, and the new version must not
+        // wait out the old version's hour before it can report itself.
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock)
+        let oldService = harness.service(appVersion: "1.4.13")
+        oldService.setConsent(.allowed)
+        let firstResult = await oldService.sendHeartbeatIfNeeded()
+        XCTAssertEqual(firstResult, .sent)
+
+        clock.advance(by: 10 * 60)
+        let newService = harness.service(appVersion: "1.4.14")
+        let secondResult = await newService.sendHeartbeatIfNeeded()
+        XCTAssertEqual(secondResult, .sent)
+        let count = await harness.recorder.count
+        XCTAssertEqual(count, 2)
+    }
+
+    func testSameVersionSecondAttemptWithinTheHourIsThrottled() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock)
+        let service = harness.service(appVersion: "1.4.14")
+        service.setConsent(.allowed)
+        let first = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(first, .sent)
+
+        clock.advance(by: 30 * 60)
+        let relaunched = harness.service(appVersion: "1.4.14")
+        let second = await relaunched.sendHeartbeatIfNeeded()
+        XCTAssertEqual(second, .throttled)
+        let count = await harness.recorder.count
+        XCTAssertEqual(count, 1)
+    }
+
+    func testSameVersionAttemptAtExactlyOneHourIsAllowed() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock)
+        let service = harness.service(appVersion: "1.4.14")
+        service.setConsent(.allowed)
+        let first = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(first, .sent)
+
+        clock.advance(by: VersionTelemetryService.heartbeatInterval)
+        let second = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(second, .sent)
+        let count = await harness.recorder.count
+        XCTAssertEqual(count, 2)
+    }
+
+    func testFailureOfANewVersionIsThrottledOnAnImmediateRelaunch() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let recorder = RequestRecorder(statusCode: 500)
+        let harness = Harness(clock: clock, recorder: recorder)
+        let service = harness.service(appVersion: "1.4.14")
+        service.setConsent(.allowed)
+        let first = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(first, .failed)
+
+        // A new process, same version, same clock: the failed attempt already
+        // recorded must still gate the retry.
+        let relaunched = harness.service(appVersion: "1.4.14")
+        let second = await relaunched.sendHeartbeatIfNeeded()
+        XCTAssertEqual(second, .throttled)
+        let count = await recorder.count
+        XCTAssertEqual(count, 1)
+    }
+
+    func testFailureIsRetriedOnlyAfterAFullHour() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let recorder = RequestRecorder(statusCode: 500)
+        let harness = Harness(clock: clock, recorder: recorder)
+        let service = harness.service(appVersion: "1.4.14")
+        service.setConsent(.allowed)
+        let first = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(first, .failed)
+
+        clock.advance(by: VersionTelemetryService.heartbeatInterval)
+        let second = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(second, .failed)
+        let count = await recorder.count
+        XCTAssertEqual(count, 2)
+    }
+
+    func testMigrationFromBeforeVersionAwareThrottleAllowsAnImmediateAttempt() async {
+        // An install upgraded from before `lastAttemptVersionKey` existed has a
+        // recent `lastAttemptKey` but no recorded version. That must not block
+        // the first 1.4.14 attempt.
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock)
+        harness.defaults.set(clock.now(), forKey: VersionTelemetryService.lastAttemptKey)
+        let service = harness.service(appVersion: "1.4.14")
+        service.setConsent(.allowed)
+
+        let result = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(result, .sent)
+    }
+
+    func testPendingPreviousVersionSurvivesAFailedAttempt() async {
+        let harness = Harness(recorder: RequestRecorder(statusCode: 500))
+        harness.defaults.set("1.4.9", forKey: VersionTelemetryService.lastObservedVersionKey)
+        let service = harness.service()
+        service.setConsent(.allowed)
+
+        let result = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(result, .failed)
+        XCTAssertEqual(
+            harness.defaults.string(forKey: VersionTelemetryService.pendingPreviousVersionKey),
+            "1.4.9"
+        )
+    }
+
+    func testPendingPreviousVersionIsRemovedOnlyAfterASuccessful204() async {
+        let harness = Harness()
+        harness.defaults.set("1.4.9", forKey: VersionTelemetryService.lastObservedVersionKey)
+        let service = harness.service()
+        service.setConsent(.allowed)
+
+        XCTAssertEqual(
+            harness.defaults.string(forKey: VersionTelemetryService.pendingPreviousVersionKey),
+            "1.4.9"
+        )
+        let result = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(result, .sent)
+        XCTAssertNil(harness.defaults.string(forKey: VersionTelemetryService.pendingPreviousVersionKey))
+    }
+
+    func testMissingEndpointSendsNoRequest() async {
+        let harness = Harness()
+        let recorder = harness.recorder
+        let identifier = harness.identifier
+        let clock = harness.clock
+        let service = VersionTelemetryService(
+            defaults: harness.defaults,
+            endpoint: nil,
+            appVersion: "1.4.14",
+            installationID: { identifier },
+            now: { clock.now() },
+            sender: { request in try await recorder.send(request) }
+        )
+        service.setConsent(.allowed)
+
+        let result = await service.sendHeartbeatIfNeeded()
+        let count = await recorder.count
+        XCTAssertEqual(result, .endpointUnavailable)
+        XCTAssertEqual(count, 0)
+    }
+
     func testNetworkErrorDoesNotEscapeAndCannotAffectTheApplication() async {
         let harness = Harness(recorder: RequestRecorder(error: URLError(.timedOut)))
         let service = harness.service()
