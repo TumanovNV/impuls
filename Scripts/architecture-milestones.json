@@ -110,6 +110,20 @@
         "knowledge-base/12-reference/resource-budget-registry.md"
       ],
       "adrs": []
+    },
+    {
+      "version": "1.4.14",
+      "id": "power-center-redesign-and-version-aware-onboarding",
+      "category": "presentation",
+      "summary": "Power Center moved to a master-detail Device Navigator, Bluetooth Magic Keyboard/Mouse/Trackpad recognition was fixed by accepting the Apple Bluetooth SIG vendor ID, the app icon and Menu Bar glyph were rebranded, What's New now always derives from the running bundle version instead of stale copy, and version-statistics proposals moved from a single delayed one-shot to an hourly in-process scheduler.",
+      "release_note": "docs/releases/1.4.14.md",
+      "canonical_docs": [
+        "knowledge-base/02-modules/power.md",
+        "knowledge-base/01-architecture/settings-onboarding-feedback.md",
+        "knowledge-base/12-reference/background-concurrency-registry.md",
+        "knowledge-base/12-reference/resource-budget-registry.md"
+      ],
+      "adrs": []
     }
   ]
 }

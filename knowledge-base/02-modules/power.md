@@ -3,8 +3,8 @@ title: Power and Battery Module
 type: module
 status: production
 documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-20
+app_version: 1.4.14
+last_reviewed: 2026-08-21
 tags: [impuls, module, battery, devices, iokit]
 ---
 
@@ -29,6 +29,10 @@ flowchart TD
     MERGE --> ALERT[LowBatteryAlertService]
 ```
 
+## Power Center presentation (1.4.14)
+
+`PowerPane` — master-detail Device Navigator: вертикальный список устройств слева, detail card справа, вместо прежнего горизонтального переключателя-и-карточки. Desktop-ветка никогда не выдумывает процент: у Mac mini в навигаторе и в detail card нет battery percentage, только AC source/adapter. Severity coloring (`warning <= 20%`, `critical <= 10%`) зеркалит `LowBatteryAlertEngine.Policy`, так что устройство, готовое дать alert, уже так выглядит в списке. Merge/refresh/provider contracts ниже не изменились.
+
 ## Local Mac
 
 `PowerMonitor` остаётся отдельным established path. `LocalMacDeviceProvider` адаптирует его в unified device model. Не переписывать local power path ради external devices.
@@ -42,6 +46,8 @@ Module switch и external-device switch различны. External providers с�
 - local Mac: public IOPowerSources + bounded IORegistry supplement для доступных значений;
 - accessories: IORegistry + best-effort fixed-argument `system_profiler` source;
 - iPhone/iPad: local usbmuxd/lockdown transport over USB or Wi-Fi sync, existing trust required.
+
+`IORegistryAccessoryMapper` (1.4.14) распознаёт Bluetooth Magic Keyboard/Magic Mouse/Magic Trackpad и по USB-IF vendor ID `0x05AC`, и по Bluetooth SIG Apple vendor ID `0x004C` — `AppleDeviceManagementHIDEventService` репортит эти аксессуары под `0x004C`, что раньше приводило к тихой потере записи на реальном Mac mini, хотя Control Center видел заряд корректно. Пустой `Product` string на этих устройствах закрывается небольшой hardware-confirmed таблицей Bluetooth ProductID, а registry-флаг `Built-In` теперь приоритетнее эвристики по transport string, когда он присутствует.
 
 ## Числа из системных словарей
 
