@@ -33,6 +33,7 @@ class SiteLocalizationTests(unittest.TestCase):
 
     def test_locale_source_sync_is_idempotent(self):
         self.assertEqual(SYNC.rewrite(self.localized_source), self.localized_source)
+        self.assertEqual(self.localized_source.count("function runtimeLabels(){"), 1)
 
     def test_complete_hreflang_cluster_is_present_on_every_page(self):
         for page in [self.localized_source, self.pages["en"], self.pages["de"]]:
@@ -85,11 +86,19 @@ class SiteLocalizationTests(unittest.TestCase):
             self.assertNotIn(main, alternates, code)
             self.assertEqual(len(alternates), 2, code)
 
-    def test_external_german_dictionary_has_exact_source_key_parity(self):
+    def test_effective_german_dictionary_has_exact_source_key_parity(self):
         cfg = self.configs["de"]
         self.assertNotIn("source_dictionary", cfg)
-        self.assertEqual(set(cfg["strings"]), BUILDER.translatable_keys(self.localized_source))
-        self.assertEqual(set(cfg["alts"]), BUILDER.screenshot_keys(self.localized_source))
+        words, alts = BUILDER.resolve_content(self.localized_source, cfg)
+        self.assertEqual(set(words), BUILDER.translatable_keys(self.localized_source))
+        self.assertEqual(set(alts), BUILDER.screenshot_keys(self.localized_source))
+
+    def test_only_documented_legacy_dead_translation_keys_are_tolerated(self):
+        source_keys = BUILDER.translatable_keys(self.localized_source)
+        raw_de = set(self.configs["de"]["strings"])
+        raw_en = set(BUILDER.read_embedded_dict(self.localized_source, "EN"))
+        self.assertEqual(raw_de - source_keys, BUILDER.LEGACY_UNUSED_STRING_KEYS)
+        self.assertEqual(raw_en - source_keys, BUILDER.LEGACY_UNUSED_STRING_KEYS)
 
     def test_multiline_power_screenshot_is_part_of_alt_parity_and_is_localized(self):
         cfg = self.configs["de"]
