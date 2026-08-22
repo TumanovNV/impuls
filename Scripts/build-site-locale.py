@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Generate an indexable static website locale from the canonical RU page.
 
-The layout stays in ``docs/index.html``. Locale data lives in
-``Scripts/site-locales/<locale>.json``; generated HTML is never an independent
-source of truth. English may temporarily reuse the embedded EN/ALT dictionaries
-while the generic builder replaces the old English-only generator.
+`docs/index.html` owns layout. Locale data lives in `Scripts/site-locales/` and
+all generated pages use this one builder. English temporarily reuses the
+embedded EN/ALT dictionaries while German is fully external.
 """
 
 from __future__ import annotations
@@ -19,9 +18,14 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "docs" / "index.html"
 LOCALE_DIR = ROOT / "Scripts" / "site-locales"
 SITE = "https://tumanovnv.github.io/impuls/"
-VOID = {"img", "br", "hr", "input", "meta", "link", "source", "path", "circle", "rect", "svg"}
 SITE_LOCALES = [("ru", "RU", ""), ("en", "EN", "en/"), ("de", "DE", "de/")]
 OG_LOCALES = {"ru": "ru_RU", "en": "en_US", "de": "de_DE"}
+VOID = {"img", "br", "hr", "input", "meta", "link", "source", "path", "circle", "rect", "svg"}
+
+# Old EN and the initial DE seed still contain these two strings, but the current
+# landing page deliberately removed the corresponding visible eyebrow rows.
+# They are the only tolerated dead keys; every other extra still fails closed.
+LEGACY_UNUSED_STRING_KEYS = frozenset({"d.eyebrow", "f.eyebrow"})
 
 
 def read_embedded_dict(page: str, name: str) -> dict[str, str]:
@@ -39,11 +43,6 @@ def translatable_keys(page: str) -> set[str]:
 
 
 def screenshot_keys(page: str) -> set[str]:
-    """Return data-shot keys from <img> tags, including multiline tags.
-
-    The Power screenshot deliberately wraps ``data-shot`` onto its own line, so
-    treating the page as line-oriented silently drops a real accessibility key.
-    """
     keys: set[str] = set()
     for tag in re.findall(r'<img\b[^>]*>', page, re.I | re.S):
         match = re.search(r'\bdata-shot="([^"]+)"', tag)
@@ -63,6 +62,13 @@ def resolve_content(page: str, cfg: dict) -> tuple[dict[str, str], dict[str, str
         raise SystemExit("locale config needs a valid strings/source_dictionary map")
     if not isinstance(alts, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in alts.items()):
         raise SystemExit("locale config needs a valid alts/source_alt_dictionary map")
+
+    expected = translatable_keys(page)
+    extra = set(words) - expected
+    unexpected = extra - LEGACY_UNUSED_STRING_KEYS
+    if unexpected:
+        raise SystemExit("unknown data-i keys: " + ", ".join(sorted(unexpected)))
+    words = {k: v for k, v in words.items() if k in expected}
     return words, alts
 
 
@@ -113,8 +119,7 @@ def element_span(page: str, start: int) -> tuple[int, int] | None:
     open_end = page.find(">", start)
     if open_end < 0:
         return None
-    depth = 1
-    cursor = open_end + 1
+    depth, cursor = 1, open_end + 1
     pattern = re.compile(rf"<(/?){tag}\b", re.I)
     while depth:
         hit = pattern.search(page, cursor)
@@ -166,17 +171,15 @@ def localized_schema(page: str, cfg: dict) -> dict:
     schema = json.loads(match.group(1))
     graph = schema["@graph"]
     locale = cfg["locale"]
-    shot_locale = cfg.get("screenshot_locale", locale)
     local = cfg["schema"]
+    shot_locale = cfg.get("screenshot_locale", locale)
 
-    person = next(item for item in graph if item.get("@type") == "Person")
+    person = next(i for i in graph if i.get("@type") == "Person")
     person["name"] = cfg.get("author", person.get("name", ""))
-
-    website = next(item for item in graph if item.get("@type") == "WebSite")
+    website = next(i for i in graph if i.get("@type") == "WebSite")
     website["name"] = cfg.get("application_name", "Impuls")
     website["inLanguage"] = cfg.get("site_languages", [code for code, _, _ in SITE_LOCALES])
-
-    app = next(item for item in graph if item.get("@type") == "SoftwareApplication")
+    app = next(i for i in graph if i.get("@type") == "SoftwareApplication")
     app["@id"] = SITE + cfg["path"] + "#software"
     app["description"] = local["software_description"]
     app["featureList"] = local["feature_list"]
@@ -185,15 +188,10 @@ def localized_schema(page: str, cfg: dict) -> dict:
     app["offers"] = {"@type": "Offer", "price": "0", "priceCurrency": local["price_currency"]}
     if local.get("alternate_name"):
         app["alternateName"] = local["alternate_name"]
-
-    faq = next(item for item in graph if item.get("@type") == "FAQPage")
+    faq = next(i for i in graph if i.get("@type") == "FAQPage")
     faq["@id"] = SITE + cfg["path"] + "#faq-schema"
     faq["mainEntity"] = [
-        {
-            "@type": "Question",
-            "name": item["question"],
-            "acceptedAnswer": {"@type": "Answer", "text": item["answer"]},
-        }
+        {"@type": "Question", "name": item["question"], "acceptedAnswer": {"@type": "Answer", "text": item["answer"]}}
         for item in local["faq"]
     ]
     return schema
@@ -206,9 +204,7 @@ def replace_og_locales(page: str, current: str) -> str:
     ) + "\n"
     page, count = re.subn(
         r'<meta property="og:locale" content="[^"]+">\n(?:<meta property="og:locale:alternate" content="[^"]+">\n)*',
-        block,
-        page,
-        count=1,
+        block, page, count=1,
     )
     if count != 1:
         raise SystemExit("OpenGraph locale block not found")
@@ -234,16 +230,8 @@ def build(source: str, cfg: dict) -> str:
 
     runtime = cfg["runtime"]
     decimal = runtime.get("decimal", ".")
-    page = re.sub(
-        r'(<span data-release="version-label">)\S+\s+([^<]*)(</span>)',
-        lambda m: m.group(1) + runtime["version"] + " " + m.group(2) + m.group(3),
-        page,
-    )
-    page = re.sub(
-        r'(<span data-release="size">)([\d,\.]+) МБ(</span>)',
-        lambda m: m.group(1) + m.group(2).replace(",", decimal).replace(".", decimal) + " " + runtime["size_unit"] + m.group(3),
-        page,
-    )
+    page = re.sub(r'(<span data-release="version-label">)\S+\s+([^<]*)(</span>)', lambda m: m.group(1) + runtime["version"] + " " + m.group(2) + m.group(3), page)
+    page = re.sub(r'(<span data-release="size">)([\d,\.]+) МБ(</span>)', lambda m: m.group(1) + m.group(2).replace(",", decimal).replace(".", decimal) + " " + runtime["size_unit"] + m.group(3), page)
 
     replacements = [
         (r'<html lang="ru">', f'<html lang="{cfg["html_lang"]}">'),
@@ -265,12 +253,7 @@ def build(source: str, cfg: dict) -> str:
     page = replace_og_locales(page, locale)
 
     schema = localized_schema(page, cfg)
-    page = re.sub(
-        r'<script type="application/ld\+json" id="software-schema">.*?</script>',
-        '<script type="application/ld+json" id="software-schema">\n' + json.dumps(schema, ensure_ascii=False, indent=2) + '\n</script>',
-        page,
-        flags=re.S,
-    )
+    page = re.sub(r'<script type="application/ld\+json" id="software-schema">.*?</script>', '<script type="application/ld+json" id="software-schema">\n' + json.dumps(schema, ensure_ascii=False, indent=2) + '\n</script>', page, flags=re.S)
     page = re.sub(r'((?:href|src|srcset)=")(assets/|manifest\.webmanifest|site-privacy\.html)', r'\g<1>../\g<2>', page)
 
     control = language_control(locale, cfg["language_aria"])
@@ -278,24 +261,13 @@ def build(source: str, cfg: dict) -> str:
     if count != 1:
         raise SystemExit("language control not found")
 
-    labels = {
-        "version": runtime["version"], "sizeUnit": runtime["size_unit"],
-        "decimal": decimal, "copied": runtime["copied"], "modules": runtime["modules"],
-    }
+    labels = {"version": runtime["version"], "sizeUnit": runtime["size_unit"], "decimal": decimal, "copied": runtime["copied"], "modules": runtime["modules"]}
     marker = "<script>document.documentElement.classList.add('js')</script>"
-    bootstrap = (
-        "<script>document.documentElement.classList.add('js');"
-        f"window.IMPULS_LANG={json.dumps(locale)};"
-        f"window.IMPULS_LABELS={json.dumps(labels, ensure_ascii=False, separators=(',', ':'))}"
-        "</script>"
-    )
+    bootstrap = "<script>document.documentElement.classList.add('js');" + f"window.IMPULS_LANG={json.dumps(locale)};" + f"window.IMPULS_LABELS={json.dumps(labels, ensure_ascii=False, separators=(',', ':'))}" + "</script>"
     if marker not in page:
         raise SystemExit("JavaScript bootstrap marker not found")
     page = page.replace(marker, bootstrap, 1)
-    return (
-        f"<!-- Generated by Scripts/build-site-locale.py from ../index.html using Scripts/site-locales/{locale}.json. "
-        "Do not edit this page directly. -->\n" + page
-    )
+    return f"<!-- Generated by Scripts/build-site-locale.py from ../index.html using Scripts/site-locales/{locale}.json. Do not edit this page directly. -->\n" + page
 
 
 def main() -> int:
