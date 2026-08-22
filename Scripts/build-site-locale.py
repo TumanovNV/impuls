@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Build a localized static landing page from the canonical Russian source.
+"""Build localized static landing pages from the canonical Russian source.
 
-The Russian landing page remains the single HTML/layout source. Locales beyond
-that source live as data in ``Scripts/site-locales/<locale>.json`` and are
-rendered to ``docs/<locale>/index.html``. This keeps each language on a real,
-indexable URL without hand-maintaining copies of the landing page.
+The Russian landing page remains the single HTML/layout source. Locale metadata
+lives in ``Scripts/site-locales/<locale>.json``. A locale may either carry its
+own ``strings``/``alts`` maps or, during migration, name dictionaries already
+embedded in ``docs/index.html``. Generated pages live at real indexable URLs:
+``docs/<locale>/index.html``.
 
+    python3 Scripts/build-site-locale.py --locale en
     python3 Scripts/build-site-locale.py --locale de
     python3 Scripts/build-site-locale.py --locale de --check
 
@@ -16,7 +18,6 @@ or package installation.
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import re
 import sys
@@ -29,6 +30,16 @@ SITE = "https://tumanovnv.github.io/impuls/"
 VOID = {"img", "br", "hr", "input", "meta", "link", "source", "path", "circle", "rect", "svg"}
 
 
+def read_embedded_dict(page: str, name: str) -> dict[str, str]:
+    match = re.search(rf"var {re.escape(name)} = (\{{.*?\n\}});", page, re.S)
+    if not match:
+        raise SystemExit(f"could not find embedded dictionary {name} in docs/index.html")
+    value = json.loads(match.group(1))
+    if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+        raise SystemExit(f"embedded dictionary {name} must be a string-to-string object")
+    return value
+
+
 def element_span(page: str, start: int) -> tuple[int, int, str] | None:
     tag_match = re.match(r"<([a-zA-Z0-9]+)", page[start:])
     if not tag_match:
@@ -39,7 +50,6 @@ def element_span(page: str, start: int) -> tuple[int, int, str] | None:
     open_end = page.find(">", start)
     if open_end == -1:
         return None
-
     depth = 1
     cursor = open_end + 1
     pattern = re.compile(rf"<(/?){tag}\b", re.I)
@@ -61,18 +71,40 @@ def screenshot_keys(page: str) -> set[str]:
     return set(re.findall(r'<img[^>]*\bdata-shot="([^"]+)"', page))
 
 
-def validate_config(page: str, cfg: dict) -> None:
+def resolve_content(page: str, cfg: dict) -> tuple[dict[str, str], dict[str, str]]:
+    if "strings" in cfg:
+        words = cfg["strings"]
+    elif "source_dictionary" in cfg:
+        words = read_embedded_dict(page, cfg["source_dictionary"])
+    else:
+        raise SystemExit("locale config needs strings or source_dictionary")
+
+    if "alts" in cfg:
+        alts = cfg["alts"]
+    elif "source_alt_dictionary" in cfg:
+        alts = read_embedded_dict(page, cfg["source_alt_dictionary"])
+    else:
+        raise SystemExit("locale config needs alts or source_alt_dictionary")
+
+    if not isinstance(words, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in words.items()):
+        raise SystemExit("locale strings must be a string-to-string object")
+    if not isinstance(alts, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in alts.items()):
+        raise SystemExit("locale alts must be a string-to-string object")
+    return words, alts
+
+
+def validate_config(page: str, cfg: dict, words: dict[str, str], alts: dict[str, str]) -> None:
     required = {
         "locale", "html_lang", "path", "og_locale", "title", "description",
         "og_title", "og_description", "og_image_alt", "nav_aria", "language_aria",
-        "runtime", "strings", "alts", "schema",
+        "runtime", "schema",
     }
     missing = sorted(required - set(cfg))
     if missing:
         raise SystemExit("locale config missing fields: " + ", ".join(missing))
 
     expected = translatable_keys(page)
-    actual = set(cfg["strings"])
+    actual = set(words)
     if expected != actual:
         missing_keys = sorted(expected - actual)
         extra_keys = sorted(actual - expected)
@@ -84,7 +116,7 @@ def validate_config(page: str, cfg: dict) -> None:
         raise SystemExit("; ".join(details))
 
     expected_alts = screenshot_keys(page)
-    actual_alts = set(cfg["alts"])
+    actual_alts = set(alts)
     if expected_alts != actual_alts:
         missing_alts = sorted(expected_alts - actual_alts)
         extra_alts = sorted(actual_alts - expected_alts)
@@ -137,7 +169,7 @@ def localized_schema(page: str, cfg: dict) -> dict:
     graph = schema.get("@graph", [])
     locale = cfg["locale"]
     path = cfg["path"]
-    shot_locale = cfg.get("screenshot_locale", "en")
+    shot_locale = cfg.get("screenshot_locale", locale)
     scfg = cfg["schema"]
 
     website = next(i for i in graph if i.get("@type") == "WebSite")
@@ -181,14 +213,15 @@ def language_control(current: str) -> str:
 
 
 def build(page: str, cfg: dict) -> str:
-    validate_config(page, cfg)
+    words, alts = resolve_content(page, cfg)
+    validate_config(page, cfg, words, alts)
     locale = cfg["locale"]
     path = cfg["path"]
-    page = translate(page, cfg["strings"])
+    page = translate(page, words)
 
-    shot_locale = cfg.get("screenshot_locale", "en")
+    shot_locale = cfg.get("screenshot_locale", locale)
     page = page.replace("assets/screens/ru/", f"assets/screens/{shot_locale}/")
-    for name, text in cfg["alts"].items():
+    for name, text in alts.items():
         page = re.sub(
             rf'(<img[^>]*data-shot="{re.escape(name)}"[^>]*\balt=")[^"]*(")',
             lambda m, t=text: m.group(1) + t + m.group(2),
@@ -276,7 +309,7 @@ def build(page: str, cfg: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--locale", required=True, help="locale code, for example de")
+    parser.add_argument("--locale", required=True, help="locale code, for example en or de")
     parser.add_argument("--check", action="store_true", help="exit 1 if the generated page is stale")
     args = parser.parse_args()
 
