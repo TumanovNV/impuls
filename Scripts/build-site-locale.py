@@ -4,15 +4,7 @@
 The Russian landing page remains the single HTML/layout source. Locale metadata
 lives in ``Scripts/site-locales/<locale>.json``. A locale may either carry its
 own ``strings``/``alts`` maps or, during migration, name dictionaries already
-embedded in ``docs/index.html``. Generated pages live at real indexable URLs:
-``docs/<locale>/index.html``.
-
-    python3 Scripts/build-site-locale.py --locale en
-    python3 Scripts/build-site-locale.py --locale de
-    python3 Scripts/build-site-locale.py --locale de --check
-
-Pure standard library on purpose: the site sync workflow runs without a browser
-or package installation.
+embedded in ``docs/index.html``. Generated pages live at real indexable URLs.
 """
 
 from __future__ import annotations
@@ -28,6 +20,8 @@ SOURCE = ROOT / "docs" / "index.html"
 LOCALE_DIR = ROOT / "Scripts" / "site-locales"
 SITE = "https://tumanovnv.github.io/impuls/"
 VOID = {"img", "br", "hr", "input", "meta", "link", "source", "path", "circle", "rect", "svg"}
+OG_LOCALES = {"ru": "ru_RU", "en": "en_US", "de": "de_DE"}
+SITE_LOCALES = [("ru", "RU", ""), ("en", "EN", "en/"), ("de", "DE", "de/")]
 
 
 def read_embedded_dict(page: str, name: str) -> dict[str, str]:
@@ -78,14 +72,12 @@ def resolve_content(page: str, cfg: dict) -> tuple[dict[str, str], dict[str, str
         words = read_embedded_dict(page, cfg["source_dictionary"])
     else:
         raise SystemExit("locale config needs strings or source_dictionary")
-
     if "alts" in cfg:
         alts = cfg["alts"]
     elif "source_alt_dictionary" in cfg:
         alts = read_embedded_dict(page, cfg["source_alt_dictionary"])
     else:
         raise SystemExit("locale config needs alts or source_alt_dictionary")
-
     if not isinstance(words, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in words.items()):
         raise SystemExit("locale strings must be a string-to-string object")
     if not isinstance(alts, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in alts.items()):
@@ -102,36 +94,27 @@ def validate_config(page: str, cfg: dict, words: dict[str, str], alts: dict[str,
     missing = sorted(required - set(cfg))
     if missing:
         raise SystemExit("locale config missing fields: " + ", ".join(missing))
-
     expected = translatable_keys(page)
-    actual = set(words)
-    if expected != actual:
-        missing_keys = sorted(expected - actual)
-        extra_keys = sorted(actual - expected)
-        details = []
-        if missing_keys:
-            details.append("missing data-i keys: " + ", ".join(missing_keys))
-        if extra_keys:
-            details.append("unknown data-i keys: " + ", ".join(extra_keys))
-        raise SystemExit("; ".join(details))
-
+    if expected != set(words):
+        missing_keys = sorted(expected - set(words))
+        extra_keys = sorted(set(words) - expected)
+        raise SystemExit(
+            ("missing data-i keys: " + ", ".join(missing_keys) if missing_keys else "")
+            + ("; " if missing_keys and extra_keys else "")
+            + ("unknown data-i keys: " + ", ".join(extra_keys) if extra_keys else "")
+        )
     expected_alts = screenshot_keys(page)
-    actual_alts = set(alts)
-    if expected_alts != actual_alts:
-        missing_alts = sorted(expected_alts - actual_alts)
-        extra_alts = sorted(actual_alts - expected_alts)
-        details = []
-        if missing_alts:
-            details.append("missing screenshot alts: " + ", ".join(missing_alts))
-        if extra_alts:
-            details.append("unknown screenshot alts: " + ", ".join(extra_alts))
-        raise SystemExit("; ".join(details))
-
+    if expected_alts != set(alts):
+        missing_alts = sorted(expected_alts - set(alts))
+        extra_alts = sorted(set(alts) - expected_alts)
+        raise SystemExit(
+            ("missing screenshot alts: " + ", ".join(missing_alts) if missing_alts else "")
+            + ("; " if missing_alts and extra_alts else "")
+            + ("unknown screenshot alts: " + ", ".join(extra_alts) if extra_alts else "")
+        )
     schema = cfg["schema"]
-    if len(schema.get("faq", [])) != 6:
-        raise SystemExit("localized JSON-LD must contain the same six canonical FAQ entries")
-    if len(schema.get("feature_list", [])) != 8:
-        raise SystemExit("localized JSON-LD must contain the same eight feature-list entries")
+    if len(schema.get("faq", [])) != 6 or len(schema.get("feature_list", [])) != 8:
+        raise SystemExit("localized JSON-LD must keep six FAQ entries and eight feature-list entries")
 
 
 def translate(page: str, words: dict[str, str]) -> str:
@@ -154,15 +137,12 @@ def translate(page: str, words: dict[str, str]) -> str:
         applied.add(key)
     out.append(page[cursor:])
     if applied != set(words):
-        missing = sorted(set(words) - applied)
-        raise SystemExit("translations did not land for: " + ", ".join(missing))
+        raise SystemExit("translations did not land for: " + ", ".join(sorted(set(words) - applied)))
     return "".join(out)
 
 
 def localized_schema(page: str, cfg: dict) -> dict:
-    match = re.search(
-        r'<script type="application/ld\+json" id="software-schema">(.*?)</script>', page, re.S
-    )
+    match = re.search(r'<script type="application/ld\+json" id="software-schema">(.*?)</script>', page, re.S)
     if not match:
         raise SystemExit("no software JSON-LD found in docs/index.html")
     schema = json.loads(match.group(1))
@@ -172,8 +152,12 @@ def localized_schema(page: str, cfg: dict) -> dict:
     shot_locale = cfg.get("screenshot_locale", locale)
     scfg = cfg["schema"]
 
+    person = next(i for i in graph if i.get("@type") == "Person")
+    person["name"] = cfg.get("author", person.get("name", ""))
+
     website = next(i for i in graph if i.get("@type") == "WebSite")
-    website["inLanguage"] = cfg.get("site_languages", ["ru", "en", locale])
+    website["name"] = cfg.get("application_name", "Impuls")
+    website["inLanguage"] = cfg.get("site_languages", [code for code, _, _ in SITE_LOCALES])
 
     app = next(i for i in graph if i.get("@type") == "SoftwareApplication")
     app["@id"] = SITE + path + "#software"
@@ -188,28 +172,36 @@ def localized_schema(page: str, cfg: dict) -> dict:
     faq = next(i for i in graph if i.get("@type") == "FAQPage")
     faq["@id"] = SITE + path + "#faq-schema"
     faq["mainEntity"] = [
-        {
-            "@type": "Question",
-            "name": item["question"],
-            "acceptedAnswer": {"@type": "Answer", "text": item["answer"]},
-        }
+        {"@type": "Question", "name": item["question"], "acceptedAnswer": {"@type": "Answer", "text": item["answer"]}}
         for item in scfg["faq"]
     ]
     return schema
 
 
-def language_control(current: str) -> str:
-    locales = [
-        ("ru", "RU", "../"),
-        ("en", "EN", "../en/"),
-        ("de", "DE", "../de/"),
-    ]
+def language_control(current: str, aria: str) -> str:
     lines = []
-    for code, label, href in locales:
-        actual = "./" if code == current else href
+    for code, label, path in SITE_LOCALES:
+        href = "./" if code == current else ("../" if code == "ru" else "../" + path)
         current_attr = ' aria-current="page"' if code == current else ""
-        lines.append(f'        <a id="btn-{code}" href="{actual}" hreflang="{code}"{current_attr}>{label}</a>')
-    return '<div class="lang" role="group" aria-label="__LANG_ARIA__">\n' + "\n".join(lines) + "\n      </div>"
+        lines.append(f'        <a id="btn-{code}" href="{href}" hreflang="{code}"{current_attr}>{label}</a>')
+    return f'<div class="lang" role="group" aria-label="{aria}">\n' + "\n".join(lines) + "\n      </div>"
+
+
+def replace_og_locales(page: str, current: str) -> str:
+    main = OG_LOCALES[current]
+    alternates = [OG_LOCALES[code] for code, _, _ in SITE_LOCALES if code != current]
+    block = f'<meta property="og:locale" content="{main}">\n' + "\n".join(
+        f'<meta property="og:locale:alternate" content="{value}">' for value in alternates
+    ) + "\n"
+    page, count = re.subn(
+        r'<meta property="og:locale" content="[^"]+">\n(?:<meta property="og:locale:alternate" content="[^"]+">\n)*',
+        block,
+        page,
+        count=1,
+    )
+    if count != 1:
+        raise SystemExit("OpenGraph locale block not found")
+    return page
 
 
 def build(page: str, cfg: dict) -> str:
@@ -248,7 +240,6 @@ def build(page: str, cfg: dict) -> str:
         (r'(<meta name="description" content=")[^"]*(">)', lambda m: m.group(1) + cfg["description"] + m.group(2)),
         (r'(<link rel="canonical" href=")[^"]*(">)', lambda m: m.group(1) + SITE + path + m.group(2)),
         (r'(<meta property="og:url" content=")[^"]*(">)', lambda m: m.group(1) + SITE + path + m.group(2)),
-        (r'(<meta property="og:locale" content=")[^"]*(">)', lambda m: m.group(1) + cfg["og_locale"] + m.group(2)),
         (r'(<meta property="og:title" content=")[^"]*(">)', lambda m: m.group(1) + cfg["og_title"] + m.group(2)),
         (r'(<meta property="og:description" content=")[^"]*(">)', lambda m: m.group(1) + cfg["og_description"] + m.group(2)),
         (r'(<meta property="og:image:alt" content=")[^"]*(">)', lambda m: m.group(1) + cfg["og_image_alt"] + m.group(2)),
@@ -260,24 +251,18 @@ def build(page: str, cfg: dict) -> str:
     ]
     for pattern, replacement in swaps:
         page = re.sub(pattern, replacement, page, count=1)
+    page = replace_og_locales(page, locale)
 
     schema = localized_schema(page, cfg)
     page = re.sub(
         r'<script type="application/ld\+json" id="software-schema">.*?</script>',
-        '<script type="application/ld+json" id="software-schema">\n'
-        + json.dumps(schema, ensure_ascii=False, indent=2)
-        + "\n</script>",
+        '<script type="application/ld+json" id="software-schema">\n' + json.dumps(schema, ensure_ascii=False, indent=2) + "\n</script>",
         page,
         flags=re.S,
     )
+    page = re.sub(r'((?:href|src|srcset)=")(assets/|manifest\.webmanifest|site-privacy\.html)', r"\g<1>../\g<2>", page)
 
-    page = re.sub(
-        r'((?:href|src|srcset)=")(assets/|manifest\.webmanifest|site-privacy\.html)',
-        r"\g<1>../\g<2>",
-        page,
-    )
-
-    control = language_control(locale).replace("__LANG_ARIA__", cfg["language_aria"])
+    control = language_control(locale, cfg["language_aria"])
     page, count = re.subn(r'<div class="lang" role="group" aria-label="[^"]*">.*?</div>', control, page, count=1, flags=re.S)
     if count != 1:
         raise SystemExit("language control not found in docs/index.html")
@@ -299,12 +284,10 @@ def build(page: str, cfg: dict) -> str:
     if marker not in page:
         raise SystemExit("JavaScript bootstrap marker not found in docs/index.html")
     page = page.replace(marker, replacement, 1)
-
-    banner = (
-        f"<!-- Generated by Scripts/build-site-locale.py from ../index.html using "
-        f"Scripts/site-locales/{locale}.json. Do not edit this page directly. -->\n"
+    return (
+        f"<!-- Generated by Scripts/build-site-locale.py from ../index.html using Scripts/site-locales/{locale}.json. "
+        "Do not edit this page directly. -->\n" + page
     )
-    return banner + page
 
 
 def main() -> int:
@@ -312,7 +295,6 @@ def main() -> int:
     parser.add_argument("--locale", required=True, help="locale code, for example en or de")
     parser.add_argument("--check", action="store_true", help="exit 1 if the generated page is stale")
     args = parser.parse_args()
-
     config_path = LOCALE_DIR / f"{args.locale}.json"
     if not config_path.exists():
         print(f"unknown site locale: {args.locale}", file=sys.stderr)
@@ -321,10 +303,8 @@ def main() -> int:
     if cfg.get("locale") != args.locale:
         print(f"locale mismatch in {config_path}", file=sys.stderr)
         return 2
-
     built = build(SOURCE.read_text(encoding="utf-8"), cfg)
     target = ROOT / "docs" / cfg["path"] / "index.html"
-
     if args.check:
         current = target.read_text(encoding="utf-8") if target.exists() else ""
         if current != built:
@@ -332,7 +312,6 @@ def main() -> int:
             return 1
         print(f"{target.relative_to(ROOT)} is current")
         return 0
-
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(built, encoding="utf-8")
     print(f"wrote {target.relative_to(ROOT)} ({len(built)} bytes)")
