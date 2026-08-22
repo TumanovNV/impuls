@@ -106,11 +106,15 @@ function formatSize(l){
   var labels = runtimeLabels();
   return mb.replace('.', labels.decimal || '.') + ' ' + (labels.sizeUnit || 'MB');
 }"""
+    # Match both the pre-localization form (formatSize only) and our already
+    # synchronized form (runtimeLabels + formatSize). Without the optional helper
+    # in the match, a second rewrite would prepend runtimeLabels() again and make
+    # --check non-idempotent.
     page = sub_once(
         page,
-        r'function formatSize\(l\)\{.*?\n\}',
+        r'(?:function runtimeLabels\(\)\{.*?\}\n)?function formatSize\(l\)\{.*?\n\}',
         runtime_functions,
-        "formatSize",
+        "runtime release labels",
         flags=re.S,
     )
 
@@ -165,6 +169,9 @@ loadRelease();"""
         "startup locale flow",
         flags=re.S,
     )
+
+    if page.count("function runtimeLabels(){") != 1:
+        raise SystemExit("website locale sync must leave exactly one runtimeLabels helper")
     return page
 
 
