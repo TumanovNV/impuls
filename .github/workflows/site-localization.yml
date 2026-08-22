@@ -1,0 +1,66 @@
+name: site-localization
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - docs/index.html
+      - docs/sitemap.xml
+      - Scripts/build-site-locale.py
+      - Scripts/site-locales/**
+      - Scripts/sync-site-locales.py
+      - Scripts/sync-site-product-facts.py
+      - Scripts/sync-site-release.py
+      - Tests/PythonTests/**
+      - .github/workflows/site-localization.yml
+      - .github/workflows/site-release-sync.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Run website localization unit tests
+        run: python3 -m unittest Tests.PythonTests.test_site_localization -v
+
+      - name: Generate the complete static locale cluster
+        run: |
+          set -euo pipefail
+          python3 Scripts/sync-site-product-facts.py
+          python3 Scripts/sync-site-locales.py
+          python3 Scripts/build-site-locale.py --locale en
+          python3 Scripts/build-site-locale.py --locale de
+
+      - name: Verify locale generators are idempotent
+        run: |
+          set -euo pipefail
+          python3 Scripts/sync-site-product-facts.py --check
+          python3 Scripts/sync-site-locales.py --check
+          python3 Scripts/build-site-locale.py --locale en --check
+          python3 Scripts/build-site-locale.py --locale de --check
+
+      - name: Verify static SEO and language routing
+        run: |
+          set -euo pipefail
+          for PAGE in docs/index.html docs/en/index.html docs/de/index.html; do
+            grep -F 'hreflang="ru"' "$PAGE"
+            grep -F 'hreflang="en"' "$PAGE"
+            grep -F 'hreflang="de"' "$PAGE"
+            grep -F 'hreflang="x-default"' "$PAGE"
+            grep -q 'releases/download/v.*\.dmg"' "$PAGE"
+          done
+          grep -F '<html lang="de">' docs/de/index.html
+          grep -F '7 Sprachen' docs/de/index.html
+          grep -F 'Welche Sprachen unterstützt Impuls?' docs/de/index.html
+          grep -F 'https://tumanovnv.github.io/impuls/de/' docs/sitemap.xml
+
+      - name: Run repository Python tests separately from Swift
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_*.py'

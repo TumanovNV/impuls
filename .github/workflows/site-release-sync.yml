@@ -1,17 +1,14 @@
 name: site-release-sync
 
-# Keeps the website's static release metadata and durable product facts current.
-#
-# The site fetches the Releases API at runtime, so a person with a browser has
-# always seen the right version. Everyone else — search engines, link previews,
-# anyone with JavaScript off — reads the markup, and the markup only changes when
-# something changes it. This workflow keeps that static markup current.
+# Keeps the website's static release metadata, durable product facts and locale
+# pages current. The site remains static; generators run only in CI and commit
+# the resulting HTML to GitHub Pages.
 #
 # It cannot loop and it cannot ship anything:
 #   * `release.yml` triggers on `push` to `Scripts/version`, which this never touches;
-#   * the push trigger below watches only the sync scripts/workflow, while the bot
+#   * the push trigger below watches only generators/config/workflow, while the bot
 #     commit changes only `docs/`;
-#   * nothing here signs, tags, builds, or uploads an asset.
+#   * nothing here signs, tags, builds, or uploads an app asset.
 
 on:
   push:
@@ -19,7 +16,9 @@ on:
     paths:
       - Scripts/sync-site-product-facts.py
       - Scripts/sync-site-release.py
-      - Scripts/build-en-page.py
+      - Scripts/sync-site-locales.py
+      - Scripts/build-site-locale.py
+      - Scripts/site-locales/**
       - .github/workflows/site-release-sync.yml
   release:
     types: [published]
@@ -47,47 +46,66 @@ jobs:
         with:
           ref: main
 
-      - name: Write the current release into docs/index.html
+      - name: Write the current release into the canonical Russian page
         run: python3 Scripts/sync-site-release.py
 
-      - name: Keep durable product facts in the Russian source page
+      - name: Keep durable product facts in the canonical Russian page
         run: python3 Scripts/sync-site-product-facts.py
 
-      - name: Regenerate the English page from it
-        run: python3 Scripts/build-en-page.py
+      - name: Keep website locale routing in the canonical Russian page
+        run: python3 Scripts/sync-site-locales.py
+
+      - name: Generate static localized pages
+        run: |
+          set -euo pipefail
+          python3 Scripts/build-site-locale.py --locale en
+          python3 Scripts/build-site-locale.py --locale de
 
       - name: Verify the pages still satisfy the site checks
         run: |
           set -euo pipefail
-          # The same three literals build.yml greps for. A metadata/product-fact
+          # The same three literals build.yml greps for. A metadata/product/locale
           # rewrite must never be the thing that breaks them.
           grep -F "const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';" docs/index.html
           grep -F 'function releaseHash(asset,body)' docs/index.html
           grep -F 'data-conversion="feedback"' docs/index.html
-          # The static page must agree with the latest release and with the
-          # durable product facts before the English page is accepted.
+
           python3 Scripts/sync-site-release.py --check
           python3 Scripts/sync-site-product-facts.py --check
-          python3 Scripts/build-en-page.py --check
-          # The no-JS download path is the reason the static markup exists.
+          python3 Scripts/sync-site-locales.py --check
+          python3 Scripts/build-site-locale.py --locale en --check
+          python3 Scripts/build-site-locale.py --locale de --check
+
+          # Static/no-JS download paths are part of the contract on every locale.
           grep -q "releases/download/v.*\.dmg\"" docs/index.html
           grep -q "releases/download/v.*\.dmg\"" docs/en/index.html
-          # Localization is a visible product capability, not just release-note
-          # trivia. Keep it explicit on both public landing pages.
+          grep -q "releases/download/v.*\.dmg\"" docs/de/index.html
+
+          # Every page declares the complete website-language cluster.
+          for PAGE in docs/index.html docs/en/index.html docs/de/index.html; do
+            grep -F 'hreflang="ru"' "$PAGE"
+            grep -F 'hreflang="en"' "$PAGE"
+            grep -F 'hreflang="de"' "$PAGE"
+          done
+
+          # Seven languages is an app capability and must remain explicit in each
+          # published website locale.
           grep -F '7 языков интерфейса' docs/index.html
           grep -F '7 interface languages' docs/en/index.html
+          grep -F '7 Sprachen' docs/de/index.html
           grep -F 'На каких языках работает Impuls?' docs/index.html
           grep -F 'Which languages does Impuls support?' docs/en/index.html
+          grep -F 'Welche Sprachen unterstützt Impuls?' docs/de/index.html
 
       - name: Commit if anything changed
         run: |
           set -euo pipefail
-          if git diff --quiet -- docs/index.html docs/en/index.html; then
+          if git diff --quiet -- docs/index.html docs/en/index.html docs/de/index.html; then
             echo "website markup was already current; nothing to commit"
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html docs/en/index.html
-          git commit -m "docs: sync website release metadata and product facts"
+          git add docs/index.html docs/en/index.html docs/de/index.html
+          git commit -m "docs: sync website release metadata and localized pages"
           git push origin HEAD:main

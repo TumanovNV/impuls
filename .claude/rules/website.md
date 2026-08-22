@@ -1,7 +1,9 @@
 ---
 paths:
   - "docs/**"
-  - "Scripts/build-en-page.py"
+  - "Scripts/build-site-locale.py"
+  - "Scripts/site-locales/**"
+  - "Scripts/sync-site-locales.py"
   - "Scripts/sync-site-release.py"
   - "Scripts/sync-site-product-facts.py"
   - ".github/workflows/site-release-sync.yml"
@@ -10,108 +12,122 @@ paths:
 
 # The Impuls website
 
-Read `knowledge-base/07-web/website.md` before changing website content, generators or synchronization. `knowledge-base/07-web/design-system.md` owns presentation intent.
+Read `knowledge-base/07-web/website.md` before changing website content, locale configs, generators or synchronization. `knowledge-base/07-web/design-system.md` owns presentation intent.
 
 ## Static architecture
 
 - `docs/index.html` is the canonical RU content/layout source served by GitHub Pages.
-- `docs/en/index.html` is generated from the RU source by `Scripts/build-en-page.py`; never hand-edit it as an independent page.
-- The public website currently has **two page locales only**: RU (`/`) and EN (`/en/`).
-- The Impuls app currently has **seven interface localizations**: `ru`, `en`, `de`, `fr`, `es`, `zh-Hans`, `ja`.
-- Do not confuse app localization with website localization. `hreflang`/website `inLanguage` remain RU/EN until real public pages exist for other languages.
-- The RU page remains self-contained: no external stylesheet, no external script and no external font dependency.
+- `docs/en/index.html` and `docs/de/index.html` are generated; never hand-edit them as independent pages.
+- One generator owns generated pages: `Scripts/build-site-locale.py`.
+- Website locales are currently **RU / EN / DE**.
+- App interface localizations are **ru / en / de / fr / es / zh-Hans / ja**.
+- Do not confuse those sets. A shipped app language does not earn `hreflang` until a real static website page exists.
+- The RU page remains self-contained: no external stylesheet, external script or external font dependency.
+
+English body/alt copy is temporarily sourced from the existing embedded `EN` / `ALT` dictionaries via `Scripts/site-locales/en.json`. German copy is fully external in `Scripts/site-locales/de.json`. New website languages must use locale configs; do not create another language-specific Python generator or copy the HTML page.
+
+## Locale routing
+
+`Scripts/sync-site-locales.py` owns the public locale cluster in the canonical RU source:
+
+- reciprocal `hreflang` + `x-default`;
+- OpenGraph locale alternates;
+- `WebSite.inLanguage`;
+- visible RU / EN / DE selector;
+- generated-page runtime labels;
+- compatibility redirects from old `?lang=en|de` links;
+- narrow-header behaviour needed for three language buttons.
+
+Do not patch those facts separately in generated pages.
 
 ## Release metadata
 
-Never manually update version/DMG/SHA in one page only.
+Never manually update version/DMG/SHA in one language page only.
 
 - `Scripts/sync-site-release.py` owns static release metadata.
-- Runtime JavaScript reads the GitHub Releases API as a freshness layer.
-- Static markup must already carry the current version, DMG URL, filename, size and SHA-256 for crawlers and visitors without JavaScript.
-- `.github/workflows/site-release-sync.yml` runs the release synchronizer and regenerates EN after release publication.
+- Runtime JavaScript reads the GitHub Releases API only as a freshness layer.
+- Static markup on every locale must already carry the current version, DMG URL, filename, size and SHA-256 for crawlers/no-JS visitors.
 
-These literal contracts must survive edits because CI/workflow checks them:
+These literal contracts must survive edits:
 
-```
+```text
 const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';
 function releaseHash(asset,body)
 data-conversion="feedback"
 ```
 
-A normal app release must not require a manual edit to `docs/index.html` or `docs/en/index.html`.
+A normal app release must not require hand-editing any localized HTML page.
 
 ## Durable product facts
 
-`Scripts/sync-site-product-facts.py` owns small durable marketing facts that must survive release metadata rewrites and EN regeneration.
+`Scripts/sync-site-product-facts.py` owns durable marketing facts in the canonical RU source. The current localization capability is visible on all public website locales:
 
-The current localization fact is intentionally visible in two places:
+- RU: `7 языков интерфейса`;
+- EN: `7 interface languages`;
+- DE: `7 Sprachen`;
+- each FAQ lists the seven app interface languages and System/manual language behaviour.
 
-- hero metadata: `7 языков интерфейса` / `7 interface languages`;
-- FAQ: the exact seven app languages and System/manual language behavior.
-
-When the shipped app locale set changes, do **not** patch only the generated HTML or only the number. Update the app localization contract and `sync-site-product-facts.py` together, run its `--check`, regenerate EN, and verify both RU/EN assertions.
-
-Current app-localization list:
-
-```
-ru
-en
-de
-fr
-es
-zh-Hans
-ja
-```
-
-This is an **app capability**. It does not mean the website itself is available in seven languages.
+When the shipped app locale set changes, do not patch a generated page or a number in isolation. Update the app contract, product-fact owner, affected locale configs and workflow assertions together.
 
 ## Generated-page flow
 
-For changes affecting durable site facts or shared copy, use this order:
+Site-sync order is fixed:
 
 ```bash
-python3 Scripts/sync-site-release.py --check
+python3 Scripts/sync-site-release.py
 python3 Scripts/sync-site-product-facts.py
-python3 Scripts/build-en-page.py
+python3 Scripts/sync-site-locales.py
+python3 Scripts/build-site-locale.py --locale en
+python3 Scripts/build-site-locale.py --locale de
+
+python3 Scripts/sync-site-release.py --check
 python3 Scripts/sync-site-product-facts.py --check
-python3 Scripts/build-en-page.py --check
+python3 Scripts/sync-site-locales.py --check
+python3 Scripts/build-site-locale.py --locale en --check
+python3 Scripts/build-site-locale.py --locale de --check
 ```
 
-`sync-site-release.py --check` requires current GitHub release data/network access. In CI, `.github/workflows/site-release-sync.yml` owns the authoritative online release check.
+The online release check belongs to `.github/workflows/site-release-sync.yml`. That workflow may commit only generated website markup (`docs/index.html`, `docs/en/index.html`, `docs/de/index.html`). It must never change `Scripts/version`, sign/tag an app or upload release assets.
 
-The workflow may commit only `docs/index.html` and `docs/en/index.html`. It must never change `Scripts/version`, sign/tag an app, upload release assets or become a second release path.
+## Adding another website language
+
+Do not create `build-fr-page.py` or another HTML copy. Add a locale config under `Scripts/site-locales/`, extend the locale cluster/generator calls, add sitemap + reciprocal SEO assertions, and extend tests. The page is public only after its real static URL exists.
+
+German is the first external-locale baseline. Its translation is AI-assisted and technically reviewed; do not claim native-speaker linguistic review unless it actually happens.
 
 ## No-JavaScript contract
 
-Without JavaScript:
+Without JavaScript on every locale:
 
-- download buttons still point directly to the real DMG;
+- download buttons point to the real DMG;
 - version, size, filename and SHA-256 are present;
-- durable product facts such as the seven-language app capability remain visible;
+- body/head/FAQ and durable product facts are already localized;
 - module content remains readable;
 - content is not hidden behind observer-dependent opacity.
 
-## Theme / CSS safety
+Runtime JS may refresh release metadata and interaction. It must not be the translation mechanism for DE or future external locales.
 
-The website follows `prefers-color-scheme`; there is no website theme toggle. Review both light and dark appearances for presentation changes.
+## Theme / responsive safety
 
-The current page does not use gradient-clipped headline text. If that technique is introduced again, theme overrides must use `background-image`, not the `background` shorthand, because shorthand resets `background-clip` and can make transparent text disappear.
+The site follows `prefers-color-scheme`; review light and dark for presentation changes. With three locale buttons the narrow header collapses only the brand wordmark text at `<=419px`; the icon, RU/EN/DE and Download remain reachable.
 
-Do not add external font/CSS/JS frameworks without an explicit architecture decision; the self-contained page is a performance/reliability contract.
+Do not add external font/CSS/JS frameworks without an explicit architecture decision.
 
 ## SEO and public pages
 
-- RU and EN have real static URLs and real static head/SEO content.
-- `?lang=en` is compatibility-only and redirects to `/en/`.
-- `site-privacy.html`, `robots.txt`, `sitemap.xml`, `manifest.webmanifest`, canonical/hreflang and JSON-LD must stay consistent.
-- Adding a new public language page requires an explicit sitemap/hreflang/SEO review; adding a new **app** localization alone does not.
+- RU, EN and DE have real static URLs and self-canonical localized heads.
+- `sitemap.xml`, canonical, reciprocal hreflang, OG locale alternates and JSON-LD must agree with the real public locale set.
+- `x-default` remains the RU root.
+- Do not add `fr`, `es`, `zh-Hans` or `ja` to website language metadata until those pages exist.
 
 ## Screenshots / privacy
 
 Product screenshots must be real captures or clearly demo data. Never publish personal clipboard content, notes, real calendar events, file paths or device identifiers.
 
+DE currently uses the real EN product captures through `screenshot_locale: en`; this is preferable to drawing fake German UI. Replace them only with real German product captures.
+
 ## Release notes and audits
 
-- `docs/releases/<version>.md` — Russian section, `---`, then English release notes. CI requires the file for `Scripts/version`.
-- `docs/audits/` — additive historical security notes; do not rewrite old audits to describe current state.
-- Website current-state architecture belongs in `knowledge-base/07-web/website.md`, not in historical release notes.
+- `docs/releases/<version>.md` stays RU + EN and is part of the app release contract, not website locale source.
+- `docs/audits/` is additive history.
+- Current website architecture belongs in `knowledge-base/07-web/website.md`.

@@ -1,0 +1,67 @@
+{
+  "locale": "en",
+  "html_lang": "en",
+  "path": "en/",
+  "og_locale": "en_US",
+  "site_languages": ["ru", "en", "de"],
+  "screenshot_locale": "en",
+  "source_dictionary": "EN",
+  "source_alt_dictionary": "ALT",
+  "title": "IMPULS for macOS — clipboard, files, notes and translation",
+  "description": "IMPULS is a free native macOS utility with clipboard history, a file shelf, notes, translation, calendar, music and device battery levels. Local and no account.",
+  "og_title": "IMPULS for macOS — everything you need at the top edge",
+  "og_description": "Clipboard, files, notes, translation, calendar, music and device battery levels in one native panel. Free, local and no account required.",
+  "og_image_alt": "The Impuls panel at the top edge of a Mac screen",
+  "nav_aria": "Sections of this page",
+  "language_aria": "Page language",
+  "application_name": "Impuls",
+  "author": "Nikolay Tumanov",
+  "runtime": {
+    "version": "Version",
+    "size_unit": "MB",
+    "decimal": ".",
+    "copied": "Copied",
+    "modules": "Modules"
+  },
+  "schema": {
+    "alternate_name": ["Impuls", "Impuls for macOS"],
+    "software_description": "A free, local macOS app. A panel at the top edge of any screen brings together search across clipboard history, snippets and notes, a file shelf, translation, your calendar, music and the battery level of your Apple devices.",
+    "price_currency": "USD",
+    "feature_list": [
+      "The panel opens on hover or with a global shortcut, above any application",
+      "One search across clipboard history, snippets and notes",
+      "A file shelf with text recognition, background removal, conversion and PDF",
+      "Notes, translation and your next meeting within reach",
+      "The charge of your Mac, AirPods, iPhone and iPad in one place",
+      "Present on every connected display, including Sidecar",
+      "Works with VoiceOver and from the keyboard",
+      "No advertising or cloud; version statistics only after a separate opt-in"
+    ],
+    "faq": [
+      {
+        "question": "Do I need a MacBook with a notch?",
+        "answer": "No. On a MacBook with a cutout the panel uses its geometry; on any other screen Impuls draws a compact black anchor of 120 x 12 pt at the top edge. It works on the built-in display, on an external monitor and on an iPad running as a Sidecar display."
+      },
+      {
+        "question": "Does Impuls send my clipboard and files to the internet?",
+        "answer": "Clipboard, notes, snippets, files and calendar stay on the Mac. Update checks and the web player are enabled separately. A third switch can allow version statistics: a random installation pseudonym and the Impuls version, with no app content, name, contact details or hardware identifiers."
+      },
+      {
+        "question": "What does Impuls cost?",
+        "answer": "Nothing. Impuls is free, open source under GPL-3.0-or-later, and needs no account."
+      },
+      {
+        "question": "Why does macOS refuse to open Impuls on first launch?",
+        "answer": "The build is ad-hoc signed and not yet notarized by Apple, which needs a Developer ID. The first launch goes through System Settings > Privacy & Security > Open Anyway. After that Impuls updates itself through a signed channel and checks the signature before unpacking."
+      },
+      {
+        "question": "Why are some Battery values missing?",
+        "answer": "Impuls shows only what macOS publishes about that particular Mac. Temperature, cycles, full capacity and connector type are missing on some machines, and rather than invent a value the panel leaves it unavailable. On a Mac mini, Mac Studio, iMac or Mac Pro the module is called Power."
+      },
+      {
+        "question": "How does Impuls read the charge of an iPhone or iPad?",
+        "answer": "Through the trust the device has already given this Mac: over USB, or through Finder Wi-Fi sync. No pairing is created, no local network is scanned, and there is no direct connection to the device. Discovery is off by default and iPhone and iPad support is marked Beta."
+      }
+    ]
+  }
+}
