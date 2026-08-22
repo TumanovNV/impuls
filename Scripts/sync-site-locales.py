@@ -2,12 +2,9 @@
 """Keep the canonical RU landing page aware of every static website locale.
 
 This script owns routing/runtime facts shared by all generated language pages:
-``hreflang``, OpenGraph locale alternates, the visible language selector and the
-small runtime labels needed after the Releases API refreshes static markup.
+``hreflang``, OpenGraph locale alternates, the visible language selector, its
+narrow-screen layout and the runtime labels needed after a Releases API refresh.
 It changes only ``docs/index.html``; localized pages are generated afterwards.
-
-    python3 Scripts/sync-site-locales.py
-    python3 Scripts/sync-site-locales.py --check
 """
 
 from __future__ import annotations
@@ -20,7 +17,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "docs" / "index.html"
 SITE = "https://tumanovnv.github.io/impuls/"
-
 LOCALES = [
     ("ru", "RU", "", "ru_RU"),
     ("en", "EN", "en/", "en_US"),
@@ -78,6 +74,27 @@ def rewrite(page: str) -> str:
         "language control",
         flags=re.S,
     )
+
+    old_mobile = """/* At 320 px the English header row — RU · EN · Download — is 3 px wider than the
+   viewport where the shorter Russian one fits. Tighten the row rather than drop a
+   control: the language pair and the download button both have to stay reachable. */
+@media(max-width:359px){
+  .nav-right{gap:var(--s2)}
+  .btn-sm{padding:0 var(--s3)}
+}"""
+    new_mobile = """/* Three page locales plus Download no longer fit beside the full wordmark on
+   the narrowest phones. Keep every action reachable and collapse only the brand
+   text; the icon remains visible and the full wordmark returns above 419 px. */
+@media(max-width:419px){
+  .brand span{display:none}
+  .nav-right{gap:var(--s2)}
+  .lang a{padding-inline:7px}
+  .btn-sm{padding:0 var(--s3)}
+}"""
+    if old_mobile in page:
+        page = page.replace(old_mobile, new_mobile, 1)
+    elif new_mobile not in page:
+        raise SystemExit("site locale sync anchor not found: narrow header layout")
 
     runtime_functions = """function runtimeLabels(){ return window.IMPULS_LABELS || {}; }
 function formatSize(l){
@@ -155,7 +172,6 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="report staleness instead of fixing it")
     args = parser.parse_args()
-
     before = PAGE.read_text(encoding="utf-8")
     after = rewrite(before)
     if before == after:
