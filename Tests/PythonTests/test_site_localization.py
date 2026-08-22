@@ -91,6 +91,19 @@ class SiteLocalizationTests(unittest.TestCase):
         self.assertEqual(set(cfg["strings"]), BUILDER.translatable_keys(self.localized_source))
         self.assertEqual(set(cfg["alts"]), BUILDER.screenshot_keys(self.localized_source))
 
+    def test_multiline_power_screenshot_is_part_of_alt_parity_and_is_localized(self):
+        cfg = self.configs["de"]
+        self.assertIn("power", BUILDER.screenshot_keys(self.localized_source))
+        self.assertIn("power", cfg["alts"])
+        power = re.search(
+            r'<img\b(?=[^>]*data-shot="power")[^>]*alt="([^"]+)"',
+            self.pages["de"],
+            re.I | re.S,
+        )
+        self.assertIsNotNone(power)
+        self.assertEqual(power.group(1), cfg["alts"]["power"])
+        self.assertIn("Akku", power.group(1))
+
 
 if __name__ == "__main__":
     unittest.main()
