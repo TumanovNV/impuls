@@ -855,6 +855,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
       <li data-i="hero.m2">macOS 15 or later</li>
       <li><span data-release="version-label">Version 1.4.15</span></li>
       <li><span data-release="size">5.6 MB</span></li>
+      <li data-i="hero.m4">7 interface languages</li>
       <li data-i="hero.m3">Open source</li>
     </ul>
   </div>
@@ -1191,6 +1192,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
       <details><summary data-i="f.q6">How does Impuls see my iPhone and iPad?</summary><div class="a" data-i="f.a6">Through the trust the device has already given this Mac: over USB, or through Finder Wi-Fi sync. No pairing is created, no local network is scanned, and there is no direct connection to the device. Discovery is off by default, and iPhone and iPad support is marked Beta.</div></details>
       <details><summary data-i="f.q7">What permissions does it ask for?</summary><div class="a" data-i="f.a7">Calendar, to show upcoming meetings, and Automation for Apple Music, to read the track title. Both are requested by the standard macOS dialog and are needed only by those modules. Everything else works without them.</div></details>
       <details><summary data-i="f.q8">Can I move my setup to another Mac?</summary><div class="a" data-i="f.a8">Yes. Settings, snippets and notes export to a local JSON file and import back. Clipboard history is deliberately not part of a backup.</div></details>
+      <details data-site-fact="languages"><summary data-i="f.q9">Which languages does Impuls support?</summary><div class="a" data-i="f.a9">The interface is available in Russian, English, German, French, Spanish, Simplified Chinese and Japanese. It can follow the macOS language or use a language you choose in Settings.</div></details>
     </div>
   </div>
 </section>
@@ -1251,6 +1253,9 @@ var RU = {};
 document.querySelectorAll('[data-i]').forEach(function(el){ RU[el.dataset.i] = el.innerHTML; });
 
 var EN = {
+"hero.m4":"7 interface languages",
+"f.q9":"Which languages does Impuls support?",
+"f.a9":"The interface is available in Russian, English, German, French, Spanish, Simplified Chinese and Japanese. It can follow the macOS language or use a language you choose in Settings.",
 "a11y.skip":"Skip to content",
 "brand.name":"IMPULS",
 "nav.actions":"Search","nav.modules":"Modules","nav.devices":"Devices","nav.privacy":"Privacy","nav.install":"Install",
