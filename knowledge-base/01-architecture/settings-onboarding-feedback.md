@@ -3,8 +3,8 @@ title: Settings, Onboarding and Feedback
 type: architecture
 status: active
 documentation_version: 1.3
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+app_version: 1.4.15
+last_reviewed: 2026-08-22
 tags: [impuls, settings, onboarding, feedback, project-support]
 ---
 
@@ -54,7 +54,11 @@ Full flow: welcome → features → Menu Bar → quick actions → permissions �
 
 ### What's New content
 
-Заголовок и текст What's New берутся из `WhatsNewCatalog.content(forVersion:)`, вызываемого с реальным `Bundle.main.shortVersion` — не из захардкоженной строки в `OnboardingFlow`. До 1.4.14 заголовок и описание были буквально вписаны в `OnboardingFlow.whatsNew`, поэтому апгрейд на 1.4.12/1.4.13 продолжал показывать заметки 1.4.11. Каталог хранит bullet-список изменений по каждой версии; версия без записи получает generic fallback с настоящим номером версии, а не текст соседней версии. Добавление new entry для будущего релиза — единственное, что должно понадобиться в `WhatsNewCatalog.swift`.
+Заголовок и текст What's New берутся из `WhatsNewCatalog.content(forVersion:)`, вызываемого с реальным `Bundle.main.shortVersion` — не из захардкоженной строки в `OnboardingFlow`. До 1.4.14 заголовок и описание были буквально вписаны в `OnboardingFlow.whatsNew`, поэтому апгрейд на 1.4.12/1.4.13 продолжал показывать заметки 1.4.11. Каталог хранит bullet-список изменений по каждой версии; версия без записи получает generic fallback с настоящим номером версии, а не текст соседней версии.
+
+Для 1.4.15 каталог содержит отдельную запись с пользовательскими highlights про выбор языка, применение языка после перезапуска, поддержку открытого проекта через GitHub/Feedback и общую надёжность. Release-подготовка сознательно переиспользует уже существующие ключи из семи localization tables, поэтому packaging версии не создаёт новый непереведённый string contract. Полные пользовательские детали и disclosure про AI-assisted переводы принадлежат `docs/releases/1.4.15.md`; What's New остаётся коротким summary, а не вторым changelog.
+
+Добавление entry для будущего релиза остаётся единственным release-specific изменением в `WhatsNewCatalog.swift`; если новая формулировка требует нового user-facing key, он должен появиться во всех поддерживаемых localization tables в том же change set.
 
 ## Telemetry offer
 
@@ -74,7 +78,7 @@ Clipboard contents, notes, filenames/paths, calendar, device identifiers и logs
 
 ## Project support prompt
 
-Единственное, что Impuls когда-либо предлагает по собственной инициативе: один раз попросить звезду на GitHub или обратную связь. Формулировка сознательно не «оцените нас на 5 звёзд» — звезда на GitHub не пятизвёздочный рейтинг, и в тексте нет ни guilt language, ни countdown, ни искусственной срочности.
+Это единственный proactive **project-support ask** Impuls: после накопленного реального использования он может ненавязчиво предложить звезду на GitHub или обратную связь. Автоматический показ ограничен максимум двумя появлениями за lifetime локального состояния. Формулировка сознательно не «оцените нас на 5 звёзд» — звезда на GitHub не пятизвёздочный рейтинг, и в тексте нет ни guilt language, ни countdown, ни искусственной срочности. Update consent, version-statistics offer и permission/TCC flows — отдельные пользовательские запросы с собственными владельцами и consent-контрактами.
 
 Ответственности разделены на три части, и ни одна не может принять решение в одиночку.
 
@@ -171,6 +175,7 @@ Settings → Feedback содержит постоянный блок «Support t
 
 - onboarding never invents product features;
 - What's New content always matches the running `Bundle.main.shortVersion`; a version with no curated entry gets a generic version-accurate fallback, never a previous version's copy;
+- release-specific What's New copy stays a concise summary; full disclosure and detailed user-facing release notes remain under `docs/releases/`;
 - update install must not replay full first-run tour;
 - portable settings exclude local physical-device identity;
 - feedback does not perform HTTP request itself;
