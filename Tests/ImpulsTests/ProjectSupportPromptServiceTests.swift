@@ -522,6 +522,82 @@ final class ProjectSupportPromptServiceTests: XCTestCase {
         XCTAssertTrue(service.shouldPresent(in: quietMoment))
     }
 
+    /// Counts flush requests. A unit test cannot observe whether a write
+    /// survived this process being killed — that needs a second process, and it
+    /// is what manual `SUP-01` is for. What it *can* pin is that the service
+    /// asks for the flush on the writes that record a decision, and does not on
+    /// the one that merely counts use.
+    ///
+    /// Reading `persistentDomain` instead would prove nothing: it resolves
+    /// through the same in-process CFPreferences cache that held the lost
+    /// decline in the first place, so it answers yes either way.
+    private final class FlushCountingDefaults: UserDefaults {
+        private(set) var flushes = 0
+
+        override func synchronize() -> Bool {
+            flushes += 1
+            return super.synchronize()
+        }
+    }
+
+    @MainActor
+    func testEveryDecisionAsksToBeFlushedAtTheMomentItIsMade() throws {
+        // Found by manual SUP-01: the decline lived in the in-process cache, the
+        // process was killed without a graceful termination, and the state on
+        // disk still said the question had never been asked. A `shownCount` that
+        // can be lost is a two-appearance cap that can be exceeded.
+        let suite = "ProjectSupportPromptServiceTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(FlushCountingDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let clock = TestClock(Self.epoch)
+        let service = ProjectSupportPromptService(
+            defaults: defaults,
+            calendar: Self.utcCalendar,
+            now: { clock.current }
+        )
+
+        useOnConsecutiveDays(service, clock: clock, days: 20)
+        clock.current = Self.epoch.addingTimeInterval(40 * 86_400)
+        let afterCountingUses = defaults.flushes
+
+        service.recordPresented()
+        XCTAssertEqual(defaults.flushes, afterCountingUses + 1, "the prompt appearing is a decision")
+
+        service.recordDeclined()
+        XCTAssertEqual(defaults.flushes, afterCountingUses + 2, "a decline is a decision")
+
+        service.recordOpenedFeedback()
+        XCTAssertEqual(defaults.flushes, afterCountingUses + 3)
+
+        service.recordOpenedGitHub()
+        XCTAssertEqual(defaults.flushes, afterCountingUses + 4, "a terminal outcome is a decision")
+    }
+
+    @MainActor
+    func testCountingAUseIsNotForcedToDisk() throws {
+        // Stated so it is not "fixed" later by making every write durable: this
+        // runs up to once a minute for the life of the install, and losing one
+        // only delays eligibility — an error in the direction of asking less
+        // often, which is the safe direction for this feature.
+        let suite = "ProjectSupportPromptServiceTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(FlushCountingDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let clock = TestClock(Self.epoch)
+        let service = ProjectSupportPromptService(
+            defaults: defaults,
+            calendar: Self.utcCalendar,
+            now: { clock.current }
+        )
+
+        for _ in 0..<25 {
+            service.recordMeaningfulUse()
+            clock.advance(days: 1)
+        }
+
+        XCTAssertEqual(service.record.meaningfulUseCount, 25, "still recorded, just not flushed")
+        XCTAssertEqual(defaults.flushes, 0, "counting use must not force a disk write")
+    }
+
     @MainActor
     func testNewServiceReloadsRecordedDeclineAndDoesNotPresent() throws {
         // Sequential, not concurrent: the second service is built *after* the

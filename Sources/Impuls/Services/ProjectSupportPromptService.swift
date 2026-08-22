@@ -286,7 +286,7 @@ final class ProjectSupportPromptService {
     func recordPresented() {
         record.shownCount += 1
         record.lastPromptAt = now()
-        persist()
+        persist(durably: true)
     }
 
     /// The user asked to open the project page and the open was accepted.
@@ -296,13 +296,13 @@ final class ProjectSupportPromptService {
     /// asking GitHub.
     func recordOpenedGitHub() {
         record.state = .openedGitHub
-        persist()
+        persist(durably: true)
     }
 
     /// The user chose feedback; the existing feedback window took over.
     func recordOpenedFeedback() {
         record.state = .openedFeedback
-        persist()
+        persist(durably: true)
     }
 
     /// "Not Now", or the window simply closed. Closing is a decline, not a
@@ -310,7 +310,7 @@ final class ProjectSupportPromptService {
     /// again at the next opportunity, which is the nagging this feature avoids.
     func recordDeclined() {
         record.state = record.shownCount >= Self.maximumAutomaticPrompts ? .dismissedForever : .snoozedOnce
-        persist()
+        persist(durably: true)
     }
 
     // MARK: - Opening the project page
@@ -377,8 +377,27 @@ final class ProjectSupportPromptService {
         return decoded
     }
 
-    private func persist() {
+    /// Writes the record, optionally forcing it all the way out.
+    ///
+    /// `durably` is for the handful of writes that record a *decision* — the
+    /// prompt was shown, or the user answered. Those must survive whatever
+    /// happens to the process next, because the cap this feature promises is
+    /// two appearances for the lifetime of the local state, and a `shownCount`
+    /// that never reached disk is a cap that can be exceeded. Impuls is a
+    /// menu-bar utility: it gets force-quit, killed by the system and cut off
+    /// by a flat battery, and none of those run a graceful termination. Manual
+    /// `SUP-01` found exactly this — a decline recorded in memory, the process
+    /// killed, and the state on disk still saying the question had never been
+    /// asked. Same reasoning as `AppLanguageService`, which forces its flush
+    /// because the next process has to read the value.
+    ///
+    /// Counting a use is deliberately *not* durable. It happens at most once a
+    /// minute for the whole life of the install, and losing one only slows
+    /// eligibility down — an error in the direction of asking less often, which
+    /// is the safe direction for this feature.
+    private func persist(durably: Bool = false) {
         guard let data = try? JSONEncoder().encode(record) else { return }
         defaults.set(data, forKey: Self.storageKey)
+        if durably { defaults.synchronize() }
     }
 }
