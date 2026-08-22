@@ -158,7 +158,7 @@ Screenshots должны быть real product captures либо явно demo d
 
 - [Website Design System](design-system.md)
 - [Version Statistics Collector](version-statistics-collector.md)
-- [Localization Architecture](../01-architecture/localization.md)
+- [Settings, Onboarding and Feedback](../01-architecture/settings-onboarding-feedback.md)
 - [Release Pipeline](../05-release/release-pipeline.md)
 - `.claude/rules/website.md`
 - `Scripts/sync-site-product-facts.py`
