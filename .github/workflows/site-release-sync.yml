@@ -1,18 +1,26 @@
 name: site-release-sync
 
-# Keeps the website's static release metadata equal to the newest release.
+# Keeps the website's static release metadata and durable product facts current.
 #
 # The site fetches the Releases API at runtime, so a person with a browser has
 # always seen the right version. Everyone else — search engines, link previews,
 # anyone with JavaScript off — reads the markup, and the markup only changes when
-# something changes it. This is that something.
+# something changes it. This workflow keeps that static markup current.
 #
 # It cannot loop and it cannot ship anything:
 #   * `release.yml` triggers on `push` to `Scripts/version`, which this never touches;
-#   * `build.yml` has `paths-ignore: ['**.md', 'docs/**']`, which is all this writes;
+#   * the push trigger below watches only the sync scripts/workflow, while the bot
+#     commit changes only `docs/`;
 #   * nothing here signs, tags, builds, or uploads an asset.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - Scripts/sync-site-product-facts.py
+      - Scripts/sync-site-release.py
+      - Scripts/build-en-page.py
+      - .github/workflows/site-release-sync.yml
   release:
     types: [published]
   workflow_run:
@@ -42,33 +50,44 @@ jobs:
       - name: Write the current release into docs/index.html
         run: python3 Scripts/sync-site-release.py
 
+      - name: Keep durable product facts in the Russian source page
+        run: python3 Scripts/sync-site-product-facts.py
+
       - name: Regenerate the English page from it
         run: python3 Scripts/build-en-page.py
 
-      - name: Verify the page still satisfies the release checks
+      - name: Verify the pages still satisfy the site checks
         run: |
           set -euo pipefail
-          # The same three literals build.yml greps for. A metadata rewrite must
-          # never be the thing that breaks them.
+          # The same three literals build.yml greps for. A metadata/product-fact
+          # rewrite must never be the thing that breaks them.
           grep -F "const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';" docs/index.html
           grep -F 'function releaseHash(asset,body)' docs/index.html
           grep -F 'data-conversion="feedback"' docs/index.html
-          # And the page must now agree with the release it was just given.
+          # The static page must agree with the latest release and with the
+          # durable product facts before the English page is accepted.
           python3 Scripts/sync-site-release.py --check
+          python3 Scripts/sync-site-product-facts.py --check
           python3 Scripts/build-en-page.py --check
           # The no-JS download path is the reason the static markup exists.
           grep -q "releases/download/v.*\.dmg\"" docs/index.html
           grep -q "releases/download/v.*\.dmg\"" docs/en/index.html
+          # Localization is a visible product capability, not just release-note
+          # trivia. Keep it explicit on both public landing pages.
+          grep -F '7 языков интерфейса' docs/index.html
+          grep -F '7 interface languages' docs/en/index.html
+          grep -F 'На каких языках работает Impuls?' docs/index.html
+          grep -F 'Which languages does Impuls support?' docs/en/index.html
 
       - name: Commit if anything changed
         run: |
           set -euo pipefail
           if git diff --quiet -- docs/index.html docs/en/index.html; then
-            echo "docs/index.html was already current; nothing to commit"
+            echo "website markup was already current; nothing to commit"
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/index.html docs/en/index.html
-          git commit -m "docs: sync website release metadata to ${GITHUB_REF_NAME:-latest}"
+          git commit -m "docs: sync website release metadata and product facts"
           git push origin HEAD:main
