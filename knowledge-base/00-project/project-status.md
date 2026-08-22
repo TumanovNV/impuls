@@ -12,15 +12,15 @@ tags: [impuls, status, current]
 
 ## Baseline
 
-**Current release candidate: 1.4.15. Latest published production release at release-preparation time: 1.4.14.** Источник версии — `Scripts/version`.
+**Current production release: 1.4.15, published.** Источник версии — `Scripts/version`.
 
 **Current documentation baseline: 1.3.**
 
-Release `1.4.15` packages the already-merged localization wave (PR #75) and local-first project-support flow (PR #76). The product now ships seven interface localizations (`en`, `ru`, `de`, `fr`, `es`, `zh-Hans`, `ja`), an in-app language selector with safe automatic self-relaunch, and a bounded project-support/feedback prompt whose eligibility stays entirely on the Mac and is capped at two automatic appearances. The release notes disclose that Russian and English remain the primary localizations and that the five added translations were prepared with AI assistance and have not yet received full native-speaker proofreading. The 1.4.15 release decision is `ship-with-known-gaps`: automated CI is required before merge, while unperformed manual hardware/TCC/service scenarios remain explicit `not-run` in version-specific evidence rather than being inferred from partial feature QA.
+Release `1.4.15` packages the merged localization wave (PR #75) and local-first project-support flow (PR #76). The product now ships seven interface localizations (`en`, `ru`, `de`, `fr`, `es`, `zh-Hans`, `ja`), an in-app language selector with safe automatic self-relaunch, and a bounded project-support/feedback prompt whose eligibility stays entirely on the Mac and is capped at two automatic appearances. The release notes disclose that Russian and English remain the primary localizations and that the five added translations were prepared with AI assistance and have not yet received full native-speaker proofreading. The release decision is `ship-with-known-gaps`: unperformed manual hardware/TCC/service scenarios remain explicit `not-run` in version-specific evidence rather than being inferred from partial feature QA.
 
-Release `1.4.14` remains the last confirmed published artifact while this release PR is under review. It contains the Power Center redesign, Apple-accessory detection fixes, branding refresh, version-aware What's New fix and version-statistics follow-up. Tag `v1.4.14` and its public GitHub Release exist with DMG, ZIP, checksums and a signed appcast. Developer ID signing and Apple notarization were not claimed for that release.
+Tag `v1.4.15` was created by the normal `release.yml` production flow from main commit `2318589a9cf950f0c156b62ea868c53c75b6311e`. That workflow builds and verifies the application, DMG, ZIP and signed Sparkle appcast before its final GitHub Release publication step. Developer ID signing and Apple notarization are not claimed unless separately verified from the actual distribution environment; the Sparkle signature remains the independent update-trust boundary.
 
-After the 1.4.15 release workflow succeeds, this document should be updated to mark 1.4.15 as the published production baseline rather than silently assuming publication from the version bump alone.
+Release `1.4.14` is now the previous production baseline. It contained the Power Center redesign, Apple-accessory detection fixes, branding refresh, version-aware What's New fix and version-statistics follow-up.
 
 ## Current product surface
 
@@ -123,7 +123,7 @@ Starting with `1.4.12`, every version baseline must include `knowledge-base/13-q
 
 The 1.4.13 release used `ship-with-known-gaps`: the hardening build passed a release-owner smoke test on a real Mac, while scenario-specific manual/hardware/TCC/service checks that were not performed remained visible as `not-run`. The 1.4.14 release also used `ship-with-known-gaps`: a real Mac mini manual pass confirmed the Power Center's Apple accessory detection and desktop no-battery handling while remaining scenario-specific manual/hardware/TCC/translation/web-player/update checks stayed explicit `not-run`.
 
-The 1.4.15 candidate likewise uses `ship-with-known-gaps`. The maintainer manually exercised the new localization/self-relaunch and project-support paths on a real Mac before release preparation, but the current `UI-07` and `SUP-01` matrix rows include additional subconditions not all captured as one complete durable scenario, so they remain conservatively classified `not-run` in the release evidence. Full native-speaker proofreading of the five AI-assisted translations is also an explicit known gap disclosed to users.
+The 1.4.15 release likewise uses `ship-with-known-gaps`. The maintainer manually exercised the new localization/self-relaunch and project-support paths on a real Mac before release preparation, but the current `UI-07` and `SUP-01` matrix rows include additional subconditions not all captured as one complete durable scenario, so they remain conservatively classified `not-run` in the release evidence. Full native-speaker proofreading of the five AI-assisted translations is also an explicit known gap disclosed to users.
 
 The QA impact layer sits before that gate: it tells reviewers and agents which scenario IDs a candidate's changed source/tests may affect and verifies that impacted manual/mixed IDs are represented in the candidate evidence. It does not change their result or claim they passed.
 
