@@ -75,6 +75,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let onExport: () -> Void
     private let onImport: () -> Void
     private let onFeedback: () -> Void
+    private let onSupportProject: () -> Bool
     private let onShowOnboarding: () -> Void
     private var window: NSWindow?
 
@@ -85,6 +86,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         onExport: @escaping () -> Void,
         onImport: @escaping () -> Void,
         onFeedback: @escaping () -> Void,
+        onSupportProject: @escaping () -> Bool,
         onShowOnboarding: @escaping () -> Void
     ) {
         self.settings = settings
@@ -93,6 +95,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.onExport = onExport
         self.onImport = onImport
         self.onFeedback = onFeedback
+        self.onSupportProject = onSupportProject
         self.onShowOnboarding = onShowOnboarding
     }
 
@@ -113,6 +116,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             onExport: onExport,
             onImport: onImport,
             onFeedback: onFeedback,
+            onSupportProject: onSupportProject,
             onShowOnboarding: onShowOnboarding
         )
         let hosting = NSHostingController(rootView: view)
@@ -144,6 +148,7 @@ private struct SettingsView: View {
     let onExport: () -> Void
     let onImport: () -> Void
     let onFeedback: () -> Void
+    let onSupportProject: () -> Bool
     let onShowOnboarding: () -> Void
 
     var body: some View {
@@ -191,7 +196,7 @@ private struct SettingsView: View {
                     onImport: onImport
                 )
             case .feedback:
-                SupportSettingsPane(onFeedback: onFeedback)
+                SupportSettingsPane(onFeedback: onFeedback, onSupportProject: onSupportProject)
             }
         }
     }
@@ -1098,9 +1103,29 @@ private struct DataSettingsPane: View {
 
 private struct SupportSettingsPane: View {
     let onFeedback: () -> Void
+    let onSupportProject: () -> Bool
+
+    /// The only failure this pane can report. Whether a star was actually given
+    /// is not knowable from here, and Impuls does not ask GitHub.
+    @State private var couldNotOpenGitHub = false
 
     var body: some View {
         Form {
+            Section(localized("Support the Project")) {
+                Text(localized("Impuls is developed in the open. A star on GitHub helps other people find it, and your feedback shapes what comes next."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(localized("Support Impuls on GitHub")) {
+                    couldNotOpenGitHub = !onSupportProject()
+                }
+                if couldNotOpenGitHub {
+                    Label(localized("Could Not Open GitHub"), systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+
             Section("Feedback") {
                 Text("Report a problem, suggest an improvement, or tell us about your experience. Impuls prepares a transparent report and opens GitHub only after your action.")
                     .font(.callout)

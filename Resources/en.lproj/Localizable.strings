@@ -618,3 +618,15 @@
 "The selected language will be applied after Impuls restarts." = "The selected language will be applied after Impuls restarts.";
 "Could Not Restart Impuls" = "Could Not Restart Impuls";
 "Impuls could not restart automatically. The selected language will be applied the next time it starts." = "Impuls could not restart automatically. The selected language will be applied the next time it starts.";
+
+/* Project support prompt. Shown at most twice, only after long real use,
+   and only when Impuls is idle. Not a star rating: a GitHub star is not five
+   stars out of five. */
+"Support the Project" = "Support the Project";
+"Impuls is developed in the open. A star on GitHub helps other people find it, and your feedback shapes what comes next." = "Impuls is developed in the open. A star on GitHub helps other people find it, and your feedback shapes what comes next.";
+"Support Impuls on GitHub" = "Support Impuls on GitHub";
+"Support Impuls" = "Support Impuls";
+"How is Impuls working for you?" = "How is Impuls working for you?";
+"If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback.";
+"Support on GitHub" = "Support on GitHub";
+"Share Feedback" = "Share Feedback";

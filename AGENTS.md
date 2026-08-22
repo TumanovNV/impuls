@@ -53,7 +53,7 @@ open build/Impuls.app
 3. **Sparkle is pinned.** `exact: "2.9.5"` in `Package.swift` and the matching revision in `Package.resolved`. Adding, bumping or replacing a dependency is a reviewed architecture/security change.
 4. **The panel follows system appearance.** Semantic colours come from the project's theme system. The collapsed tab is the deliberate black exception so it visually merges with the physical cutout.
 5. **Actions selection never follows the pointer.** Hover is visual affordance only; it must not silently replace explicit selection.
-6. **Localization is complete.** Every `localized("…")` key must exist in both `Resources/en.lproj/Localizable.strings` and `Resources/ru.lproj/Localizable.strings`.
+6. **Localization is complete.** Every `localized("…")` key must exist in **every** shipped localization table, and all tables must carry the same key set. The current tables are `en`, `ru`, `de`, `fr`, `es`, `zh-Hans` and `ja` under `Resources/*.lproj/Localizable.strings`. `Scripts/check-localization.py` discovers the tables from the filesystem, so a new `.lproj` folder joins the contract automatically; the canonical description lives in `knowledge-base/04-development/localization.md`. There is no "RU/EN parity" rule any more — partial translation is not a state the checker accepts.
 7. **Version, release notes and release QA evidence travel together.** `Scripts/version` holds `VERSION=x.y.z`, `docs/releases/x.y.z.md` must exist and be non-empty, and `knowledge-base/13-qa/release-evidence/x.y.z.md` must account for the release's manual/mixed Behavioral QA rows. From 1.4.12 onward `not-recorded` is forbidden.
 8. **The website has CI-sensitive literals.** `docs/index.html` is part of the GitHub Pages production contract. Read `.claude/rules/website.md` and current CI before editing it.
 9. **Feedback collects nothing automatically.** `FeedbackService.swift` must not grow hidden networking, hardware identifiers or user-content collection. Feedback is explicit and user-visible.
@@ -64,6 +64,7 @@ open build/Impuls.app
 14. **Resource budgets are contracts.** Raising/removing size/count/cadence/timeout/backpressure limits requires explicit review and tests, not a magic-number edit.
 15. **QA inventory is not pass evidence.** A Behavioral QA row, unit test or historical screenshot does not prove a particular release passed real hardware/TCC. A `pass`/`fail`/`blocked` manual result must be tied to a truthful release-specific environment without serials, UDIDs or secrets.
 16. **Behavioral source/test ownership is traceable.** `Scripts/qa-impact-rules.json` maps product owners and verification tests to Behavioral QA IDs. Run `Scripts/check-qa-impact.py --base <base-sha>` for real diffs. A changed tracked behavioral source with no route must be mapped or receive a narrow documented exemption; broad exemptions are forbidden in spirit and must not be used to silence CI.
+17. **Project-support eligibility is machine-local, never telemetry or network, and automatic prompting is capped at two lifetime appearances for the local state.** See `knowledge-base/01-architecture/settings-onboarding-feedback.md` for the full contract.
 
 ## Device and power invariants
 
@@ -105,7 +106,7 @@ See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-
 - UI numbers come from the existing theme/geometry system, not taste.
 - Stores/services do not import SwiftUI; panes do not touch the filesystem directly.
 - One responsibility per file where practical.
-- A new shipped module requires a new tab/destination, store/service, pane, RU/EN strings, tests and an update to the module catalog **and `PROJECT-MANIFEST.json`**.
+- A new shipped module requires a new tab/destination, store/service, pane, strings for every supported localization per the canonical localization contract, tests and an update to the module catalog **and `PROJECT-MANIFEST.json`**.
 - **Shared services, per-display presentation.** `NotchViewModel` and stores are shared. Each display owns only presentation state/window/view/geometry. Do not create a store, timer or monitor per display. Exactly one surface is active.
 - `PointerWatcher` is a shared sampler with per-display zones; do not add a timer per display.
 - Menu Bar is a presentation/workspace surface over existing state, not a reason to start providers, permissions, polling or networking.

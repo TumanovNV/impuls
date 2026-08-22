@@ -3,7 +3,7 @@ title: State and Ownership
 type: architecture
 status: active
 documentation_version: 1.3
-app_version: 1.4.13
+app_version: 1.4.14
 last_reviewed: 2026-08-21
 tags: [impuls, architecture, state, ownership]
 ---
@@ -54,6 +54,8 @@ flowchart LR
 | `MenuBarStatusItemPresentation` | pure formatting of already-resolved logo/player/battery status content | provider selection, domain state, AppKit lifecycle |
 | `AppLanguageService` | the interface-language preference `app.language.v1`, its validation, and the `AppleLanguages` override written on an explicit choice | a mirrored copy in `SettingsStore`, any attempt to switch the running process's language |
 | `AppRelaunchService` | the order of a restart — start the one-shot helper, and only then terminate | the language preference itself, any path that could leave two instances running |
+| `ProjectSupportPromptService` | the machine-local prompt counters `projectSupport.prompt.v1`, the eligibility thresholds and the prompt state machine | the decision about *when* it is a good moment, the presentation itself, any network request, any claim about whether a star was given |
+| `ProjectSupportPromptWindowController` | presenting the prompt and reporting the chosen outcome back | eligibility, thresholds, a second feedback implementation |
 | module store/service | domain state | panel geometry |
 | pane | presentation + user interaction | прямой filesystem/network ownership |
 
@@ -78,6 +80,10 @@ The 1.4.14 `VersionTelemetryScheduler` addition is a concrete instance of `AppDe
 - what prevents duplicate work or a main-thread stall.
 
 These boundaries are guarded by Documentation Guardian and the Background Work & Concurrency Registry.
+
+`ProjectSupportPromptService` is `@MainActor` because it is read and mutated from `AppDelegate` and the prompt window, both of which are main-actor bound. It protects one value, `record`, and the single `UserDefaults` key behind it. Nothing suspends: reads and writes are synchronous, and the service owns no task, timer, observer or network client. Its policy constants and the URL allow-list are `nonisolated` on purpose — they are immutable and are read from the non-isolated `ProjectSupportPromptMoment`, so making the caller main-actor bound merely to read a constant would be isolation for its own sake. `openProjectPageInBrowser` is the stateless hand-off Settings uses; the instance method wraps it and records the outcome only when the browser accepted the URL.
+
+Ownership of the *moment* is deliberately elsewhere. `NotchController` owns the single meaningful-use funnel and the single return-to-idle report; `AppDelegate` owns the cancellable one-shot deferral and the environment checks. The service therefore cannot decide to appear, and the controller cannot decide whether the app has earned it. Those environment checks reach exactly as far as this process: `NSApp.windows` lists Impuls's own windows and nothing else, so a macOS permission dialog owned by a system process is outside the boundary. That is a limit of the ownership model, not an oversight — `AppDelegate` cannot observe another process's surfaces — and it is why the manual contract states the TCC case as something to verify rather than something the code proves.
 
 `AppLanguageService` is `@MainActor` for the ordinary reason — it is an `ObservableObject` a Settings pane binds to — and answers the questions above narrowly. It protects one published value, `selection`, plus the two `UserDefaults` keys described in the [Schema & Migration Registry](../12-reference/schema-migration-registry.md). Only the main actor reaches it; the pane observes the service directly rather than through `SettingsStore`, which holds it by composition and publishes no copy of its own. Nothing suspends: the service performs synchronous `UserDefaults` reads and writes and starts no task, timer or observer, so it adds no background work and cannot stall the main thread. It never mutates state on initialisation — reading the preference must not change what language the user's Mac is in — and it never changes the *running* process's language, only what the next launch will resolve.
 

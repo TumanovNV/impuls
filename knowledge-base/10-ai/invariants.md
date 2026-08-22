@@ -2,9 +2,9 @@
 title: Project Invariants
 type: ai-rules
 status: active
-documentation_version: 1.0
-app_version: 1.4.12
-last_reviewed: 2026-08-19
+documentation_version: 1.1
+app_version: 1.4.14
+last_reviewed: 2026-08-21
 tags: [impuls, invariants, ai, architecture, security]
 ---
 
@@ -18,7 +18,7 @@ tags: [impuls, invariants, ai, architecture, security]
 2. Один новый дисплей не означает новый `NotchViewModel`, store, timer или monitor.
 3. Stores/services не импортируют SwiftUI; UI panes не выполняют прямой файловый I/O.
 4. Один файл по возможности имеет одну ответственность.
-5. Новый shipped module должен иметь явный контракт, UI, store/service, RU/EN строки и тесты.
+5. Новый shipped module должен иметь явный контракт, UI, store/service, строки во **всех** поддерживаемых localization tables и тесты.
 
 ## Безопасность и приватность
 
@@ -43,18 +43,23 @@ tags: [impuls, invariants, ai, architecture, security]
 18. Keyboard ownership между дисплеями должен сохранять намерение пользователя и не перехватываться только из-за hover.
 19. Reduce Motion должен сохранять функциональность и избегать лишней geometry animation.
 
+## Локализация
+
+20. Каждый user-facing localization key существует во **всех** поддерживаемых localization tables, и наборы ключей у таблиц совпадают. На 1.4.14 таблиц семь: `en`, `ru`, `de`, `fr`, `es`, `zh-Hans`, `ja`. Правила «RU/EN parity» больше нет.
+21. Выбор языка интерфейса имеет одного владельца — `AppLanguageService`; он машинно-локален и не входит в portable backup.
+
 ## Release
 
-20. Версия в `Scripts/version` и `docs/releases/<version>.md` изменяются совместно.
-21. Sparkle остаётся exact dependency, пока отдельное reviewed решение не изменит этот контракт.
-22. Release/tag не создаются вручную при штатном flow; production release идёт через workflow.
-23. Signing keys и secrets не коммитятся.
+22. Версия в `Scripts/version` и `docs/releases/<version>.md` изменяются совместно.
+23. Sparkle остаётся exact dependency, пока отдельное reviewed решение не изменит этот контракт.
+24. Release/tag не создаются вручную при штатном flow; production release идёт через workflow.
+25. Signing keys и secrets не коммитятся.
 
 ## Документация
 
-24. Значимое изменение архитектуры обновляет knowledge base в том же наборе изменений.
-25. Решение с долгосрочными последствиями фиксируется ADR.
-26. `project-status.md` — текущий baseline; исторические handoff/release docs не должны использоваться как current-state без проверки.
+26. Значимое изменение архитектуры обновляет knowledge base в том же наборе изменений.
+27. Решение с долгосрочными последствиями фиксируется ADR.
+28. `project-status.md` — текущий baseline; исторические handoff/release docs не должны использоваться как current-state без проверки.
 
 ## Если инвариант нужно нарушить
 

@@ -58,7 +58,7 @@ python3 Scripts/check-qa-impact.py --base <base-sha>
 python3 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-The project-manifest checker protects stable routing/ownership. The generated map protects curated type→test→doc routes. Documentation Guardian v2 protects high-risk semantic diffs. The freshness checker protects historical source→doc ordering for 20 curated canonical mappings and periodic review age. QA impact maps changed product source/tests to Behavioral QA IDs, while the release evidence gate decides whether a version-specific manual/hardware/TCC record is shippable.
+The project-manifest checker protects stable routing/ownership. The generated map protects curated type→test→doc routes. Documentation Guardian v2 protects high-risk semantic diffs. The freshness checker protects historical source→doc ordering for 21 curated canonical mappings and periodic review age. QA impact maps changed product source/tests to Behavioral QA IDs, while the release evidence gate decides whether a version-specific manual/hardware/TCC record is shippable.
 
 These layers deliberately overlap only where their evidence differs. A generated type route proves discoverability and test ownership; a freshness route proves that a canonical document was reviewed after its tracked source; neither proves a real-Mac QA scenario passed.
 

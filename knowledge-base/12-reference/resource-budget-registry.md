@@ -3,7 +3,7 @@ title: Input & Resource Budget Registry
 type: reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.13
+app_version: 1.4.14
 last_reviewed: 2026-08-21
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
@@ -88,6 +88,11 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Version telemetry attempt | max one attempt per `(app version, 1 h)` | both the timestamp and the attempted app version are recorded before request, including failures; a different app version is not throttled by an older version's cooldown; 10 s request/resource timeout |
 | Version telemetry proposal | `VersionTelemetryScheduler` fires every 1 h, tolerance 15 min (`interval / 4`) | proposes an attempt only; `VersionTelemetryService`'s cap above still applies, so this never raises the effective send rate |
 | Sparkle scheduled check | 86,400 s | only after user enables automatic checks |
+| Project-support prompt appearances | max 2 for the lifetime of the local state | `maximumAutomaticPrompts`. Hard ceiling, not a rate: a second decline or a second close is `dismissedForever` and no automatic prompt is ever shown again. Opening GitHub or choosing feedback ends it immediately, so two is the worst case and one is the common one |
+| Project-support prompt earliest appearance | 30 calendar days **and** 10 active days **and** 20 meaningful uses since the first deliberate use | all three at once. Any single threshold alone describes an install somebody forgot. The clock starts at the first counted use, never at a reconstructed install date |
+| Project-support prompt snooze | 60 days **and** at least one meaningful use after the prompt | `snoozeDays`. Elapsed time alone does not reopen the question — an app nobody opens has not earned a second ask |
+| Meaningful-use coalescing window | 60 s | `meaningfulUseWindow`. Anchored to the last counted use, not slid forward by further clicks, so "20 uses" means twenty separate times somebody reached for Impuls rather than twenty clicks in one afternoon |
+| Project-support prompt quiet delay | one `+8 s` one-shot per quiet transition | never a timer; scheduled only when eligibility already holds, cancelled when work resumes or the app terminates. Minimum uptime before any prompt is 120 s |
 
 ## Budget change rules
 

@@ -2,9 +2,9 @@
 title: Agent Workflow
 type: ai-rules
 status: active
-documentation_version: 1.0
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+documentation_version: 1.1
+app_version: 1.4.14
+last_reviewed: 2026-08-21
 tags: [impuls, ai, workflow, agents]
 ---
 
@@ -25,7 +25,7 @@ tags: [impuls, ai, workflow, agents]
 - не добавлять сеть, permission, persistence или telemetry как побочный эффект UI-функции;
 - не придумывать отсутствующие системные данные;
 - не дублировать services для нескольких дисплеев;
-- обновлять RU/EN локализацию совместно;
+- добавлять новый user-facing string во **все** поддерживаемые localization tables одним change set — контракт описан в [Localization](../04-development/localization.md), таблицы обнаруживаются `Scripts/check-localization.py` по `Resources/*.lproj/`;
 - добавлять/обновлять тесты вместе с изменением контракта.
 
 ## Документация как часть задачи
@@ -45,7 +45,7 @@ tags: [impuls, ai, workflow, agents]
 
 - тесты релевантной области;
 - полный release test suite согласно текущим repo instructions;
-- localization parity при изменении строк;
+- полноту всех localization tables при изменении строк (`python3 Scripts/check-localization.py`), а не «parity двух языков»;
 - отсутствие незапланированного network/permission impact;
 - `git diff` на случайные изменения;
 - knowledge-base links и актуальность изменённых документов.
@@ -67,6 +67,7 @@ tags: [impuls, ai, workflow, agents]
 - текущего владельца production endpoint;
 - точное число тестов;
 - текущую поддержку конкретного hardware;
+- состав поддерживаемых локализаций (читается из `Resources/*.lproj/`, а не из памяти о прошлом релизе);
 - успешность последнего GitHub Actions run.
 
 Эти факты меняются со временем и должны читаться из актуального repository/release/CI состояния.

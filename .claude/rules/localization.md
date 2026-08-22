@@ -9,14 +9,24 @@ Keys are the English text itself. A string that was never translated therefore s
 up in English rather than as an identifier — that is the whole reason for the scheme,
 so do not switch to symbolic keys.
 
-Every `localized("…")` call in `Sources` must have an entry in **both**
-`Resources/en.lproj/Localizable.strings` and `Resources/ru.lproj/Localizable.strings`.
-`Scripts/check-localization.py` extracts the calls and diffs them against each table;
-a missing key fails the build. Run it locally with `python3 Scripts/check-localization.py`.
+Every `localized("…")` call in `Sources` must have an entry in **every** shipped table.
+There are seven of them — `en`, `ru`, `de`, `fr`, `es`, `zh-Hans`, `ja` — and
+`Scripts/check-localization.py` finds them by globbing `Resources/*.lproj/Localizable.strings`,
+so a new language joins the contract the moment its folder exists. A missing key fails
+the build. Run it locally with `python3 Scripts/check-localization.py`.
 
-It also requires the tables to carry the **same** set of keys. A key present in one
-language and absent in the other used to pass whenever it had also fallen out of the
-code, which is how a reworded string leaves one translation behind.
+It also requires every table to carry the **same** set of keys. A key present in one
+language and absent in another used to pass whenever it had also fallen out of the
+code, which is how a reworded string leaves a translation behind.
+
+Partial translation is therefore not a state the repository can be in: a table is
+complete or CI is red. Do not reintroduce the older "RU/EN parity" wording — Russian
+and English are the primary languages editorially, but they carry no special status in
+the check.
+
+A language must also be listed in `CFBundleLocalizations` (`Scripts/bundle.sh`), or
+macOS ships the `.lproj` without treating the language as supported. `build.yml`
+verifies both halves.
 
 ## Keys that are not literals
 
@@ -34,15 +44,18 @@ do not widen an existing extractor to cover an unrelated file.
 ## Adding a string
 
 1. Call `localized("Plain English text")` in the code.
-2. Add the same text as a key to both tables. In `en.lproj` the value repeats the key.
+2. Add the same key to every `.lproj` table. In `en.lproj` the value repeats the key.
 3. Group it under the existing comment headers (`/* Вкладки */`, `/* Impuls Actions */`
-   and so on) rather than appending to the end.
+   and so on) rather than appending to the end. The section order of every table mirrors
+   `en.lproj`, so the languages diff line by line.
 
 ## Format specifiers
 
 Order and count must match across languages: `"in %d h %d min"` needs both numbers in
-both tables. The Russian values use deliberate abbreviations — `через %d мин` fits the
-panel header, and an abbreviation avoids the declension a full word would require.
+every table. A language that needs a different word order uses positional `%1$@`/`%2$@`
+rather than a different number of arguments. The Russian values use deliberate
+abbreviations — `через %d мин` fits the panel header, and an abbreviation avoids the
+declension a full word would require.
 
 Countdown phrases are stored lower-case; the capital comes from the call site through
 `sentenceCased`, so the same phrase can later sit mid-sentence.

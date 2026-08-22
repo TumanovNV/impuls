@@ -1,6 +1,6 @@
 import importlib.util
 import unittest
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,6 +50,75 @@ class DocumentationFreshnessTests(unittest.TestCase):
         )
         self.assertEqual(1, len(reasons))
         self.assertIn("source commit is newer", reasons[0])
+
+    def test_commit_dates_are_read_in_utc_not_the_committer_s_local_day(self):
+        # `%cs` renders the committer's local calendar day, so a commit made at
+        # 00:30 +0300 reports as the next date while every other date this check
+        # compares is UTC. Reading `%ct` and converting keeps one time frame.
+        sha, source_date = FRESHNESS.latest_commit(["Scripts/check-documentation-freshness.py"])
+        self.assertRegex(sha, r"^[0-9a-f]{40}$")
+
+        _, raw = FRESHNESS.git(
+            "log", "-1", "--format=%ct", "--", "Scripts/check-documentation-freshness.py"
+        )
+        expected = datetime.fromtimestamp(int(raw), tz=timezone.utc).date()
+        self.assertEqual(expected, source_date)
+
+    def test_same_commit_review_survives_a_timezone_day_boundary(self):
+        # PR #75 committed source and canonical docs together at 00:30 +0300,
+        # which `%cs` renders as the next calendar day, while `last_reviewed`
+        # held the day the work was actually reviewed. Nothing had drifted.
+        reasons = FRESHNESS.freshness_reasons(
+            source_date=date(2026, 8, 22),
+            reviewed_date=date(2026, 8, 21),
+            source_is_ancestor_of_doc=True,
+            today=date(2026, 8, 22),
+            max_review_age_days=180,
+            enforce_review_age=False,
+            source_is_doc_commit=True,
+        )
+        self.assertEqual([], reasons)
+
+    def test_separate_later_source_commit_is_still_stale(self):
+        # The case the checker actually exists for: the document did not move
+        # with its source. Sharing a calendar day changes nothing here.
+        reasons = FRESHNESS.freshness_reasons(
+            source_date=date(2026, 8, 22),
+            reviewed_date=date(2026, 8, 21),
+            source_is_ancestor_of_doc=True,
+            today=date(2026, 8, 22),
+            max_review_age_days=180,
+            enforce_review_age=False,
+            source_is_doc_commit=False,
+        )
+        self.assertEqual(1, len(reasons))
+        self.assertIn("after last_reviewed", reasons[0])
+
+    def test_same_commit_does_not_excuse_a_future_review_date(self):
+        reasons = FRESHNESS.freshness_reasons(
+            source_date=date(2026, 8, 22),
+            reviewed_date=date(2026, 8, 23),
+            source_is_ancestor_of_doc=True,
+            today=date(2026, 8, 22),
+            max_review_age_days=180,
+            enforce_review_age=False,
+            source_is_doc_commit=True,
+        )
+        self.assertEqual(1, len(reasons))
+        self.assertIn("future", reasons[0])
+
+    def test_same_commit_still_obeys_the_review_age_policy(self):
+        reasons = FRESHNESS.freshness_reasons(
+            source_date=date(2026, 1, 1),
+            reviewed_date=date(2025, 12, 31),
+            source_is_ancestor_of_doc=True,
+            today=date(2026, 8, 22),
+            max_review_age_days=180,
+            enforce_review_age=True,
+            source_is_doc_commit=True,
+        )
+        self.assertEqual(1, len(reasons))
+        self.assertIn("review age", reasons[0])
 
     def test_age_policy_is_only_enforced_when_requested(self):
         common = dict(
