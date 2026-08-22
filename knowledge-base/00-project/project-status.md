@@ -3,8 +3,8 @@ title: Project Status
 type: status
 status: active
 documentation_version: 1.3
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+app_version: 1.4.15
+last_reviewed: 2026-08-22
 tags: [impuls, status, current]
 ---
 
@@ -12,15 +12,15 @@ tags: [impuls, status, current]
 
 ## Baseline
 
-**Current production release: 1.4.14, published.** Источник версии — `Scripts/version`.
+**Current release candidate: 1.4.15. Latest published production release at release-preparation time: 1.4.14.** Источник версии — `Scripts/version`.
 
 **Current documentation baseline: 1.3.**
 
-Release `1.4.14` packages the merged PR #72 Power Center redesign, Magic Keyboard/Magic Mouse/Magic Trackpad Bluetooth detection fixes, the Impuls branding refresh (app icon and Menu Bar glyph), the version-aware What's New fix and the version-aware/periodic voluntary version-statistics follow-up. Automated Swift/Python validation and PR CI passed (509 Swift tests, 0 failures, 3 hardware-dependent skips; 82 Python tests). The release owner additionally completed a manual Power Center pass on a real Mac mini confirming Magic Keyboard, Magic Mouse, Magic Trackpad and AirPods detection with real battery data. Its release-specific QA decision remains `ship-with-known-gaps`: unperformed manual hardware, TCC, translation, web-player and update-check scenarios stay explicit `not-run` rather than being inferred from green CI. Developer ID signing and notarization are not claimed.
+Release `1.4.15` packages the already-merged localization wave (PR #75) and local-first project-support flow (PR #76). The product now ships seven interface localizations (`en`, `ru`, `de`, `fr`, `es`, `zh-Hans`, `ja`), an in-app language selector with safe automatic self-relaunch, and a bounded project-support/feedback prompt whose eligibility stays entirely on the Mac and is capped at two automatic appearances. The release notes disclose that Russian and English remain the primary localizations and that the five added translations were prepared with AI assistance and have not yet received full native-speaker proofreading. The 1.4.15 release decision is `ship-with-known-gaps`: automated CI is required before merge, while unperformed manual hardware/TCC/service scenarios remain explicit `not-run` in version-specific evidence rather than being inferred from partial feature QA.
 
-Tag `v1.4.14` and its public GitHub Release exist and are not a draft or pre-release; the release carries the DMG, ZIP, their SHA-256 files and the signed `appcast.xml`. The earlier statement that no tag/Release/appcast had been published described the moment the candidate record was written and is no longer current.
+Release `1.4.14` remains the last confirmed published artifact while this release PR is under review. It contains the Power Center redesign, Apple-accessory detection fixes, branding refresh, version-aware What's New fix and version-statistics follow-up. Tag `v1.4.14` and its public GitHub Release exist with DMG, ZIP, checksums and a signed appcast. Developer ID signing and Apple notarization were not claimed for that release.
 
-`main` has since moved past the release. Merged PR #75 (localization wave 1) added five more languages, the in-app language setting and its self-relaunch path **without** bumping the version, so `Scripts/version` still reads `1.4.14` while `main` already contains post-release product work. Do not read the shipped 1.4.14 artifact as equal to current `main`.
+After the 1.4.15 release workflow succeeds, this document should be updated to mark 1.4.15 as the published production baseline rather than silently assuming publication from the version bump alone.
 
 ## Current product surface
 
@@ -60,7 +60,7 @@ The knowledge base contains:
 - centralized input/resource/cadence budgets;
 - behavioral QA matrix for automated, real-macOS, hardware and service-dependent scenarios;
 - machine-readable source/test → Behavioral QA impact mapping with fail-closed handling for unmapped behavioral source changes;
-- diff-aware QA impact reports that identify exact `DISP-*`, `PERM-*`, `PWR-*`, `DATA-*`, `ACT-*`, `TR-*`, `MUS-*`, `UI-*` and `REL-*` contracts affected by a change;
+- diff-aware QA impact reports that identify exact `DISP-*`, `PERM-*`, `PWR-*`, `DATA-*`, `ACT-*`, `TR-*`, `MUS-*`, `UI-*`, `SUP-*` and `REL-*` contracts affected by a change;
 - per-release QA evidence records that bind manual/mixed scenarios to real environments, outcomes and known gaps;
 - a machine-checked release QA policy that requires an evidence file whenever the version baseline changes and forbids historical `not-recorded` results from 1.4.12 onward;
 - Documentation Guardian v2 with 11 semantic contract families, including privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and module topology in addition to the original background/resource/persistence/network/permission/dependency rules;
@@ -87,7 +87,8 @@ The knowledge base contains:
 14. a QA scenario inventory never implies a release passed it; manual/hardware/TCC pass claims require per-release evidence tied to an explicit environment;
 15. behavioral source/test ownership is machine-routed to Behavioral QA IDs; a newly changed tracked behavioral source must have a QA route or a narrow documented exemption;
 16. privacy identity, telemetry payload, update-signing integrity, actor ownership and shipped module topology changes create machine-enforced canonical documentation review obligations;
-17. Menu Bar status rendering is a pure presentation boundary over already-resolved shared state; `MenuBarStatusItemPresentation` must not become a provider/network/polling owner.
+17. Menu Bar status rendering is a pure presentation boundary over already-resolved shared state; `MenuBarStatusItemPresentation` must not become a provider/network/polling owner;
+18. project-support eligibility remains machine-local, does not become telemetry/networking, and automatic prompting stays bounded to at most two appearances for the lifetime of the local state.
 
 ## Documentation automation
 
@@ -120,7 +121,9 @@ Release `1.4.11` has a truthful retrospective evidence record because the struct
 
 Starting with `1.4.12`, every version baseline must include `knowledge-base/13-qa/release-evidence/<version>.md`. Every `mixed`, `manual-macos`, `manual-hardware` and `manual-service` matrix scenario must be classified explicitly. A release may be `certified`, `ship-with-known-gaps` or `blocked`, but certification requires all manual/mixed rows to be `pass` or justified `not-applicable` and at least one real Mac environment. The CI shipping gate rejects `blocked` candidates.
 
-The 1.4.13 release used `ship-with-known-gaps`: the hardening build passed a release-owner smoke test on a real Mac, while scenario-specific manual/hardware/TCC/service checks that were not performed remained visible as `not-run`. The 1.4.14 candidate also uses `ship-with-known-gaps`: a real Mac mini manual pass confirms the new Power Center's Apple accessory detection (Magic Keyboard, Magic Mouse, Magic Trackpad, AirPods) and desktop no-battery handling, while remaining scenario-specific manual/hardware/TCC/translation/web-player/update checks stay explicit `not-run`.
+The 1.4.13 release used `ship-with-known-gaps`: the hardening build passed a release-owner smoke test on a real Mac, while scenario-specific manual/hardware/TCC/service checks that were not performed remained visible as `not-run`. The 1.4.14 release also used `ship-with-known-gaps`: a real Mac mini manual pass confirmed the Power Center's Apple accessory detection and desktop no-battery handling while remaining scenario-specific manual/hardware/TCC/translation/web-player/update checks stayed explicit `not-run`.
+
+The 1.4.15 candidate likewise uses `ship-with-known-gaps`. The maintainer manually exercised the new localization/self-relaunch and project-support paths on a real Mac before release preparation, but the current `UI-07` and `SUP-01` matrix rows include additional subconditions not all captured as one complete durable scenario, so they remain conservatively classified `not-run` in the release evidence. Full native-speaker proofreading of the five AI-assisted translations is also an explicit known gap disclosed to users.
 
 The QA impact layer sits before that gate: it tells reviewers and agents which scenario IDs a candidate's changed source/tests may affect and verifies that impacted manual/mixed IDs are represented in the candidate evidence. It does not change their result or claim they passed.
 
