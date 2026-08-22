@@ -3,7 +3,7 @@ title: Generated Type → Tests → Docs Map
 type: generated-reference
 status: active
 documentation_version: 1.3
-app_version: 1.4.14
+app_version: 1.4.15
 last_reviewed: 2026-08-19
 tags: [impuls, generated, reference, tests, ai]
 ---

@@ -9,8 +9,8 @@ final class OnboardingFlowTests: XCTestCase {
             hasSettingsSnapshot: true,
             completedLegacyTour: false,
             completedCurrentTour: true,
-            seenVersion: "1.4.13",
-            currentVersion: "1.4.14"
+            seenVersion: "1.4.14",
+            currentVersion: "1.4.15"
         )
         XCTAssertEqual(decision, .whatsNew)
     }
@@ -20,8 +20,8 @@ final class OnboardingFlowTests: XCTestCase {
             hasSettingsSnapshot: true,
             completedLegacyTour: false,
             completedCurrentTour: true,
-            seenVersion: "1.4.14",
-            currentVersion: "1.4.14"
+            seenVersion: "1.4.15",
+            currentVersion: "1.4.15"
         )
         XCTAssertEqual(decision, .none)
     }
@@ -32,7 +32,7 @@ final class OnboardingFlowTests: XCTestCase {
             completedLegacyTour: false,
             completedCurrentTour: false,
             seenVersion: nil,
-            currentVersion: "1.4.14"
+            currentVersion: "1.4.15"
         )
         XCTAssertEqual(decision, .full)
     }
@@ -44,8 +44,8 @@ final class OnboardingFlowTests: XCTestCase {
             hasSettingsSnapshot: false,
             completedLegacyTour: false,
             completedCurrentTour: true,
-            seenVersion: "1.4.14",
-            currentVersion: "1.4.14"
+            seenVersion: "1.4.15",
+            currentVersion: "1.4.15"
         )
         XCTAssertEqual(decision, .none)
     }
@@ -65,11 +65,24 @@ final class OnboardingFlowTests: XCTestCase {
         ))
     }
 
+    func testWhatsNewCatalogReturnsTheCurated1415Content() {
+        let content = WhatsNewCatalog.content(forVersion: "1.4.15")
+        XCTAssertEqual(content.version, "1.4.15")
+        XCTAssertEqual(content.title, localized("What’s new in Impuls %@", "1.4.15"))
+        XCTAssertFalse(content.highlights.isEmpty)
+        XCTAssertTrue(content.highlights.contains(
+            localized("Impuls follows the macOS language unless you choose one here.")
+        ))
+        XCTAssertTrue(content.highlights.contains(
+            localized("Impuls is developed in the open. A star on GitHub helps other people find it, and your feedback shapes what comes next.")
+        ))
+    }
+
     func testWhatsNewContentNeverMentionsTheOld1411Text() {
         // This is the regression this file exists to guard: 1.4.12 and 1.4.13
         // both kept showing "What's new in Impuls 1.4.11" because the string
         // was hardcoded rather than driven by the catalog/bundle version.
-        for version in ["1.4.12", "1.4.13", "1.4.14", "1.4.15"] {
+        for version in ["1.4.12", "1.4.13", "1.4.14", "1.4.15", "1.4.16"] {
             let content = WhatsNewCatalog.content(forVersion: version)
             XCTAssertFalse(content.title.contains("1.4.11"))
             XCTAssertFalse(content.detail.contains("1.4.11"))
@@ -79,9 +92,9 @@ final class OnboardingFlowTests: XCTestCase {
         }
     }
 
-    func testAnUnknownFutureVersionDoesNotInheritThe1414ReleaseNotes() {
-        let futureContent = WhatsNewCatalog.content(forVersion: "1.4.15")
-        let currentContent = WhatsNewCatalog.content(forVersion: "1.4.14")
+    func testAnUnknownFutureVersionDoesNotInheritThe1415ReleaseNotes() {
+        let futureContent = WhatsNewCatalog.content(forVersion: "1.4.16")
+        let currentContent = WhatsNewCatalog.content(forVersion: "1.4.15")
 
         XCTAssertTrue(futureContent.highlights.isEmpty, "An undescribed version gets the generic fallback, not stale copy")
         XCTAssertNotEqual(futureContent.highlights, currentContent.highlights)

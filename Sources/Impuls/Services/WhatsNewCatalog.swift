@@ -40,6 +40,12 @@ enum WhatsNewCatalog {
     /// Keyed by the exact version it describes. Internal implementation/security
     /// details are deliberately left out — this is user-facing copy.
     private static let releaseHighlights: [String: [String]] = [
+        "1.4.15": [
+            localized("Impuls follows the macOS language unless you choose one here."),
+            localized("The selected language will be applied after Impuls restarts."),
+            localized("Impuls is developed in the open. A star on GitHub helps other people find it, and your feedback shapes what comes next."),
+            localized("General reliability and compatibility improvements."),
+        ],
         "1.4.14": [
             localized("A redesigned Power Center with a device navigator and real details for every connected Mac, iPhone and iPad."),
             localized("More reliable detection for Magic Keyboard, Magic Mouse and Magic Trackpad."),
