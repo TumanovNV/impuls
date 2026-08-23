@@ -1,12 +1,12 @@
 {
   "default_locale": "ru",
   "locales": [
-    {"code": "ru", "label": "RU", "path": "", "og_locale": "ru_RU"},
-    {"code": "en", "label": "EN", "path": "en/", "og_locale": "en_US"},
-    {"code": "de", "label": "DE", "path": "de/", "og_locale": "de_DE"},
-    {"code": "fr", "label": "FR", "path": "fr/", "og_locale": "fr_FR"},
-    {"code": "es", "label": "ES", "path": "es/", "og_locale": "es_ES"},
-    {"code": "ja", "label": "JA", "path": "ja/", "og_locale": "ja_JP"},
-    {"code": "zh-Hans", "label": "简", "path": "zh-hans/", "og_locale": "zh_CN"}
+    {"code": "ru", "label": "RU", "path": "", "privacy_path": "site-privacy.html", "og_locale": "ru_RU"},
+    {"code": "en", "label": "EN", "path": "en/", "privacy_path": "en/privacy/", "og_locale": "en_US"},
+    {"code": "de", "label": "DE", "path": "de/", "privacy_path": "de/privacy/", "og_locale": "de_DE"},
+    {"code": "fr", "label": "FR", "path": "fr/", "privacy_path": "fr/privacy/", "og_locale": "fr_FR"},
+    {"code": "es", "label": "ES", "path": "es/", "privacy_path": "es/privacy/", "og_locale": "es_ES"},
+    {"code": "ja", "label": "JA", "path": "ja/", "privacy_path": "ja/privacy/", "og_locale": "ja_JP"},
+    {"code": "zh-Hans", "label": "简", "path": "zh-hans/", "privacy_path": "zh-hans/privacy/", "og_locale": "zh_CN"}
   ]
 }
