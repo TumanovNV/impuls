@@ -29,6 +29,7 @@ class SiteLocalizationTests(unittest.TestCase):
         cls.localized_source = SYNC.rewrite(cls.source)
         cls.sitemap = SITEMAP.rewrite(SITEMAP_PATH.read_text(encoding="utf-8"))
         cls.registry = BUILDER.REGISTRY
+        cls.entries = {item["code"]: item for item in cls.registry["locales"]}
         cls.codes = [item["code"] for item in cls.registry["locales"]]
         cls.generated_codes = [code for code in cls.codes if code != cls.registry["default_locale"]]
         cls.configs = {
@@ -37,10 +38,11 @@ class SiteLocalizationTests(unittest.TestCase):
         }
         cls.pages = {code: BUILDER.build(cls.localized_source, cfg) for code, cfg in cls.configs.items()}
 
-    def test_wave_two_registry_is_ru_en_de_fr_es(self):
-        self.assertEqual(self.codes, ["ru", "en", "de", "fr", "es"])
+    def test_wave_three_registry_matches_all_shipped_app_languages(self):
+        self.assertEqual(self.codes, ["ru", "en", "de", "fr", "es", "ja", "zh-Hans"])
         self.assertEqual(self.registry["default_locale"], "ru")
-        self.assertEqual(len({x["path"] for x in self.registry["locales"]}), 5)
+        self.assertEqual(len({x["path"] for x in self.registry["locales"]}), 7)
+        self.assertEqual(self.entries["zh-Hans"]["path"], "zh-hans/")
 
     def test_locale_source_sync_is_idempotent(self):
         self.assertEqual(SYNC.rewrite(self.localized_source), self.localized_source)
@@ -62,7 +64,7 @@ class SiteLocalizationTests(unittest.TestCase):
         for code in self.generated_codes:
             self.assertIn(f'<html lang="{self.configs[code]["html_lang"]}">', self.pages[code])
             self.assertIn(f'window.IMPULS_LANG="{code}"', self.pages[code])
-            self.assertIn(f'aria-current="page">{next(x["label"] for x in self.registry["locales"] if x["code"] == code)}</a>', self.pages[code])
+            self.assertIn(f'aria-current="page">{self.entries[code]["label"]}</a>', self.pages[code])
 
     def test_french_page_is_real_static_localized_content(self):
         page = self.pages["fr"]
@@ -84,6 +86,27 @@ class SiteLocalizationTests(unittest.TestCase):
         self.assertIn('../assets/screens/en/actions.png', page)
         self.assertNotIn('data-i="hero.h1">ИМПУЛЬС', page)
 
+    def test_japanese_page_is_real_static_localized_content(self):
+        page = self.pages["ja"]
+        self.assertIn('<title>IMPULS for macOS – クリップボード', page)
+        self.assertIn('IMPULS – 必要なものを画面上端に', page)
+        self.assertIn('7 言語対応', page)
+        self.assertIn('Impuls はどの言語に対応していますか？', page)
+        self.assertIn('href="https://tumanovnv.github.io/impuls/ja/"', page)
+        self.assertIn('../assets/screens/en/actions.png', page)
+        self.assertNotIn('data-i="hero.h1">ИМПУЛЬС', page)
+
+    def test_simplified_chinese_page_is_real_static_localized_content(self):
+        page = self.pages["zh-Hans"]
+        self.assertIn('<html lang="zh-Hans">', page)
+        self.assertIn('<title>IMPULS for macOS – 剪贴板', page)
+        self.assertIn('IMPULS – 把常用工具放在屏幕顶端', page)
+        self.assertIn('支持 7 种语言', page)
+        self.assertIn('Impuls 支持哪些语言？', page)
+        self.assertIn('href="https://tumanovnv.github.io/impuls/zh-hans/"', page)
+        self.assertIn('../assets/screens/en/actions.png', page)
+        self.assertNotIn('data-i="hero.h1">ИМПУЛЬС', page)
+
     def test_structured_data_uses_complete_registry_and_current_release(self):
         for code, page in self.pages.items():
             match = re.search(
@@ -100,7 +123,7 @@ class SiteLocalizationTests(unittest.TestCase):
             self.assertEqual(website["inLanguage"], self.codes)
             self.assertEqual(app["inLanguage"], code)
             self.assertEqual(app["softwareVersion"], "1.4.15")
-            self.assertTrue(app["@id"].endswith(f"/{code}/#software"))
+            self.assertEqual(app["@id"], BUILDER.SITE + self.entries[code]["path"] + "#software")
             self.assertEqual(len(faq["mainEntity"]), 6)
 
     def test_open_graph_locale_cluster_excludes_current_locale_from_alternates(self):
@@ -113,16 +136,16 @@ class SiteLocalizationTests(unittest.TestCase):
     def test_external_locale_dictionaries_have_exact_effective_source_parity(self):
         source_keys = BUILDER.translatable_keys(self.localized_source)
         screenshot_keys = BUILDER.screenshot_keys(self.localized_source)
-        for code in ("de", "fr", "es"):
+        for code in ("de", "fr", "es", "ja", "zh-Hans"):
             cfg = self.configs[code]
             self.assertNotIn("source_dictionary", cfg)
             words, alts = BUILDER.resolve_content(self.localized_source, cfg)
             self.assertEqual(set(words), source_keys, code)
             self.assertEqual(set(alts), screenshot_keys, code)
 
-    def test_french_and_spanish_have_no_dead_translation_keys(self):
+    def test_wave_two_and_three_external_locales_have_no_dead_translation_keys(self):
         source_keys = BUILDER.translatable_keys(self.localized_source)
-        for code in ("fr", "es"):
+        for code in ("fr", "es", "ja", "zh-Hans"):
             self.assertEqual(set(self.configs[code]["strings"]), source_keys, code)
 
     def test_only_documented_legacy_dead_translation_keys_are_tolerated(self):
@@ -134,7 +157,7 @@ class SiteLocalizationTests(unittest.TestCase):
 
     def test_multiline_power_screenshot_is_part_of_alt_parity_and_is_localized(self):
         self.assertIn("power", BUILDER.screenshot_keys(self.localized_source))
-        for code in ("de", "fr", "es"):
+        for code in ("de", "fr", "es", "ja", "zh-Hans"):
             cfg = self.configs[code]
             self.assertIn("power", cfg["alts"])
             power = re.search(
@@ -146,10 +169,19 @@ class SiteLocalizationTests(unittest.TestCase):
             self.assertEqual(power.group(1), cfg["alts"]["power"])
 
     def test_locale_configs_match_registry_path_and_open_graph_locale(self):
-        entries = {item["code"]: item for item in self.registry["locales"]}
         for code, cfg in self.configs.items():
-            self.assertEqual(cfg["path"], entries[code]["path"])
-            self.assertEqual(cfg["og_locale"], entries[code]["og_locale"])
+            self.assertEqual(cfg["path"], self.entries[code]["path"])
+            self.assertEqual(cfg["og_locale"], self.entries[code]["og_locale"])
+
+    def test_legacy_query_routing_uses_registry_paths_not_locale_codes(self):
+        self.assertIn('"zh-Hans":"zh-hans/"', self.localized_source)
+        self.assertIn('location.replace(legacyRoutes[legacyLang]);', self.localized_source)
+        self.assertNotIn("location.replace(legacyLang + '/');", self.localized_source)
+
+    def test_seven_locale_mobile_selector_remains_no_javascript_and_scrollable(self):
+        self.assertIn('Seven page locales no longer fit as a fixed row', self.localized_source)
+        self.assertIn('.lang{max-width:48vw;overflow-x:auto;', self.localized_source)
+        self.assertIn('@media(max-width:359px)', self.localized_source)
 
 
 if __name__ == "__main__":
