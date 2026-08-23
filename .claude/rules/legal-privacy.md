@@ -30,9 +30,10 @@ Read `knowledge-base/07-web/legal-privacy.md` before changing any file in this s
 - `Scripts/build-site-privacy-locale.py` is the only legal-page generator.
 - `Scripts/site-privacy-template.html` owns legal-page presentation.
 - `Scripts/site-privacy-locales/<locale>.json` owns legal copy.
+- `Scripts/site-privacy-locales/metadata.json` owns source locale, policy revision and effective date; legal sitemap `lastmod` must come from that effective date.
 - Generated `docs/**/privacy/index.html` files are not edited manually.
 - `Scripts/sync-site-privacy-links.py` owns the landing-page privacy CTA route.
-- `Scripts/sync-site-sitemap.py` owns indexed landing + privacy routes.
+- `Scripts/sync-site-sitemap.py` owns indexed landing + privacy routes and legal `lastmod` projection.
 - `.github/workflows/site-legal-localization.yml` is the focused PR gate.
 
 ## Truthfulness rules
@@ -55,4 +56,4 @@ Article 13 requires controller contact details and, where applicable, representa
 
 ## Required checks
 
-Before merge, require the legal-localization unit tests, generated-page idempotence, seven-way legal hreflang, privacy sitemap routes, legacy noindex handoff, knowledge-base gate and the full application build to be green.
+Before merge, require the legal-localization unit tests, generated-page idempotence, seven-way legal hreflang, privacy sitemap routes and policy-effective-date `lastmod`, legacy noindex handoff, knowledge-base gate and the full application build to be green.
