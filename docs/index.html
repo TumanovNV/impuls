@@ -17,6 +17,8 @@
 <link rel="alternate" hreflang="de" href="https://tumanovnv.github.io/impuls/de/">
 <link rel="alternate" hreflang="fr" href="https://tumanovnv.github.io/impuls/fr/">
 <link rel="alternate" hreflang="es" href="https://tumanovnv.github.io/impuls/es/">
+<link rel="alternate" hreflang="ja" href="https://tumanovnv.github.io/impuls/ja/">
+<link rel="alternate" hreflang="zh-Hans" href="https://tumanovnv.github.io/impuls/zh-hans/">
 <link rel="alternate" hreflang="x-default" href="https://tumanovnv.github.io/impuls/">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="assets/impuls-icon.png" sizes="512x512" type="image/png">
@@ -32,6 +34,8 @@
 <meta property="og:locale:alternate" content="de_DE">
 <meta property="og:locale:alternate" content="fr_FR">
 <meta property="og:locale:alternate" content="es_ES">
+<meta property="og:locale:alternate" content="ja_JP">
+<meta property="og:locale:alternate" content="zh_CN">
 <meta property="og:url" content="https://tumanovnv.github.io/impuls/">
 <meta property="og:image" content="https://tumanovnv.github.io/impuls/assets/og-impuls.png">
 <meta property="og:image:width" content="1200">
@@ -59,7 +63,7 @@
       "url": "https://tumanovnv.github.io/impuls/",
       "name": "ИМПУЛЬС",
       "alternateName": ["Impuls", "Импульс для macOS"],
-      "inLanguage": ["ru", "en", "de", "fr", "es"],
+      "inLanguage": ["ru", "en", "de", "fr", "es", "ja", "zh-Hans"],
       "publisher": {"@id": "https://tumanovnv.github.io/impuls/#author"}
     },
     {
@@ -669,14 +673,20 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
   .foot .spacer{margin-inline-start:0;width:100%}
 }
 
-/* Five page locales plus Download stay reachable even on a 320 px viewport.
-   Collapse only the wordmark text and tighten controls; locale links remain
-   visible rather than moving into a JavaScript-only menu. */
-@media(max-width:559px){
+/* Seven page locales no longer fit as a fixed row on the narrowest phones.
+   Keep every language and Download reachable without JavaScript: the wordmark
+   collapses first, then only the locale strip becomes horizontally scrollable. */
+@media(max-width:699px){
   .brand span{display:none}
-  .nav-right{gap:var(--s1)}
-  .lang a{padding-inline:5px;font-size:.72rem}
+  .nav-right{gap:var(--s1);min-width:0}
+  .lang{max-width:48vw;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .lang::-webkit-scrollbar{display:none}
+  .lang a{flex:0 0 auto;padding-inline:5px;font-size:.72rem}
   .btn-sm{padding:0 var(--s2)}
+}
+@media(max-width:359px){
+  .brand{display:none}
+  .lang{max-width:68vw}
 }
 
 /* --- Narrow screens: pan the panel instead of shrinking it --------------
@@ -757,16 +767,17 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
       <a href="#install" data-i="nav.install">Установка</a>
     </nav>
     <div class="nav-right">
-      <!-- Navigation between two static pages, not a toggle. A runtime swap left
-           the reader on the Russian URL with a Russian title, description and
-           JSON-LD above an English body, which is the exact thing docs/en/ exists
-           to prevent. -->
+      <!-- Navigation between registry-driven static locale pages, not a runtime
+           translation toggle. Each public language keeps its own URL, localized
+           head/JSON-LD and reciprocal hreflang metadata. -->
       <div class="lang" role="group" aria-label="Язык страницы">
         <a id="btn-ru" href="./" hreflang="ru" aria-current="page">RU</a>
         <a id="btn-en" href="en/" hreflang="en">EN</a>
         <a id="btn-de" href="de/" hreflang="de">DE</a>
         <a id="btn-fr" href="fr/" hreflang="fr">FR</a>
         <a id="btn-es" href="es/" hreflang="es">ES</a>
+        <a id="btn-ja" href="ja/" hreflang="ja">JA</a>
+        <a id="btn-zh-Hans" href="zh-hans/" hreflang="zh-Hans">简</a>
       </div>
       <a class="btn btn-primary btn-sm" data-conversion="download" data-placement="header" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.15/Impuls-1.4.15.dmg">
         <span data-i="cta.short">Скачать</span>
@@ -1675,8 +1686,9 @@ var initial = window.IMPULS_LANG || 'ru';
 if(!window.IMPULS_LANG){
   try{
     var legacyLang = new URL(location.href).searchParams.get('lang');
-    if(["en","de","fr","es"].includes(legacyLang)){
-      location.replace(legacyLang + '/');
+    var legacyRoutes = {"en":"en/","de":"de/","fr":"fr/","es":"es/","ja":"ja/","zh-Hans":"zh-hans/"};
+    if(legacyLang && legacyRoutes[legacyLang]){
+      location.replace(legacyRoutes[legacyLang]);
       return;
     }
   }catch(e){}
