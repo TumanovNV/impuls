@@ -9,6 +9,7 @@ on:
       - Scripts/build-site-locale.py
       - Scripts/site-locales/**
       - Scripts/sync-site-locales.py
+      - Scripts/sync-site-sitemap.py
       - Scripts/sync-site-product-facts.py
       - Scripts/sync-site-release.py
       - Tests/PythonTests/**
@@ -32,35 +33,67 @@ jobs:
         run: python3 -m unittest Tests.PythonTests.test_site_localization -v
 
       - name: Generate the complete static locale cluster
+        shell: bash
         run: |
           set -euo pipefail
           python3 Scripts/sync-site-product-facts.py
           python3 Scripts/sync-site-locales.py
-          python3 Scripts/build-site-locale.py --locale en
-          python3 Scripts/build-site-locale.py --locale de
+          python3 Scripts/sync-site-sitemap.py
+          for LOCALE in $(python3 - <<'PY'
+          import json
+          data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
+          print(' '.join(x['code'] for x in data['locales'] if x['code'] != data['default_locale']))
+          PY
+          ); do
+            python3 Scripts/build-site-locale.py --locale "$LOCALE"
+          done
 
       - name: Verify locale generators are idempotent
+        shell: bash
         run: |
           set -euo pipefail
           python3 Scripts/sync-site-product-facts.py --check
           python3 Scripts/sync-site-locales.py --check
-          python3 Scripts/build-site-locale.py --locale en --check
-          python3 Scripts/build-site-locale.py --locale de --check
+          python3 Scripts/sync-site-sitemap.py --check
+          for LOCALE in $(python3 - <<'PY'
+          import json
+          data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
+          print(' '.join(x['code'] for x in data['locales'] if x['code'] != data['default_locale']))
+          PY
+          ); do
+            python3 Scripts/build-site-locale.py --locale "$LOCALE" --check
+          done
 
       - name: Verify static SEO and language routing
+        shell: bash
         run: |
           set -euo pipefail
-          for PAGE in docs/index.html docs/en/index.html docs/de/index.html; do
-            grep -F 'hreflang="ru"' "$PAGE"
-            grep -F 'hreflang="en"' "$PAGE"
-            grep -F 'hreflang="de"' "$PAGE"
+          mapfile -t LOCALES < <(python3 - <<'PY'
+          import json
+          data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
+          for item in data['locales']:
+              print(item['code'])
+          PY
+          )
+          PAGES=(docs/index.html)
+          for LOCALE in "${LOCALES[@]}"; do
+            if [[ "$LOCALE" != "ru" ]]; then PAGES+=("docs/$LOCALE/index.html"); fi
+          done
+          for PAGE in "${PAGES[@]}"; do
+            for LOCALE in "${LOCALES[@]}"; do
+              grep -F "hreflang=\"$LOCALE\"" "$PAGE"
+            done
             grep -F 'hreflang="x-default"' "$PAGE"
             grep -q 'releases/download/v.*\.dmg"' "$PAGE"
           done
-          grep -F '<html lang="de">' docs/de/index.html
-          grep -F '7 Sprachen' docs/de/index.html
-          grep -F 'Welche Sprachen unterstützt Impuls?' docs/de/index.html
-          grep -F 'https://tumanovnv.github.io/impuls/de/' docs/sitemap.xml
+          grep -F '<html lang="fr">' docs/fr/index.html
+          grep -F '7 langues' docs/fr/index.html
+          grep -F 'Quelles langues Impuls prend-il en charge ?' docs/fr/index.html
+          grep -F '<html lang="es">' docs/es/index.html
+          grep -F '7 idiomas' docs/es/index.html
+          grep -F '¿Qué idiomas admite Impuls?' docs/es/index.html
+          grep -F 'https://tumanovnv.github.io/impuls/fr/' docs/sitemap.xml
+          grep -F 'https://tumanovnv.github.io/impuls/es/' docs/sitemap.xml
 
       - name: Run repository Python tests separately from Swift
         run: python3 -m unittest discover -s Tests/PythonTests -p 'test_*.py'
