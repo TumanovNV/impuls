@@ -1,8 +1,8 @@
 name: site-release-sync
 
-# Keeps the website's static release metadata, durable product facts and locale
-# pages current. The site remains static; generators run only in CI and commit
-# the resulting HTML to GitHub Pages.
+# Keeps the website's static release metadata, durable product facts, sitemap and
+# locale pages current. The site remains static; generators run only in CI and
+# commit the resulting HTML to GitHub Pages.
 #
 # It cannot loop and it cannot ship anything:
 #   * `release.yml` triggers on `push` to `Scripts/version`, which this never touches;
@@ -17,6 +17,7 @@ on:
       - Scripts/sync-site-product-facts.py
       - Scripts/sync-site-release.py
       - Scripts/sync-site-locales.py
+      - Scripts/sync-site-sitemap.py
       - Scripts/build-site-locale.py
       - Scripts/site-locales/**
       - .github/workflows/site-release-sync.yml
@@ -55,17 +56,26 @@ jobs:
       - name: Keep website locale routing in the canonical Russian page
         run: python3 Scripts/sync-site-locales.py
 
+      - name: Keep the sitemap aligned with the locale registry
+        run: python3 Scripts/sync-site-sitemap.py
+
       - name: Generate static localized pages
+        shell: bash
         run: |
           set -euo pipefail
-          python3 Scripts/build-site-locale.py --locale en
-          python3 Scripts/build-site-locale.py --locale de
+          for LOCALE in $(python3 - <<'PY'
+          import json
+          data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
+          print(' '.join(x['code'] for x in data['locales'] if x['code'] != data['default_locale']))
+          PY
+          ); do
+            python3 Scripts/build-site-locale.py --locale "$LOCALE"
+          done
 
       - name: Verify the pages still satisfy the site checks
+        shell: bash
         run: |
           set -euo pipefail
-          # The same three literals build.yml greps for. A metadata/product/locale
-          # rewrite must never be the thing that breaks them.
           grep -F "const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';" docs/index.html
           grep -F 'function releaseHash(asset,body)' docs/index.html
           grep -F 'data-conversion="feedback"' docs/index.html
@@ -73,39 +83,66 @@ jobs:
           python3 Scripts/sync-site-release.py --check
           python3 Scripts/sync-site-product-facts.py --check
           python3 Scripts/sync-site-locales.py --check
-          python3 Scripts/build-site-locale.py --locale en --check
-          python3 Scripts/build-site-locale.py --locale de --check
+          python3 Scripts/sync-site-sitemap.py --check
 
-          # Static/no-JS download paths are part of the contract on every locale.
-          grep -q "releases/download/v.*\.dmg\"" docs/index.html
-          grep -q "releases/download/v.*\.dmg\"" docs/en/index.html
-          grep -q "releases/download/v.*\.dmg\"" docs/de/index.html
-
-          # Every page declares the complete website-language cluster.
-          for PAGE in docs/index.html docs/en/index.html docs/de/index.html; do
-            grep -F 'hreflang="ru"' "$PAGE"
-            grep -F 'hreflang="en"' "$PAGE"
-            grep -F 'hreflang="de"' "$PAGE"
+          mapfile -t LOCALES < <(python3 - <<'PY'
+          import json
+          data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
+          for item in data['locales']:
+              print(item['code'])
+          PY
+          )
+          PAGES=(docs/index.html)
+          for LOCALE in "${LOCALES[@]}"; do
+            if [[ "$LOCALE" != "ru" ]]; then
+              python3 Scripts/build-site-locale.py --locale "$LOCALE" --check
+              PAGES+=("docs/$LOCALE/index.html")
+            fi
           done
 
-          # Seven languages is an app capability and must remain explicit in each
+          # Static/no-JS download paths and the complete hreflang cluster are
+          # contracts on every published locale.
+          for PAGE in "${PAGES[@]}"; do
+            grep -q "releases/download/v.*\.dmg\"" "$PAGE"
+            for LOCALE in "${LOCALES[@]}"; do
+              grep -F "hreflang=\"$LOCALE\"" "$PAGE"
+            done
+            grep -F 'hreflang="x-default"' "$PAGE"
+          done
+
+          # Seven languages is an app capability and stays explicit in each
           # published website locale.
           grep -F '7 языков интерфейса' docs/index.html
           grep -F '7 interface languages' docs/en/index.html
           grep -F '7 Sprachen' docs/de/index.html
+          grep -F '7 langues' docs/fr/index.html
+          grep -F '7 idiomas' docs/es/index.html
           grep -F 'На каких языках работает Impuls?' docs/index.html
           grep -F 'Which languages does Impuls support?' docs/en/index.html
           grep -F 'Welche Sprachen unterstützt Impuls?' docs/de/index.html
+          grep -F 'Quelles langues Impuls prend-il en charge ?' docs/fr/index.html
+          grep -F '¿Qué idiomas admite Impuls?' docs/es/index.html
 
       - name: Commit if anything changed
+        shell: bash
         run: |
           set -euo pipefail
-          if git diff --quiet -- docs/index.html docs/en/index.html docs/de/index.html; then
+          mapfile -t LOCALES < <(python3 - <<'PY'
+          import json
+          data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
+          for item in data['locales']:
+              if item['code'] != data['default_locale']:
+                  print(item['code'])
+          PY
+          )
+          PATHS=(docs/index.html docs/sitemap.xml)
+          for LOCALE in "${LOCALES[@]}"; do PATHS+=("docs/$LOCALE/index.html"); done
+          if [[ -z "$(git status --porcelain -- "${PATHS[@]}")" ]]; then
             echo "website markup was already current; nothing to commit"
             exit 0
           fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/index.html docs/en/index.html docs/de/index.html
+          git add "${PATHS[@]}"
           git commit -m "docs: sync website release metadata and localized pages"
           git push origin HEAD:main

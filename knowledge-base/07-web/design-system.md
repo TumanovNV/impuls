@@ -2,16 +2,17 @@
 title: Website Design System
 type: web
 status: active
-documentation_version: 1.3
-app_version: 1.4.13
-last_reviewed: 2026-08-20
+documentation_version: 1.4
+app_version: 1.4.15
+last_reviewed: 2026-08-23
 tags: [impuls, website, design-system, ui, accessibility, responsive]
 ---
 
 # Website Design System
 
-Дизайн-система маркетингового сайта ИМПУЛЬС. Описывает **presentation layer** страниц
-`docs/index.html` (RU, source) и `docs/en/index.html` (EN, generated).
+Дизайн-система маркетингового сайта ИМПУЛЬС. Описывает **presentation layer** canonical
+`docs/index.html` (RU source) и всех generated static locale pages, перечисленных в
+`Scripts/site-locales/registry.json`.
 
 Это не дизайн-система приложения. Приложение и сайт делят визуальную ДНК — акцентный синий,
 шкалу радиусов панели и её кривые движения, — но не являются одним и тем же UI. Токены
@@ -185,7 +186,7 @@ dark   --stage: linear-gradient(168deg, #1e222c 0%, #12161d 58%, #0c0f15 100%)
 
 | Точка | Что меняется |
 | --- | --- |
-| `max-width: 359px` | ужимается шапка, чтобы RU/EN и «Скачать» помещались |
+| `max-width: 559px` | скрывается текст wordmark и уплотняется шапка, чтобы RU/EN/DE/FR/ES и «Скачать» оставались доступны |
 | `max-width: 599px` | hero-CTA в одну колонку на всю ширину |
 | `640px` | `.cols` → 2 колонки |
 | `max-width: 699px` | скриншоты панятся вместо уменьшения; full-bleed сцены; появляется `.pan-hint` |
@@ -197,7 +198,8 @@ dark   --stage: linear-gradient(168deg, #1e222c 0%, #12161d 58%, #0c0f15 100%)
 | `1280px` | gutter 56 px |
 | `1800px` | контейнеры расширяются, чтобы страница не была макетом в пустоте |
 
-Спроектированные ширины: **390 / 430 / 768 / 1024 / 1440 / 1920**.
+Спроектированные ширины: **390 / 430 / 768 / 1024 / 1440 / 1920**. Дополнительно language
+selector обязан оставаться без page-level overflow на 320 px.
 
 ## Buttons
 
@@ -224,9 +226,11 @@ Pill остаётся только у чипов селектора модуле
 - Ссылки разделов показываются от 1024 px; ниже остаются бренд, переключатель языка и
   кнопка скачивания.
 - `header.stuck` добавляет нижнюю волосяную линию при скролле > 8 px.
-- Переключатель RU/EN — **навигация между двумя статическими страницами**, а не тоггл.
-  Разметку этого блока трогать нельзя без правки `Scripts/build-en-page.py`, который
-  сверяет её буквально.
+- Переключатель RU/EN/DE/FR/ES — **навигация между самостоятельными статическими
+  страницами**, а не runtime-тоггл перевода. Public set и labels принадлежат
+  `Scripts/site-locales/registry.json`; canonical control синхронизирует
+  `Scripts/sync-site-locales.py`, generated control строит `Scripts/build-site-locale.py`.
+  Не поддерживать копию списка языков вручную в HTML.
 
 ## Product screenshot presentation
 
@@ -244,8 +248,10 @@ Pill остаётся только у чипов селектора модуле
 Правила:
 
 - Только реальные снимки продукта; демо-данные подписываются (`.stage-caption`).
-- Снимки языковые: `assets/screens/ru/*` и `assets/screens/en/*`, переключаются по
-  `data-shot`. `alt` — это контент, он переводится вместе с текстом.
+- Реальные capture-наборы сейчас `assets/screens/ru/*` и `assets/screens/en/*`. Generated
+  locale config задаёт `screenshot_locale`; DE/FR/ES пока честно используют EN captures,
+  пока реальные снимки соответствующих интерфейсов не подготовлены. Fake localized UI
+  запрещён. `alt` — это контент и переводится отдельно для каждой page locale.
 - Панель имеет пропорцию ≈ 2.7 : 1. Ниже 700 px её **не сжимают**: кадр держит
   `min-width: 620px` и скроллится внутри себя, страница вбок не едет. Появляется
   `.pan-hint` — подсказка о свайпе.
@@ -344,6 +350,8 @@ motion-анимацией в смысле WCAG 2.3.3.
 - Ряд из трёх элементов до 840 px остаётся одной колонкой: две из трёх рядом оставляют
   сироту во второй строке.
 - На телефоне продуктовая сцена уходит в full-bleed на всю ширину вьюпорта.
+- Header при пяти locale links не имеет права решать тесноту скрытием языка или Download:
+  до 559 px скрывается только wordmark text и уменьшаются gaps/padding.
 
 ## Accessibility
 
@@ -394,7 +402,8 @@ motion-анимацией в смысле WCAG 2.3.3.
 - **Не показывает пачку технических фактов до продуктового визуала.**
 - **Не ставит `<hr>` между главами** — расстояние делает это лучше.
 - **Не хардкодит релиз.** Версия, ссылка и SHA приходят из механизма релиза.
-- **Не правит `docs/en/index.html` руками.** Английская страница только генерируется.
+- **Не правит generated locale HTML руками.** EN/DE/FR/ES pages строит общий generator.
+- **Не поддерживает второй список public locales** вне `Scripts/site-locales/registry.json`.
 - **Не добавляет ступень в типографскую шкалу** ради одного блока.
 
 ## Контракты, которые ломать нельзя
@@ -412,20 +421,24 @@ data-conversion="feedback"
 - `Scripts/sync-site-release.py` — объект `FALLBACK_RELEASE`, элементы
   `[data-release="version-label"|"size"|"filename"]`, `<code id="hash">`, ссылки
   `[data-conversion="download"]` и релизные поля JSON-LD.
-- `Scripts/build-en-page.py` — словари `EN` и `ALT` внутри страницы, атрибуты `data-i`,
-  блок переключателя языка (сверяется буквально), пути `assets/screens/ru/`.
-  Скрипт падает, если приземлилось меньше 80 % ключей `EN`.
+- `Scripts/sync-site-locales.py` — canonical `hreflang`, OG locale cluster,
+  `WebSite.inLanguage`, language control, runtime labels и startup locale flow.
+- `Scripts/build-site-locale.py` — атрибуты `data-i`, screenshot `data-shot`, head/schema
+  locale config и `Scripts/site-locales/registry.json`. EN body/alt пока читает legacy
+  embedded `EN`/`ALT`; это migration compatibility, а не отдельный generator.
+- `Scripts/sync-site-sitemap.py` — locale URL blocks в `docs/sitemap.xml` из registry.
 
 Атрибуты `data-i` не вкладываются друг в друга и не ставятся на void-теги.
 
 ## Связано
 
-- [Website Architecture](website.md) — хостинг, релизные данные, SEO, генерация EN
+- [Website Architecture](website.md) — хостинг, релизные данные, SEO и locale generation
 - [Version Statistics Collector](version-statistics-collector.md)
 - [Release Pipeline](../05-release/release-pipeline.md)
 - `.claude/rules/website.md` — path-scoped правила для `docs/`
 - `docs/index.html` — RU source page и единственный источник истины по значениям
-- `docs/en/index.html` — сгенерированная EN page
-- `Scripts/build-en-page.py`, `Scripts/sync-site-release.py`
+- `docs/en/index.html`, `docs/de/index.html`, `docs/fr/index.html`, `docs/es/index.html` — generated pages
+- `Scripts/build-site-locale.py`, `Scripts/sync-site-locales.py`, `Scripts/sync-site-sitemap.py`, `Scripts/sync-site-release.py`
+- `Scripts/site-locales/registry.json` — public website locale set
 - `Sources/Impuls/UI/Theme.swift` — токены приложения, от которых унаследованы
   акцент, радиусы и кривые движения

@@ -1,27 +1,52 @@
 #!/usr/bin/env python3
 """Keep the canonical RU landing page aware of every static website locale.
 
-This script owns routing/runtime facts shared by all generated language pages:
-``hreflang``, OpenGraph locale alternates, the visible language selector, its
-narrow-screen layout and the runtime labels needed after a Releases API refresh.
+The locale cluster comes from ``Scripts/site-locales/registry.json``. This
+script owns reciprocal hreflang/OpenGraph metadata, the visible language
+selector, narrow-screen header behavior and generated-page runtime labels.
 It changes only ``docs/index.html``; localized pages are generated afterwards.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "docs" / "index.html"
+REGISTRY_PATH = ROOT / "Scripts" / "site-locales" / "registry.json"
 SITE = "https://tumanovnv.github.io/impuls/"
-LOCALES = [
-    ("ru", "RU", "", "ru_RU"),
-    ("en", "EN", "en/", "en_US"),
-    ("de", "DE", "de/", "de_DE"),
-]
+
+
+def load_registry() -> dict:
+    data = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+    locales = data.get("locales")
+    if not isinstance(locales, list) or not locales:
+        raise SystemExit("website locale registry needs a non-empty locales list")
+    required = {"code", "label", "path", "og_locale"}
+    for item in locales:
+        if not isinstance(item, dict) or required - set(item):
+            raise SystemExit("website locale registry entry is incomplete")
+        if not all(isinstance(item[k], str) for k in required):
+            raise SystemExit("website locale registry fields must be strings")
+    codes = [item["code"] for item in locales]
+    paths = [item["path"] for item in locales]
+    if len(codes) != len(set(codes)) or len(paths) != len(set(paths)):
+        raise SystemExit("website locale registry codes and paths must be unique")
+    default = data.get("default_locale")
+    if default not in codes:
+        raise SystemExit("website locale registry default_locale must exist")
+    if next(item for item in locales if item["code"] == default)["path"] != "":
+        raise SystemExit("website default locale must own the site root")
+    return data
+
+
+REGISTRY = load_registry()
+LOCALES = REGISTRY["locales"]
+DEFAULT_LOCALE = REGISTRY["default_locale"]
 
 
 def sub_once(page: str, pattern: str, replacement: str, label: str, *, flags: int = 0) -> str:
@@ -33,7 +58,7 @@ def sub_once(page: str, pattern: str, replacement: str, label: str, *, flags: in
 
 def rewrite(page: str) -> str:
     alternate_links = "\n".join(
-        f'<link rel="alternate" hreflang="{code}" href="{SITE}{path}">' for code, _, path, _ in LOCALES
+        f'<link rel="alternate" hreflang="{item["code"]}" href="{SITE}{item["path"]}">' for item in LOCALES
     )
     alternate_links += f'\n<link rel="alternate" hreflang="x-default" href="{SITE}">'
     page = sub_once(
@@ -43,8 +68,10 @@ def rewrite(page: str) -> str:
         "hreflang block",
     )
 
-    og_block = '<meta property="og:locale" content="ru_RU">\n' + "\n".join(
-        f'<meta property="og:locale:alternate" content="{og}">' for code, _, _, og in LOCALES if code != "ru"
+    default_og = next(item["og_locale"] for item in LOCALES if item["code"] == DEFAULT_LOCALE)
+    og_block = f'<meta property="og:locale" content="{default_og}">\n' + "\n".join(
+        f'<meta property="og:locale:alternate" content="{item["og_locale"]}">'
+        for item in LOCALES if item["code"] != DEFAULT_LOCALE
     )
     page = sub_once(
         page,
@@ -53,18 +80,19 @@ def rewrite(page: str) -> str:
         "OpenGraph locale block",
     )
 
+    language_json = json.dumps([item["code"] for item in LOCALES], ensure_ascii=False)
     page = sub_once(
         page,
         r'"inLanguage": \[[^\]]*\]',
-        '"inLanguage": ["ru", "en", "de"]',
+        f'"inLanguage": {language_json}',
         "WebSite.inLanguage",
     )
 
     control_lines = [
-        f'        <a id="btn-{code}" href="{("./" if code == "ru" else path)}" hreflang="{code}"'
-        + (' aria-current="page"' if code == "ru" else "")
-        + f'>{label}</a>'
-        for code, label, path, _ in LOCALES
+        f'        <a id="btn-{item["code"]}" href="{("./" if item["code"] == DEFAULT_LOCALE else item["path"])}" hreflang="{item["code"]}"'
+        + (' aria-current="page"' if item["code"] == DEFAULT_LOCALE else "")
+        + f'>{item["label"]}</a>'
+        for item in LOCALES
     ]
     control = '<div class="lang" role="group" aria-label="Язык страницы">\n' + "\n".join(control_lines) + "\n      </div>"
     page = sub_once(
@@ -75,14 +103,7 @@ def rewrite(page: str) -> str:
         flags=re.S,
     )
 
-    old_mobile = """/* At 320 px the English header row — RU · EN · Download — is 3 px wider than the
-   viewport where the shorter Russian one fits. Tighten the row rather than drop a
-   control: the language pair and the download button both have to stay reachable. */
-@media(max-width:359px){
-  .nav-right{gap:var(--s2)}
-  .btn-sm{padding:0 var(--s3)}
-}"""
-    new_mobile = """/* Three page locales plus Download no longer fit beside the full wordmark on
+    previous_mobile = """/* Three page locales plus Download no longer fit beside the full wordmark on
    the narrowest phones. Keep every action reachable and collapse only the brand
    text; the icon remains visible and the full wordmark returns above 419 px. */
 @media(max-width:419px){
@@ -91,9 +112,18 @@ def rewrite(page: str) -> str:
   .lang a{padding-inline:7px}
   .btn-sm{padding:0 var(--s3)}
 }"""
-    if old_mobile in page:
-        page = page.replace(old_mobile, new_mobile, 1)
-    elif new_mobile not in page:
+    mobile = """/* Five page locales plus Download stay reachable even on a 320 px viewport.
+   Collapse only the wordmark text and tighten controls; locale links remain
+   visible rather than moving into a JavaScript-only menu. */
+@media(max-width:559px){
+  .brand span{display:none}
+  .nav-right{gap:var(--s1)}
+  .lang a{padding-inline:5px;font-size:.72rem}
+  .btn-sm{padding:0 var(--s2)}
+}"""
+    if previous_mobile in page:
+        page = page.replace(previous_mobile, mobile, 1)
+    elif mobile not in page:
         raise SystemExit("site locale sync anchor not found: narrow header layout")
 
     runtime_functions = """function runtimeLabels(){ return window.IMPULS_LABELS || {}; }
@@ -106,10 +136,6 @@ function formatSize(l){
   var labels = runtimeLabels();
   return mb.replace('.', labels.decimal || '.') + ' ' + (labels.sizeUnit || 'MB');
 }"""
-    # Match both the pre-localization form (formatSize only) and our already
-    # synchronized form (runtimeLabels + formatSize). Without the optional helper
-    # in the match, a second rewrite would prepend runtimeLabels() again and make
-    # --check non-idempotent.
     page = sub_once(
         page,
         r'(?:function runtimeLabels\(\)\{.*?\}\n)?function formatSize\(l\)\{.*?\n\}',
@@ -118,49 +144,42 @@ function formatSize(l){
         flags=re.S,
     )
 
-    old_version = "if(k === 'version-label') el.textContent = (LANG === 'en' ? 'Version ' : 'Версия ') + RELEASE.version;"
-    new_version = "if(k === 'version-label'){ var labels = runtimeLabels(); el.textContent = (LANG === 'ru' ? 'Версия' : (labels.version || 'Version')) + ' ' + RELEASE.version; }"
-    if old_version in page:
-        page = page.replace(old_version, new_version, 1)
-    elif new_version not in page:
+    current_version = "if(k === 'version-label'){ var labels = runtimeLabels(); el.textContent = (LANG === 'ru' ? 'Версия' : (labels.version || 'Version')) + ' ' + RELEASE.version; }"
+    if current_version not in page:
         raise SystemExit("site locale sync anchor not found: release version label")
 
-    old_rail = "rail.setAttribute('aria-label', LANG === 'en' ? 'Modules' : 'Модули');"
-    new_rail = "rail.setAttribute('aria-label', LANG === 'ru' ? 'Модули' : (runtimeLabels().modules || 'Modules'));"
-    if old_rail in page:
-        page = page.replace(old_rail, new_rail, 1)
-    elif new_rail not in page:
+    current_rail = "rail.setAttribute('aria-label', LANG === 'ru' ? 'Модули' : (runtimeLabels().modules || 'Modules'));"
+    if current_rail not in page:
         raise SystemExit("site locale sync anchor not found: module rail label")
 
-    old_copied = "span.textContent = LANG === 'en' ? 'Copied' : 'Скопировано';"
-    new_copied = "span.textContent = LANG === 'ru' ? 'Скопировано' : (runtimeLabels().copied || 'Copied');"
-    if old_copied in page:
-        page = page.replace(old_copied, new_copied, 1)
-    elif new_copied not in page:
+    current_copied = "span.textContent = LANG === 'ru' ? 'Скопировано' : (runtimeLabels().copied || 'Copied');"
+    if current_copied not in page:
         raise SystemExit("site locale sync anchor not found: copied label")
 
-    start = """/* --- Start -------------------------------------------------------------- */
+    generated_codes = [item["code"] for item in LOCALES if item["code"] != DEFAULT_LOCALE]
+    legacy_json = json.dumps(generated_codes, ensure_ascii=False, separators=(",", ":"))
+    start = f"""/* --- Start -------------------------------------------------------------- */
 document.getElementById('year').textContent = new Date().getFullYear();
 /* A generated static page sets IMPULS_LANG before this script. Its body/head are
    already localized, so only RU/EN use the old DOM dictionary swap. Other
    locales keep their generated body and use runtime labels for release facts. */
 var initial = window.IMPULS_LANG || 'ru';
-if(!window.IMPULS_LANG){
-  try{
+if(!window.IMPULS_LANG){{
+  try{{
     var legacyLang = new URL(location.href).searchParams.get('lang');
-    if(legacyLang === 'en' || legacyLang === 'de'){
+    if({legacy_json}.includes(legacyLang)){{
       location.replace(legacyLang + '/');
       return;
-    }
-  }catch(e){}
-}
-if(initial === 'ru' || initial === 'en'){
+    }}
+  }}catch(e){{}}
+}}
+if(initial === 'ru' || initial === 'en'){{
   setLang(initial);
-}else{
+}}else{{
   LANG = initial;
   renderRelease();
   buildRail();
-}
+}}
 loadRelease();"""
     page = sub_once(
         page,
@@ -188,7 +207,7 @@ def main() -> int:
         print("website locale routing is stale", file=sys.stderr)
         return 1
     PAGE.write_text(after, encoding="utf-8")
-    print("website locale routing updated: ru, en, de")
+    print("website locale routing updated: " + ", ".join(item["code"] for item in LOCALES))
     return 0
 
 

@@ -2,8 +2,9 @@
 """Generate an indexable static website locale from the canonical RU page.
 
 `docs/index.html` owns layout. Locale data lives in `Scripts/site-locales/` and
-all generated pages use this one builder. English temporarily reuses the
-embedded EN/ALT dictionaries while German is fully external.
+all generated pages use this one builder. The public locale cluster is owned by
+`Scripts/site-locales/registry.json`, so adding a locale does not require a new
+generator implementation.
 """
 
 from __future__ import annotations
@@ -17,15 +18,50 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "docs" / "index.html"
 LOCALE_DIR = ROOT / "Scripts" / "site-locales"
+REGISTRY_PATH = LOCALE_DIR / "registry.json"
 SITE = "https://tumanovnv.github.io/impuls/"
-SITE_LOCALES = [("ru", "RU", ""), ("en", "EN", "en/"), ("de", "DE", "de/")]
-OG_LOCALES = {"ru": "ru_RU", "en": "en_US", "de": "de_DE"}
 VOID = {"img", "br", "hr", "input", "meta", "link", "source", "path", "circle", "rect", "svg"}
 
-# Old EN and the initial DE seed still contain these two strings, but the current
-# landing page deliberately removed the corresponding visible eyebrow rows.
-# They are the only tolerated dead keys; every other extra still fails closed.
+# Old EN and the initial external locale seeds still contain these two strings,
+# but the current landing page deliberately removed the corresponding visible
+# eyebrow rows. They are the only tolerated dead keys; every other extra fails.
 LEGACY_UNUSED_STRING_KEYS = frozenset({"d.eyebrow", "f.eyebrow"})
+
+
+def load_registry() -> dict:
+    data = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+    locales = data.get("locales")
+    if not isinstance(locales, list) or not locales:
+        raise SystemExit("website locale registry needs a non-empty locales list")
+    required = {"code", "label", "path", "og_locale"}
+    for item in locales:
+        if not isinstance(item, dict) or required - set(item):
+            raise SystemExit("website locale registry entry is incomplete")
+        if not all(isinstance(item[k], str) for k in required):
+            raise SystemExit("website locale registry fields must be strings")
+    codes = [item["code"] for item in locales]
+    paths = [item["path"] for item in locales]
+    if len(codes) != len(set(codes)) or len(paths) != len(set(paths)):
+        raise SystemExit("website locale registry codes and paths must be unique")
+    default = data.get("default_locale")
+    if default not in codes:
+        raise SystemExit("website locale registry default_locale must exist")
+    default_item = next(item for item in locales if item["code"] == default)
+    if default_item["path"] != "":
+        raise SystemExit("website default locale must own the site root")
+    return data
+
+
+REGISTRY = load_registry()
+SITE_LOCALES = [(item["code"], item["label"], item["path"]) for item in REGISTRY["locales"]]
+OG_LOCALES = {item["code"]: item["og_locale"] for item in REGISTRY["locales"]}
+
+
+def registry_entry(locale: str) -> dict:
+    try:
+        return next(item for item in REGISTRY["locales"] if item["code"] == locale)
+    except StopIteration as exc:
+        raise SystemExit(f"locale {locale} is not published in registry.json") from exc
 
 
 def read_embedded_dict(page: str, name: str) -> dict[str, str]:
@@ -81,6 +117,10 @@ def validate_config(page: str, cfg: dict, words: dict[str, str], alts: dict[str,
     missing_fields = sorted(required - set(cfg))
     if missing_fields:
         raise SystemExit("locale config missing fields: " + ", ".join(missing_fields))
+
+    entry = registry_entry(cfg["locale"])
+    if cfg["path"] != entry["path"] or cfg["og_locale"] != entry["og_locale"]:
+        raise SystemExit(f"locale config {cfg['locale']} disagrees with registry.json")
 
     expected = translatable_keys(page)
     actual = set(words)
@@ -178,7 +218,7 @@ def localized_schema(page: str, cfg: dict) -> dict:
     person["name"] = cfg.get("author", person.get("name", ""))
     website = next(i for i in graph if i.get("@type") == "WebSite")
     website["name"] = cfg.get("application_name", "Impuls")
-    website["inLanguage"] = cfg.get("site_languages", [code for code, _, _ in SITE_LOCALES])
+    website["inLanguage"] = [code for code, _, _ in SITE_LOCALES]
     app = next(i for i in graph if i.get("@type") == "SoftwareApplication")
     app["@id"] = SITE + cfg["path"] + "#software"
     app["description"] = local["software_description"]
@@ -214,7 +254,7 @@ def replace_og_locales(page: str, current: str) -> str:
 def language_control(current: str, aria: str) -> str:
     links = []
     for code, label, path in SITE_LOCALES:
-        href = "./" if code == current else ("../" if code == "ru" else "../" + path)
+        href = "./" if code == current else ("../" if code == REGISTRY["default_locale"] else "../" + path)
         current_attr = ' aria-current="page"' if code == current else ""
         links.append(f'        <a id="btn-{code}" href="{href}" hreflang="{code}"{current_attr}>{label}</a>')
     return f'<div class="lang" role="group" aria-label="{aria}">\n' + "\n".join(links) + "\n      </div>"
@@ -276,8 +316,8 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     config_path = LOCALE_DIR / f"{args.locale}.json"
-    if not config_path.exists():
-        print(f"unknown site locale: {args.locale}", file=sys.stderr)
+    if not config_path.exists() or args.locale == REGISTRY["default_locale"]:
+        print(f"unknown generated site locale: {args.locale}", file=sys.stderr)
         return 2
     cfg = json.loads(config_path.read_text(encoding="utf-8"))
     if cfg.get("locale") != args.locale:
