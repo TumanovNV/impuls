@@ -87,13 +87,13 @@ jobs:
 
           CODES=()
           PAGES=()
-          while IFS='|' read -r CODE PATH; do
+          while IFS='|' read -r CODE LOCALE_PATH; do
             CODES+=("$CODE")
-            if [[ -z "$PATH" ]]; then
+            if [[ -z "$LOCALE_PATH" ]]; then
               PAGES+=("docs/index.html")
             else
               python3 Scripts/build-site-locale.py --locale "$CODE" --check
-              PAGES+=("docs/${PATH}index.html")
+              PAGES+=("docs/${LOCALE_PATH}index.html")
             fi
           done < <(python3 - <<'PY'
           import json
@@ -135,8 +135,8 @@ jobs:
         run: |
           set -euo pipefail
           PATHS=(docs/index.html docs/sitemap.xml)
-          while IFS='|' read -r CODE PATH; do
-            if [[ -n "$PATH" ]]; then PATHS+=("docs/${PATH}index.html"); fi
+          while IFS='|' read -r CODE LOCALE_PATH; do
+            if [[ -n "$LOCALE_PATH" ]]; then PATHS+=("docs/${LOCALE_PATH}index.html"); fi
           done < <(python3 - <<'PY'
           import json
           data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
