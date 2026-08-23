@@ -4,7 +4,7 @@ type: ai-index
 status: active
 documentation_version: 1.3
 app_version: 1.4.15
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-23
 tags: [impuls, ai, agents, index, qa]
 ---
 
@@ -22,11 +22,13 @@ tags: [impuls, ai, agents, index, qa]
 - [System Diagrams](../01-architecture/system-diagrams.md)
 - [Module Catalog](../02-modules/README.md)
 - [Settings, Onboarding, Feedback and Project Support](../01-architecture/settings-onboarding-feedback.md)
+- [Localization](../04-development/localization.md)
 - [Security Model](../06-security/security-model.md)
 - [Dependency / Supply Chain](../06-security/supply-chain.md)
 - [Release Pipeline](../05-release/release-pipeline.md)
 - [Release Architecture Ledger](../11-history/release-architecture-ledger.md)
 - [Website Architecture](../07-web/website.md)
+- [Website Legal and Privacy Localization](../07-web/legal-privacy.md)
 - [Website Design System](../07-web/design-system.md)
 - [Collector](../07-web/version-statistics-collector.md)
 - [Current Limitations](../09-known-issues/current-limitations.md)
@@ -58,6 +60,14 @@ Read exact module page → generated type map → source + mapped tests. Include
 Read [Settings, Onboarding, Feedback and Project Support](../01-architecture/settings-onboarding-feedback.md) first — it is the canonical owner of every surface outside the notch panel, and finding it should not require grepping the repository. It covers `SettingsStore` and the Settings window, the first-run tour and What's New, the version-statistics offer, the feedback report path and the GitHub-star/feedback support prompt. Those surfaces share one rule: they present already-owned state and consent, and none of them may become a provider, poller, permission owner or network owner merely in order to display something. Feedback and project support each open an allow-listed HTTPS URL in the user's browser after an explicit click; Impuls performs no HTTP request for either, so neither is a fourth network owner. Persistence is registered in [Storage and Persistence](../01-architecture/storage-persistence.md) and the [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
 
 For the support prompt specifically: eligibility counters are machine-local, excluded from portable backup and never transmitted — they are not telemetry and must not grow a `prompt shown` or `star clicked` event. Impuls never asks GitHub whether a star exists and stores no `starred` flag. Meaningful use has one funnel in `NotchController` and the presentation moment has one owner in `AppDelegate`; do not add a second source for either. Thresholds live in the [Resource Budget Registry](../12-reference/resource-budget-registry.md), the one-shot deferral in the [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md), and the manual contract is `SUP-01` in the [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md).
+
+### Localization / language rollout
+
+Read [Localization](../04-development/localization.md) first. On the current 1.4.15 baseline the macOS app, marketing website and privacy/legal website each expose seven locales — `ru`, `en`, `de`, `fr`, `es`, `ja`, `zh-Hans` — but they are **three separate contracts** and must never be inferred from one another.
+
+For app-localization changes verify `Resources/*.lproj`, `AppLanguageService`, `CFBundleLocalizations`, localization CI and the `UI-07` manual contract. For marketing website locale/routing changes also read [Website Architecture](../07-web/website.md). For privacy/legal translation, route or policy-revision changes also read [Website Legal and Privacy Localization](../07-web/legal-privacy.md) and `PRIVACY.md`.
+
+A new `.lproj` alone does not publish a website/legal locale. A new website locale alone does not prove the app ships it. If the three sets intentionally diverge, document the divergence explicitly; do not leave future agents to infer it from directory names.
 
 ### Performance / concurrency / background work
 Read Background Work & Concurrency Registry before timers, pollers, debounce/retry, Tasks, observers/sockets or queue/actor changes. For limits/timeouts/backpressure also read Resource Budget Registry. Then use the QA impact checker to see which behavioral contracts inherit the change.

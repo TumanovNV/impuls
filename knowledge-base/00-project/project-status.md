@@ -4,7 +4,7 @@ type: status
 status: active
 documentation_version: 1.3
 app_version: 1.4.15
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-23
 tags: [impuls, status, current]
 ---
 
@@ -38,6 +38,8 @@ Release `1.4.14` is now the previous production baseline. It contained the Power
 - an in-app interface-language setting owned by `AppLanguageService`, applied on the next launch through a confirmed self-relaunch;
 - a local-first project-support prompt: eligibility is computed entirely on the Mac, it appears only after sustained deliberate use and only once Impuls has returned to idle, it is capped at two automatic appearances for the lifetime of the local state, GitHub and Feedback open only after an explicit user action, and it adds no telemetry and no network boundary. Canonical owner: [Settings, Onboarding, Feedback and Project Support](../01-architecture/settings-onboarding-feedback.md).
 
+Current localization routing is explicit: [Localization](../04-development/localization.md) owns the three separate seven-locale contracts for the macOS app, marketing website and privacy/legal website. The sets currently match, but future changes must not infer one surface from another.
+
 ## Documentation coverage 1.3
 
 The knowledge base contains:
@@ -67,7 +69,7 @@ The knowledge base contains:
 - Git-history freshness guard with **21 curated canonical mappings**, including Menu Bar, Privacy Boundaries, Signing & Distribution, State & Ownership and the Core Type Reference;
 - weekly periodic review-age enforcement for curated high-risk docs;
 - explicit collector SQLite schema versioning and ordered migration boundary using `PRAGMA user_version`;
-- production website architecture and design-system documentation for RU/EN GitHub Pages.
+- production website architecture for seven static marketing locales plus seven localized privacy/legal routes, with dedicated site-localization and site-legal-localization CI gates.
 
 ## Current architectural anchors
 

@@ -4,7 +4,7 @@ type: index
 status: active
 documentation_version: 1.3
 app_version: 1.4.15
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-23
 tags: [impuls, documentation, index]
 ---
 
@@ -68,6 +68,7 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.15**.
 
 ## 07 — Web / Operations software
 - [Website Architecture](07-web/website.md)
+- [Website Legal and Privacy Localization](07-web/legal-privacy.md)
 - [Website Design System](07-web/design-system.md)
 - [Version Statistics Collector](07-web/version-statistics-collector.md)
 
