@@ -43,9 +43,46 @@
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://tumanovnv.github.io/impuls/site-privacy.html</loc>
+    <loc>https://tumanovnv.github.io/impuls/privacy/</loc>
     <lastmod>2026-08-18</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.3</priority>
+    <priority>0.5</priority>
   </url>
+  <url>
+    <loc>https://tumanovnv.github.io/impuls/en/privacy/</loc>
+    <lastmod>2026-08-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://tumanovnv.github.io/impuls/de/privacy/</loc>
+    <lastmod>2026-08-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://tumanovnv.github.io/impuls/fr/privacy/</loc>
+    <lastmod>2026-08-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://tumanovnv.github.io/impuls/es/privacy/</loc>
+    <lastmod>2026-08-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://tumanovnv.github.io/impuls/ja/privacy/</loc>
+    <lastmod>2026-08-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://tumanovnv.github.io/impuls/zh-hans/privacy/</loc>
+    <lastmod>2026-08-18</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <!-- Legacy site-privacy.html redirects to /privacy/ and is intentionally excluded from indexed URL entries. -->
 </urlset>
