@@ -103,16 +103,19 @@ def rewrite(page: str) -> str:
         flags=re.S,
     )
 
-    previous_mobile = """/* Three page locales plus Download no longer fit beside the full wordmark on
-   the narrowest phones. Keep every action reachable and collapse only the brand
-   text; the icon remains visible and the full wordmark returns above 419 px. */
-@media(max-width:419px){
-  .brand span{display:none}
-  .nav-right{gap:var(--s2)}
-  .lang a{padding-inline:7px}
-  .btn-sm{padding:0 var(--s3)}
-}"""
-    mobile = """/* Five page locales plus Download stay reachable even on a 320 px viewport.
+    old_selector_comment = """      <!-- Navigation between two static pages, not a toggle. A runtime swap left
+           the reader on the Russian URL with a Russian title, description and
+           JSON-LD above an English body, which is the exact thing docs/en/ exists
+           to prevent. -->"""
+    selector_comment = """      <!-- Navigation between registry-driven static locale pages, not a runtime
+           translation toggle. Each public language keeps its own URL, localized
+           head/JSON-LD and reciprocal hreflang metadata. -->"""
+    if old_selector_comment in page:
+        page = page.replace(old_selector_comment, selector_comment, 1)
+    elif selector_comment not in page:
+        raise SystemExit("site locale sync anchor not found: locale selector comment")
+
+    previous_mobile = """/* Five page locales plus Download stay reachable even on a 320 px viewport.
    Collapse only the wordmark text and tighten controls; locale links remain
    visible rather than moving into a JavaScript-only menu. */
 @media(max-width:559px){
@@ -120,6 +123,21 @@ def rewrite(page: str) -> str:
   .nav-right{gap:var(--s1)}
   .lang a{padding-inline:5px;font-size:.72rem}
   .btn-sm{padding:0 var(--s2)}
+}"""
+    mobile = """/* Seven page locales no longer fit as a fixed row on the narrowest phones.
+   Keep every language and Download reachable without JavaScript: the wordmark
+   collapses first, then only the locale strip becomes horizontally scrollable. */
+@media(max-width:699px){
+  .brand span{display:none}
+  .nav-right{gap:var(--s1);min-width:0}
+  .lang{max-width:48vw;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .lang::-webkit-scrollbar{display:none}
+  .lang a{flex:0 0 auto;padding-inline:5px;font-size:.72rem}
+  .btn-sm{padding:0 var(--s2)}
+}
+@media(max-width:359px){
+  .brand{display:none}
+  .lang{max-width:68vw}
 }"""
     if previous_mobile in page:
         page = page.replace(previous_mobile, mobile, 1)
@@ -156,8 +174,12 @@ function formatSize(l){
     if current_copied not in page:
         raise SystemExit("site locale sync anchor not found: copied label")
 
-    generated_codes = [item["code"] for item in LOCALES if item["code"] != DEFAULT_LOCALE]
-    legacy_json = json.dumps(generated_codes, ensure_ascii=False, separators=(",", ":"))
+    generated_routes = {
+        item["code"]: item["path"]
+        for item in LOCALES
+        if item["code"] != DEFAULT_LOCALE
+    }
+    legacy_json = json.dumps(generated_routes, ensure_ascii=False, separators=(",", ":"))
     start = f"""/* --- Start -------------------------------------------------------------- */
 document.getElementById('year').textContent = new Date().getFullYear();
 /* A generated static page sets IMPULS_LANG before this script. Its body/head are
@@ -167,8 +189,9 @@ var initial = window.IMPULS_LANG || 'ru';
 if(!window.IMPULS_LANG){{
   try{{
     var legacyLang = new URL(location.href).searchParams.get('lang');
-    if({legacy_json}.includes(legacyLang)){{
-      location.replace(legacyLang + '/');
+    var legacyRoutes = {legacy_json};
+    if(legacyLang && legacyRoutes[legacyLang]){{
+      location.replace(legacyRoutes[legacyLang]);
       return;
     }}
   }}catch(e){{}}

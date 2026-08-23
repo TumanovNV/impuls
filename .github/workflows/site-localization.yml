@@ -68,32 +68,47 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t LOCALES < <(python3 - <<'PY'
+          CODES=()
+          PAGES=()
+          while IFS='|' read -r CODE LOCALE_PATH; do
+            CODES+=("$CODE")
+            if [[ -z "$LOCALE_PATH" ]]; then
+              PAGES+=("docs/index.html")
+            else
+              PAGES+=("docs/${LOCALE_PATH}index.html")
+            fi
+          done < <(python3 - <<'PY'
           import json
           data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
           for item in data['locales']:
-              print(item['code'])
+              print(f"{item['code']}|{item['path']}")
           PY
           )
-          PAGES=(docs/index.html)
-          for LOCALE in "${LOCALES[@]}"; do
-            if [[ "$LOCALE" != "ru" ]]; then PAGES+=("docs/$LOCALE/index.html"); fi
-          done
+
           for PAGE in "${PAGES[@]}"; do
-            for LOCALE in "${LOCALES[@]}"; do
-              grep -F "hreflang=\"$LOCALE\"" "$PAGE"
+            for CODE in "${CODES[@]}"; do
+              grep -F "hreflang=\"$CODE\"" "$PAGE"
             done
             grep -F 'hreflang="x-default"' "$PAGE"
             grep -q 'releases/download/v.*\.dmg"' "$PAGE"
           done
+
           grep -F '<html lang="fr">' docs/fr/index.html
           grep -F '7 langues' docs/fr/index.html
           grep -F 'Quelles langues Impuls prend-il en charge ?' docs/fr/index.html
           grep -F '<html lang="es">' docs/es/index.html
           grep -F '7 idiomas' docs/es/index.html
           grep -F '¿Qué idiomas admite Impuls?' docs/es/index.html
+          grep -F '<html lang="ja">' docs/ja/index.html
+          grep -F '7 言語対応' docs/ja/index.html
+          grep -F 'Impuls はどの言語に対応していますか？' docs/ja/index.html
+          grep -F '<html lang="zh-Hans">' docs/zh-hans/index.html
+          grep -F '支持 7 种语言' docs/zh-hans/index.html
+          grep -F 'Impuls 支持哪些语言？' docs/zh-hans/index.html
           grep -F 'https://tumanovnv.github.io/impuls/fr/' docs/sitemap.xml
           grep -F 'https://tumanovnv.github.io/impuls/es/' docs/sitemap.xml
+          grep -F 'https://tumanovnv.github.io/impuls/ja/' docs/sitemap.xml
+          grep -F 'https://tumanovnv.github.io/impuls/zh-hans/' docs/sitemap.xml
 
       - name: Run repository Python tests separately from Swift
         run: python3 -m unittest discover -s Tests/PythonTests -p 'test_*.py'
