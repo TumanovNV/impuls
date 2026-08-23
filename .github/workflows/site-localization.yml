@@ -70,12 +70,12 @@ jobs:
           set -euo pipefail
           CODES=()
           PAGES=()
-          while IFS='|' read -r CODE PATH; do
+          while IFS='|' read -r CODE LOCALE_PATH; do
             CODES+=("$CODE")
-            if [[ -z "$PATH" ]]; then
+            if [[ -z "$LOCALE_PATH" ]]; then
               PAGES+=("docs/index.html")
             else
-              PAGES+=("docs/${PATH}index.html")
+              PAGES+=("docs/${LOCALE_PATH}index.html")
             fi
           done < <(python3 - <<'PY'
           import json
