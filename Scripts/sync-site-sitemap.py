@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep docs/sitemap.xml aligned with the published website locale registry."""
+"""Keep docs/sitemap.xml aligned with landing and privacy locale routes."""
 
 from __future__ import annotations
 
@@ -20,51 +20,58 @@ def load_registry() -> dict:
     locales = data.get("locales")
     if not isinstance(locales, list) or not locales:
         raise SystemExit("website locale registry needs a non-empty locales list")
+    required = {"code", "path", "privacy_path"}
+    if any(required - set(item) for item in locales):
+        raise SystemExit("website locale registry needs path and privacy_path for every locale")
     return data
 
 
-def current_lastmod(sitemap: str, url: str) -> str:
-    pattern = rf'<loc>{re.escape(url)}</loc>\s*<lastmod>([^<]+)</lastmod>'
-    match = re.search(pattern, sitemap)
-    if not match:
-        raise SystemExit(f"sitemap entry missing: {url}")
-    return match.group(1)
+def maybe_lastmod(sitemap: str, url: str) -> str | None:
+    match = re.search(rf'<loc>{re.escape(url)}</loc>\s*<lastmod>([^<]+)</lastmod>', sitemap)
+    return match.group(1) if match else None
+
+
+def block(url: str, lastmod: str, frequency: str, priority: str) -> str:
+    return (
+        "  <url>\n"
+        f"    <loc>{url}</loc>\n"
+        f"    <lastmod>{lastmod}</lastmod>\n"
+        f"    <changefreq>{frequency}</changefreq>\n"
+        f"    <priority>{priority}</priority>\n"
+        "  </url>"
+    )
 
 
 def rewrite(sitemap: str) -> str:
     registry = load_registry()
     locales = registry["locales"]
     default = registry["default_locale"]
-    root_lastmod = current_lastmod(sitemap, SITE)
-    privacy_url = SITE + "site-privacy.html"
-    privacy_lastmod = current_lastmod(sitemap, privacy_url)
+    root_lastmod = maybe_lastmod(sitemap, SITE)
+    if not root_lastmod:
+        raise SystemExit("sitemap root entry is missing")
 
-    locale_blocks = []
+    default_privacy = next(item["privacy_path"] for item in locales if item["code"] == default)
+    privacy_lastmod = (
+        maybe_lastmod(sitemap, SITE + default_privacy)
+        or maybe_lastmod(sitemap, SITE + "site-privacy.html")
+        or root_lastmod
+    )
+
+    blocks: list[str] = []
     for item in locales:
         priority = "1.0" if item["code"] == default else "0.9"
-        locale_blocks.append(
-            "  <url>\n"
-            f"    <loc>{SITE}{item['path']}</loc>\n"
-            f"    <lastmod>{root_lastmod}</lastmod>\n"
-            "    <changefreq>weekly</changefreq>\n"
-            f"    <priority>{priority}</priority>\n"
-            "  </url>"
-        )
+        blocks.append(block(SITE + item["path"], root_lastmod, "weekly", priority))
+    for item in locales:
+        priority = "0.5" if item["code"] == default else "0.4"
+        blocks.append(block(SITE + item["privacy_path"], privacy_lastmod, "monthly", priority))
 
-    privacy = (
-        "  <url>\n"
-        f"    <loc>{privacy_url}</loc>\n"
-        f"    <lastmod>{privacy_lastmod}</lastmod>\n"
-        "    <changefreq>monthly</changefreq>\n"
-        "    <priority>0.3</priority>\n"
-        "  </url>"
-    )
+    legacy_note = "  <!-- Legacy site-privacy.html redirects to /privacy/ and is intentionally excluded from indexed URL entries. -->"
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        + "\n".join(locale_blocks)
+        + "\n".join(blocks)
         + "\n"
-        + privacy
+        + legacy_note
         + "\n</urlset>\n"
     )
 
@@ -76,13 +83,13 @@ def main() -> int:
     before = SITEMAP.read_text(encoding="utf-8")
     after = rewrite(before)
     if before == after:
-        print("website sitemap locale cluster is current")
+        print("website sitemap locale and privacy clusters are current")
         return 0
     if args.check:
-        print("website sitemap locale cluster is stale", file=sys.stderr)
+        print("website sitemap locale/privacy cluster is stale", file=sys.stderr)
         return 1
     SITEMAP.write_text(after, encoding="utf-8")
-    print("website sitemap locale cluster updated")
+    print("website sitemap locale and privacy clusters updated")
     return 0
 
 
