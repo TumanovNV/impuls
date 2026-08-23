@@ -2,7 +2,7 @@
 title: Website Design System
 type: web
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.15
 last_reviewed: 2026-08-23
 tags: [impuls, website, design-system, ui, accessibility, responsive]
@@ -86,6 +86,9 @@ tags: [impuls, website, design-system, ui, accessibility, responsive]
 `.measure` — 34rem, `.chapter` — 46rem, `.statement-body` — 56rem, `.boundaries` — 46rem
 (та же величина, что у `.chapter`: леджер и заголовок над ним — одна глава, и их правые
 края обязаны совпадать).
+
+Системный стек также является контрактом для CJK-locales: JA и zh-Hans должны получать
+нативные системные глифы macOS без отдельного web-font и без смены типографской шкалы.
 
 ## Colors
 
@@ -186,10 +189,10 @@ dark   --stage: linear-gradient(168deg, #1e222c 0%, #12161d 58%, #0c0f15 100%)
 
 | Точка | Что меняется |
 | --- | --- |
-| `max-width: 559px` | скрывается текст wordmark и уплотняется шапка, чтобы RU/EN/DE/FR/ES и «Скачать» оставались доступны |
+| `max-width: 359px` | скрывается иконка бренда, чтобы locale-strip и «Скачать» не вытеснялись за viewport |
 | `max-width: 599px` | hero-CTA в одну колонку на всю ширину |
 | `640px` | `.cols` → 2 колонки |
-| `max-width: 699px` | скриншоты панятся вместо уменьшения; full-bleed сцены; появляется `.pan-hint` |
+| `max-width: 699px` | скрывается текст wordmark; locale-strip получает собственный горизонтальный scroll; скриншоты панятся вместо уменьшения; full-bleed сцены; появляется `.pan-hint` |
 | `max-width: 759px` / `760px` | чипы модулей: скролл-полоса → центрированный wrap |
 | `768px` | gutter 40 px; `.lead` крупнее |
 | `840px` | `.cols-3` → 3 колонки |
@@ -226,11 +229,13 @@ Pill остаётся только у чипов селектора модуле
 - Ссылки разделов показываются от 1024 px; ниже остаются бренд, переключатель языка и
   кнопка скачивания.
 - `header.stuck` добавляет нижнюю волосяную линию при скролле > 8 px.
-- Переключатель RU/EN/DE/FR/ES — **навигация между самостоятельными статическими
-  страницами**, а не runtime-тоггл перевода. Public set и labels принадлежат
+- Переключатель RU/EN/DE/FR/ES/JA/简 — **навигация между самостоятельными статическими
+  страницами**, а не runtime-тоггл перевода. Public code, label и path принадлежат
   `Scripts/site-locales/registry.json`; canonical control синхронизирует
   `Scripts/sync-site-locales.py`, generated control строит `Scripts/build-site-locale.py`.
-  Не поддерживать копию списка языков вручную в HTML.
+- Locale code нельзя считать URL-путём: `zh-Hans` публикуется по `/zh-hans/`.
+- Ни один язык не скрывается ради тесной шапки. На narrow viewport прокручивается только
+  `.lang`, а кнопка Download остаётся отдельной и всегда доступной.
 
 ## Product screenshot presentation
 
@@ -249,9 +254,9 @@ Pill остаётся только у чипов селектора модуле
 
 - Только реальные снимки продукта; демо-данные подписываются (`.stage-caption`).
 - Реальные capture-наборы сейчас `assets/screens/ru/*` и `assets/screens/en/*`. Generated
-  locale config задаёт `screenshot_locale`; DE/FR/ES пока честно используют EN captures,
-  пока реальные снимки соответствующих интерфейсов не подготовлены. Fake localized UI
-  запрещён. `alt` — это контент и переводится отдельно для каждой page locale.
+  locale config задаёт `screenshot_locale`; DE/FR/ES/JA/zh-Hans пока честно используют
+  EN captures, пока реальные снимки соответствующих интерфейсов не подготовлены. Fake
+  localized UI запрещён. `alt` — это контент и переводится отдельно для каждой page locale.
 - Панель имеет пропорцию ≈ 2.7 : 1. Ниже 700 px её **не сжимают**: кадр держит
   `min-width: 620px` и скроллится внутри себя, страница вбок не едет. Появляется
   `.pan-hint` — подсказка о свайпе.
@@ -342,16 +347,17 @@ motion-анимацией в смысле WCAG 2.3.3.
 - **Никакого горизонтального скролла страницы ни на одной ширине.** Проверяется как
   `document.documentElement.scrollWidth === clientWidth`.
 - Всё, что выходит за вьюпорт, обязано лежать внутри контейнера с собственным
-  `overflow-x:auto` (сцена скриншота, полоса чипов) и иметь видимый сигнал прокрутки —
-  маску затухания у ведущего края.
+  `overflow-x:auto` (сцена скриншота, полоса чипов, seven-locale strip) и иметь понятную
+  область прокрутки, не расширяя `documentElement`.
 - `minmax(0,1fr)` в grid-треках и `min-width:0` на grid-элементах обязательны: элемент
   грида по умолчанию `min-width:auto` и отказывается сжиматься ниже минимума контента,
   из-за чего кадр с `min-width:620px` однажды вытолкнул всю секцию за 390 px экран.
 - Ряд из трёх элементов до 840 px остаётся одной колонкой: две из трёх рядом оставляют
   сироту во второй строке.
 - На телефоне продуктовая сцена уходит в full-bleed на всю ширину вьюпорта.
-- Header при пяти locale links не имеет права решать тесноту скрытием языка или Download:
-  до 559 px скрывается только wordmark text и уменьшаются gaps/padding.
+- Header при семи locale links не имеет права решать тесноту скрытием языка или Download:
+  до 699 px скрывается wordmark text и прокручивается только `.lang`; до 359 px можно
+  скрыть brand icon. Все семь ссылок остаются в DOM и доступны без JavaScript.
 
 ## Accessibility
 
@@ -363,6 +369,8 @@ motion-анимацией в смысле WCAG 2.3.3.
   бренда `alt=""`.
 - Селектор модулей — корректный `tablist` / `tab` / `tabpanel` с roving `tabindex`,
   стрелками влево/вправо/вверх/вниз и закольцовкой.
+- Языковой selector — обычные ссылки с `hreflang` и `aria-current`; он не зависит от JS,
+  а прокрутка narrow-strip не удаляет ссылки из tab order.
 - `:focus-visible` даёт `2px solid var(--accent)` с отступом 3 px на всех интерактивных
   элементах.
 - Страница работает без JavaScript: чипы скрыты, все шесть модулей видны стопкой, ссылки
@@ -402,7 +410,8 @@ motion-анимацией в смысле WCAG 2.3.3.
 - **Не показывает пачку технических фактов до продуктового визуала.**
 - **Не ставит `<hr>` между главами** — расстояние делает это лучше.
 - **Не хардкодит релиз.** Версия, ссылка и SHA приходят из механизма релиза.
-- **Не правит generated locale HTML руками.** EN/DE/FR/ES pages строит общий generator.
+- **Не правит generated locale HTML руками.** EN/DE/FR/ES/JA/zh-Hans pages строит общий generator.
+- **Не строит public URL из locale code.** Code и registry path — разные поля.
 - **Не поддерживает второй список public locales** вне `Scripts/site-locales/registry.json`.
 - **Не добавляет ступень в типографскую шкалу** ради одного блока.
 
@@ -437,7 +446,7 @@ data-conversion="feedback"
 - [Release Pipeline](../05-release/release-pipeline.md)
 - `.claude/rules/website.md` — path-scoped правила для `docs/`
 - `docs/index.html` — RU source page и единственный источник истины по значениям
-- `docs/en/index.html`, `docs/de/index.html`, `docs/fr/index.html`, `docs/es/index.html` — generated pages
+- `docs/en/index.html`, `docs/de/index.html`, `docs/fr/index.html`, `docs/es/index.html`, `docs/ja/index.html`, `docs/zh-hans/index.html` — generated pages
 - `Scripts/build-site-locale.py`, `Scripts/sync-site-locales.py`, `Scripts/sync-site-sitemap.py`, `Scripts/sync-site-release.py`
 - `Scripts/site-locales/registry.json` — public website locale set
 - `Sources/Impuls/UI/Theme.swift` — токены приложения, от которых унаследованы
