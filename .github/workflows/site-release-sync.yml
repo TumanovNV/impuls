@@ -85,58 +85,65 @@ jobs:
           python3 Scripts/sync-site-locales.py --check
           python3 Scripts/sync-site-sitemap.py --check
 
-          mapfile -t LOCALES < <(python3 - <<'PY'
+          CODES=()
+          PAGES=()
+          while IFS='|' read -r CODE PATH; do
+            CODES+=("$CODE")
+            if [[ -z "$PATH" ]]; then
+              PAGES+=("docs/index.html")
+            else
+              python3 Scripts/build-site-locale.py --locale "$CODE" --check
+              PAGES+=("docs/${PATH}index.html")
+            fi
+          done < <(python3 - <<'PY'
           import json
           data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
           for item in data['locales']:
-              print(item['code'])
+              print(f"{item['code']}|{item['path']}")
           PY
           )
-          PAGES=(docs/index.html)
-          for LOCALE in "${LOCALES[@]}"; do
-            if [[ "$LOCALE" != "ru" ]]; then
-              python3 Scripts/build-site-locale.py --locale "$LOCALE" --check
-              PAGES+=("docs/$LOCALE/index.html")
-            fi
-          done
 
           # Static/no-JS download paths and the complete hreflang cluster are
           # contracts on every published locale.
           for PAGE in "${PAGES[@]}"; do
             grep -q "releases/download/v.*\.dmg\"" "$PAGE"
-            for LOCALE in "${LOCALES[@]}"; do
-              grep -F "hreflang=\"$LOCALE\"" "$PAGE"
+            for CODE in "${CODES[@]}"; do
+              grep -F "hreflang=\"$CODE\"" "$PAGE"
             done
             grep -F 'hreflang="x-default"' "$PAGE"
           done
 
-          # Seven languages is an app capability and stays explicit in each
+          # Seven languages is an app capability and stays explicit in every
           # published website locale.
           grep -F '7 языков интерфейса' docs/index.html
           grep -F '7 interface languages' docs/en/index.html
           grep -F '7 Sprachen' docs/de/index.html
           grep -F '7 langues' docs/fr/index.html
           grep -F '7 idiomas' docs/es/index.html
+          grep -F '7 言語対応' docs/ja/index.html
+          grep -F '支持 7 种语言' docs/zh-hans/index.html
           grep -F 'На каких языках работает Impuls?' docs/index.html
           grep -F 'Which languages does Impuls support?' docs/en/index.html
           grep -F 'Welche Sprachen unterstützt Impuls?' docs/de/index.html
           grep -F 'Quelles langues Impuls prend-il en charge ?' docs/fr/index.html
           grep -F '¿Qué idiomas admite Impuls?' docs/es/index.html
+          grep -F 'Impuls はどの言語に対応していますか？' docs/ja/index.html
+          grep -F 'Impuls 支持哪些语言？' docs/zh-hans/index.html
 
       - name: Commit if anything changed
         shell: bash
         run: |
           set -euo pipefail
-          mapfile -t LOCALES < <(python3 - <<'PY'
+          PATHS=(docs/index.html docs/sitemap.xml)
+          while IFS='|' read -r CODE PATH; do
+            if [[ -n "$PATH" ]]; then PATHS+=("docs/${PATH}index.html"); fi
+          done < <(python3 - <<'PY'
           import json
           data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
           for item in data['locales']:
-              if item['code'] != data['default_locale']:
-                  print(item['code'])
+              print(f"{item['code']}|{item['path']}")
           PY
           )
-          PATHS=(docs/index.html docs/sitemap.xml)
-          for LOCALE in "${LOCALES[@]}"; do PATHS+=("docs/$LOCALE/index.html"); done
           if [[ -z "$(git status --porcelain -- "${PATHS[@]}")" ]]; then
             echo "website markup was already current; nothing to commit"
             exit 0
