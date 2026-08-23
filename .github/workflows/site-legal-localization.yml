@@ -1,0 +1,88 @@
+name: site-legal-localization
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - Scripts/site-locales/registry.json
+      - Scripts/site-privacy-locales/**
+      - Scripts/site-privacy-template.html
+      - Scripts/build-site-privacy-locale.py
+      - Scripts/sync-site-privacy-links.py
+      - Scripts/sync-site-privacy-legacy.py
+      - Scripts/sync-site-sitemap.py
+      - Tests/PythonTests/test_site_privacy_localization.py
+      - .github/workflows/site-legal-localization.yml
+      - .github/workflows/site-release-sync.yml
+      - knowledge-base/07-web/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+
+      - name: Run legal localization unit tests
+        run: python3 -m unittest Tests.PythonTests.test_site_privacy_localization -v
+
+      - name: Generate localized privacy cluster
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 Scripts/sync-site-privacy-links.py
+          python3 Scripts/sync-site-sitemap.py
+          while IFS='|' read -r CODE PRIVACY_PATH; do
+            python3 Scripts/build-site-privacy-locale.py --locale "$CODE"
+          done < <(python3 - <<'PY'
+          import json
+          data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
+          for item in data['locales']:
+              print(f"{item['code']}|{item['privacy_path']}")
+          PY
+          )
+          python3 Scripts/sync-site-privacy-legacy.py
+
+      - name: Verify legal pages are deterministic and complete
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 Scripts/sync-site-privacy-links.py --check
+          python3 Scripts/sync-site-sitemap.py --check
+          python3 Scripts/sync-site-privacy-legacy.py --check
+
+          CODES=()
+          PRIVACY_PAGES=()
+          while IFS='|' read -r CODE PRIVACY_PATH; do
+            CODES+=("$CODE")
+            python3 Scripts/build-site-privacy-locale.py --locale "$CODE" --check
+            PRIVACY_PAGES+=("docs/${PRIVACY_PATH}index.html")
+          done < <(python3 - <<'PY'
+          import json
+          data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
+          for item in data['locales']:
+              print(f"{item['code']}|{item['privacy_path']}")
+          PY
+          )
+
+          for PAGE in "${PRIVACY_PAGES[@]}"; do
+            for CODE in "${CODES[@]}"; do grep -F "hreflang=\"$CODE\"" "$PAGE"; done
+            grep -F 'hreflang="x-default"' "$PAGE"
+            grep -F 'github.com/TumanovNV/impuls/issues/new/choose' "$PAGE"
+            grep -F 'GitHub' "$PAGE"
+            grep -F 'HMAC' "$PAGE"
+            grep -F '365' "$PAGE"
+            grep -F 'GDPR' "$PAGE"
+          done
+
+          grep -F 'href="privacy/"' docs/index.html
+          grep -F '<loc>https://tumanovnv.github.io/impuls/privacy/</loc>' docs/sitemap.xml
+          grep -F '<loc>https://tumanovnv.github.io/impuls/zh-hans/privacy/</loc>' docs/sitemap.xml
+          ! grep -F '<loc>https://tumanovnv.github.io/impuls/site-privacy.html</loc>' docs/sitemap.xml
+          grep -F 'noindex,follow' docs/site-privacy.html
