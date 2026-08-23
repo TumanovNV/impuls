@@ -16,6 +16,8 @@
 <link rel="alternate" hreflang="ru" href="https://tumanovnv.github.io/impuls/">
 <link rel="alternate" hreflang="en" href="https://tumanovnv.github.io/impuls/en/">
 <link rel="alternate" hreflang="de" href="https://tumanovnv.github.io/impuls/de/">
+<link rel="alternate" hreflang="fr" href="https://tumanovnv.github.io/impuls/fr/">
+<link rel="alternate" hreflang="es" href="https://tumanovnv.github.io/impuls/es/">
 <link rel="alternate" hreflang="x-default" href="https://tumanovnv.github.io/impuls/">
 <link rel="manifest" href="../manifest.webmanifest">
 <link rel="icon" href="../assets/impuls-icon.png" sizes="512x512" type="image/png">
@@ -29,6 +31,8 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="ru_RU">
 <meta property="og:locale:alternate" content="de_DE">
+<meta property="og:locale:alternate" content="fr_FR">
+<meta property="og:locale:alternate" content="es_ES">
 <meta property="og:url" content="https://tumanovnv.github.io/impuls/en/">
 <meta property="og:image" content="https://tumanovnv.github.io/impuls/assets/og-impuls.png">
 <meta property="og:image:width" content="1200">
@@ -64,7 +68,9 @@
       "inLanguage": [
         "ru",
         "en",
-        "de"
+        "de",
+        "fr",
+        "es"
       ],
       "publisher": {
         "@id": "https://tumanovnv.github.io/impuls/#author"
@@ -707,14 +713,14 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
   .foot .spacer{margin-inline-start:0;width:100%}
 }
 
-/* Three page locales plus Download no longer fit beside the full wordmark on
-   the narrowest phones. Keep every action reachable and collapse only the brand
-   text; the icon remains visible and the full wordmark returns above 419 px. */
-@media(max-width:419px){
+/* Five page locales plus Download stay reachable even on a 320 px viewport.
+   Collapse only the wordmark text and tighten controls; locale links remain
+   visible rather than moving into a JavaScript-only menu. */
+@media(max-width:559px){
   .brand span{display:none}
-  .nav-right{gap:var(--s2)}
-  .lang a{padding-inline:7px}
-  .btn-sm{padding:0 var(--s3)}
+  .nav-right{gap:var(--s1)}
+  .lang a{padding-inline:5px;font-size:.72rem}
+  .btn-sm{padding:0 var(--s2)}
 }
 
 /* --- Narrow screens: pan the panel instead of shrinking it --------------
@@ -803,6 +809,8 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
         <a id="btn-ru" href="../" hreflang="ru">RU</a>
         <a id="btn-en" href="./" hreflang="en" aria-current="page">EN</a>
         <a id="btn-de" href="../de/" hreflang="de">DE</a>
+        <a id="btn-fr" href="../fr/" hreflang="fr">FR</a>
+        <a id="btn-es" href="../es/" hreflang="es">ES</a>
       </div>
       <a class="btn btn-primary btn-sm" data-conversion="download" data-placement="header" href="https://github.com/TumanovNV/impuls/releases/download/v1.4.15/Impuls-1.4.15.dmg">
         <span data-i="cta.short">Download</span>
@@ -1711,7 +1719,7 @@ var initial = window.IMPULS_LANG || 'ru';
 if(!window.IMPULS_LANG){
   try{
     var legacyLang = new URL(location.href).searchParams.get('lang');
-    if(legacyLang === 'en' || legacyLang === 'de'){
+    if(["en","de","fr","es"].includes(legacyLang)){
       location.replace(legacyLang + '/');
       return;
     }
