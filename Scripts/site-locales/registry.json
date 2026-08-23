@@ -5,6 +5,8 @@
     {"code": "en", "label": "EN", "path": "en/", "og_locale": "en_US"},
     {"code": "de", "label": "DE", "path": "de/", "og_locale": "de_DE"},
     {"code": "fr", "label": "FR", "path": "fr/", "og_locale": "fr_FR"},
-    {"code": "es", "label": "ES", "path": "es/", "og_locale": "es_ES"}
+    {"code": "es", "label": "ES", "path": "es/", "og_locale": "es_ES"},
+    {"code": "ja", "label": "JA", "path": "ja/", "og_locale": "ja_JP"},
+    {"code": "zh-Hans", "label": "简", "path": "zh-hans/", "og_locale": "zh_CN"}
   ]
 }
