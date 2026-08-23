@@ -1,14 +1,8 @@
 name: site-release-sync
 
-# Keeps the website's static release metadata, durable product facts, sitemap and
-# locale pages current. The site remains static; generators run only in CI and
-# commit the resulting HTML to GitHub Pages.
-#
-# It cannot loop and it cannot ship anything:
-#   * `release.yml` triggers on `push` to `Scripts/version`, which this never touches;
-#   * the push trigger below watches only generators/config/workflow, while the bot
-#     commit changes only `docs/`;
-#   * nothing here signs, tags, builds, or uploads an app asset.
+# Keeps release metadata, landing locales, legal locales and sitemap current.
+# Generators run only in CI and commit static HTML to the GitHub Pages source.
+# This workflow never changes Scripts/version, signs, tags or uploads app assets.
 
 on:
   push:
@@ -17,9 +11,14 @@ on:
       - Scripts/sync-site-product-facts.py
       - Scripts/sync-site-release.py
       - Scripts/sync-site-locales.py
+      - Scripts/sync-site-privacy-links.py
+      - Scripts/sync-site-privacy-legacy.py
       - Scripts/sync-site-sitemap.py
       - Scripts/build-site-locale.py
+      - Scripts/build-site-privacy-locale.py
+      - Scripts/site-privacy-template.html
       - Scripts/site-locales/**
+      - Scripts/site-privacy-locales/**
       - .github/workflows/site-release-sync.yml
   release:
     types: [published]
@@ -47,101 +46,103 @@ jobs:
         with:
           ref: main
 
-      - name: Write the current release into the canonical Russian page
-        run: python3 Scripts/sync-site-release.py
+      - name: Synchronize canonical landing-page facts and routes
+        run: |
+          set -euo pipefail
+          python3 Scripts/sync-site-release.py
+          python3 Scripts/sync-site-product-facts.py
+          python3 Scripts/sync-site-locales.py
+          python3 Scripts/sync-site-privacy-links.py
+          python3 Scripts/sync-site-sitemap.py
 
-      - name: Keep durable product facts in the canonical Russian page
-        run: python3 Scripts/sync-site-product-facts.py
-
-      - name: Keep website locale routing in the canonical Russian page
-        run: python3 Scripts/sync-site-locales.py
-
-      - name: Keep the sitemap aligned with the locale registry
-        run: python3 Scripts/sync-site-sitemap.py
-
-      - name: Generate static localized pages
+      - name: Generate all static landing and privacy locales
         shell: bash
         run: |
           set -euo pipefail
-          for LOCALE in $(python3 - <<'PY'
+          while IFS='|' read -r CODE LOCALE_PATH PRIVACY_PATH DEFAULT_CODE; do
+            if [[ "$CODE" != "$DEFAULT_CODE" ]]; then
+              python3 Scripts/build-site-locale.py --locale "$CODE"
+            fi
+            python3 Scripts/build-site-privacy-locale.py --locale "$CODE"
+          done < <(python3 - <<'PY'
           import json
           data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
-          print(' '.join(x['code'] for x in data['locales'] if x['code'] != data['default_locale']))
+          for item in data['locales']:
+              print(f"{item['code']}|{item['path']}|{item['privacy_path']}|{data['default_locale']}")
           PY
-          ); do
-            python3 Scripts/build-site-locale.py --locale "$LOCALE"
-          done
+          )
+          python3 Scripts/sync-site-privacy-legacy.py
 
-      - name: Verify the pages still satisfy the site checks
+      - name: Verify generated website contracts
         shell: bash
         run: |
           set -euo pipefail
           grep -F "const RELEASE_API = 'https://api.github.com/repos/TumanovNV/impuls/releases/latest';" docs/index.html
           grep -F 'function releaseHash(asset,body)' docs/index.html
           grep -F 'data-conversion="feedback"' docs/index.html
+          grep -F 'href="privacy/"' docs/index.html
 
           python3 Scripts/sync-site-release.py --check
           python3 Scripts/sync-site-product-facts.py --check
           python3 Scripts/sync-site-locales.py --check
+          python3 Scripts/sync-site-privacy-links.py --check
           python3 Scripts/sync-site-sitemap.py --check
+          python3 Scripts/sync-site-privacy-legacy.py --check
 
           CODES=()
-          PAGES=()
-          while IFS='|' read -r CODE LOCALE_PATH; do
+          LANDING_PAGES=(docs/index.html)
+          PRIVACY_PAGES=()
+          while IFS='|' read -r CODE LOCALE_PATH PRIVACY_PATH DEFAULT_CODE; do
             CODES+=("$CODE")
-            if [[ -z "$LOCALE_PATH" ]]; then
-              PAGES+=("docs/index.html")
-            else
+            if [[ "$CODE" != "$DEFAULT_CODE" ]]; then
               python3 Scripts/build-site-locale.py --locale "$CODE" --check
-              PAGES+=("docs/${LOCALE_PATH}index.html")
+              LANDING_PAGES+=("docs/${LOCALE_PATH}index.html")
             fi
+            python3 Scripts/build-site-privacy-locale.py --locale "$CODE" --check
+            PRIVACY_PAGES+=("docs/${PRIVACY_PATH}index.html")
           done < <(python3 - <<'PY'
           import json
           data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
           for item in data['locales']:
-              print(f"{item['code']}|{item['path']}")
+              print(f"{item['code']}|{item['path']}|{item['privacy_path']}|{data['default_locale']}")
           PY
           )
 
-          # Static/no-JS download paths and the complete hreflang cluster are
-          # contracts on every published locale.
-          for PAGE in "${PAGES[@]}"; do
+          for PAGE in "${LANDING_PAGES[@]}"; do
             grep -q "releases/download/v.*\.dmg\"" "$PAGE"
-            for CODE in "${CODES[@]}"; do
-              grep -F "hreflang=\"$CODE\"" "$PAGE"
-            done
+            grep -F 'href="privacy/"' "$PAGE"
+            for CODE in "${CODES[@]}"; do grep -F "hreflang=\"$CODE\"" "$PAGE"; done
             grep -F 'hreflang="x-default"' "$PAGE"
           done
 
-          # Seven languages is an app capability and stays explicit in every
-          # published website locale.
-          grep -F '7 языков интерфейса' docs/index.html
-          grep -F '7 interface languages' docs/en/index.html
-          grep -F '7 Sprachen' docs/de/index.html
-          grep -F '7 langues' docs/fr/index.html
-          grep -F '7 idiomas' docs/es/index.html
-          grep -F '7 言語対応' docs/ja/index.html
-          grep -F '支持 7 种语言' docs/zh-hans/index.html
-          grep -F 'На каких языках работает Impuls?' docs/index.html
-          grep -F 'Which languages does Impuls support?' docs/en/index.html
-          grep -F 'Welche Sprachen unterstützt Impuls?' docs/de/index.html
-          grep -F 'Quelles langues Impuls prend-il en charge ?' docs/fr/index.html
-          grep -F '¿Qué idiomas admite Impuls?' docs/es/index.html
-          grep -F 'Impuls はどの言語に対応していますか？' docs/ja/index.html
-          grep -F 'Impuls 支持哪些语言？' docs/zh-hans/index.html
+          for PAGE in "${PRIVACY_PAGES[@]}"; do
+            for CODE in "${CODES[@]}"; do grep -F "hreflang=\"$CODE\"" "$PAGE"; done
+            grep -F 'hreflang="x-default"' "$PAGE"
+            grep -F '2026' "$PAGE"
+          done
+
+          grep -F 'Редакция 3.0' docs/privacy/index.html
+          grep -F 'Revision 3.0' docs/en/privacy/index.html
+          grep -F 'Fassung 3.0' docs/de/privacy/index.html
+          grep -F 'Version 3.0' docs/fr/privacy/index.html
+          grep -F 'Versión 3.0' docs/es/privacy/index.html
+          grep -F '第 3.0 版' docs/ja/privacy/index.html
+          grep -F '第 3.0 版' docs/zh-hans/privacy/index.html
+          grep -F 'noindex,follow' docs/site-privacy.html
 
       - name: Commit if anything changed
         shell: bash
         run: |
           set -euo pipefail
-          PATHS=(docs/index.html docs/sitemap.xml)
-          while IFS='|' read -r CODE LOCALE_PATH; do
-            if [[ -n "$LOCALE_PATH" ]]; then PATHS+=("docs/${LOCALE_PATH}index.html"); fi
+          PATHS=(docs/index.html docs/sitemap.xml docs/site-privacy.html)
+          while IFS='|' read -r CODE LOCALE_PATH PRIVACY_PATH DEFAULT_CODE; do
+            if [[ "$CODE" != "$DEFAULT_CODE" ]]; then PATHS+=("docs/${LOCALE_PATH}index.html"); fi
+            PATHS+=("docs/${PRIVACY_PATH}index.html")
           done < <(python3 - <<'PY'
           import json
           data=json.load(open('Scripts/site-locales/registry.json', encoding='utf-8'))
           for item in data['locales']:
-              print(f"{item['code']}|{item['path']}")
+              print(f"{item['code']}|{item['path']}|{item['privacy_path']}|{data['default_locale']}")
           PY
           )
           if [[ -z "$(git status --porcelain -- "${PATHS[@]}")" ]]; then
@@ -151,5 +152,5 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "${PATHS[@]}"
-          git commit -m "docs: sync website release metadata and localized pages"
+          git commit -m "docs: sync localized website and privacy pages"
           git push origin HEAD:main
