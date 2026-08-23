@@ -26,6 +26,9 @@ class SitePrivacyLocalizationTests(unittest.TestCase):
         cls.registry = BUILDER.load_registry()
         cls.codes = [item["code"] for item in cls.registry["locales"]]
         cls.entries = {item["code"]: item for item in cls.registry["locales"]}
+        cls.metadata = json.loads(
+            (ROOT / "Scripts" / "site-privacy-locales" / "metadata.json").read_text(encoding="utf-8")
+        )
         cls.configs = {
             code: json.loads((ROOT / "Scripts" / "site-privacy-locales" / f"{code}.json").read_text(encoding="utf-8"))
             for code in cls.codes
@@ -38,6 +41,14 @@ class SitePrivacyLocalizationTests(unittest.TestCase):
         self.assertEqual(len(paths), len(set(paths)))
         self.assertEqual(self.entries["ru"]["privacy_path"], "privacy/")
         self.assertEqual(self.entries["zh-Hans"]["privacy_path"], "zh-hans/privacy/")
+
+    def test_policy_metadata_is_machine_readable_and_matches_source_revision(self):
+        self.assertEqual(self.metadata["source_locale"], "ru")
+        self.assertEqual(self.metadata["revision"], "3.0")
+        self.assertEqual(self.metadata["effective_date"], "2026-08-23")
+        self.assertEqual(SITEMAP.load_privacy_effective_date(), self.metadata["effective_date"])
+        self.assertIn("Редакция 3.0", self.pages["ru"])
+        self.assertIn("23 августа 2026", self.pages["ru"])
 
     def test_every_privacy_config_matches_registry_and_nine_section_contract(self):
         for code in self.codes:
@@ -87,11 +98,13 @@ class SitePrivacyLocalizationTests(unittest.TestCase):
         self.assertIn('href="privacy/"><span data-i="p.doc">', rewritten)
         self.assertNotIn('href="site-privacy.html"><span data-i="p.doc">', rewritten)
 
-    def test_sitemap_projects_all_privacy_routes_and_drops_legacy_url(self):
+    def test_sitemap_projects_all_privacy_routes_with_policy_effective_date(self):
         source = (ROOT / "docs" / "sitemap.xml").read_text(encoding="utf-8")
         rewritten = SITEMAP.rewrite(source)
+        effective = self.metadata["effective_date"]
         for code in self.codes:
-            self.assertIn(f"<loc>{BUILDER.SITE}{self.entries[code]['privacy_path']}</loc>", rewritten, code)
+            url = BUILDER.SITE + self.entries[code]["privacy_path"]
+            self.assertIn(f"<loc>{url}</loc>\n    <lastmod>{effective}</lastmod>", rewritten, code)
         self.assertNotIn("<loc>https://tumanovnv.github.io/impuls/site-privacy.html</loc>", rewritten)
 
     def test_legacy_url_is_noindex_handoff_to_russian_canonical(self):
