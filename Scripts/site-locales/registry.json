@@ -1,0 +1,10 @@
+{
+  "default_locale": "ru",
+  "locales": [
+    {"code": "ru", "label": "RU", "path": "", "og_locale": "ru_RU"},
+    {"code": "en", "label": "EN", "path": "en/", "og_locale": "en_US"},
+    {"code": "de", "label": "DE", "path": "de/", "og_locale": "de_DE"},
+    {"code": "fr", "label": "FR", "path": "fr/", "og_locale": "fr_FR"},
+    {"code": "es", "label": "ES", "path": "es/", "og_locale": "es_ES"}
+  ]
+}
