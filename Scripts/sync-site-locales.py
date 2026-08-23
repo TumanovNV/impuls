@@ -103,6 +103,18 @@ def rewrite(page: str) -> str:
         flags=re.S,
     )
 
+    old_selector_comment = """      <!-- Navigation between two static pages, not a toggle. A runtime swap left
+           the reader on the Russian URL with a Russian title, description and
+           JSON-LD above an English body, which is the exact thing docs/en/ exists
+           to prevent. -->"""
+    selector_comment = """      <!-- Navigation between registry-driven static locale pages, not a runtime
+           translation toggle. Each public language keeps its own URL, localized
+           head/JSON-LD and reciprocal hreflang metadata. -->"""
+    if old_selector_comment in page:
+        page = page.replace(old_selector_comment, selector_comment, 1)
+    elif selector_comment not in page:
+        raise SystemExit("site locale sync anchor not found: locale selector comment")
+
     previous_mobile = """/* Five page locales plus Download stay reachable even on a 320 px viewport.
    Collapse only the wordmark text and tighten controls; locale links remain
    visible rather than moving into a JavaScript-only menu. */
