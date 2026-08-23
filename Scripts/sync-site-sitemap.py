@@ -7,11 +7,13 @@ import argparse
 import json
 import re
 import sys
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SITEMAP = ROOT / "docs" / "sitemap.xml"
 REGISTRY = ROOT / "Scripts" / "site-locales" / "registry.json"
+PRIVACY_METADATA = ROOT / "Scripts" / "site-privacy-locales" / "metadata.json"
 SITE = "https://tumanovnv.github.io/impuls/"
 
 
@@ -24,6 +26,20 @@ def load_registry() -> dict:
     if any(required - set(item) for item in locales):
         raise SystemExit("website locale registry needs path and privacy_path for every locale")
     return data
+
+
+def load_privacy_effective_date() -> str:
+    data = json.loads(PRIVACY_METADATA.read_text(encoding="utf-8"))
+    effective = data.get("effective_date")
+    revision = data.get("revision")
+    source_locale = data.get("source_locale")
+    if not isinstance(effective, str) or not isinstance(revision, str) or not isinstance(source_locale, str):
+        raise SystemExit("privacy metadata needs source_locale, revision and effective_date")
+    try:
+        date.fromisoformat(effective)
+    except ValueError as exc:
+        raise SystemExit("privacy effective_date must be ISO YYYY-MM-DD") from exc
+    return effective
 
 
 def maybe_lastmod(sitemap: str, url: str) -> str | None:
@@ -49,13 +65,7 @@ def rewrite(sitemap: str) -> str:
     root_lastmod = maybe_lastmod(sitemap, SITE)
     if not root_lastmod:
         raise SystemExit("sitemap root entry is missing")
-
-    default_privacy = next(item["privacy_path"] for item in locales if item["code"] == default)
-    privacy_lastmod = (
-        maybe_lastmod(sitemap, SITE + default_privacy)
-        or maybe_lastmod(sitemap, SITE + "site-privacy.html")
-        or root_lastmod
-    )
+    privacy_lastmod = load_privacy_effective_date()
 
     blocks: list[str] = []
     for item in locales:
