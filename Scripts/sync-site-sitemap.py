@@ -65,10 +65,13 @@ def rewrite(sitemap: str) -> str:
         priority = "0.5" if item["code"] == default else "0.4"
         blocks.append(block(SITE + item["privacy_path"], privacy_lastmod, "monthly", priority))
 
+    legacy_note = "  <!-- Legacy site-privacy.html redirects to /privacy/ and is intentionally excluded from indexed URL entries. -->"
     return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
         + "\n".join(blocks)
+        + "\n"
+        + legacy_note
         + "\n</urlset>\n"
     )
 
