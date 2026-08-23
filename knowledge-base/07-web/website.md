@@ -4,7 +4,7 @@ type: web
 status: active
 documentation_version: 1.4
 app_version: 1.4.15
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-23
 tags: [impuls, website, github-pages, seo, design-system, localization]
 ---
 
@@ -14,44 +14,57 @@ tags: [impuls, website, github-pages, seo, design-system, localization]
 
 `docs/` обслуживается GitHub Pages. Engineering knowledge base находится отдельно в `knowledge-base/`.
 
-Маркетинговый сайт и локализации приложения — разные поверхности. **Сайт сейчас имеет три реальные статические языковые версии: RU (`/`), EN (`/en/`) и DE (`/de/`). Приложение Impuls 1.4.15 поддерживает семь языков интерфейса: `ru`, `en`, `de`, `fr`, `es`, `zh-Hans`, `ja`.** Фраза «7 языков интерфейса» описывает capability приложения и не означает, что сам сайт уже переведён на семь языков.
+Маркетинговый сайт и локализации приложения — разные поверхности. **Сайт сейчас имеет пять реальных статических языковых версий: RU (`/`), EN (`/en/`), DE (`/de/`), FR (`/fr/`) и ES (`/es/`). Приложение Impuls 1.4.15 поддерживает семь языков интерфейса: `ru`, `en`, `de`, `fr`, `es`, `zh-Hans`, `ja`.** Фраза «7 языков интерфейса» описывает capability приложения и не означает, что сам сайт уже переведён на семь языков.
 
 ## Canonical source and generated pages
 
 `docs/index.html` — canonical RU content/layout source и self-contained production page: no external CSS/JS/fonts и no runtime localization dependency. Значения design system остаются в CSS этой страницы; intent описан в [Website Design System](design-system.md).
 
-Статические локализованные страницы генерируются одним `Scripts/build-site-locale.py`:
+Публичный набор website-locales хранится отдельно в `Scripts/site-locales/registry.json`. Один `Scripts/build-site-locale.py` генерирует все non-default static pages:
 
 ```text
+Scripts/site-locales/registry.json
+              │
 docs/index.html (RU source)
         │
         ├── Scripts/site-locales/en.json ──> docs/en/index.html
-        └── Scripts/site-locales/de.json ──> docs/de/index.html
+        ├── Scripts/site-locales/de.json ──> docs/de/index.html
+        ├── Scripts/site-locales/fr.json ──> docs/fr/index.html
+        └── Scripts/site-locales/es.json ──> docs/es/index.html
 ```
 
-`docs/en/index.html` и `docs/de/index.html` **не редактируются вручную**. Любой layout/content contract сначала меняется в canonical RU source или соответствующем locale config, затем pages регенерируются.
+`docs/en/index.html`, `docs/de/index.html`, `docs/fr/index.html` и `docs/es/index.html` **не редактируются вручную**. Любой layout/content contract сначала меняется в canonical RU source или соответствующем locale config, затем pages регенерируются.
 
 ### Translation storage
 
-German is the first fully external website locale: user-facing strings, screenshot alt text, localized head metadata and localized JSON-LD copy live in `Scripts/site-locales/de.json`.
+DE, FR и ES — fully external website locales: user-facing strings, screenshot alt text, localized head metadata и localized JSON-LD copy живут в соответствующих `Scripts/site-locales/<locale>.json`.
 
 English уже проходит через тот же generic builder и хранит head/JSON-LD metadata в `Scripts/site-locales/en.json`. На текущем migration baseline его body/alt dictionary всё ещё читается из существующих `EN`/`ALT` объектов canonical RU page через `source_dictionary` / `source_alt_dictionary`. Это transitional compatibility, а не разрешение снова создавать language-specific generators. Новые языки должны добавляться как locale config, а не как копия Python/HTML.
 
-Немецкий перевод подготовлен AI-assisted и прошёл structural/technical review; native-speaker linguistic review пока не записан как выполненный. Это не должно скрываться в инженерной документации или подменяться утверждением о native review.
+DE/FR/ES переводы подготовлены AI-assisted и прошли structural/technical review; native-speaker linguistic review пока не записан как выполненный. Это не должно скрываться в инженерной документации или подменяться утверждением о native review.
 
-## Locale routing owner
+## Locale registry and routing owners
 
-`Scripts/sync-site-locales.py` — единственный owner общих website-locale facts в canonical RU source:
+`Scripts/site-locales/registry.json` — canonical owner публичного locale cluster. Он задаёт для каждой опубликованной страницы:
 
-- полный `hreflang` cluster (`ru`, `en`, `de`, `x-default`);
+- locale code;
+- короткий label переключателя;
+- URL path;
+- OpenGraph locale.
+
+`Scripts/sync-site-locales.py` читает registry и синхронизирует canonical RU source:
+
+- полный `hreflang` cluster (`ru`, `en`, `de`, `fr`, `es`, `x-default`);
 - `og:locale` / `og:locale:alternate` cluster;
 - `WebSite.inLanguage` для реально существующих public pages;
-- видимый RU / EN / DE language selector;
+- видимый RU / EN / DE / FR / ES language selector;
 - runtime labels для release metadata на generated pages;
-- legacy `?lang=en|de` navigation к real static URL;
-- narrow-header rule: при ширине до 419 px скрывается только текст wordmark, чтобы RU/EN/DE и Download оставались доступны.
+- legacy `?lang=` navigation к real static URL;
+- narrow-header rule: при ширине до 559 px скрывается только текст wordmark и уплотняются controls, чтобы пять языков и Download оставались доступны.
 
-Этот script deterministic и имеет `--check`. Generated page не должна сама решать, какие языки существуют.
+`Scripts/sync-site-sitemap.py` читает тот же registry и владеет locale entries в `docs/sitemap.xml`. Нельзя поддерживать второй ручной список языков в sitemap или workflow.
+
+Оба sync-script deterministic и имеют `--check`. Generated page не должна сама решать, какие языки существуют.
 
 ## SEO contract
 
@@ -65,12 +78,12 @@ English уже проходит через тот же generic builder и хра
 - localized `SoftwareApplication` и `FAQPage` JSON-LD;
 - полным reciprocal `hreflang` cluster.
 
-`x-default` остаётся RU root. `sitemap.xml` перечисляет каждую реальную public page. Нельзя добавлять `fr`, `es`, `zh-Hans` или `ja` в `hreflang`, sitemap или `WebSite.inLanguage`, пока соответствующая статическая страница реально не публикуется.
+`x-default` остаётся RU root. `sitemap.xml` перечисляет каждую реальную public page. Нельзя добавлять `zh-Hans` или `ja` в registry, `hreflang`, sitemap или `WebSite.inLanguage`, пока соответствующая статическая страница реально не публикуется.
 
 Отсюда важное различие:
 
 ```text
-website locales: ru, en, de
+website locales: ru, en, de, fr, es
 app locales:     ru, en, de, fr, es, zh-Hans, ja
 ```
 
@@ -78,7 +91,7 @@ app locales:     ru, en, de, fr, es, zh-Hans, ja
 
 ## Screenshots
 
-RU page использует RU product captures, EN — EN captures. На первом немецком baseline `de.json` сознательно задаёт `screenshot_locale: en`: body/head/alt полностью немецкие, но реальные продуктовые снимки остаются английскими, пока отдельный набор DE captures не подготовлен. Нельзя рисовать fake localized UI вместо реального приложения.
+RU page использует RU product captures, EN — EN captures. На текущем external-locale baseline `de.json`, `fr.json` и `es.json` сознательно задают `screenshot_locale: en`: body/head/alt локализованы, но реальные продуктовые снимки остаются английскими, пока отдельные captures для этих языков не подготовлены. Нельзя рисовать fake localized UI вместо реального приложения.
 
 Screenshot assets должны быть real product captures либо явно demo data. Нельзя публиковать личные данные, internal notes, реальные calendar events или identifiers.
 
@@ -86,16 +99,23 @@ Screenshot assets должны быть real product captures либо явно 
 
 ```mermaid
 flowchart LR
+    REG[site-locales/registry.json] --> LOC[Scripts/sync-site-locales.py]
+    REG --> MAP[Scripts/sync-site-sitemap.py]
     GH[GitHub Releases latest] --> JS[Runtime Releases API fetch]
     GH --> REL[Scripts/sync-site-release.py]
     REL --> RU[Canonical RU release fallback + JSON-LD]
-    RU --> LOC[Scripts/sync-site-locales.py]
+    RU --> LOC
     LOC --> GEN[Scripts/build-site-locale.py]
     GEN --> EN[docs/en/index.html]
     GEN --> DE[docs/de/index.html]
+    GEN --> FR[docs/fr/index.html]
+    GEN --> ES[docs/es/index.html]
     RU --> PAGE[GitHub Pages]
     EN --> PAGE
     DE --> PAGE
+    FR --> PAGE
+    ES --> PAGE
+    MAP --> PAGE
 ```
 
 Version/download/SHA at runtime читаются из GitHub Releases API. Static markup уже содержит synchronized fallback для crawlers/no-JS и не является independent release source of truth.
@@ -111,9 +131,11 @@ Version/download/SHA at runtime читаются из GitHub Releases API. Stati
 - RU hero: `7 языков интерфейса`;
 - EN hero: `7 interface languages`;
 - DE hero: `7 Sprachen`;
+- FR hero: `7 langues`;
+- ES hero: `7 idiomas`;
 - FAQ каждой страницы перечисляет все семь app-locales и System/manual language behavior.
 
-RU/EN variants этого факта остаются в canonical RU source/embedded EN dictionary; DE variant — в `Scripts/site-locales/de.json`. Если набор shipped app localizations меняется, нельзя исправить только число в generated HTML: необходимо обновить durable product fact, locale config(s), assertions и заново построить страницы.
+RU/EN variants этого факта остаются в canonical RU source/embedded EN dictionary; DE/FR/ES variants — в external locale configs. Если набор shipped app localizations меняется, нельзя исправить только число в generated HTML: необходимо обновить durable product fact, locale config(s), assertions и заново построить страницы.
 
 ## Site synchronization workflow
 
@@ -123,28 +145,27 @@ RU/EN variants этого факта остаются в canonical RU source/emb
 
 1. `Scripts/sync-site-release.py` — version/download/SHA;
 2. `Scripts/sync-site-product-facts.py` — durable product facts;
-3. `Scripts/sync-site-locales.py` — locale routing/runtime cluster;
-4. `Scripts/build-site-locale.py --locale en`;
-5. `Scripts/build-site-locale.py --locale de`;
+3. `Scripts/sync-site-locales.py` — locale routing/runtime cluster из registry;
+4. `Scripts/sync-site-sitemap.py` — sitemap locale cluster из registry;
+5. `Scripts/build-site-locale.py` запускается циклом для каждого non-default locale из registry;
 6. все owners запускаются с `--check`, затем проверяются no-JS download, reciprocal `hreflang` и localization product facts;
-7. bot коммитит только `docs/index.html`, `docs/en/index.html`, `docs/de/index.html`, если generated markup реально изменился.
+7. bot коммитит только canonical/generated website markup и sitemap, если они реально изменились.
 
 Workflow не является release path: не меняет `Scripts/version`, не подписывает, не тегирует приложение и не загружает app assets. Его bot commit затрагивает только `docs/`, а push-trigger смотрит на generators/configs, поэтому цикл невозможен.
 
 ## Adding the next website locale
 
-Новый язык не должен приводить к `build-fr-page.py`, копии HTML или ручной поддержке отдельной страницы.
+Новый язык не должен приводить к `build-ja-page.py`, копии HTML или ручной поддержке отдельной страницы.
 
 Минимальный contract:
 
 1. создать `Scripts/site-locales/<locale>.json` с полной key parity и localized head/schema;
-2. добавить locale в `sync-site-locales.py` и generic builder cluster;
-3. добавить generator call + assertions в `site-release-sync.yml`;
-4. добавить public URL в `docs/sitemap.xml`;
-5. расширить tests так, чтобы key parity, canonical/hreflang/OG/JSON-LD проверялись автоматически;
-6. после публикации проверить layout и естественность текста, не объявляя native review без фактической вычитки.
+2. добавить locale ровно один раз в `Scripts/site-locales/registry.json`;
+3. расширить language-specific assertions/tests для нового текста;
+4. запустить registry-driven sync/generator checks;
+5. после публикации проверить layout и естественность текста, не объявляя native review без фактической вычитки.
 
-Когда этот contract стабилен на DE, следующая wave — `fr`, `es`, затем `ja`, `zh-Hans`.
+`sync-site-locales.py`, `sync-site-sitemap.py`, `site-release-sync.yml` и общий builder не должны получать отдельный hardcoded branch для нового языка. После FR/ES следующая wave — `ja` и `zh-Hans`.
 
 ## No-JavaScript contract
 
@@ -156,25 +177,26 @@ Workflow не является release path: не меняет `Scripts/version`
 - все модули видны стопкой, пока JS не построил selector;
 - ни один content block не зависит от opacity/IntersectionObserver, чтобы быть читаемым.
 
-Runtime JavaScript может освежить release metadata и включить interaction, но не является переводчиком для DE или будущих external locales.
+Runtime JavaScript может освежить release metadata и включить interaction, но не является переводчиком для external locales.
 
 ## Themes and responsive behavior
 
 Website follows `prefers-color-scheme`; отдельного theme toggle нет. Dark/light обязаны проверяться обе.
 
-Добавление третьего language selector не должно ломать 320–390 px header. До 419 px wordmark text скрывается, icon остаётся, а RU/EN/DE и Download остаются доступными. Это layout response на рост language cluster, а не mobile-only навигация.
+Пять language links должны оставаться доступны и на narrow viewport. До 559 px wordmark text скрывается, icon остаётся, gaps/padding уменьшаются, а RU/EN/DE/FR/ES и Download остаются доступными. Это layout response на рост language cluster, а не mobile-only навигация.
 
 ## Invariants
 
 1. `docs/index.html` — canonical RU content/layout source.
-2. `docs/en/index.html` и `docs/de/index.html` generated и не редактируются вручную.
-3. Website locales (`ru`, `en`, `de`) и app locales (`ru`, `en`, `de`, `fr`, `es`, `zh-Hans`, `ja`) — разные contracts.
-4. Один generic builder обслуживает все generated website locales; language-specific Python generator запрещён.
-5. `sync-site-locales.py` владеет public locale cluster; page-local copies не владеют им.
-6. Release metadata принадлежит `sync-site-release.py`; durable marketing facts — `sync-site-product-facts.py`.
-7. Public locale существует только если есть реальный static URL, self-canonical, sitemap entry и reciprocal hreflang.
-8. Все static pages полезны без JavaScript.
-9. `site-release-sync.yml` публикует только website markup и не становится вторым app release workflow.
+2. `docs/en/index.html`, `docs/de/index.html`, `docs/fr/index.html`, `docs/es/index.html` generated и не редактируются вручную.
+3. Website locales (`ru`, `en`, `de`, `fr`, `es`) и app locales (`ru`, `en`, `de`, `fr`, `es`, `zh-Hans`, `ja`) — разные contracts.
+4. `Scripts/site-locales/registry.json` — единственный canonical список public website locales.
+5. Один generic builder обслуживает все generated website locales; language-specific Python generator запрещён.
+6. `sync-site-locales.py` владеет page locale cluster, `sync-site-sitemap.py` — sitemap projection; оба читают registry.
+7. Release metadata принадлежит `sync-site-release.py`; durable marketing facts — `sync-site-product-facts.py`.
+8. Public locale существует только если есть реальный static URL, self-canonical, sitemap entry и reciprocal hreflang.
+9. Все static pages полезны без JavaScript.
+10. `site-release-sync.yml` публикует только website markup и не становится вторым app release workflow.
 
 ## Связано
 
@@ -186,7 +208,11 @@ Website follows `prefers-color-scheme`; отдельного theme toggle нет
 - `Scripts/sync-site-release.py`
 - `Scripts/sync-site-product-facts.py`
 - `Scripts/sync-site-locales.py`
+- `Scripts/sync-site-sitemap.py`
 - `Scripts/build-site-locale.py`
+- `Scripts/site-locales/registry.json`
 - `Scripts/site-locales/en.json`
 - `Scripts/site-locales/de.json`
+- `Scripts/site-locales/fr.json`
+- `Scripts/site-locales/es.json`
 - `.github/workflows/site-release-sync.yml`
