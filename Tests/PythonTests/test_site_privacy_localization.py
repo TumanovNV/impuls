@@ -58,16 +58,18 @@ class SitePrivacyLocalizationTests(unittest.TestCase):
         for code, page in self.pages.items():
             self.assertIn("3.0", page, code)
             self.assertIn("2026", page, code)
-            self.assertIn("Nikolay Vitalyevich Tumanov", page, code)
+            expected_name = "Туманов Николай Витальевич" if code == "ru" else "Nikolay Vitalyevich Tumanov"
+            self.assertIn(expected_name, page, code)
             self.assertIn("github.com/TumanovNV/impuls/issues/new/choose", page, code)
 
     def test_actual_product_privacy_boundaries_are_present_in_every_translation(self):
+        gdpr_source = "https://eur-lex.europa.eu/eli/reg/2016/679/oj"
         for code, page in self.pages.items():
             self.assertIn("GitHub", page, code)
             self.assertIn("365", page, code)
             self.assertIn("HMAC", page, code)
             self.assertIn("PRIVACY.md", page, code)
-            self.assertIn("GDPR", page, code)
+            self.assertIn(gdpr_source, page, code)
 
     def test_russian_and_english_pages_state_non_certification_and_mandatory_rights(self):
         self.assertIn("не является заявлением о сертификации", self.pages["ru"])
