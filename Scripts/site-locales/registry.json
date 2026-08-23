@@ -1,7 +1,7 @@
 {
   "default_locale": "ru",
   "locales": [
-    {"code": "ru", "label": "RU", "path": "", "privacy_path": "site-privacy.html", "og_locale": "ru_RU"},
+    {"code": "ru", "label": "RU", "path": "", "privacy_path": "privacy/", "og_locale": "ru_RU"},
     {"code": "en", "label": "EN", "path": "en/", "privacy_path": "en/privacy/", "og_locale": "en_US"},
     {"code": "de", "label": "DE", "path": "de/", "privacy_path": "de/privacy/", "og_locale": "de_DE"},
     {"code": "fr", "label": "FR", "path": "fr/", "privacy_path": "fr/privacy/", "og_locale": "fr_FR"},
