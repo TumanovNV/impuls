@@ -2,7 +2,9 @@
 
 ## Supported versions
 
-Only the latest published Impuls release receives security fixes.
+Only the latest published Impuls release receives security fixes. The exact
+current version is read from `Scripts/version` / the latest published release,
+not copied into this policy.
 
 ## Reporting a vulnerability
 
@@ -29,8 +31,8 @@ include user data, credentials, or exploit payloads in public discussions.
   build-configured HTTPS `/v1/heartbeat` endpoint it cannot construct a request;
 - its payload type exposes only schema, a random installation UUID, current app
   version and an optional correctly observed previous version; CI and unit tests
-  pin that allow-list, the one-hour attempt throttle and zero requests for
-  `unknown` or `denied`;
+  pin that allow-list, the per-version one-hour attempt throttle and zero
+  requests for `unknown` or `denied`;
 - the random UUID is stored as a device-only Keychain item and has no hardware
   or user input. The collector HMACs it with an owner secret before SQLite,
   rejects extra/malformed fields and bodies over 2 KiB, rate limits requests,
@@ -43,7 +45,12 @@ include user data, credentials, or exploit payloads in public discussions.
 - feedback uses no in-app network request: a length-bounded report is copied
   locally and the system browser may open only the exact Impuls new-issue URL;
 - feedback diagnostics are allow-listed and never inspect user content, paths,
-  logs, device identifiers, or clipboard history;
+  logs, device identifiers, clipboard history or project-support eligibility;
+- project-support eligibility and prompt decisions are machine-local counters/
+  state, excluded from portable backup and never sent as telemetry. Automatic
+  prompting is capped at two lifetime appearances for the local state; opening
+  GitHub is an explicit browser action and Impuls does not query GitHub for star
+  status;
 - no private frameworks or process injection;
 - the Battery / Power module reads this Mac through public IOPowerSources plus
   a best-effort supplement from the public IORegistry. No SMC client, no helper,
@@ -81,9 +88,8 @@ include user data, credentials, or exploit payloads in public discussions.
 - external device discovery is off until the user turns it on: an update cannot
   produce a new permission prompt or a new connection by itself;
 - Apple Music metadata uses its scripting interface plus bounded distributed
-  player notifications; the
-  Hardened Runtime bundle carries the explicit Apple Events Automation
-  entitlement and macOS remains the permission authority;
+  player notifications; the Hardened Runtime bundle carries the explicit Apple
+  Events Automation entitlement and macOS remains the permission authority;
 - web music is created only by the explicit Open Web Player action, uses the
   system WebKit engine, allows main-frame HTTPS navigation only within the
   selected provider and its authentication domains, and hands unrelated links
@@ -102,18 +108,17 @@ include user data, credentials, or exploit payloads in public discussions.
   key in macOS Keychain; clipboard persistence remains disabled by default;
 - CI rejects Impuls-owned networking APIs outside the update service, the
   explicit WebKit music boundary, and the opt-in version-statistics service;
-  it proves the web view is lazily constructed,
-  pins the Sparkle version and revision, validates security Info.plist keys,
-  verifies the embedded framework, and checks that no MediaRemote/perl helper is
-  bundled;
+  it proves the web view is lazily constructed, pins the Sparkle version and
+  revision, validates security Info.plist keys, verifies the embedded framework,
+  and checks that no MediaRemote/perl helper is bundled;
 - release CI creates a symlink-preserving ZIP, signs and verifies both the feed
   and archive, then publishes them with checksums only after all tests pass;
 - full-resolution image operations reject dimensions above a defined pixel
-  budget before decoding, and oversized clipboard payloads are not retained.
+  budget before decoding, and oversized clipboard payloads are not retained;
 - local stores use bounded streaming reads, and meeting links are restricted to
-  known HTTPS providers before macOS is asked to open them.
+  known HTTPS providers before macOS is asked to open them;
 - screenshot and note writes run on bounded serial queues instead of the UI
-  thread; media artwork is byte-, dimension-, and display-size bounded.
+  thread; media artwork is byte-, dimension-, and display-size bounded;
 - generated-file Undo verifies a streaming SHA-256 content digest in addition
   to size, modification date, and filesystem resource identity.
 
@@ -127,7 +132,7 @@ exception. This is a transition limitation, not a condition to bypass silently.
 
 The Sparkle signing key is the update channel's root of trust until Developer ID
 is available. Losing every protected copy would prevent safe updates to existing
-1.2.9 installations.
+installed builds that trust that key.
 
 Because public releases are ad-hoc signed, macOS may ask for Automation access
 again after an update. A stable Developer ID signature is still the long-term
@@ -144,4 +149,7 @@ embedded web view; Impuls surfaces that message instead of hiding it.
 
 The current whole-repository audit starting point is
 [`knowledge-base/00-project/pre-audit-baseline-1.4.12.md`](knowledge-base/00-project/pre-audit-baseline-1.4.12.md).
-The 1.4.10 version-statistics audit remains historical evidence for that subsystem; it does not override the current 1.4.12 code, tests, CI, privacy or release contracts.
+That file is deliberately historical routing evidence, not the current release.
+The 1.4.10 version-statistics audit likewise remains historical evidence for
+that subsystem; neither overrides current code, tests, CI, privacy, release or
+current-state documentation contracts.
