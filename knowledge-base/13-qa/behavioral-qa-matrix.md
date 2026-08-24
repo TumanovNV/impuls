@@ -96,6 +96,8 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | MUS-05 | Explicitly open each allowed web source | manual-service | only selected official HTTPS provider loads |
 | MUS-06 | Web provider navigation failure | manual-service | bounded visible error and retry; no silent host expansion |
 | MUS-07 | Artwork oversized / malformed | automated | bounded validation prevents unbounded decode |
+| MUS-08 | Transport controls against a real provider page | manual-service | Previous/Play-Pause/Next/seek are enabled only when that provider's own page actually supports them; no dead button |
+| MUS-09 | Recommended / All Services grouping | manual-macos | menu shows both sections; ordering reflects the Mac's own system region; catalog itself is identical between sections; no network call from opening the menu |
 
 ## Appearance and accessibility
 
