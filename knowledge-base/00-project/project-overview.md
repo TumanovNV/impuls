@@ -2,9 +2,9 @@
 title: Project Overview
 type: project
 status: active
-documentation_version: 1.1
-app_version: 1.4.13
-last_reviewed: 2026-08-20
+documentation_version: 1.2
+app_version: 1.4.15
+last_reviewed: 2026-08-24
 tags: [impuls, project, product]
 related: [architecture, modules, security]
 ---
@@ -50,22 +50,29 @@ related: [architecture, modules, security]
 
 Подробности: [Каталог модулей](../02-modules/README.md).
 
+## Международная поверхность
+
+Текущий продукт имеет три независимых localization contracts: интерфейс macOS-приложения, marketing website и website privacy/legal pages. На текущем baseline все три покрывают `ru`, `en`, `de`, `fr`, `es`, `ja`, `zh-Hans`, но один набор нельзя выводить из другого. Канонический маршрут — [Localization](../04-development/localization.md); сайт и legal surface дополнительно принадлежат [Website Architecture](../07-web/website.md) и [Website Legal and Privacy Localization](../07-web/legal-privacy.md).
+
 ## Модель интерфейса
 
 Сервисы и пользовательское состояние общие для приложения. Представление панели создаётся отдельно для каждого подключённого дисплея. Активной является только одна поверхность, поэтому приложение не должно создавать отдельные копии хранилищ, таймеров или системных мониторов на каждый экран.
 
 ## Текущая модель распространения
 
-На дату ревизии документации публичная версия — 1.4.13. Сборки распространяются через GitHub Releases; встроенный канал обновления использует Sparkle. Публичные сборки пока могут использовать ad-hoc подпись при отсутствии Developer ID, поэтому первая установка может требовать ручного разрешения Gatekeeper. Детали не должны дублироваться здесь как неизменяемые: перед релизными работами всегда проверять актуальные [`README.ru.md`](../../README.ru.md), [`SECURITY.md`](../../SECURITY.md) и release workflow.
+Точная опубликованная версия не дублируется здесь: её источник — [`Scripts/version`](../../Scripts/version), а текущий release/status summarised in [Project Status](project-status.md). Сборки распространяются через GitHub Releases; встроенный канал обновления использует Sparkle. `bundle.sh` умеет Developer ID path при наличии конфигурации и ad-hoc fallback в её отсутствие; документация не должна считать конкретный публичный артефакт notarized/Developer-ID-signed без отдельной проверки фактического release environment.
+
+Перед релизными работами сверять [Signing and Distribution](../03-macos/signing-distribution.md), [Release Pipeline](../05-release/release-pipeline.md), [`SECURITY.md`](../../SECURITY.md) и фактический workflow/артефакт.
 
 ## Источники истины
 
 При конфликте документов использовать следующий приоритет:
 
-1. фактический код и CI-инварианты;
-2. `AGENTS.md`, `SECURITY.md`, `PRIVACY.md`;
-3. эта база знаний;
-4. публичные README и сайт;
-5. старые release notes, handoff и исторические QA-документы.
+1. фактический код, tests и CI-инварианты;
+2. `Scripts/version` для точной версии и `PROJECT-MANIFEST.json` для routing;
+3. `AGENTS.md`, `SECURITY.md`, `PRIVACY.md` и соответствующие canonical knowledge-base owners;
+4. `project-status.md` как current summary;
+5. публичные README и сайт;
+6. старые release notes, handoff и исторические QA-документы.
 
-Если обнаружено расхождение, исправляется не только текущая задача, но и документ, который начал дрейфовать.
+Если обнаружено расхождение, исправляется не только текущая задача, но и документ, который начал дрейфовать. `last_reviewed` меняется только после фактической сверки с source/tests/CI.
