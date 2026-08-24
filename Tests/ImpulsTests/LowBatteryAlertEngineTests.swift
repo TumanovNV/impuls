@@ -1,4 +1,3 @@
-import Combine
 import XCTest
 @testable import ImpulsCore
 
@@ -266,7 +265,6 @@ final class LowBatteryAlertPermissionTests: XCTestCase {
     }
 
     func testDeliveryFailureRetriesAtSameReadingAndOnlySuccessPersists() async throws {
-        var cancellables: Set<AnyCancellable> = []
         let store = MemoryAlertStateStore()
         let delivery = FlakyAlertDelivery()
         let service = LowBatteryAlertService(
@@ -279,22 +277,6 @@ final class LowBatteryAlertPermissionTests: XCTestCase {
             components: [.init(kind: .primary, percentage: 20, lastUpdated: Fixtures.noon)]
         )
 
-        // `onAttempt` fulfills inside `delivery.deliver`, on the far side of
-        // the actor hop into a non-isolated delivery type. The service's
-        // `cancelDelivery` call only runs after hopping back onto the main
-        // actor, so waiting on the attempt alone races the retry below
-        // against that hop. `pendingDeliveryCount` returning to zero is
-        // published from the same main-actor slice as `cancelDelivery`
-        // itself, so it is the deterministic signal that the failure has
-        // actually settled.
-        let settledAfterFailure = expectation(description: "failed delivery settles pending state")
-        service.$pendingDeliveryCount
-            .dropFirst()
-            .filter { $0 == 0 }
-            .prefix(1)
-            .sink { _ in settledAfterFailure.fulfill() }
-            .store(in: &cancellables)
-
         let failedAttempt = expectation(description: "first Notification Center attempt fails")
         delivery.onAttempt = failedAttempt
         service.setEnabled(true, requestAuthorization: false)
@@ -303,20 +285,37 @@ final class LowBatteryAlertPermissionTests: XCTestCase {
             now: Fixtures.noon,
             staleAfter: DeviceSnapshotMerger.defaultStaleInterval
         )
-        await fulfillment(of: [failedAttempt, settledAfterFailure], timeout: 2)
+        await fulfillment(of: [failedAttempt], timeout: 2)
         XCTAssertNil(store.data, "failed delivery must not persist fired state")
+        delivery.onAttempt = nil
 
-        let retryAttempt = expectation(description: "same low reading retries")
-        let committed = expectation(description: "successful delivery commits alert state")
         delivery.shouldFail = false
-        delivery.onAttempt = retryAttempt
+        let committed = expectation(description: "successful delivery commits alert state")
         store.onSave = committed
-        service.evaluate(
-            [snapshot],
-            now: Fixtures.noon,
-            staleAfter: DeviceSnapshotMerger.defaultStaleInterval
-        )
-        await fulfillment(of: [retryAttempt, committed], timeout: 2)
+
+        // `cancelDelivery` only lands once the service's delivery task hops
+        // back onto the main actor, which happens after `onAttempt` already
+        // fired inside `deliver`. In production the next retry is always a
+        // separately scheduled provider evaluation, seconds away at the
+        // soonest — plenty of time for that hop. A bounded poll that keeps
+        // re-invoking the real `evaluate()` entry point mirrors that retry
+        // path directly, rather than guessing which single instant the hop
+        // completes at.
+        var retried = false
+        for _ in 0..<100 {
+            service.evaluate(
+                [snapshot],
+                now: Fixtures.noon,
+                staleAfter: DeviceSnapshotMerger.defaultStaleInterval
+            )
+            if delivery.attemptCount == 2 {
+                retried = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(retried, "same low reading must retry once the failed delivery settles")
+        await fulfillment(of: [committed], timeout: 2)
         XCTAssertEqual(delivery.attemptCount, 2)
 
         store.onSave = nil

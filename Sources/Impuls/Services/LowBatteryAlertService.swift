@@ -109,11 +109,6 @@ final class UserNotificationLowBatteryDelivery: NSObject, LowBatteryNotification
 final class LowBatteryAlertService: ObservableObject {
     @Published private(set) var authorization: LowBatteryNotificationAuthorization = .notDetermined
     @Published private(set) var testNotificationInFlight = false
-    /// Low-battery deliveries currently crossing the Notification Center
-    /// boundary. Observable so a caller — a diagnostics view, or a test —
-    /// can wait for `confirmDelivery`/`cancelDelivery` to actually land
-    /// instead of guessing how many actor hops that takes.
-    @Published private(set) var pendingDeliveryCount = 0
 
     private let engine: LowBatteryAlertEngine
     private let delivery: LowBatteryNotificationDelivering
@@ -233,7 +228,6 @@ final class LowBatteryAlertService: ObservableObject {
         for alert in alerts {
             let notification = Self.notification(for: alert)
             let evaluationNow = latestEvaluation.now
-            pendingDeliveryCount += 1
             // `@MainActor` is explicit, not inferred: `LowBatteryAlertEngine`
             // has no internal locking of its own and is safe only because
             // every call to it — this one included — is required to land on
@@ -261,13 +255,6 @@ final class LowBatteryAlertService: ObservableObject {
                     engine.cancelDelivery(alert.deliveryID)
                     DevicePowerLog.note("low-battery notification delivery failed for \(alert.deviceKind.rawValue) at \(alert.severity.rawValue)")
                 }
-                // Runs on the main actor immediately after `confirmDelivery` /
-                // `cancelDelivery` above — so anyone observing the count reach
-                // zero also observes the engine's pending state as already
-                // settled, not merely that the delivery attempt was made.
-                // A plain statement here (not `defer`) matches the pattern
-                // already used by `sendTestNotification` in this file.
-                self?.pendingDeliveryCount -= 1
             }
         }
     }
