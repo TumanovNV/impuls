@@ -86,6 +86,38 @@ final class MusicSourceTests: XCTestCase {
         XCTAssertEqual(state.artworkKey, "https://avatars.yandex.net/get-music-content/1/200x200")
     }
 
+    /// The capability fields mirror exactly what the page's own transport
+    /// lookup found — nothing is assumed true. A payload from before this
+    /// field existed omits them and must decode as "nothing proven" rather
+    /// than fail outright.
+    func testWebSnapshotCapabilitiesDefaultToFalseWhenAbsent() throws {
+        let withCapabilities = try XCTUnwrap(WebMusicState.decode([
+            "version": 2,
+            "kind": "state",
+            "page": "https://music.youtube.com/",
+            "title": "Track",
+            "canNext": true,
+            "canPrevious": false,
+            "canPlayPause": true,
+            "canSeek": true,
+        ], source: .youtubeMusic))
+        XCTAssertTrue(withCapabilities.canNext)
+        XCTAssertFalse(withCapabilities.canPrevious)
+        XCTAssertTrue(withCapabilities.canPlayPause)
+        XCTAssertTrue(withCapabilities.canSeek)
+
+        let withoutCapabilities = try XCTUnwrap(WebMusicState.decode([
+            "version": 2,
+            "kind": "state",
+            "page": "https://music.youtube.com/",
+            "title": "Track",
+        ], source: .youtubeMusic))
+        XCTAssertFalse(withoutCapabilities.canNext)
+        XCTAssertFalse(withoutCapabilities.canPrevious)
+        XCTAssertFalse(withoutCapabilities.canPlayPause)
+        XCTAssertFalse(withoutCapabilities.canSeek)
+    }
+
     func testWebSnapshotRejectsAnotherProviderEmptyTrackAndOldVersion() {
         XCTAssertNil(WebMusicState.decode([
             "version": 2,

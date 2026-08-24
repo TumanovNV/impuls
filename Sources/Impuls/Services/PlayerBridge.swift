@@ -66,6 +66,43 @@ struct PlayerState {
     var key: String { "\(app.rawValue)|\(title)|\(artist)|\(album)" }
 }
 
+/// What `MediaController` needs from the native Apple Music path. `PlayerBridge`
+/// stays a plain namespace of static AppleScript calls; this seam exists only
+/// so a test can drive `MediaController`'s state machine — source switch,
+/// track switch, stale-result suppression — without a real Music app or
+/// Automation permission.
+@MainActor
+protocol NativeMusicBridging {
+    func currentState(completion: @escaping (PlayerScanResult) -> Void)
+    func playPause()
+    func next()
+    func previous()
+    func seek(to seconds: TimeInterval)
+    func artwork(for state: PlayerState, completion: @escaping (NSImage?) -> Void)
+    func automationAuthorization(prompt: Bool, completion: @escaping (AutomationAuthorization) -> Void)
+}
+
+/// The production adapter: every call forwards straight to `PlayerBridge`,
+/// pinned to `.music` since that is the only `PlayerApp` today.
+struct LivePlayerBridge: NativeMusicBridging {
+    func currentState(completion: @escaping (PlayerScanResult) -> Void) {
+        PlayerBridge.currentState(completion: completion)
+    }
+
+    func playPause() { PlayerBridge.playPause(.music) }
+    func next() { PlayerBridge.next(.music) }
+    func previous() { PlayerBridge.previous(.music) }
+    func seek(to seconds: TimeInterval) { PlayerBridge.seek(.music, to: seconds) }
+
+    func artwork(for state: PlayerState, completion: @escaping (NSImage?) -> Void) {
+        PlayerBridge.artwork(for: state, completion: completion)
+    }
+
+    func automationAuthorization(prompt: Bool, completion: @escaping (AutomationAuthorization) -> Void) {
+        PlayerBridge.automationAuthorization(for: .music, prompt: prompt, completion: completion)
+    }
+}
+
 enum PlayerBridge {
     private static let queue = DispatchQueue(label: "io.tumanov.impuls.applescript", qos: .utility)
     static let maximumArtworkBytes = 16 * 1_024 * 1_024

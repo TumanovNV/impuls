@@ -1,5 +1,18 @@
 import AppKit
 
+/// What a source currently supports, reported honestly rather than assumed.
+/// Apple Music's native transport is reliable enough to be `true` whenever a
+/// track is loaded; a web source reports exactly what its own page's
+/// transport route lookup found (see `WebMusicState`). Every field defaults
+/// to `false` — an unproven capability is not offered — and `clear(reason:)`
+/// resets to this default whenever there is no current track.
+struct MediaCapabilities: Equatable {
+    var canPlayPause = false
+    var canNext = false
+    var canPrevious = false
+    var canSeek = false
+}
+
 /// Coordinates one explicitly selected music source. Apple Music and web
 /// players have separate adapters and permissions; no process-scanning winner
 /// is guessed when several services happen to be open at once.
@@ -36,13 +49,19 @@ final class MediaController: ObservableObject {
     /// What WebKit reported when a provider page refused to load, so the pane
     /// can say why instead of showing an empty card.
     @Published private(set) var webPlayerError: String?
+    /// What the current source honestly supports right now. `MediaPane` gates
+    /// Previous/Next on this instead of always offering a button that may do
+    /// nothing.
+    @Published private(set) var capabilities = MediaCapabilities()
 
     var sourceName: String { selectedSource.displayName }
-    var canSeek: Bool { track != nil && duration > 0 }
+    var canSeek: Bool { track != nil && duration > 0 && capabilities.canSeek }
     var webPlayerWasOpened: Bool { webPlayer?.source == selectedSource }
 
     private let defaults: UserDefaults
-    private var webPlayer: WebMusicPlayer?
+    private let nativeBridge: NativeMusicBridging
+    private let webPlayerFactory: () -> WebMusicPlaying
+    private var webPlayer: WebMusicPlaying?
     private var artworkKey: String?
     private var anchor: (position: TimeInterval, at: Date)?
     private var pendingSeek: (target: TimeInterval, at: Date)?
@@ -55,9 +74,25 @@ final class MediaController: ObservableObject {
     private var refreshPending = false
     private var consecutiveEmptyRefreshes = 0
     private var notificationFallback: (state: PlayerState, receivedAt: Date)?
+    /// Bumped on every actually-adopted state, from whichever path adopted it
+    /// (distributed notification or scripting refresh). A refresh that started
+    /// before a newer notification landed compares its captured generation
+    /// against this when it returns; a mismatch means the track it describes
+    /// is no longer the one on screen, and its answer is stale rather than a
+    /// correction. See `refreshFromAppleMusic()`.
+    private(set) var stateGeneration = 0
 
-    init(defaults: UserDefaults = .standard) {
+    init(
+        defaults: UserDefaults = .standard,
+        nativeBridge: NativeMusicBridging? = nil,
+        webPlayerFactory: (() -> WebMusicPlaying)? = nil
+    ) {
         self.defaults = defaults
+        // Default-argument expressions are evaluated outside this
+        // MainActor-isolated initializer's own isolation, so the production
+        // defaults are constructed here in the body instead of inline above.
+        self.nativeBridge = nativeBridge ?? LivePlayerBridge()
+        self.webPlayerFactory = webPlayerFactory ?? { WebMusicPlayer() }
         let stored = defaults.string(forKey: Self.selectedSourceKey).flatMap {
             MusicSource(rawValue: $0)
         }
@@ -181,27 +216,29 @@ final class MediaController: ObservableObject {
     }
 
     func togglePlayPause() {
-        guard track != nil else { return }
+        guard track != nil, capabilities.canPlayPause else { return }
         isPlaying.toggle()
         setAnchor(position)
         if selectedSource == .appleMusic {
-            PlayerBridge.playPause(.music)
+            nativeBridge.playPause()
         } else {
             webPlayer?.command(.playPause)
         }
     }
 
     func next() {
+        guard capabilities.canNext else { return }
         if selectedSource == .appleMusic {
-            PlayerBridge.next(.music)
+            nativeBridge.next()
         } else {
             webPlayer?.command(.next)
         }
     }
 
     func previous() {
+        guard capabilities.canPrevious else { return }
         if selectedSource == .appleMusic {
-            PlayerBridge.previous(.music)
+            nativeBridge.previous()
         } else {
             webPlayer?.command(.previous)
         }
@@ -213,7 +250,7 @@ final class MediaController: ObservableObject {
         setAnchor(clamped)
         pendingSeek = (clamped, Date())
         if selectedSource == .appleMusic {
-            PlayerBridge.seek(.music, to: clamped)
+            nativeBridge.seek(to: clamped)
         } else {
             webPlayer?.seek(to: clamped)
         }
@@ -222,7 +259,7 @@ final class MediaController: ObservableObject {
     func resolveAutomationAccess() {
         guard let issue = accessIssue else { return }
         if issue.authorization == .notDetermined {
-            PlayerBridge.automationAuthorization(for: .music, prompt: true) { [weak self] _ in
+            nativeBridge.automationAuthorization(prompt: true) { [weak self] _ in
                 self?.refreshFromAppleMusic()
             }
         } else {
@@ -246,7 +283,8 @@ final class MediaController: ObservableObject {
             return
         }
         refreshInFlight = true
-        PlayerBridge.currentState { [weak self] result in
+        let requestedGeneration = stateGeneration
+        nativeBridge.currentState { [weak self] result in
             guard let self else { return }
             self.refreshInFlight = false
             guard self.isStarted, self.selectedSource == .appleMusic else {
@@ -264,6 +302,12 @@ final class MediaController: ObservableObject {
                 self.consecutiveEmptyRefreshes = 0
                 self.accessIssue = nil
                 self.isLoading = false
+                // A distributed notification for a newer track may have already
+                // landed and been adopted while this scripting fetch — which
+                // describes whatever track was current when it was issued — was
+                // still in flight. Adopting it now would revert the UI to stale
+                // metadata for a moment before the next refresh self-corrects.
+                guard self.stateGeneration == requestedGeneration else { return }
                 self.adopt(state)
                 return
             }
@@ -311,8 +355,8 @@ final class MediaController: ObservableObject {
 
     // MARK: - Web players
 
-    private func makeWebPlayer() -> WebMusicPlayer {
-        let player = WebMusicPlayer()
+    private func makeWebPlayer() -> WebMusicPlaying {
+        let player = webPlayerFactory()
         player.onLoading = { [weak self] source, loading in
             guard let self, self.selectedSource == source else { return }
             self.isLoading = loading
@@ -353,7 +397,13 @@ final class MediaController: ObservableObject {
 
     // MARK: - Shared presentation state
 
-    private func adopt(_ state: PlayerState) {
+    /// Not `private`: this is the exact seam a deterministic test needs to
+    /// reproduce the stale-refresh race (an in-flight Apple Music fetch for
+    /// an old track completing after a newer track has already been adopted)
+    /// without a real Music app or a real distributed notification. It is
+    /// still module-internal, not part of any public API.
+    func adopt(_ state: PlayerState) {
+        stateGeneration += 1
         let oldKey = track?.key
         accessIssue = nil
         emptyReason = .appleMusicIdle
@@ -365,6 +415,10 @@ final class MediaController: ObservableObject {
         )
         isPlaying = state.isPlaying
         duration = state.duration
+        // Apple Music's scripting bridge exposes the full transport
+        // unconditionally once a track is loaded — there is no partial
+        // capability to discover, unlike a web page's own feature detection.
+        capabilities = MediaCapabilities(canPlayPause: true, canNext: true, canPrevious: true, canSeek: true)
 
         if state.positionIsKnown {
             settlePosition(state.position)
@@ -376,13 +430,14 @@ final class MediaController: ObservableObject {
         guard artworkKey != state.key else { return }
         artworkKey = state.key
         artwork = nil
-        PlayerBridge.artwork(for: state) { [weak self] image in
+        nativeBridge.artwork(for: state) { [weak self] image in
             guard let self, self.artworkKey == state.key else { return }
             self.artwork = image
         }
     }
 
     private func adopt(_ state: WebMusicState, source: MusicSource) {
+        stateGeneration += 1
         accessIssue = nil
         emptyReason = .webPlayerIdle
         webPlayerError = nil
@@ -394,6 +449,12 @@ final class MediaController: ObservableObject {
         )
         isPlaying = state.isPlaying
         duration = state.duration
+        capabilities = MediaCapabilities(
+            canPlayPause: state.canPlayPause,
+            canNext: state.canNext,
+            canPrevious: state.canPrevious,
+            canSeek: state.canSeek
+        )
         settlePosition(state.position)
         updateTicker()
 
@@ -426,6 +487,7 @@ final class MediaController: ObservableObject {
         isPlaying = false
         duration = 0
         position = 0
+        capabilities = MediaCapabilities()
         anchor = nil
         pendingSeek = nil
         isLoading = reason == .webPlayerLoading
