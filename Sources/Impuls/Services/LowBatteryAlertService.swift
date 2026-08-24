@@ -195,11 +195,22 @@ final class LowBatteryAlertService: ObservableObject {
         )
         for alert in alerts {
             let notification = Self.notification(for: alert)
-            Task { [delivery] in
+            let evaluationNow = latestEvaluation.now
+            Task { [weak self, delivery] in
                 do {
                     try await delivery.deliver(notification)
+                    guard let self else { return }
+                    // The engine keeps this threshold pending while the async
+                    // Notification Center boundary is in flight. Only an
+                    // accepted request becomes durable fired state.
+                    engine.confirmDelivery(alert.deliveryID, now: evaluationNow)
                     DevicePowerLog.note("low-battery notification delivered for \(alert.deviceKind.rawValue) at \(alert.severity.rawValue)")
                 } catch {
+                    guard let self else { return }
+                    // A transient delivery failure must be retryable on the
+                    // next ordinary provider evaluation. No extra retry timer
+                    // or higher polling cadence is introduced here.
+                    engine.cancelDelivery(alert.deliveryID)
                     DevicePowerLog.note("low-battery notification delivery failed for \(alert.deviceKind.rawValue) at \(alert.severity.rawValue)")
                 }
             }
