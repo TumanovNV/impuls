@@ -43,6 +43,19 @@ class CurrentDocumentationTests(unittest.TestCase):
             manifest["web_and_collector"]["website_locale_registry"],
         )
 
+    def test_public_readmes_expose_current_locale_count_and_policy_route(self):
+        count = len(CHECKER.resource_locales())
+        en = CHECKER.read("README.md").lower()
+        ru = CHECKER.read("README.ru.md").lower()
+        self.assertTrue(
+            f"{count} interface languages" in en
+            or (count == 7 and "seven interface languages" in en)
+        )
+        self.assertIn(f"{count} языков интерфейса", ru)
+        policy = "https://tumanovnv.github.io/impuls/privacy/"
+        self.assertIn(policy, en)
+        self.assertIn(policy, ru)
+
 
 if __name__ == "__main__":
     unittest.main()
