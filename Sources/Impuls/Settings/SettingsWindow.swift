@@ -138,6 +138,16 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 }
 
+/// Settings is a real, resizable `NSWindow`, not another rendering of the
+/// borderless panel, so it deliberately does not use `Theme` — a real
+/// Preferences window uses `Form`/`.formStyle(.grouped)`, system fonts
+/// (`.caption`/`.callout`/`.headline`) and system materials
+/// (`.controlBackgroundColor`, `.underPageBackgroundColor`), the idiomatic
+/// choice for this kind of window. Reskinning it with the panel's own tokens
+/// would make it look like the panel bolted onto a real window rather than
+/// making the two more consistent; the appearance/light-dark and Reduce
+/// Motion contracts still apply here exactly as they do in the panel, since
+/// both draw from the same system settings rather than from `Theme` itself.
 private struct SettingsView: View {
     @ObservedObject var settings: SettingsStore
     @StateObject private var permissions = PermissionCenter()

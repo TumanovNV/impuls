@@ -198,7 +198,7 @@ private struct ShelfCard: View {
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.Radius.medium, style: .continuous)
-                .strokeBorder(isSelected ? Theme.selectionStroke : Color.clear, lineWidth: 1.5)
+                .strokeBorder(isSelected ? Theme.selectionStroke : Color.clear, lineWidth: Theme.selectionStrokeWidth)
                 .allowsHitTesting(false)
         )
         // Owns clicks and drags: a group drag needs one dragging item per file,
