@@ -6,6 +6,7 @@ struct PowerPane: View {
     @ObservedObject var settings: SettingsStore
     @State private var selectedDeviceKey = AppleDeviceIdentity.localMac.localPreferenceKey
     @FocusState private var focusedDeviceKey: String?
+    @State private var hoveredDeviceKey: String?
 
     var body: some View {
         if settings.showsExternalAppleDevices {
@@ -85,7 +86,7 @@ struct PowerPane: View {
                 }
             }
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, Theme.Space.xs)
     }
 
     /// Below this the two columns stop being able to hold a device name and a
@@ -153,7 +154,7 @@ struct PowerPane: View {
 
                 Image(systemName: entry.symbol)
                     .font(Theme.Glyph.medium)
-                    .foregroundStyle(Theme.primary.opacity(0.82))
+                    .foregroundStyle(Theme.primary.opacity(0.86))
                     .frame(width: 16)
 
                 // Two lines rather than a truncated one: a clipped "Magic
@@ -192,11 +193,11 @@ struct PowerPane: View {
             .padding(.horizontal, Theme.Space.s)
             .padding(.vertical, Theme.Space.xs)
             .frame(minHeight: Theme.Size.rowDetailed)
-            .background(selected ? Theme.selection : Theme.surface)
+            .background(selected ? Theme.selection : (hoveredDeviceKey == entry.key ? Theme.surfaceHover : Theme.surface))
             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
-                    .strokeBorder(selected ? Theme.selectionStroke : Color.clear, lineWidth: 1)
+                    .strokeBorder(selected ? Theme.selectionStroke : Color.clear, lineWidth: Theme.selectionStrokeWidth)
                     .allowsHitTesting(false)
             )
             .contentShape(Rectangle())
@@ -204,6 +205,10 @@ struct PowerPane: View {
         .buttonStyle(.plain)
         .focused($focusedDeviceKey, equals: entry.key)
         .notchFocusRing(focusedDeviceKey == entry.key)
+        .onHover { isHovering in
+            hoveredDeviceKey = isHovering ? entry.key : (hoveredDeviceKey == entry.key ? nil : hoveredDeviceKey)
+        }
+        .animation(Theme.motion(Theme.contentAnimation), value: hoveredDeviceKey)
         .accessibilityLabel(entry.title)
         .accessibilityValue(entry.accessibilityValue)
         .accessibilityAddTraits(selected ? .isSelected : [])
@@ -648,7 +653,7 @@ struct PowerPane: View {
                 Rectangle()
                     .fill(Theme.hairline)
                     .frame(width: 1)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, Theme.Space.s)
 
                 LazyVGrid(
                     columns: [
@@ -667,7 +672,7 @@ struct PowerPane: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, Theme.Space.xs)
     }
 
     /// The hero column is squeezed before the metrics are.
@@ -753,7 +758,10 @@ struct PowerPane: View {
                 Rectangle()
                     .fill(Theme.hairline)
                     .frame(width: 1)
-                    .padding(.vertical, 12)
+                    // Matches `battery`'s equivalent hero-row divider — the
+                    // laptop and desktop hero layouts differ, but this divider
+                    // plays the same visual role in both.
+                    .padding(.vertical, Theme.Space.s)
 
                 HStack(spacing: Theme.Space.xl + 12) {
                     metric(powerSourceValue, title: localized("Source"))
@@ -764,7 +772,7 @@ struct PowerPane: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, Theme.Space.xs)
     }
 
     /// Same trade as `heroWidth`, and the same reason: a flat 160 pt here left

@@ -269,7 +269,7 @@ private struct ActionResultRow: View {
             }
         }
         .padding(.horizontal, 9)
-        .frame(height: result.detail.isEmpty ? 26 : 32)
+        .frame(height: result.detail.isEmpty ? Theme.Size.row : Theme.Size.rowDetailed)
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.small, style: .continuous)
                 .fill(isSelected ? Theme.surfaceHover : hovering ? Theme.surface : .clear)

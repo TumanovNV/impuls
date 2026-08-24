@@ -9,7 +9,7 @@ struct MediaPane: View {
     private let blockHeight: CGFloat = 100
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Theme.Space.s) {
             sourceBar
             if let track = media.track {
                 player(track)
@@ -23,7 +23,7 @@ struct MediaPane: View {
     // MARK: - Source selection
 
     private var sourceBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Space.s) {
             Menu {
                 Section(localized("Recommended")) {
                     ForEach(MusicProviderCatalog.recommended()) { source in
@@ -159,7 +159,7 @@ struct MediaPane: View {
     }
 
     private var scrubber: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Theme.Space.s) {
             Text(formatTime(progress * media.duration))
                 .frame(width: 30, alignment: .leading)
 
@@ -229,7 +229,7 @@ struct MediaPane: View {
     private var controls: some View {
         HStack(spacing: Theme.Space.l + 2) {
             Button { media.previous() } label: { Image(systemName: "backward.fill") }
-                .buttonStyle(NotchButtonStyle(size: 28))
+                .buttonStyle(NotchButtonStyle(size: Theme.Size.control))
                 .disabled(!media.capabilities.canPrevious)
                 .accessibilityLabel(localized("Previous Track"))
                 .help(localized("Previous Track"))
@@ -241,7 +241,7 @@ struct MediaPane: View {
             .accessibilityLabel(media.isPlaying ? localized("Pause") : localized("Play"))
             .help(media.isPlaying ? localized("Pause") : localized("Play"))
             Button { media.next() } label: { Image(systemName: "forward.fill") }
-                .buttonStyle(NotchButtonStyle(size: 28))
+                .buttonStyle(NotchButtonStyle(size: Theme.Size.control))
                 .disabled(!media.capabilities.canNext)
                 .accessibilityLabel(localized("Next Track"))
                 .help(localized("Next Track"))
