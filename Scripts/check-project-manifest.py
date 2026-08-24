@@ -58,7 +58,7 @@ def validate_module_ids(data: dict, errors: list[str]) -> None:
 
 def iter_repository_paths(data: dict):
     product = data.get("product", {})
-    for key in ("version_source", "package_manifest", "feature_catalog"):
+    for key in ("version_source", "package_manifest", "feature_catalog", "localization_doc"):
         if isinstance(product.get(key), str):
             yield f"product.{key}", product[key]
     for key, value in data.get("knowledge_entrypoints", {}).items():
@@ -110,7 +110,10 @@ def iter_repository_paths(data: dict):
             if isinstance(path, str):
                 yield f"release.{key}", path
     web = data.get("web_and_collector", {})
-    for key in ("website_doc", "website_root", "collector_doc", "collector_root"):
+    for key in (
+        "website_doc", "website_legal_doc", "website_root", "website_locale_registry",
+        "collector_doc", "collector_root",
+    ):
         if isinstance(web.get(key), str):
             yield f"web_and_collector.{key}", web[key]
     for path in data.get("validation", {}).get("repository_paths", []):
@@ -129,6 +132,16 @@ def validate_data(data: dict) -> list[str]:
     if data.get("manifest_role") != "routing-only":
         errors.append("manifest_role must remain routing-only")
     validate_module_ids(data, errors)
+
+    product = data.get("product", {})
+    if product.get("localization_doc") != "knowledge-base/04-development/localization.md":
+        errors.append("product.localization_doc must route to the canonical localization contract")
+    web = data.get("web_and_collector", {})
+    if web.get("website_legal_doc") != "knowledge-base/07-web/legal-privacy.md":
+        errors.append("web_and_collector.website_legal_doc must route to the legal/privacy canonical doc")
+    if web.get("website_locale_registry") != "Scripts/site-locales/registry.json":
+        errors.append("web_and_collector.website_locale_registry must route to the public locale registry")
+
     owners = data.get("network_owners")
     if not isinstance(owners, list):
         errors.append("network_owners must be a list")

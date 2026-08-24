@@ -3,7 +3,14 @@ name: knowledge-base
 on:
   pull_request:
     paths:
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'README.md'
+      - 'README.ru.md'
+      - 'PRIVACY.md'
+      - 'SECURITY.md'
       - 'PROJECT-MANIFEST.json'
+      - '.claude/rules/**'
       - 'Package.swift'
       - 'Package.resolved'
       - 'knowledge-base/**'
@@ -13,7 +20,10 @@ on:
       - 'docs/releases/**'
       - 'Scripts/bundle.sh'
       - 'Scripts/version'
+      - 'Scripts/site-locales/**'
+      - 'Scripts/site-privacy-locales/**'
       - 'Scripts/check-project-manifest.py'
+      - 'Scripts/check-current-documentation.py'
       - 'Scripts/check-dependency-policy.py'
       - 'Scripts/dependency-policy.json'
       - 'Scripts/generate-architecture-ledger.py'
@@ -30,6 +40,7 @@ on:
       - 'Scripts/check-qa-impact.py'
       - 'Scripts/qa-impact-rules.json'
       - 'Tests/PythonTests/test_project_manifest.py'
+      - 'Tests/PythonTests/test_current_documentation.py'
       - 'Tests/PythonTests/test_dependency_policy.py'
       - 'Tests/PythonTests/test_architecture_ledger.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
@@ -40,7 +51,14 @@ on:
   push:
     branches: [main]
     paths:
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'README.md'
+      - 'README.ru.md'
+      - 'PRIVACY.md'
+      - 'SECURITY.md'
       - 'PROJECT-MANIFEST.json'
+      - '.claude/rules/**'
       - 'Package.swift'
       - 'Package.resolved'
       - 'knowledge-base/**'
@@ -50,7 +68,10 @@ on:
       - 'docs/releases/**'
       - 'Scripts/bundle.sh'
       - 'Scripts/version'
+      - 'Scripts/site-locales/**'
+      - 'Scripts/site-privacy-locales/**'
       - 'Scripts/check-project-manifest.py'
+      - 'Scripts/check-current-documentation.py'
       - 'Scripts/check-dependency-policy.py'
       - 'Scripts/dependency-policy.json'
       - 'Scripts/generate-architecture-ledger.py'
@@ -67,6 +88,7 @@ on:
       - 'Scripts/check-qa-impact.py'
       - 'Scripts/qa-impact-rules.json'
       - 'Tests/PythonTests/test_project_manifest.py'
+      - 'Tests/PythonTests/test_current_documentation.py'
       - 'Tests/PythonTests/test_dependency_policy.py'
       - 'Tests/PythonTests/test_architecture_ledger.py'
       - 'Tests/PythonTests/test_documentation_guardian.py'
@@ -94,6 +116,10 @@ jobs:
         run: python3 Scripts/check-project-manifest.py
       - name: Test project manifest contract
         run: python3 -m unittest discover -s Tests/PythonTests -p 'test_project_manifest.py'
+      - name: Validate current documentation and agent entrypoints
+        run: python3 Scripts/check-current-documentation.py
+      - name: Test current documentation consistency guard
+        run: python3 -m unittest discover -s Tests/PythonTests -p 'test_current_documentation.py'
       - name: Validate dependency supply-chain policy
         run: python3 Scripts/check-dependency-policy.py
       - name: Test dependency supply-chain policy

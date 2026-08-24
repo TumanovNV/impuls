@@ -15,7 +15,7 @@ from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 KNOWLEDGE_BASE = ROOT / "knowledge-base"
-DOCUMENTATION_BASELINE = "1.3"
+DOCUMENTATION_BASELINE = "1.4"
 REQUIRED_FRONTMATTER = {
     "title",
     "type",

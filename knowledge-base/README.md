@@ -1,6 +1,6 @@
 # IMPULS Engineering Knowledge Base
 
-Documentation version **1.3**, product baseline **1.4.13**.
+Documentation version **1.4**. Current product baseline is owned by [`Scripts/version`](../Scripts/version) and [Project Status](00-project/project-status.md); do not copy a release number here as a second source of truth.
 
 Эта папка — Markdown-first база знаний проекта. Её можно открыть как отдельный Obsidian vault, читать на GitHub или давать Claude/Codex как structured project context.
 
@@ -10,30 +10,30 @@ Documentation version **1.3**, product baseline **1.4.13**.
 
 `docs/` — production GitHub Pages, release notes и security audits. `knowledge-base/` — engineering source of truth. Причина зафиксирована в [ADR-001](08-decisions/ADR-001-knowledge-base-location.md).
 
-## Что покрывает v1.3
+## Что покрывает v1.4
 
 v1.1 зафиксировала lifecycle, state ownership, multi-display, storage, permissions, network boundaries, все shipped modules, release/update pipeline, threat model, ADR и Mermaid-схемы.
 
 v1.2 добавила precision/reference layer: Schema & Migration Registry, Core Type Reference, machine-checked Type → Tests → Docs Map и формальную Public / Private Operations Boundary.
 
-v1.3 добавляет anti-drift, performance/QA и web-documentation слой:
+v1.3 добавила performance/QA anti-drift foundation: Background Work & Concurrency Registry, Input & Resource Budget Registry, Behavioral QA Matrix, Documentation Guardian, Git-history freshness, QA impact traceability, per-release evidence и production website documentation.
 
-- единый [Background Work & Concurrency Registry](12-reference/background-concurrency-registry.md);
-- единый [Input & Resource Budget Registry](12-reference/resource-budget-registry.md);
-- [Behavioral QA Matrix](13-qa/behavioral-qa-matrix.md) для multi-display, TCC, hardware, data, media, UI и release edge cases;
-- [Documentation Guardian](10-ai/documentation-guardian.md) с semantic contract families;
-- machine-readable semantic rules `Scripts/documentation-guardian-rules.json`;
-- diff checker `Scripts/check-documentation-guardian.py`;
-- historical source→doc freshness mapping `Scripts/documentation-freshness.json`;
-- Git-history freshness checker `Scripts/check-documentation-freshness.py`;
-- source/test → Behavioral QA routing через `Scripts/check-qa-impact.py`;
-- per-release QA evidence и shipping gate через `Scripts/check-release-qa-evidence.py`;
-- [Website Architecture](07-web/website.md) и [Website Design System](07-web/design-system.md) для production GitHub Pages;
-- weekly lightweight freshness run for periodic high-risk documentation review.
+v1.4 добавляет **current-state/cold-start anti-drift** после реального аудита документации:
+
+- focused current-entrypoint consistency checker `Scripts/check-current-documentation.py`;
+- machine-checked parity текущего app/website/legal locale baseline и registry-owned paths;
+- явные localization/legal routes в `PROJECT-MANIFEST.json`;
+- обновлённые `AGENTS.md`, `CLAUDE.md`, AI Index и Repository Map для cold-start agents;
+- публичные README/PRIVACY/SECURITY entrypoints, сверенные с 1.4.15 contracts;
+- [Localization](04-development/localization.md) как canonical route между тремя независимыми localization contracts: app, marketing website и legal/privacy website;
+- [Website Architecture](07-web/website.md), [Website Design System](07-web/design-system.md) и [Website Legal and Privacy Localization](07-web/legal-privacy.md) для production GitHub Pages;
+- сохранение исторических `app_version`/release facts там, где они являются evidence, а не текущим состоянием.
 
 ## Автоматические проверки документации
 
 ```bash
+python3 Scripts/check-project-manifest.py
+python3 Scripts/check-current-documentation.py
 python3 Scripts/check-knowledge-base.py
 python3 Scripts/generate-knowledge-map.py --check
 python3 Scripts/check-documentation-guardian.py --base <base-sha>
@@ -42,11 +42,11 @@ python3 Scripts/check-qa-impact.py --base <base-sha>
 python3 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-Первая проверка валидирует структуру/frontmatter/links/baseline. Вторая проверяет curated source→tests→docs map. Третья — Documentation Guardian v2: анализирует изменённые строки и требует review соответствующего canonical owner для contract-sensitive изменений, включая background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries и shipped module topology. Четвёртая использует историю Git и не даёт canonical doc оставаться старее закреплённого source.
+`check-project-manifest.py` защищает routing-only карту владельцев. `check-current-documentation.py` отдельно проверяет high-value current-state/agent/public entrypoints против реального version/locale/routing contract. `check-knowledge-base.py` валидирует структуру/frontmatter/links/baseline. Generated map проверяет curated source→tests→docs ownership. Documentation Guardian анализирует sensitive diff и требует review canonical owner. Freshness checker использует историю Git, чтобы закреплённый canonical doc не оставался старее tracked source.
 
-Пятая маршрутизирует фактический diff к Behavioral QA IDs, падает на unmapped behavioral owners и проверяет связь source/test → QA. Шестая валидирует release-specific manual/mixed evidence и не позволяет shipping decision `blocked` пройти release gate.
+QA impact маршрутизирует фактический diff к Behavioral QA IDs, падает на unmapped behavioral owners и проверяет связь source/test → QA. Release QA gate валидирует version-specific manual/mixed evidence и не позволяет shipping decision `blocked` пройти.
 
-Guardian не генерирует текст из кода. Он создаёт обязательство пересмотреть документ и тем самым не даёт документации тихо отстать от реализации. QA impact и release evidence аналогично не подменяют реальные hardware/TCC/service проверки зелёным CI.
+Эти проверки не генерируют «правду» из Markdown и не заменяют code review. Они создают обязательство сверить документ с code/tests/CI и не дают нескольким текущим входным точкам тихо разойтись между собой. Historical documents намеренно не переписываются только из-за нового release number.
 
 По понедельникам GitHub Actions дополнительно запускает freshness check с `--enforce-review-age`: для критичных архитектурных/reference документов используется 180-дневный цикл review, для отдельных module docs — 365 дней. Обычный PR не краснеет только из-за возраста — age policy включается отдельно по расписанию.
 
@@ -72,7 +72,7 @@ Open folder as vault → выбрать `knowledge-base`. Плагины не о
 
 ## Два документационных контура Impuls
 
-Публичный `TumanovNV/impuls` хранит software facts: код, архитектуру, схемы данных, tests, release/update и telemetry software contract.
+Публичный `TumanovNV/impuls` хранит software facts: код, архитектуру, схемы данных, tests, release/update, website/legal contracts и telemetry software contract.
 
 Фактическая production topology/runtime документация telemetry-контура хранится в private infrastructure vault. Public knowledge base знает только границу и маршрут к private source of truth, но не копирует private IP/VPN/access state.
 
@@ -80,13 +80,17 @@ Open folder as vault → выбрать `knowledge-base`. Плагины не о
 
 ## Правило поддержки
 
-Если change меняет documented architecture/module/data/security/release/performance contract, documentation update входит в тот же change set. `last_reviewed` меняется только после фактической сверки с code/tests/CI.
+Если change меняет documented architecture/module/data/security/release/performance/localization/web contract, documentation update входит в тот же change set. `last_reviewed` меняется только после фактической сверки с code/tests/CI.
 
 Если меняется persisted format — сначала проверить [Schema & Migration Registry](12-reference/schema-migration-registry.md).
 
 Если меняется timer/task/queue/cadence — проверить [Background Work & Concurrency Registry](12-reference/background-concurrency-registry.md).
 
 Если меняется лимит, timeout или backpressure — проверить [Input & Resource Budget Registry](12-reference/resource-budget-registry.md).
+
+Если меняется набор языков — проверить все три контракта в [Localization](04-development/localization.md), не выводя website/legal поддержку из наличия `.lproj`.
+
+Если меняется high-value current/agent/public entrypoint — рассмотреть assertion в `Scripts/check-current-documentation.py`, чтобы исправление стало воспроизводимым, а не зависело от памяти следующего агента.
 
 Если появляется новый user-visible platform/hardware edge — добавить его в [Behavioral QA Matrix](13-qa/behavioral-qa-matrix.md).
 

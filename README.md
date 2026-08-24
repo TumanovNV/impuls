@@ -8,22 +8,30 @@
 [![Swift](https://img.shields.io/badge/Swift-6-f05138?logo=swift&logoColor=white)](Package.swift)
 [![License](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 
-**[Website](https://tumanovnv.github.io/impuls/) · [Download](https://github.com/TumanovNV/impuls/releases/latest) · [Privacy](PRIVACY.md) · [Security](SECURITY.md)**
+**[Website](https://tumanovnv.github.io/impuls/) · [Download](https://github.com/TumanovNV/impuls/releases/latest) · [Privacy](https://tumanovnv.github.io/impuls/privacy/) · [Security](SECURITY.md)**
 
 Impuls is a native macOS utility that turns the area around the MacBook notch —
 or a compact top-edge tab on other Macs — into a local action search, player,
-file shelf, clipboard history, snippets, calendar, translator, and scratchpad.
+file shelf, clipboard history, snippets, calendar, translator, notes, and
+battery/power workspace.
 
-Impuls 1.4 adds a built-in **Battery** module. It shows charge, power state,
-estimated running or charging time, and the electrical and battery indicators
-that macOS actually makes available. On Macs without an internal battery, the
-same module becomes **Power**. The available values vary by Mac model and macOS
-version; unavailable hardware data is shown as unavailable rather than guessed.
+The current product ships **seven interface languages**: English, Russian,
+German, French, Spanish, Simplified Chinese, and Japanese. The public marketing
+site and privacy notices have matching static language versions. The application
+follows macOS by default; **Settings → General → Interface Language** can select
+one explicitly and Impuls safely relaunches itself to apply the change.
+
+Impuls 1.4 adds a built-in **Battery / Power** module. It shows charge, power
+state, estimated running or charging time, and the electrical and battery
+indicators that macOS actually makes available. On Macs without an internal
+battery, the same module becomes **Power**. The available values vary by Mac
+model and macOS version; unavailable hardware data is shown as unavailable
+rather than guessed.
 
 > Public releases are currently ad-hoc signed and are not notarized by Apple,
-> so the first installation still needs manual Gatekeeper approval. Beginning
-> with 1.2.9, later releases install from inside Impuls through a signed update
-> channel; Developer ID will remove the first-install warning when available.
+> so the first installation still needs manual Gatekeeper approval. Later
+> releases install from inside Impuls through a signed Sparkle update channel;
+> Developer ID will remove the first-install warning when available.
 
 ## Privacy by design
 
@@ -32,15 +40,40 @@ version; unavailable hardware data is shown as unavailable rather than guessed.
   opens a selected web music service, or separately opts in to minimal version
   statistics;
 - version statistics contain only a random installation pseudonym and app
-  version (plus a correctly observed previous version), at most once per hour;
-- update checks contact only the Impuls GitHub Releases endpoint;
+  version (plus a correctly observed previous version), at most one attempt per
+  hour for the same app version;
+- update checks contact only the fixed Impuls GitHub Releases feed;
 - an update is downloaded and installed only after the user acts;
-- clipboard content, notes, snippets, files, and calendar data never leave the Mac;
+- clipboard content, notes, snippets, files, calendar data, and project-support
+  eligibility never leave the Mac through Impuls telemetry;
 - concealed password-manager pasteboard entries are excluded from history;
 - no private MediaRemote framework, `/usr/bin/perl`, or process injection; the
   updater uses only Sparkle's documented, signed helper components.
 
-See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the precise model.
+See [PRIVACY.md](PRIVACY.md), the localized [privacy policy](https://tumanovnv.github.io/impuls/privacy/), and [SECURITY.md](SECURITY.md) for the precise model.
+
+## Seven languages
+
+The macOS application currently carries these complete localization tables:
+
+- English (`en`)
+- Русский (`ru`)
+- Deutsch (`de`)
+- Français (`fr`)
+- Español (`es`)
+- 简体中文 (`zh-Hans`)
+- 日本語 (`ja`)
+
+Every shipped application localization contains both `Localizable.strings` and
+localized `InfoPlist.strings`. CI requires the same user-facing key set in every
+application table and verifies the bundle declaration. Language selection is
+local; Impuls downloads no language pack and sends no language preference as
+telemetry.
+
+The website has separate static routes for the same current language set, and
+its legal/privacy pages are a third independent localization contract. Their
+sets happen to match today but are not inferred from one another. Engineering
+details live in `knowledge-base/04-development/localization.md`.
 
 ## Impuls Actions
 
@@ -74,27 +107,19 @@ progress, adds system Quick Look, and can safely undo the latest generated-file
 or rename operation. Generated results are moved to the Trash only while they
 remain unchanged; Impuls refuses to touch a file the user has modified.
 
-## Stability and feedback
+## Stability, feedback, and project support
 
-Impuls 1.2.9 adds authenticated in-app updates through Sparkle 2.9.5. The app
-checks a fixed HTTPS feed only after consent, verifies the signed feed and the
-Ed25519 signature of the update before extraction, replaces the application,
-relaunches it, and leaves no installer in Downloads. Automatic installation and
-anonymous system profiling remain disabled.
+Impuls uses authenticated in-app updates through Sparkle 2.9.5. The app checks a
+fixed HTTPS feed only after consent, verifies the signed feed and the Ed25519
+signature of the update before extraction, replaces the application, relaunches
+it, and leaves no installer in Downloads. Automatic installation and anonymous
+system profiling remain disabled by default.
 
-Impuls 1.2.8 separates pointer hover, selection, and activation in Actions. The
-command bar now remains attached to the explicitly selected result while the
-pointer travels across the list; a click selects and a double-click copies.
-
-Impuls 1.2.7 keeps a hover-opened panel visible for the complete lifetime of a
-context menu, including nested image tools. Closing the menu restores the normal
-hover decision, preventing detached submenus and visual artifacts.
-
-The 1.2.6 stabilization work also keeps compact rows and local search on
-bounded text projections, screenshot and note writes no longer occupy the UI
-thread, player refreshes are coalesced, artwork is downsampled before display,
-and Calendar link discovery has an explicit processing budget. Generated-file
-Undo now verifies a SHA-256 content digest before moving a result to the Trash.
+Actions keeps pointer hover, explicit selection, and activation separate. The
+command bar remains attached to the explicitly selected result while the pointer
+travels across the list; a click selects and a double-click copies. Context-menu
+lifecycle and bounded local processing are covered by the current test/CI
+contracts rather than inferred from an old release note.
 
 A feedback center in the menu and Settings collects a problem report, an
 improvement idea, or a general rating. The report is built locally and shown
@@ -104,26 +129,35 @@ files, paths, calendar data, logs, and device identifiers are never added.
 Impuls uploads nothing itself: after an explicit action it copies the report and
 opens the public GitHub form in the system browser.
 
+After sustained deliberate use, Impuls may also offer **Support the Project**:
+a GitHub project link or the same Feedback window. Eligibility is computed only
+on the Mac, is never telemetry, and automatic presentation is capped at two
+appearances for the lifetime of that local state. Impuls does not query GitHub
+to check whether a star was actually given.
+
 Repository forms use the same core area, frequency, rating, and version fields
 and unstructured blank issues are disabled, keeping voluntary feedback useful
 for prioritization without adding feedback analytics to the app. The separate
-1.4.10 version statistic remains off until the user opts in.
+minimal version statistic remains off until the user opts in.
 
 ## Settings and keyboard control
 
 The native sidebar-and-detail Settings window can configure the global shortcut,
-hover behaviour, panel size, target display, visible modules, and their order.
+hover behaviour, panel size, target display, visible modules, their order, Menu
+Bar workspace, privacy choices, Apple-device visibility, and interface language.
 When opened from the keyboard, use the left and right arrows to move between
 modules and Escape to close the panel. Settings, snippets, and notes can be
-exported to and restored from a local JSON backup.
+exported to and restored from a local JSON backup; machine-local language,
+device identity/order, and project-support state are not turned into portable
+cross-Mac identity.
 
-Impuls 1.4.11 adds a versioned first-run tour and a configurable **Menu Bar**
-workspace. A fresh installation can choose a preset, a compact status item, one
-or two live widgets, Smart priorities, and zero to four quick actions. Existing
-installations receive only a concise What’s New note; the full tour remains
-available from Settings → Menu Bar. The Menu Bar reads existing local battery and
-player state only. It never starts a provider, makes a network request, or
-invents missing device data.
+Impuls 1.4.11 introduced a versioned first-run tour and a configurable **Menu
+Bar** workspace. A fresh installation can choose a preset, a compact status
+item, one or two live widgets, Smart priorities, and zero to four quick actions.
+Existing installations receive a concise version-aware What’s New note; the
+full tour remains available from Settings. The Menu Bar reads existing local
+battery and player state only. It never starts a provider, makes a network
+request, or invents missing device data.
 
 ## Battery and power
 
@@ -131,8 +165,9 @@ On a MacBook, the Battery module uses public IOPowerSources data for charge,
 charging state, estimated time to empty or full charge, current, voltage,
 temperature when published, and adapter rating. Battery-side power and adapter
 rating are deliberately separate: a 70 W adapter is not claimed to be charging
-the battery at 70 W. Cycle count is read locally through a small public IORegistry
-fallback when the Mac publishes it. No power data is stored or sent anywhere.
+the battery at 70 W. Cycle count is read locally through a small public
+IORegistry fallback when the Mac publishes it. No power data is stored or sent
+anywhere.
 
 MagSafe and USB-C are shown only when a reliable source provides that fact. The
 public adapter API describes the adapter but not the active charging port, so a
@@ -142,13 +177,13 @@ power wattage.
 
 ## Music support
 
-The Music pane now makes the source explicit. The native Apple Music adapter
-uses its scripting interface and player-change events, with Automation as its
-only music permission. Yandex Music is the first web choice, alongside VK Music
-and YouTube Music. Their official sites open in a separate system
-WebKit window only after the user presses **Open Web Player**; the notch then
-shows the page's bounded Media Session metadata and sends transport or seek
-actions back to that page. Selecting a source alone never starts a request.
+The Music pane makes the source explicit. The native Apple Music adapter uses
+its scripting interface and player-change events, with Automation as its only
+music permission. Yandex Music, VK Music, and YouTube Music can open their
+official sites in a separate system WebKit window only after the user presses
+**Open Web Player**; the notch then shows bounded page metadata and sends
+transport or seek actions back to that page. Selecting a source alone never
+starts a request.
 
 Spotify is deliberately not on that list: its web player decrypts through
 Widevine, which WebKit does not implement, so an embedded tab can sign in but
@@ -162,8 +197,9 @@ or DRM, or claim access to the private system-wide Now Playing database.
 - macOS 15 or newer;
 - Swift 6 toolchain for source builds.
 
-Macs without a physical notch use a 96 × 10 pt tab with a 120 × 16 pt hover
-target. MacBook notch geometry is detected from the display safe area.
+Macs without a physical notch use a compact top-edge tab; MacBook notch geometry
+is detected from the display safe area. Exact geometry belongs to the current
+theme/geometry implementation and tests rather than this public overview.
 
 ## Build
 
@@ -174,18 +210,17 @@ open build/Impuls.app
 ```
 
 The script uses Developer ID when `IMPULS_DEVELOPER_ID_APPLICATION` is configured;
-otherwise it produces an ad-hoc signed development build. An ad-hoc build needs
-manual Gatekeeper approval on another Mac.
+otherwise it produces an ad-hoc signed build. An ad-hoc build needs manual
+Gatekeeper approval on another Mac.
 
 ## Update policy
 
-At first launch, Impuls asks whether it may check GitHub Releases. Choosing
-“Do Not Check” causes no update request. The decision can be changed from the
-menu. Version 1.2.9 is the one-time transition install. Starting with 1.2.10,
-“Check for Updates…” downloads a signed ZIP to temporary system storage,
-verifies it before extraction, replaces Impuls, relaunches the app, and cleans
-the temporary files. Developer ID and notarization are still required to remove
-Gatekeeper approval from the first installation on a Mac.
+At first launch, Impuls asks whether it may check GitHub Releases. Choosing not
+to check causes no update request. The decision can be changed later. When the
+user requests/allows an update, Sparkle uses temporary system storage, verifies
+the signed feed and archive before extraction, replaces Impuls, relaunches the
+app, and cleans temporary files. Developer ID and notarization are still
+required to remove Gatekeeper approval from the first installation on a Mac.
 
 ## Licensing and origin
 

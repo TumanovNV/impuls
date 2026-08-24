@@ -27,6 +27,20 @@ class ProjectManifestTests(unittest.TestCase):
         self.assertEqual(set(catalog), set(manifest_ids))
         self.assertEqual(9, len(manifest_ids))
 
+    def test_localization_and_legal_routes_are_explicit(self):
+        self.assertEqual(
+            "knowledge-base/04-development/localization.md",
+            self.manifest["product"]["localization_doc"],
+        )
+        self.assertEqual(
+            "knowledge-base/07-web/legal-privacy.md",
+            self.manifest["web_and_collector"]["website_legal_doc"],
+        )
+        self.assertEqual(
+            "Scripts/site-locales/registry.json",
+            self.manifest["web_and_collector"]["website_locale_registry"],
+        )
+
     def test_missing_module_is_detected(self):
         data = copy.deepcopy(self.manifest)
         data["modules"] = data["modules"][:-1]

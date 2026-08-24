@@ -2,9 +2,9 @@
 title: Project Status
 type: status
 status: active
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 1.4.15
-last_reviewed: 2026-08-23
+last_reviewed: 2026-08-24
 tags: [impuls, status, current]
 ---
 
@@ -14,7 +14,7 @@ tags: [impuls, status, current]
 
 **Current production release: 1.4.15, published.** Источник версии — `Scripts/version`.
 
-**Current documentation baseline: 1.3.**
+**Current documentation baseline: 1.4.**
 
 Release `1.4.15` packages the merged localization wave (PR #75) and local-first project-support flow (PR #76). The product now ships seven interface localizations (`en`, `ru`, `de`, `fr`, `es`, `zh-Hans`, `ja`), an in-app language selector with safe automatic self-relaunch, and a bounded project-support/feedback prompt whose eligibility stays entirely on the Mac and is capped at two automatic appearances. The release notes disclose that Russian and English remain the primary localizations and that the five added translations were prepared with AI assistance and have not yet received full native-speaker proofreading. The release decision is `ship-with-known-gaps`: unperformed manual hardware/TCC/service scenarios remain explicit `not-run` in version-specific evidence rather than being inferred from partial feature QA.
 
@@ -40,7 +40,7 @@ Release `1.4.14` is now the previous production baseline. It contained the Power
 
 Current localization routing is explicit: [Localization](../04-development/localization.md) owns the three separate seven-locale contracts for the macOS app, marketing website and privacy/legal website. The sets currently match, but future changes must not infer one surface from another.
 
-## Documentation coverage 1.3
+## Documentation coverage 1.4
 
 The knowledge base contains:
 
@@ -66,7 +66,8 @@ The knowledge base contains:
 - per-release QA evidence records that bind manual/mixed scenarios to real environments, outcomes and known gaps;
 - a machine-checked release QA policy that requires an evidence file whenever the version baseline changes and forbids historical `not-recorded` results from 1.4.12 onward;
 - Documentation Guardian v2 with 11 semantic contract families, including privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and module topology in addition to the original background/resource/persistence/network/permission/dependency rules;
-- Git-history freshness guard with **21 curated canonical mappings**, including Menu Bar, Privacy Boundaries, Signing & Distribution, State & Ownership and the Core Type Reference;
+- Git-history freshness guard with **24 curated canonical mappings**, including Localization, Website Architecture, Website Legal/Privacy, Menu Bar, Privacy Boundaries, Signing & Distribution, State & Ownership and the Core Type Reference;
+- a focused current-documentation guard that compares cold-start agent/public entrypoints against live version/locale/routing owners;
 - weekly periodic review-age enforcement for curated high-risk docs;
 - explicit collector SQLite schema versioning and ordered migration boundary using `PRAGMA user_version`;
 - production website architecture for seven static marketing locales plus seven localized privacy/legal routes, with dedicated site-localization and site-legal-localization CI gates.
@@ -90,13 +91,17 @@ The knowledge base contains:
 15. behavioral source/test ownership is machine-routed to Behavioral QA IDs; a newly changed tracked behavioral source must have a QA route or a narrow documented exemption;
 16. privacy identity, telemetry payload, update-signing integrity, actor ownership and shipped module topology changes create machine-enforced canonical documentation review obligations;
 17. Menu Bar status rendering is a pure presentation boundary over already-resolved shared state; `MenuBarStatusItemPresentation` must not become a provider/network/polling owner;
-18. project-support eligibility remains machine-local, does not become telemetry/networking, and automatic prompting stays bounded to at most two appearances for the lifetime of the local state.
+18. project-support eligibility remains machine-local, does not become telemetry/networking, and automatic prompting stays bounded to at most two appearances for the lifetime of the local state;
+19. app, marketing-site and legal/privacy localization remain separate contracts even while their current seven-locale sets match;
+20. cold-start agent/public entrypoints must route mutable facts to canonical owners rather than hardcoding release/locale/runtime state.
 
 ## Documentation automation
 
-Six repository checks now protect documentation and QA drift:
+Eight focused repository checks now protect documentation/routing/QA drift:
 
 ```text
+Scripts/check-project-manifest.py
+Scripts/check-current-documentation.py
 Scripts/check-knowledge-base.py
 Scripts/generate-knowledge-map.py --check
 Scripts/check-documentation-guardian.py --base <base-sha>
@@ -105,13 +110,13 @@ Scripts/check-qa-impact.py --base <base-sha>
 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-The first validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The second verifies the committed source→tests→docs reference against the curated manifest and actual repository files; the current map contains 34 verified owners. The third is Documentation Guardian v2: it inspects added and removed source lines across 11 narrow semantic contract families and requires the appropriate canonical owner in the same diff. The protected families include background/concurrency, resource budgets, persistence/schema, networking, permissions, dependencies, privacy/device identity, telemetry payload/privacy, update/signing integrity, ownership/actor boundaries and shipped module topology. The fourth uses full Git history to prove that 21 curated canonical mappings are not older than their tracked implementation. When a document and its tracked source share their latest commit they travelled together, so only the ancestry and review-age rules apply; a `last_reviewed` written before a commit that lands after midnight in a positive UTC offset is a timezone artefact, not drift.
+`check-project-manifest.py` validates the routing-only machine map, including module/network ownership and the current localization/legal canonical routes. `check-current-documentation.py` protects the complementary class of drift that the earlier system did not cover: it checks high-value cold-start/public entrypoints, rejects copied current-release assumptions, compares the actual application locale set across `Resources/*.lproj`, `AppLanguageService` and `CFBundleLocalizations`, compares that current baseline with the website registry/legal locale configs, verifies canonical privacy routing, and checks that AGENTS/Claude/AI routing lead to the right owners.
 
-The fifth maps the actual Git diff through `Scripts/qa-impact-rules.json`, reports impacted Behavioral QA IDs, fails when a changed tracked behavioral source has no route, requires every matrix scenario to be covered by the map, requires automated QA IDs to have a mapped test route, and on version-bump diffs verifies that impacted non-automated IDs exist in that version's Release QA Evidence. The sixth validates the full release evidence contract and rejects a release candidate whose decision is `blocked`.
+`check-knowledge-base.py` validates Markdown/frontmatter/local links/fenced diagrams/baseline metadata. The generated knowledge map verifies the committed source→tests→docs reference against the curated manifest; the current map contains 34 verified owners. Documentation Guardian v2 inspects added and removed source lines across 11 narrow semantic contract families and requires the appropriate canonical owner in the same diff. The Git-history freshness check proves that **24 curated canonical mappings** are not older than their tracked implementation; scheduled runs additionally enforce periodic review-age budgets. The 1.4 additions include Localization, Website Architecture and Website Legal/Privacy, while Settings/Privacy mappings now include `AppLanguageService` and `ProjectSupportPromptService`.
 
-The weekly scheduled knowledge-base workflow additionally enables freshness review-age policy. It does not make ordinary PRs fail merely because calendar time passed. QA impact validation runs configuration-only when no meaningful diff base exists.
+`check-qa-impact.py` maps the actual diff through `Scripts/qa-impact-rules.json`, reports impacted Behavioral QA IDs, fails when a changed tracked behavioral source has no route, requires every matrix scenario to be covered by the map, requires automated QA IDs to have a mapped test route, and on version-bump diffs verifies that impacted non-automated IDs exist in that version's Release QA Evidence. `check-release-qa-evidence.py` validates the full release evidence contract and rejects a release candidate whose decision is `blocked`.
 
-These guards are intentionally conservative: they do not pretend automation can understand architecture or simulate real hardware/TCC. Their job is to make high-risk changes, stale ownership, unmapped behavioral code and missing manual evidence impossible to overlook during an AI/PR workflow. Guardian and freshness routes deliberately use curated owners rather than repository-wide heuristics so ordinary implementation edits remain quiet.
+These guards are intentionally layered rather than pretending one heuristic can prove documentation correctness. Structural validation, current-entrypoint consistency, semantic diff obligations, historical freshness and QA evidence answer different questions. Historical release/audit documents are allowed to preserve their old version context; the new current-documentation guard deliberately targets documents/routes that claim current state.
 
 ## Collector schema state
 
@@ -137,6 +142,6 @@ Production telemetry runtime/topology is intentionally not duplicated here. The 
 
 ## Next documentation work
 
-The broad documentation foundation, release evidence, source/test→QA traceability, Guardian v2, 34-owner Type→Tests→Docs map and 21 high-risk freshness mappings are now in place. There is no value in expanding these registries by file count alone.
+The documentation system now has explicit protection for both deep canonical contracts and high-value current/cold-start entrypoints. Future work should primarily travel with product changes rather than expanding registries by file count alone.
 
-Future documentation work should primarily travel with product changes. Add a new curated type/freshness owner only when a new subsystem gains durable architectural responsibility or an actual drift incident exposes a missing route. Preserve concrete real-Mac release evidence for future versions and refine Guardian/QA matchers only when a real product change exposes a gap or false-positive pattern.
+Add a new curated type/freshness owner only when a subsystem gains durable architectural responsibility or a real drift incident exposes a missing route. Add a new current-document assertion when an actual stale public/agent entrypoint reveals a repeatable class of drift. Preserve concrete real-Mac release evidence for future versions and refine Guardian/QA matchers only when a real product change exposes a gap or false-positive pattern.

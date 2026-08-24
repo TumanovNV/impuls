@@ -2,9 +2,9 @@
 title: IMPULS AI Index
 type: ai-index
 status: active
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 1.4.15
-last_reviewed: 2026-08-23
+last_reviewed: 2026-08-24
 tags: [impuls, ai, agents, index, qa]
 ---
 
@@ -12,7 +12,7 @@ tags: [impuls, ai, agents, index, qa]
 
 ## Обязательный старт
 
-Перед изменением проекта: `AGENTS.md` → root `PROJECT-MANIFEST.json` → этот индекс → relevant subsystem/reference docs → code/tests/CI. Manifest — routing-only; старые handoff/release docs используются как history, не как current source of truth.
+Перед изменением проекта: `AGENTS.md` → root `PROJECT-MANIFEST.json` → этот индекс → relevant subsystem/reference docs → code/tests/CI. Manifest — routing-only; старые handoff/release docs используются как history, не как current source of truth. Точная текущая версия принадлежит `Scripts/version`, а не копии номера в агентском entrypoint.
 
 ## Core map
 
@@ -53,7 +53,7 @@ tags: [impuls, ai, agents, index, qa]
 ## Routing
 
 ### Module
-Read exact module page → generated type map → source + mapped tests. Include schema/permission/network/performance/security docs when those contracts change. Before finishing a behavioral source/test diff, run QA impact traceability against the real PR base and review the reported scenario IDs.
+Read exact module page → generated type map → source + mapped tests. Include localization/schema/permission/network/performance/security docs when those contracts change. Before finishing a behavioral source/test diff, run QA impact traceability against the real PR base and review the reported scenario IDs.
 
 ### Settings / onboarding / feedback / project support
 
@@ -67,7 +67,7 @@ Read [Localization](../04-development/localization.md) first. On the current 1.4
 
 For app-localization changes verify `Resources/*.lproj`, `AppLanguageService`, `CFBundleLocalizations`, localization CI and the `UI-07` manual contract. For marketing website locale/routing changes also read [Website Architecture](../07-web/website.md). For privacy/legal translation, route or policy-revision changes also read [Website Legal and Privacy Localization](../07-web/legal-privacy.md) and `PRIVACY.md`.
 
-A new `.lproj` alone does not publish a website/legal locale. A new website locale alone does not prove the app ships it. If the three sets intentionally diverge, document the divergence explicitly; do not leave future agents to infer it from directory names.
+A new `.lproj` alone does not publish a website/legal locale. A new website locale alone does not prove the app ships it. If the three sets intentionally diverge, document the divergence explicitly; do not leave future agents to infer it from directory names. After any language-set/routing change run `python3 Scripts/check-current-documentation.py` in addition to the focused localization/site/legal gates.
 
 ### Performance / concurrency / background work
 Read Background Work & Concurrency Registry before timers, pollers, debounce/retry, Tasks, observers/sockets or queue/actor changes. For limits/timeouts/backpressure also read Resource Budget Registry. Then use the QA impact checker to see which behavioral contracts inherit the change.
@@ -87,14 +87,15 @@ Read networking + ADR-003 + threat model. Exactly three Internet network owners 
 ### Release/signing
 Read signing/distribution + release pipeline + update system + ADR-005 + supply chain + Behavioral QA + QA Impact Traceability + Release QA Evidence. A version bump must travel with `docs/releases/<version>.md` **and** `knowledge-base/13-qa/release-evidence/<version>.md`. Starting with 1.4.12, historical `not-recorded` is forbidden: every manual/mixed scenario must have a truthful result and environment/gap classification.
 
-Run both gates against the real base before calling the candidate ready:
+Run the current-state and release gates against the real base before calling the candidate ready:
 
 ```bash
+python3 Scripts/check-current-documentation.py
 python3 Scripts/check-qa-impact.py --base <base-sha>
 python3 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
-The first tells you which QA IDs the diff may have affected and confirms impacted non-automated IDs are represented in candidate evidence. The second owns the actual shipping decision. Never convert green unit tests into manual hardware/TCC passes.
+The current-documentation guard prevents cold-start/public entrypoints from silently retaining the previous release/localization/legal routing model. QA impact tells you which QA IDs the diff may have affected and confirms impacted non-automated IDs are represented in candidate evidence. Release QA Evidence owns the actual shipping decision. Never convert green unit tests into manual hardware/TCC passes.
 
 If the release changes a durable architecture/privacy/security/performance/ownership contract, also add an entry to `Scripts/architecture-milestones.json`, regenerate the Release Architecture Ledger and create/update an ADR when warranted.
 
@@ -107,8 +108,8 @@ Current production runtime belongs to the private infrastructure vault. If conne
 ### Core type ownership change
 Update `Scripts/knowledge-map-manifest.json`, regenerate the type map and run `--check`.
 
-### Canonical documentation mapping change
-Consider whether `Scripts/documentation-freshness.json` must track a new high-risk owner.
+### Canonical documentation mapping / current entrypoint change
+Consider whether `Scripts/documentation-freshness.json` must track a new high-risk canonical owner. If a change adds/moves a durable cold-start/public route, update `PROJECT-MANIFEST.json`, the relevant agent indexes and `Scripts/check-current-documentation.py` when the new invariant is machine-checkable.
 
 ### New behavioral edge
 Add/update a Behavioral QA row when deterministic unit tests cannot fully prove a new platform/hardware/TCC/lifecycle path. Then add that ID to the correct source/test rule in `Scripts/qa-impact-rules.json`. The QA impact configuration validator requires every current matrix ID to have a route, and every automated ID to have a mapped test route. Review the current release evidence candidate too: adding a manual/mixed row creates a new evidence obligation. Documentation is not pass evidence.
@@ -121,4 +122,4 @@ Read [Pre-Audit Baseline — 1.4.12](../00-project/pre-audit-baseline-1.4.12.md)
 
 ## Trust rule
 
-При конфликте сначала code + tests + CI. Затем исправь knowledge base. For historical architecture questions use the generated ledger as routing evidence, then verify the linked release/canonical sources. For change-impact claims use the machine-readable QA impact map plus the actual Git diff. For release certification claims require the version-specific QA evidence record rather than inferring a pass from tests, screenshots, the impact report or the scenario inventory.
+При конфликте сначала code + tests + CI. Затем исправь routed canonical knowledge owner и любой stale current-state/public/agent entrypoint. `Scripts/check-current-documentation.py` защищает mutable cold-start/public facts; Documentation Guardian защищает semantic diff obligations; freshness защищает source→doc history; QA impact защищает behavioral ownership. Historical architecture questions use the generated ledger as routing evidence, then verify linked release/canonical sources. Release certification claims require version-specific QA evidence rather than inference from tests, screenshots, impact reports or scenario inventory.
