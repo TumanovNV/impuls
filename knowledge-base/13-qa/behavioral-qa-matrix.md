@@ -2,9 +2,9 @@
 title: Behavioral QA Matrix
 type: qa-reference
 status: active
-documentation_version: 1.3
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.4
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, qa, scenarios, hardware, permissions, release]
 ---
 
@@ -55,6 +55,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | PWR-09 | iPhone unplugged during read | manual-hardware | task/session unwinds; backoff/topology state recovers |
 | PWR-10 | macOS Wi-Fi sync topology transition | manual-hardware | topology change does not require 1 s battery polling and does not leak raw identity |
 | PWR-11 | Repeated provider failures | automated | scheduler doubles cadence up to 600 s cap and resets after success |
+| PWR-12 | Low-battery Notification Center delivery at 20% / 10% | mixed | a sufficiently fresh, connected, non-charging external-device reading creates at most one in-flight alert per threshold; a rejected Notification Center request does **not** persist fired-state and the next ordinary provider evaluation can retry without a new timer or tighter cadence; an accepted request persists dedup state across relaunch; critical still subsumes same-cycle warning; no raw device identifier reaches Notification Center. Real macOS QA verifies the authorized Notification Center path and the 20%/10% user-facing behavior without claiming that request acceptance proves a human saw the banner. |
 
 ## Local data, migration and bounds
 
