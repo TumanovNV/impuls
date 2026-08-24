@@ -427,6 +427,38 @@ final class DevicePowerCenterTests: XCTestCase {
         )
     }
 
+    /// The distinct case a locked-but-trusted phone reports: unlike losing
+    /// permission, this is not a reason to forget what the phone last said.
+    func testALockedDeviceKeepsItsLastKnownReadingUnlikePermissionLoss() {
+        let mobile = FakeDeviceProvider(identifier: .mobileDevice)
+        let center = makeCenter(external: [mobile])
+
+        center.setEnabled(true)
+        center.setExternalDevicesEnabled(true)
+        let iPhone = Fixtures.device(
+            kind: .iPhone,
+            name: "iPhone",
+            connection: .usb,
+            components: [DeviceBatteryComponent(kind: .primary, percentage: 74, lastUpdated: Fixtures.noon)],
+            source: .mobileUSB
+        )
+        mobile.emit([iPhone])
+        XCTAssertEqual(center.devices.first(where: { !$0.identity.isLocalMac })?.headlinePercentage, 74)
+
+        mobile.emit([], status: .deviceLocked)
+
+        XCTAssertEqual(
+            center.devices.first(where: { !$0.identity.isLocalMac })?.headlinePercentage,
+            74,
+            "a locked phone is still the same phone whose charge we knew a moment ago"
+        )
+        XCTAssertEqual(
+            center.diagnostics.first(where: { $0.provider == .mobileDevice })?.status,
+            .deviceLocked,
+            "distinct from permissionRequired, which means this Mac is not trusted at all"
+        )
+    }
+
     // MARK: - Scheduling
 
     func testAnEventDrivenProviderIsNeverPolled() {

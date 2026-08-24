@@ -68,7 +68,7 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
         }
         status = .starting
         topologyMonitor.start { [weak self] in
-            Task { @MainActor in self?.refresh() }
+            Task { @MainActor in self?.refreshDiscardingInFlightRead() }
         }
         observeWake()
         DevicePowerLog.note("provider mobileDevice started")
@@ -94,9 +94,9 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
         guard status != .disabled, status != .unavailable || featureEnabled() else { return }
         guard featureEnabled() else { return }
         guard readTask == nil else {
-            // A topology event, wake and manual refresh may coincide. One
-            // follow-up read preserves the newest topology without starting
-            // duplicate lockdown sessions.
+            // An ordinary polling tick and a topology/wake refresh may
+            // coincide. One follow-up read preserves the newest topology
+            // without starting duplicate lockdown sessions.
             refreshPending = true
             return
         }
@@ -114,6 +114,22 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
         }
     }
 
+    /// Topology changed, or the Mac just woke — in either case the device set
+    /// this Mac can see may no longer be what any in-flight read was
+    /// performed against. Cancelling it and starting fresh closes the window
+    /// where a read started against a phone that has since disconnected
+    /// would otherwise complete after the fact and briefly resurrect it as
+    /// live: `refresh()` would only have queued a follow-up behind the stale
+    /// read, publishing its answer first.
+    private func refreshDiscardingInFlightRead() {
+        if readTask != nil {
+            readTask?.cancel()
+            readTask = nil
+        }
+        refreshPending = false
+        refresh()
+    }
+
     private func publish(_ devices: [AppleDeviceSnapshot]) {
         readTask = nil
         guard onUpdate != nil else { return }
@@ -124,20 +140,28 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
         performPendingRefreshIfNeeded()
     }
 
-    /// Trust is not a failure, it is an instruction.
+    /// Trust is not a failure, it is an instruction. A locked device is not
+    /// even that — it is the same trusted phone, just not answering for a
+    /// moment.
     ///
     /// A device this Mac has never been trusted with maps to
     /// `permissionRequired`, which is the state the interface turns into
-    /// "unlock your iPhone and tap Trust". Everything the phone genuinely
-    /// cannot answer stays `unavailable`, and everything transient keeps the
-    /// last good reading.
+    /// "unlock your iPhone and tap Trust". A device this Mac *is* trusted with
+    /// but that is currently locked maps to the distinct `deviceLocked`, so
+    /// the interface can say the accurate, less alarming thing instead — and
+    /// so the last known reading is kept rather than thrown away, the same as
+    /// any other transient failure. Everything the phone genuinely cannot
+    /// answer stays `unavailable`, and everything else transient keeps the
+    /// last good reading too.
     private func publish(failure error: Error) {
         readTask = nil
         guard onUpdate != nil else { return }
         let status: DeviceProviderStatus
         switch error {
-        case MobileDeviceError.notTrusted, MobileDeviceError.deviceLocked:
+        case MobileDeviceError.notTrusted:
             status = .permissionRequired
+        case MobileDeviceError.deviceLocked:
+            status = .deviceLocked
         case MobileDeviceError.sessionRequired,
              MobileDeviceError.transportUnavailable,
              MobileDeviceError.batteryUnavailable:
@@ -151,7 +175,7 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
             DeviceProviderUpdate(
                 identifier: identifier,
                 status: status,
-                devices: status == .temporarilyFailed ? lastDevices : []
+                devices: status == .temporarilyFailed || status == .deviceLocked ? lastDevices : []
             )
         )
         performPendingRefreshIfNeeded()
@@ -170,7 +194,7 @@ final class MobileDeviceBatteryProvider: DeviceBatteryProviding {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refresh() }
+            MainActor.assumeIsolated { self?.refreshDiscardingInFlightRead() }
         }
     }
 }
