@@ -644,3 +644,13 @@
 "If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "如果 Impuls 帮到了你，可以在 GitHub 上点个星来支持这个项目。如果还有可以改进的地方，也欢迎告诉我们。";
 "Support on GitHub" = "在 GitHub 上支持";
 "Share Feedback" = "提交反馈";
+
+/* Cancellable file operations 1.4.16 */
+"Cancelling…" = "正在取消…";
+"Cancelled" = "已取消";
+"Cancelled · Processed: %d" = "已取消 · 已处理：%d";
+"Cancelled · Processed: %d · Skipped: %d" = "已取消 · 已处理：%d · 已跳过：%d";
+"Cancelled · Clipboard Unchanged" = "已取消 · 剪贴板未改动";
+"Cancel File Operation" = "取消文件操作";
+"Stop the running file operation" = "停止正在进行的文件操作";
+"Finishes the file being processed and does not start the rest" = "完成当前文件，不再开始其余文件";

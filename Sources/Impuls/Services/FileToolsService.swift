@@ -79,6 +79,47 @@ enum FileToolsError: LocalizedError, Equatable, Sendable {
     }
 }
 
+/// Raised when a cooperatively cancellable operation stopped at a safe
+/// boundary because the user asked it to stop.
+///
+/// Deliberately *not* a `FileToolsError` case. Every case of that enum is
+/// something the shelf reports to the user as a failure, and cancellation is
+/// the opposite: it is the user's own decision. Keeping the two types apart
+/// makes "a cancelled operation is never shown as an error" something the
+/// compiler helps with, rather than a rule a future `switch` can quietly drop.
+struct FileToolsCancelled: Error, Equatable, Sendable {}
+
+/// A one-way cancellation flag shared between the coordinator's operation task
+/// and the synchronous file work it runs off the main actor.
+///
+/// `Task.detached` does not inherit its creator's cancellation, and the heavy
+/// ImageIO/Vision/CoreGraphics calls underneath are synchronous, so neither a
+/// child-task relationship nor `Task.isCancelled` actually reaches them. An
+/// explicit flag, polled at documented boundaries, is what crosses that gap —
+/// and it is also the object a test can set in order to stand exactly on one
+/// of those boundaries without a sleep.
+///
+/// The flag only ever moves `false -> true`, which is what makes repeated
+/// cancellation idempotent without any further bookkeeping.
+final class FileToolsCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+
+    init() {}
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func cancel() {
+        lock.lock()
+        defer { lock.unlock() }
+        cancelled = true
+    }
+}
+
 /// A lightweight identity snapshot used to make Undo conservative. Impuls only
 /// trashes a generated file when its digest and stable metadata still match the
 /// result the operation created. If the user edits or replaces it, Undo refuses
@@ -250,7 +291,24 @@ enum FileToolsService {
         }
     }
 
-    static func combineImagesIntoPDF(_ sources: [URL]) throws -> URL {
+    /// Draws every image into one PDF, one page at a time.
+    ///
+    /// The gap between `endPDFPage()` and the next `beginPDFPage(nil)` is the
+    /// only place inside a single file operation where Impuls can stop without
+    /// leaving a half-written artefact, so that is where `cancellation` is
+    /// read. A PDF missing its last pages is not a usable result and the user
+    /// never asked for one, so cancelling deletes the partial file instead of
+    /// handing it over. `CGDataConsumer(url:)` has already created that file by
+    /// then, which is exactly why the cleanup has to be explicit.
+    ///
+    /// The signal is a predicate rather than the coordinator's
+    /// `FileToolsCancellation` so that a test can decide cancellation *per
+    /// page* — "draw one, then stop" is the case worth pinning, and a flag a
+    /// test can only pre-set cannot express it.
+    static func combineImagesIntoPDF(
+        _ sources: [URL],
+        isCancelled: @Sendable () -> Bool = { false }
+    ) throws -> URL {
         let images = imageURLs(sources)
         guard images.count >= 2 else { throw FileToolsError.requiresTwoImages }
 
@@ -268,6 +326,7 @@ enum FileToolsService {
 
         do {
             for url in images {
+                if isCancelled() { throw FileToolsCancelled() }
                 try autoreleasepool {
                     let image = try loadImage(at: url)
                     context.beginPDFPage(nil)

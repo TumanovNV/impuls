@@ -645,3 +645,13 @@
 "If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback.";
 "Support on GitHub" = "Support on GitHub";
 "Share Feedback" = "Share Feedback";
+
+/* Cancellable file operations 1.4.16 */
+"Cancelling…" = "Cancelling…";
+"Cancelled" = "Cancelled";
+"Cancelled · Processed: %d" = "Cancelled · Processed: %d";
+"Cancelled · Processed: %d · Skipped: %d" = "Cancelled · Processed: %d · Skipped: %d";
+"Cancelled · Clipboard Unchanged" = "Cancelled · Clipboard Unchanged";
+"Cancel File Operation" = "Cancel File Operation";
+"Stop the running file operation" = "Stop the running file operation";
+"Finishes the file being processed and does not start the rest" = "Finishes the file being processed and does not start the rest";

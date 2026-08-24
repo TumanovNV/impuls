@@ -221,6 +221,24 @@
       ]
     },
     {
+      "id": "file-tools",
+      "description": "Shelf file tools: batch orchestration, cancellation, partial results, Undo and the Shelf presentation that exposes them",
+      "source_globs": [
+        "Sources/Impuls/Services/FileToolsCoordinator.swift",
+        "Sources/Impuls/Services/FileToolsService.swift",
+        "Sources/Impuls/UI/ShelfPane.swift"
+      ],
+      "test_globs": [
+        "Tests/ImpulsTests/FileToolsCancellationTests.swift",
+        "Tests/ImpulsTests/FileToolsServiceTests.swift"
+      ],
+      "qa_ids": [
+        "FILE-01",
+        "FILE-02",
+        "FILE-03"
+      ]
+    },
+    {
       "id": "translation",
       "description": "Translation debounce, input bounds, language availability or Translate presentation changed",
       "source_globs": [

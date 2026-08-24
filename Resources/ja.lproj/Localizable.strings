@@ -644,3 +644,13 @@
 "If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "Impuls がお役に立てているなら、GitHub のスターでプロジェクトを応援できます。改善できる点があれば、ぜひお聞かせください。";
 "Support on GitHub" = "GitHub で応援";
 "Share Feedback" = "フィードバックを送る";
+
+/* Cancellable file operations 1.4.16 */
+"Cancelling…" = "キャンセル中…";
+"Cancelled" = "キャンセルしました";
+"Cancelled · Processed: %d" = "キャンセル · 処理済み: %d";
+"Cancelled · Processed: %d · Skipped: %d" = "キャンセル · 処理済み: %d · スキップ: %d";
+"Cancelled · Clipboard Unchanged" = "キャンセル · クリップボードは変更なし";
+"Cancel File Operation" = "ファイル操作をキャンセル";
+"Stop the running file operation" = "実行中のファイル操作を停止";
+"Finishes the file being processed and does not start the rest" = "処理中のファイルだけ完了し、残りは開始しません";

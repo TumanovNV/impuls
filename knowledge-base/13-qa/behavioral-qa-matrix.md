@@ -2,7 +2,7 @@
 title: Behavioral QA Matrix
 type: qa-reference
 status: active
-documentation_version: 1.7
+documentation_version: 1.8
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, qa, scenarios, hardware, permissions, release]
@@ -85,6 +85,14 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | TR-03 | Missing language pack | manual-macos | readiness reads `unknown` (not a false download mark) until the real scan lands; a missing pack is explained with a working "Translation Languages…" route straight to the Translation section, not just the general Language & Region pane; reopening the Translate pane after installing/removing a pack re-scans without a background poll |
 | TR-04 | RU↔EN and another supported pair | manual-macos | direction/pair normalization matches framework availability |
 | TR-05 | Rapid pair switch and repeated panel appearance | automated | `loadSupportedLanguages()` never starts a second concurrent scan while one is in flight; only the language pair is ever persisted, never input/output/failure text |
+
+## Shelf and file tools
+
+| ID | Scenario | Mode | Expected contract |
+| --- | --- | --- | --- |
+| FILE-01 | Cancel a long batch file operation on real hardware | manual-macos | A batch large and slow enough to be worth stopping (10–30 sizeable images through Convert, Reduce or Remove Background) shows a reachable Cancel next to the progress text. Pressing it stops the batch at the next item boundary: the item already running is allowed to finish and its file is a complete, readable image; the remaining sources are never touched; no source file is modified, moved or deleted. Progress does not tick past the point where the cancellation was accepted, and the status reads `Cancelled · Processed: N`, never a generic error. `isWorking` releases, so the Tools menu becomes usable again and the next operation runs normally. Undo after the partial batch trashes exactly the files that batch created. What needs a real Mac is the part deterministic tests cannot own: that the wait for the in-flight item is short enough to read as "stopping" rather than as "ignored", on real image sizes and real Vision/ImageIO timings. Cancel is deliberately **not** offered for Undo. |
+| FILE-02 | Cancel Combine Images into PDF between pages | mixed | With enough pages for the operation to be interruptible, Cancel stops between two pages and leaves **no** PDF behind — a document missing its last pages is never handed over. The status reads `Cancelled` and is not styled as an error, nothing is added to the Shelf and Undo is not offered. Source images are untouched. Deterministic tests own the page-boundary cleanup itself; the real Mac establishes that a PDF long enough to cancel actually reaches a page boundary in useful time. |
+| FILE-03 | Cancel an OCR batch after some pages were recognised | mixed | Cancelling Recognize Text leaves the clipboard exactly as the user left it, even when earlier images in the batch were already recognised, and the status says so (`Cancelled · Clipboard Unchanged`). Nothing partially recognised is written to the pasteboard. Verify with a non-empty clipboard held before starting, and confirm it is still there afterwards. |
 
 ## Music and web player
 
