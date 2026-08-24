@@ -29,6 +29,8 @@
 "Remove from Shelf" = "从文件架移除";
 
 /* Media */
+"Recommended" = "推荐";
+"All Services" = "所有服务";
 "Nothing is playing" = "当前没有播放内容";
 "Open Web Player" = "打开网页播放器";
 "Show Web Player" = "显示网页播放器";

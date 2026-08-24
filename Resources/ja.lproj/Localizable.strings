@@ -29,6 +29,8 @@
 "Remove from Shelf" = "シェルフから削除";
 
 /* Media */
+"Recommended" = "おすすめ";
+"All Services" = "すべてのサービス";
 "Nothing is playing" = "再生中の項目はありません";
 "Open Web Player" = "Webプレーヤーを開く";
 "Show Web Player" = "Webプレーヤーを表示";
