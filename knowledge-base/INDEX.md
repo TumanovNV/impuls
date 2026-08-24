@@ -2,9 +2,9 @@
 title: IMPULS Knowledge Base Index
 type: index
 status: active
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 1.4.15
-last_reviewed: 2026-08-23
+last_reviewed: 2026-08-24
 tags: [impuls, documentation, index]
 ---
 
@@ -12,7 +12,7 @@ tags: [impuls, documentation, index]
 
 Current engineering knowledge base for humans, Obsidian and AI agents.
 
-Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.15**.
+Documentation baseline: **1.4**. Exact product version is owned by `Scripts/version`; current shipped summary is [Project Status](00-project/project-status.md).
 
 ## 00 — Project
 - [Project Overview](00-project/project-overview.md)
@@ -111,15 +111,27 @@ Documentation baseline: **1.3**. Product baseline: **Impuls 1.4.15**.
 - [1.4.14 Release Evidence](13-qa/release-evidence/1.4.14.md)
 - [1.4.15 Release Evidence](13-qa/release-evidence/1.4.15.md)
 
-## v1.3 anti-drift loop
+## v1.4 anti-drift loop
 
 ```mermaid
 flowchart LR
-    SRC[Source / workflows / collector] --> G[Semantic Documentation Guardian]
+    SRC[Source / workflows / collector / locale owners] --> CUR[Current-state consistency]
+    ENTRY[AGENTS / CLAUDE / public README / privacy] --> CUR
+    MAN[PROJECT-MANIFEST] --> CUR
+    CUR --> CI[knowledge-base workflow]
+
+    SRC --> G[Semantic Documentation Guardian]
     G -->|contract-sensitive diff| DOC[Canonical KB review]
     SRC --> F[Git-history Freshness Guard]
     DOC --> F
-    M[PROJECT-MANIFEST + curated manifests] --> V[Machine validators]
+
+    MAN --> V[Manifest validator]
+    MAP[Curated maps / policies] --> V
+    V --> CI
+    KB[Markdown + frontmatter + links] --> CI
+    G --> CI
+    F --> CI
+
     SRC --> QAI[QA Impact Traceability]
     TST[Mapped tests] --> QAI
     QAM[Behavioral QA Matrix] --> QAI
@@ -127,24 +139,23 @@ flowchart LR
     IDS --> QAE[Release QA Evidence]
     QAM --> QAE
     QAE --> QAG[Release QA Gate]
-    VER[Scripts/version] --> QAI
+    VER[Scripts/version] --> CUR
+    VER --> QAI
     VER --> QAG
-    V --> CI[knowledge-base workflow]
-    KB[Markdown + frontmatter + links] --> CI
-    G --> CI
-    F --> CI
     QAI --> CI
     QAG --> CI
     CI -->|green| PR[PR may merge]
 ```
 
-v1.3 combines performance/concurrency and resource-budget registries, behavioral QA, automatic diff→QA traceability, release-specific hardware/TCC evidence, semantic diff protection, historical freshness, a routing-only project manifest, dependency supply-chain policy and a generated release→architecture evidence ledger.
+v1.4 retains the v1.3 performance/concurrency, resource-budget, behavioral-QA, release-evidence, semantic Guardian and historical-freshness layers and adds a focused **current-documentation consistency guard**. The new layer exists because a syntactically valid entrypoint can still quietly claim an old release, old RU/EN website model or legacy privacy URL.
+
+`Scripts/check-current-documentation.py` compares current app localization owners (`Resources/*.lproj`, `AppLanguageService`, `CFBundleLocalizations`), the website registry and legal locale configs, and verifies high-value agent/public routes. It also prevents AGENTS/current project docs from becoming duplicate release databases and checks the canonical `/privacy/` route in public entrypoints. Historical release/audit evidence is intentionally outside this rule: old version context remains valid when the document is explicitly historical.
 
 The QA impact checker maps changed production owners and mapped tests to concrete Behavioral QA IDs. A new tracked behavioral source file with no QA route fails closed until an impact rule or narrow documented exemption is added. On a version-bump diff, impacted non-automated IDs must also appear in that version's release evidence.
 
 The release QA gate keeps the scenario inventory separate from pass evidence. `1.4.11` is an explicit retrospective baseline; from `1.4.12` onward every manual/mixed scenario must be classified in the version-specific evidence file and `blocked` candidates fail the knowledge-base CI gate.
 
-The lightweight knowledge-base workflow also runs weekly. On the scheduled run, freshness additionally enforces periodic review-age budgets; normal PRs enforce source→docs drift, source/test→QA traceability and current release-evidence consistency.
+The knowledge-base workflow also runs weekly. Scheduled runs enable periodic review-age enforcement; normal PRs enforce routing/current-state consistency, source→docs drift, source/test→QA traceability and current release-evidence consistency.
 
 ## Operational source-of-truth boundary
 
@@ -152,9 +163,9 @@ This public repository owns application/software facts. Current private producti
 
 ## Source-of-truth rule
 
-Current software contract: knowledge base + code + tests + CI. Historical release/handoff/audit documents preserve evidence and context, but do not override current implementation.
+Current software contract: code + tests + CI plus the routed canonical knowledge owners. `Scripts/version` owns the exact release number; `PROJECT-MANIFEST.json` owns routing, not copied implementation facts. Historical release/handoff/audit documents preserve evidence and context, but do not override current implementation.
 
-For a whole-repository security/performance audit, use [Pre-Audit Baseline — 1.4.12](00-project/pre-audit-baseline-1.4.12.md) as the handoff after verifying `Scripts/version` and `main`.
+For a whole-repository security/performance audit, use [Pre-Audit Baseline — 1.4.12](00-project/pre-audit-baseline-1.4.12.md) as the historical handoff after verifying `Scripts/version` and current `main`.
 
 Release certification claims require the version-specific Release QA Evidence record; the Behavioral QA Matrix alone is never pass evidence. Change-impact claims are derived from the machine-readable QA impact map plus the actual Git diff, not from memory.
 
