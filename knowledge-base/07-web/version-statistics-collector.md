@@ -2,9 +2,9 @@
 title: Version Statistics Collector
 type: operations
 status: active
-documentation_version: 1.3
-app_version: 1.4.13
-last_reviewed: 2026-08-21
+documentation_version: 1.4
+app_version: 1.4.15
+last_reviewed: 2026-08-24
 tags: [impuls, telemetry, collector, dashboard, sqlite]
 ---
 
@@ -18,6 +18,8 @@ Collector считает только **consenting active installations**. Эт�
 
 Этот документ описывает **public software contract** collector/dashboard. Конкретный production host, VPN/reverse-proxy topology, service state, server paths, backup state и operational access принадлежат private infrastructure vault.
 
+**Важно:** schema/version и поведение ниже — software target текущего `main`, а не утверждение, что соответствующая миграция уже выполнена в production. Фактически развернутая production-схема может временно отставать от публичного software contract; её состояние проверяется только по private operational source of truth перед deployment/rollback решением.
+
 Правило разделения: [Public / Private Operations Boundary](../12-reference/operations-boundary.md).
 
 Private operational entrypoint (repository access required): `office-it-docs: Проекты/Impuls.md`.
@@ -29,12 +31,12 @@ flowchart LR
     APP[VersionTelemetryService] -->|HTTPS POST /v1/heartbeat| RP[Owner-controlled TLS boundary]
     RP --> COL[collector.py\nprivate backend]
     COL --> H[HMAC-SHA256 installation UUID]
-    H --> DB[(SQLite schema v1)]
+    H --> DB[(SQLite software schema v1)]
     DB --> REP[report.py\nowner-only read-only]
     DB --> DASH[dashboard.py\nowner-only read-only]
 ```
 
-The diagram is intentionally abstract. Current production addresses/routes are private operational facts, not public application architecture.
+The diagram is intentionally abstract. Current production addresses/routes and deployed schema state are private operational facts, not public application architecture.
 
 ## Client contract
 
@@ -45,16 +47,8 @@ The client:
 - has consent independent from Sparkle update networking;
 - validates the configured endpoint before transport is touched;
 - permits only HTTPS with exact `/v1/heartbeat` path and no credentials/query/fragment/port;
-- sends at most one attempt per one-hour interval **for the same app version**;
-  both the attempt timestamp and the app version it was attempted for are
-  persisted before transport, so failures and relaunches of the *same* version
-  share the limit, while an app version that differs from the one last
-  attempted always gets one immediate attempt — this is what lets an update
-  report itself without waiting out the previous version's cooldown;
-- a `VersionTelemetryScheduler` proposes an attempt roughly once an hour for as
-  long as the app keeps running, not only once at launch; it never bypasses
-  the throttle above, since `VersionTelemetryService` alone decides whether a
-  proposal becomes a request;
+- sends at most one attempt per one-hour interval **for the same app version**; both attempt timestamp and attempted app version are persisted before transport, so failures/relaunches share the cap while a different app version gets one immediate attempt;
+- uses `VersionTelemetryScheduler` to propose an attempt roughly once an hour while the app runs; the service remains the sole throttle/consent/endpoint authority;
 - uses an ephemeral URLSession without cookies/cache;
 - rejects HTTP redirects;
 - isolates failure from launch and user-facing app behavior.
@@ -90,13 +84,13 @@ Product DB does not persist IP/User-Agent. Collector request logging is disabled
 
 Application-side installation identity is a random UUID v4 kept in Keychain and used only after explicit opt-in.
 
-## Database contract
+## Database software contract
 
-Current SQLite database schema: **1**.
+Current SQLite **software schema target in `main`**: **1**.
 
-The version marker is SQLite `PRAGMA user_version`. `DATABASE_SCHEMA_VERSION` in `collector.py` is the code-level source for the currently supported version.
+The version marker is SQLite `PRAGMA user_version`. `DATABASE_SCHEMA_VERSION` in `collector.py` is the code-level source for the currently supported version. This section describes what the checked-in collector expects after its migration path runs; it does not replace production verification in the private operations repository.
 
-Current schema objects:
+Current software-schema objects:
 
 - `installations` — HMAC identity, first/last seen, current and previous version;
 - `transitions` — unique installation/from/to transition with first observation;
@@ -106,7 +100,7 @@ SQLite uses WAL mode.
 
 ### Historical unversioned database
 
-Before schema versioning, the same tables existed with `user_version = 0`. Startup now treats that state as legacy schema 0 and runs an ordered `0 -> 1` migration.
+Before schema versioning, the same tables existed with `user_version = 0`. Startup treats that state as legacy schema 0 and runs an ordered `0 -> 1` migration.
 
 The migration is shape-preserving:
 
@@ -128,13 +122,15 @@ Every future `N -> N+1` schema change requires:
 - a SQLite-safe production backup before the first process using the new schema starts;
 - private operational validation/rollback procedure in `office-it-docs`.
 
+A merge to public `main` completes the **software** side of that sequence only. Production is considered migrated only after the private operational procedure records the deployed database/service state.
+
 Canonical migration policy: [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
 
 Tests: [`test_collector_database_migrations.py`](../../Tests/PythonTests/test_collector_database_migrations.py).
 
 ## Retention
 
-Каждый accepted heartbeat в той же DB transaction удаляет installations и transition rows, чей `last_seen` старше 365 days. Retention не зависит от отдельного cron.
+Каждый accepted heartbeat в той же DB transaction удаляет installations and transition rows, whose `last_seen` is older than 365 days. Retention does not depend on a separate cron.
 
 ## Reverse proxy expectations
 
@@ -163,13 +159,7 @@ Dashboard design contract:
 - restrictive browser/cache headers;
 - request logging disabled.
 
-The dashboard resolver, not the browser, refreshes its latest-version label
-from the fixed GitHub latest-release API. It accepts only a stable `vN.N.N`
-release tag, atomically stores the validated result, and keeps the last
-successful cache when GitHub is unavailable. The refresh interval defaults to
-300 seconds (5 minutes) as of 1.4.14, constrained to 300–86400 seconds by
-`IMPULS_DASHBOARD_GITHUB_REFRESH_INTERVAL`; this is a server-side scheduling
-default on the private dashboard process, not a new client network request.
+The dashboard resolver, not the browser, refreshes its latest-version label from the fixed GitHub latest-release API. It accepts only a stable `vN.N.N` release tag, atomically stores the validated result and keeps the last successful cache when GitHub is unavailable. The refresh interval defaults to 300 seconds and is constrained to 300–86400 seconds by `IMPULS_DASHBOARD_GITHUB_REFRESH_INTERVAL`; this is server-side scheduling on the private dashboard process, not a new client network request.
 
 Tests: [`test_version_statistics_dashboard.py`](../../Tests/PythonTests/test_version_statistics_dashboard.py).
 
@@ -178,26 +168,3 @@ Tests: [`test_version_statistics_dashboard.py`](../../Tests/PythonTests/test_ver
 Rotating the HMAC secret creates a new unlinkable installation population. This is both a privacy property and an operational consequence: old and new digests must not be joined.
 
 The **procedure** may be documented privately. The secret value never belongs in Git.
-
-## Public-repo rule
-
-This knowledge base may contain protocol/schema/privacy facts that are already part of the shipped/open-source contract. It must not become a copy of private infrastructure inventory.
-
-For tasks that require current production runtime, use the private operational hub rather than inferring from source defaults or historical audit notes.
-
-## Source map
-
-- [`VersionTelemetryService.swift`](../../Sources/Impuls/Services/VersionTelemetryService.swift)
-- [`collector.py`](../../Collector/version-statistics/collector.py)
-- [`dashboard.py`](../../Collector/version-statistics/dashboard.py)
-- [`report.py`](../../Collector/version-statistics/report.py)
-- [`Dockerfile`](../../Collector/version-statistics/Dockerfile)
-- [`Collector/version-statistics/README.md`](../../Collector/version-statistics/README.md)
-
-## Verification map
-
-- [`VersionTelemetryServiceTests.swift`](../../Tests/ImpulsTests/VersionTelemetryServiceTests.swift)
-- [`test_collector_database_migrations.py`](../../Tests/PythonTests/test_collector_database_migrations.py)
-- [`test_version_statistics.py`](../../Tests/PythonTests/test_version_statistics.py)
-- [`test_version_statistics_dashboard.py`](../../Tests/PythonTests/test_version_statistics_dashboard.py)
-- [Generated Type → Tests → Docs Map](../12-reference/generated-type-test-doc-map.md)
