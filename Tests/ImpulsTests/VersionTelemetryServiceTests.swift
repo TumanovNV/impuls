@@ -350,6 +350,183 @@ final class VersionTelemetryServiceTests: XCTestCase {
         XCTAssertEqual((independent.uuid.6 & 0xF0) >> 4, 4)
     }
 
+    // MARK: - Diagnostics
+
+    func testDiagnosticsShowsDisabledWhenConsentIsNotAllowed() async {
+        let harness = Harness()
+        let unknown = harness.service()
+        XCTAssertNotEqual(unknown.diagnostics().consent, .allowed)
+
+        unknown.setConsent(.denied)
+        XCTAssertEqual(unknown.diagnostics().consent, .denied)
+        XCTAssertNotEqual(unknown.diagnostics().consent, .allowed)
+    }
+
+    func testDiagnosticsEnabledButNeverAttempted() {
+        let harness = Harness()
+        let service = harness.service()
+        service.setConsent(.allowed)
+
+        let diagnostics = service.diagnostics()
+        XCTAssertEqual(diagnostics.consent, .allowed)
+        XCTAssertNil(diagnostics.lastAttemptAt)
+        XCTAssertNil(diagnostics.lastSuccessAt)
+        XCTAssertEqual(diagnostics.lastOutcome, .neverAttempted)
+        XCTAssertEqual(diagnostics.nextAttempt, .eligibleNow)
+    }
+
+    func testSuccessfulAttemptRecordsBothAttemptAndSuccess() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock)
+        let service = harness.service()
+        service.setConsent(.allowed)
+
+        let result = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(result, .sent)
+
+        let diagnostics = service.diagnostics()
+        XCTAssertEqual(diagnostics.lastAttemptAt, clock.now())
+        XCTAssertEqual(diagnostics.lastSuccessAt, clock.now())
+        XCTAssertEqual(diagnostics.lastOutcome, .succeeded)
+    }
+
+    func testFailedAttemptRecordsAttemptButNotSuccess() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock, recorder: RequestRecorder(statusCode: 500))
+        let service = harness.service()
+        service.setConsent(.allowed)
+
+        let result = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(result, .failed)
+
+        let diagnostics = service.diagnostics()
+        XCTAssertEqual(diagnostics.lastAttemptAt, clock.now(), "a failed attempt is still an attempt")
+        XCTAssertNil(diagnostics.lastSuccessAt, "a failed attempt must never be recorded as a success")
+        XCTAssertEqual(diagnostics.lastOutcome, .failed)
+    }
+
+    func testASucceedingRetryAfterAFailureUpdatesOutcomeToSucceeded() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let recorder = RequestRecorder(statusCode: 500)
+        let harness = Harness(clock: clock, recorder: recorder)
+        let service = harness.service()
+        service.setConsent(.allowed)
+
+        let first = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(first, .failed)
+        XCTAssertEqual(service.diagnostics().lastOutcome, .failed)
+
+        await recorder.setStatusCode(204)
+        clock.advance(by: VersionTelemetryService.heartbeatInterval)
+        let second = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(second, .sent)
+
+        let diagnostics = service.diagnostics()
+        XCTAssertEqual(diagnostics.lastOutcome, .succeeded)
+        XCTAssertEqual(diagnostics.lastAttemptAt, diagnostics.lastSuccessAt)
+    }
+
+    func testDiagnosticsCurrentVersionMatchesTheExactHeartbeatPayloadVersion() async throws {
+        let harness = Harness()
+        let service = harness.service(appVersion: "1.4.16")
+        service.setConsent(.allowed)
+
+        let diagnostics = service.diagnostics()
+        let result = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(result, .sent)
+
+        let requests = await harness.recorder.requests
+        let payload = try jsonObject(try XCTUnwrap(requests.first))
+        XCTAssertEqual(diagnostics.currentVersion, payload["app_version"] as? String)
+        XCTAssertEqual(diagnostics.currentVersion, "1.4.16")
+    }
+
+    func testDiagnosticsNextAttemptMatchesTheExistingThrottleCadence() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock)
+        let service = harness.service(appVersion: "1.4.16")
+        service.setConsent(.allowed)
+
+        let result = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(result, .sent)
+        XCTAssertEqual(
+            service.diagnostics().nextAttempt,
+            .at(clock.now().addingTimeInterval(VersionTelemetryService.heartbeatInterval))
+        )
+
+        clock.advance(by: 59 * 60 + 59)
+        XCTAssertNotEqual(service.diagnostics().nextAttempt, .eligibleNow, "still inside the one-hour window")
+
+        clock.advance(by: 1)
+        XCTAssertEqual(service.diagnostics().nextAttempt, .eligibleNow)
+    }
+
+    func testDiagnosticsForANewVersionIsEligibleNowDespiteAnOldVersionsRecentAttempt() async {
+        // The exact update scenario the throttle carve-out exists for: the old
+        // version's cooldown must not make diagnostics claim the new version
+        // has to wait too.
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock)
+        let oldService = harness.service(appVersion: "1.4.15")
+        oldService.setConsent(.allowed)
+        let oldResult = await oldService.sendHeartbeatIfNeeded()
+        XCTAssertEqual(oldResult, .sent)
+
+        clock.advance(by: 60)
+        let newService = harness.service(appVersion: "1.4.16")
+        let diagnostics = newService.diagnostics()
+        XCTAssertEqual(diagnostics.currentVersion, "1.4.16")
+        XCTAssertEqual(diagnostics.nextAttempt, .eligibleNow)
+    }
+
+    func testReadingDiagnosticsNeverSendsARequestEvenWhenCalledRepeatedly() async {
+        let harness = Harness()
+        let service = harness.service()
+        service.setConsent(.allowed)
+
+        for _ in 0..<5 {
+            _ = service.diagnostics()
+        }
+        let count = await harness.recorder.count
+        XCTAssertEqual(count, 0, "reading diagnostics must never be the trigger for a heartbeat")
+    }
+
+    func testDiagnosticsSurvivesRelaunchViaTheSamePersistedState() async {
+        let clock = TestClock(Date(timeIntervalSince1970: 10_000))
+        let harness = Harness(clock: clock)
+        let service = harness.service()
+        service.setConsent(.allowed)
+        let result = await service.sendHeartbeatIfNeeded()
+        XCTAssertEqual(result, .sent)
+
+        // A new process reading the same UserDefaults suite/Keychain: only the
+        // consent, throttle and success state that were actually persisted
+        // survive, not any process-local value.
+        let relaunched = harness.service()
+        let diagnostics = relaunched.diagnostics()
+        XCTAssertEqual(diagnostics.consent, .allowed)
+        XCTAssertEqual(diagnostics.lastAttemptAt, clock.now())
+        XCTAssertEqual(diagnostics.lastSuccessAt, clock.now())
+        XCTAssertEqual(diagnostics.lastOutcome, .succeeded)
+    }
+
+    func testDiagnosticsNeverExposesTheRawInstallationIdentifier() async {
+        let harness = Harness()
+        let service = harness.service()
+        service.setConsent(.allowed)
+        _ = await service.sendHeartbeatIfNeeded()
+
+        let diagnostics = service.diagnostics()
+        let rawIdentifier = harness.identifier.uuidString
+        for child in Mirror(reflecting: diagnostics).children {
+            let value = String(describing: child.value)
+            XCTAssertFalse(
+                value.localizedCaseInsensitiveContains(rawIdentifier),
+                "diagnostics must never carry the raw installation identifier"
+            )
+        }
+    }
+
     private func jsonObject(_ request: URLRequest) throws -> [String: Any] {
         try XCTUnwrap(
             JSONSerialization.jsonObject(with: try XCTUnwrap(request.httpBody)) as? [String: Any]
@@ -378,7 +555,7 @@ private final class TestClock: @unchecked Sendable {
 
 private actor RequestRecorder {
     private(set) var requests: [URLRequest] = []
-    private let statusCode: Int
+    private var statusCode: Int
     private let error: Error?
     private let returnsHTTPResponse: Bool
 
@@ -389,6 +566,12 @@ private actor RequestRecorder {
     }
 
     var count: Int { requests.count }
+
+    /// Lets one test simulate a collector that starts rejecting requests and
+    /// later recovers, without needing a second recorder/service pair.
+    func setStatusCode(_ statusCode: Int) {
+        self.statusCode = statusCode
+    }
 
     func send(_ request: URLRequest) throws -> (Data, URLResponse) {
         requests.append(request)

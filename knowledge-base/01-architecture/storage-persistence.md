@@ -2,7 +2,7 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, storage, persistence, privacy]
@@ -42,13 +42,17 @@ flowchart TD
 
 `SettingsStore` хранит persisted preferences в UserDefaults. Export snapshot включает переносимые настройки, но **не включает local-only device keys** и selected physical device identity.
 
-### Review 1.4.16
+### Review 1.4.16 — Power Center Reliability 2.0
 
 Notification diagnostics в `AppleDeviceSettingsPane` — presentation/TCC change, а не storage change. `Allowed / Denied / Not Requested`, переход в System Settings и тестовое уведомление ничего нового не сохраняют. Существующий ключ `appleDevices.lowBatteryAlerts.enabled` не менялся, по-прежнему machine-local и excluded from backup; состояние системного разрешения остаётся владельцем macOS Notification Center и не дублируется в UserDefaults. Новый migration или backup schema для 1.4.16 здесь не нужен.
 
 Финальная привязка автообновления status к `NSApplication.didBecomeActiveNotification` через Combine повторно проверена после исправления импорта: publisher живёт только в процессе и также не добавляет persisted state, background storage work или новую migration obligation.
 
 Общая вкладка Settings → Permissions теперь показывает то же live-only `notifications` state и вызывает существующий explicit `requestNotifications()` из своей кнопки `Allow`; исправлена только stale copy и wiring, никакого нового UserDefaults-ключа или backup-поля это не добавляет.
+
+### Review 1.4.16 — version-statistics diagnostics
+
+`VersionTelemetryService.diagnostics()` — read-only local presentation, а не storage change сама по себе. Единственное реальное изменение — новый UserDefaults-ключ `versionStatistics.lastSuccess.v1` (см. [Schema & Migration Registry](../12-reference/schema-migration-registry.md)); он local-only, excluded from export/backup, как и остальные ключи этой группы, и не требует миграции. Diagnostics ничего не пишет — только читает существующие ключи под тем же `lock`, которым уже владеет `sendHeartbeatIfNeeded`.
 
 ## Язык интерфейса
 

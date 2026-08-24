@@ -2,8 +2,8 @@
 title: Version Statistics Collector
 type: operations
 status: active
-documentation_version: 1.4
-app_version: 1.4.15
+documentation_version: 1.5
+app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, telemetry, collector, dashboard, sqlite]
 ---
@@ -62,6 +62,37 @@ The client:
 - isolates failure from launch and user-facing app behavior.
 
 Payload schema is registered in [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
+
+## Local diagnostics (1.4.16)
+
+`VersionTelemetryService.diagnostics()` is a read-only snapshot of the same
+local state `sendHeartbeatIfNeeded()` already maintains: consent, whether an
+endpoint is configured, the exact version string a heartbeat would currently
+send (`validVersion(appVersion)` — the identical computation the request body
+uses, not a second reading of the bundle), the last attempt time, the last
+*confirmed* success time, the next eligible attempt per the existing throttle
+rule above, and a safe `neverAttempted` / `succeeded` / `failed` outcome.
+
+It exists to answer, locally, "why hasn't this Mac's new version reached the
+dashboard yet" — disabled, never attempted, still inside the cooldown window,
+or a failed delivery — without adding a parallel model of the heartbeat
+lifecycle. It:
+
+- reads existing `UserDefaults` state under the same lock `sendHeartbeatIfNeeded`
+  uses; it never calls `sendHeartbeatIfNeeded` and never touches the network;
+- adds exactly one new persisted key, `versionStatistics.lastSuccess.v1`
+  (see [Schema & Migration Registry](../12-reference/schema-migration-registry.md)),
+  written only after a confirmed `204`, so a failed or in-flight attempt can
+  never be read back as a success;
+- exposes no raw installation identifier, request/response body, header or
+  server-side detail — only the same allow-listed version strings and derived
+  timestamps/enum states already described above.
+
+Settings → Data & Privacy renders this snapshot in a "Version Statistics
+Diagnostics" section next to the existing consent toggle. Opening or
+refreshing that section reads `diagnostics()` only; it does not call
+`sendHeartbeatIfNeeded()` and does not add a poller, timer or retry loop of
+its own.
 
 ## Collector contract
 

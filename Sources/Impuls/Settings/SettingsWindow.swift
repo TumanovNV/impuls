@@ -1034,6 +1034,7 @@ private struct DataSettingsPane: View {
     let onExport: () -> Void
     let onImport: () -> Void
     @State private var sendsVersionStatistics = false
+    @State private var diagnostics: VersionTelemetryService.Diagnostics?
 
     var body: some View {
         Form {
@@ -1088,11 +1089,65 @@ private struct DataSettingsPane: View {
 
                 Button(localized("Learn More About Privacy"), action: openPrivacyPolicy)
             }
+
+            Section(localized("Version Statistics Diagnostics")) {
+                versionDiagnosticsContent
+            }
         }
         .formStyle(.grouped)
         .onAppear {
             sendsVersionStatistics = telemetryService.consent == .allowed
+            diagnostics = telemetryService.diagnostics()
         }
+    }
+
+    /// Reads the same local state `sendHeartbeatIfNeeded` already maintains.
+    /// Never calls it: opening or refreshing this section must not itself
+    /// become a heartbeat attempt.
+    @ViewBuilder
+    private var versionDiagnosticsContent: some View {
+        let snapshot = diagnostics ?? telemetryService.diagnostics()
+
+        Text(statusText(for: snapshot))
+            .font(.callout)
+
+        if snapshot.consent == .allowed {
+            LabeledContent(localized("Current Version"), value: snapshot.currentVersion ?? localized("Unknown"))
+            LabeledContent(localized("Last Attempt"), value: dateText(snapshot.lastAttemptAt))
+            LabeledContent(localized("Last Success"), value: dateText(snapshot.lastSuccessAt))
+            LabeledContent(localized("Next Attempt"), value: nextAttemptText(snapshot.nextAttempt))
+        }
+
+        Button(localized("Refresh")) {
+            diagnostics = telemetryService.diagnostics()
+        }
+        .controlSize(.small)
+    }
+
+    private func statusText(for snapshot: VersionTelemetryService.Diagnostics) -> String {
+        guard snapshot.consent == .allowed else {
+            return localized("Statistics are turned off, so nothing is sent.")
+        }
+        switch snapshot.lastOutcome {
+        case .neverAttempted:
+            return localized("Statistics are on. No attempt has been made yet.")
+        case .succeeded:
+            return localized("The most recent attempt was delivered successfully.")
+        case .failed:
+            return localized("The most recent attempt failed. Impuls will retry automatically.")
+        }
+    }
+
+    private func nextAttemptText(_ next: VersionTelemetryService.Diagnostics.NextAttempt) -> String {
+        switch next {
+        case .eligibleNow: return localized("Now")
+        case .at(let date): return date.formatted(date: .abbreviated, time: .shortened)
+        }
+    }
+
+    private func dateText(_ date: Date?) -> String {
+        guard let date else { return localized("Never") }
+        return date.formatted(date: .abbreviated, time: .shortened)
     }
 
     private func openPrivacyPolicy() {

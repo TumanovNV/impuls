@@ -38,6 +38,7 @@ final class VersionTelemetryService: @unchecked Sendable {
     static let consentKey = "versionStatistics.consent.v1"
     static let lastAttemptKey = "versionStatistics.lastAttempt.v1"
     static let lastAttemptVersionKey = "versionStatistics.lastAttemptVersion.v1"
+    static let lastSuccessKey = "versionStatistics.lastSuccess.v1"
     static let lastObservedVersionKey = "versionStatistics.lastObservedVersion.v1"
     static let pendingPreviousVersionKey = "versionStatistics.pendingPreviousVersion.v1"
     static let endpointInfoKey = "ImpulsVersionStatisticsEndpoint"
@@ -112,9 +113,10 @@ final class VersionTelemetryService: @unchecked Sendable {
     func sendHeartbeatIfNeeded() async -> SendResult {
         let request: URLRequest
         let previousVersion: String?
+        let attemptDate: Date
 
         do {
-            (request, previousVersion) = try lock.withLock {
+            (request, previousVersion, attemptDate) = try lock.withLock {
                 guard consentUnlocked == .allowed else { throw Preparation.notAllowed }
                 guard let endpoint else { throw Preparation.endpointUnavailable }
                 guard let currentVersion = validVersion(appVersion) else { throw Preparation.invalidState }
@@ -146,7 +148,7 @@ final class VersionTelemetryService: @unchecked Sendable {
                 prepared.setValue("application/json", forHTTPHeaderField: "Accept")
                 defaults.set(attemptDate, forKey: Self.lastAttemptKey)
                 defaults.set(currentVersion, forKey: Self.lastAttemptVersionKey)
-                return (prepared, previous)
+                return (prepared, previous, attemptDate)
             }
         } catch Preparation.notAllowed {
             return .notAllowed
@@ -163,17 +165,89 @@ final class VersionTelemetryService: @unchecked Sendable {
             guard let http = response as? HTTPURLResponse, http.statusCode == 204 else {
                 return .failed
             }
-            if let previousVersion {
-                lock.withLock {
-                    if defaults.string(forKey: Self.pendingPreviousVersionKey) == previousVersion {
-                        defaults.removeObject(forKey: Self.pendingPreviousVersionKey)
-                    }
+            lock.withLock {
+                // Distinct from `lastAttemptKey`: an attempt records that the
+                // request was made, this records that the collector actually
+                // accepted it. Diagnostics tells the two apart by comparing
+                // both timestamps rather than reusing one key for both events.
+                defaults.set(attemptDate, forKey: Self.lastSuccessKey)
+                if let previousVersion, defaults.string(forKey: Self.pendingPreviousVersionKey) == previousVersion {
+                    defaults.removeObject(forKey: Self.pendingPreviousVersionKey)
                 }
             }
             return .sent
         } catch {
             // Telemetry can never affect launch or any user-facing operation.
             return .failed
+        }
+    }
+
+    /// A read-only snapshot of local heartbeat state, for a Settings
+    /// diagnostics screen or a test — never for the request itself. Building
+    /// it touches no network and mutates nothing; it exists so a caller does
+    /// not have to reconstruct throttle/success logic that `sendHeartbeatIfNeeded`
+    /// already owns.
+    struct Diagnostics: Equatable, Sendable {
+        enum LastOutcome: Equatable, Sendable {
+            case neverAttempted
+            case succeeded
+            case failed
+        }
+
+        enum NextAttempt: Equatable, Sendable {
+            case eligibleNow
+            case at(Date)
+        }
+
+        let consent: Consent
+        let isEndpointConfigured: Bool
+        /// The exact version string a heartbeat would place in `app_version`
+        /// right now — the same value `sendHeartbeatIfNeeded` computes via
+        /// `validVersion(appVersion)`, not a second reading of the bundle.
+        let currentVersion: String?
+        let lastAttemptAt: Date?
+        let lastSuccessAt: Date?
+        let nextAttempt: NextAttempt
+        let lastOutcome: LastOutcome
+    }
+
+    func diagnostics() -> Diagnostics {
+        lock.withLock {
+            let currentVersion = validVersion(appVersion)
+            let lastAttemptAt = defaults.object(forKey: Self.lastAttemptKey) as? Date
+            let lastAttemptVersion = defaults.string(forKey: Self.lastAttemptVersionKey)
+            let lastSuccessAt = defaults.object(forKey: Self.lastSuccessKey) as? Date
+
+            let lastOutcome: Diagnostics.LastOutcome
+            if lastAttemptAt == nil {
+                lastOutcome = .neverAttempted
+            } else if lastAttemptAt == lastSuccessAt {
+                lastOutcome = .succeeded
+            } else {
+                lastOutcome = .failed
+            }
+
+            let nextAttempt: Diagnostics.NextAttempt
+            if let currentVersion, lastAttemptVersion == currentVersion, let lastAttemptAt {
+                let eligibleAt = lastAttemptAt.addingTimeInterval(Self.heartbeatInterval)
+                nextAttempt = eligibleAt > now() ? .at(eligibleAt) : .eligibleNow
+            } else {
+                // No matching prior attempt for this exact version throttles
+                // it — the same rule `sendHeartbeatIfNeeded` uses to let an
+                // update report itself without waiting out the old version's
+                // cooldown.
+                nextAttempt = .eligibleNow
+            }
+
+            return Diagnostics(
+                consent: consentUnlocked,
+                isEndpointConfigured: endpoint != nil,
+                currentVersion: currentVersion,
+                lastAttemptAt: lastAttemptAt,
+                lastSuccessAt: lastSuccessAt,
+                nextAttempt: nextAttempt,
+                lastOutcome: lastOutcome
+            )
         }
     }
 
