@@ -14,7 +14,30 @@ SPEC.loader.exec_module(FRESHNESS)
 class DocumentationFreshnessTests(unittest.TestCase):
     def test_manifest_is_valid_against_repository_tree(self):
         entries = FRESHNESS.load_manifest()
-        self.assertGreaterEqual(len(entries), 10)
+        self.assertGreaterEqual(len(entries), 24)
+
+    def test_localization_website_and_project_support_owners_are_tracked(self):
+        entries = {entry["doc"]: set(entry["tracked_paths"]) for entry in FRESHNESS.load_manifest()}
+        self.assertIn(
+            "Sources/Impuls/Services/AppLanguageService.swift",
+            entries["knowledge-base/04-development/localization.md"],
+        )
+        self.assertIn(
+            "Scripts/site-locales/registry.json",
+            entries["knowledge-base/07-web/website.md"],
+        )
+        self.assertIn(
+            "Scripts/build-site-privacy-locale.py",
+            entries["knowledge-base/07-web/legal-privacy.md"],
+        )
+        self.assertIn(
+            "Sources/Impuls/Services/ProjectSupportPromptService.swift",
+            entries["knowledge-base/01-architecture/settings-onboarding-feedback.md"],
+        )
+        self.assertIn(
+            "Sources/Impuls/Services/ProjectSupportPromptService.swift",
+            entries["knowledge-base/06-security/privacy-boundaries.md"],
+        )
 
     def test_fresh_document_has_no_reasons(self):
         reasons = FRESHNESS.freshness_reasons(
@@ -52,9 +75,6 @@ class DocumentationFreshnessTests(unittest.TestCase):
         self.assertIn("source commit is newer", reasons[0])
 
     def test_commit_dates_are_read_in_utc_not_the_committer_s_local_day(self):
-        # `%cs` renders the committer's local calendar day, so a commit made at
-        # 00:30 +0300 reports as the next date while every other date this check
-        # compares is UTC. Reading `%ct` and converting keeps one time frame.
         sha, source_date = FRESHNESS.latest_commit(["Scripts/check-documentation-freshness.py"])
         self.assertRegex(sha, r"^[0-9a-f]{40}$")
 
@@ -65,9 +85,6 @@ class DocumentationFreshnessTests(unittest.TestCase):
         self.assertEqual(expected, source_date)
 
     def test_same_commit_review_survives_a_timezone_day_boundary(self):
-        # PR #75 committed source and canonical docs together at 00:30 +0300,
-        # which `%cs` renders as the next calendar day, while `last_reviewed`
-        # held the day the work was actually reviewed. Nothing had drifted.
         reasons = FRESHNESS.freshness_reasons(
             source_date=date(2026, 8, 22),
             reviewed_date=date(2026, 8, 21),
@@ -80,8 +97,6 @@ class DocumentationFreshnessTests(unittest.TestCase):
         self.assertEqual([], reasons)
 
     def test_separate_later_source_commit_is_still_stale(self):
-        # The case the checker actually exists for: the document did not move
-        # with its source. Sharing a calendar day changes nothing here.
         reasons = FRESHNESS.freshness_reasons(
             source_date=date(2026, 8, 22),
             reviewed_date=date(2026, 8, 21),
