@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Local controls for the opt-in Apple Device Battery Center.
