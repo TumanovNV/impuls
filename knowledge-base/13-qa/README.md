@@ -2,15 +2,17 @@
 title: Behavioral QA Index
 type: qa-index
 status: active
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 1.4.15
-last_reviewed: 2026-08-22
+last_reviewed: 2026-08-24
 tags: [impuls, qa, testing, manual, hardware, ai, traceability]
 ---
 
 # 13 — Behavioral QA
 
 This layer defines **what behavior must be exercised**, determines **which QA contracts a code/test diff may affect**, and records **what was actually exercised for a release**. It includes scenarios that unit tests cannot prove on a hosted CI runner: real TCC prompts, sleep/wake, multiple displays, Apple devices, Music/WebKit and release installation behavior.
+
+Documentation/current-state consistency checks are complementary and do not turn into QA evidence. `Scripts/check-current-documentation.py` can prove that an agent/public entrypoint routes to the current owner or locale set; it cannot prove that a real Mac, TCC dialog, Apple device or service scenario passed.
 
 ## Documents
 
@@ -44,7 +46,7 @@ For a diff-aware run, the checker reports the exact impacted QA IDs and why they
 
 A changed tracked behavioral source file that matches neither a QA rule nor a narrow documented exemption fails CI. This is deliberate: new behavioral ownership must not appear without a QA route.
 
-When the same diff changes `Scripts/version`, the checker also verifies that every impacted non-automated ID is present in `release-evidence/<version>.md`. It never promotes unit tests to manual passes; the result in release evidence remains a truthful `pass`, `fail`, `blocked`, `not-run` or justified `not-applicable`.
+When the same diff changes `Scripts/version`, the checker also verifies that every impacted non-automated ID is present in `release-evidence/<version>.md`. It never promotes unit tests, documentation checks or current-state consistency assertions to manual passes; the result in release evidence remains a truthful `pass`, `fail`, `blocked`, `not-run` or justified `not-applicable`.
 
 ## Evidence discipline
 
@@ -87,3 +89,5 @@ Add or update a scenario when a change introduces a new:
 - accessibility/appearance behavior that cannot be proven by a narrow unit test.
 
 When a matrix row is added or its verification mode changes, update the QA impact map so the new ID has an explicit source/test route, then review the release evidence template and current candidate evidence file. CI validates both traceability coverage and release-specific classification.
+
+When a documentation/current-state guard is added, keep its scope separate: it may protect route/version/locale/public-policy consistency, but it must never be used as evidence that a manual Behavioral QA scenario passed.
