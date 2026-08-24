@@ -2,7 +2,7 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.5
+documentation_version: 1.6
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, storage, persistence, privacy]
@@ -53,6 +53,10 @@ Notification diagnostics в `AppleDeviceSettingsPane` — presentation/TCC chang
 ### Review 1.4.16 — version-statistics diagnostics
 
 `VersionTelemetryService.diagnostics()` — read-only local presentation, а не storage change сама по себе. Единственное реальное изменение — новый UserDefaults-ключ `versionStatistics.lastSuccess.v1` (см. [Schema & Migration Registry](../12-reference/schema-migration-registry.md)); он local-only, excluded from export/backup, как и остальные ключи этой группы, и не требует миграции. Diagnostics ничего не пишет — только читает существующие ключи под тем же `lock`, которым уже владеет `sendHeartbeatIfNeeded`.
+
+### Review 1.4.16 — UI consistency pass (#97)
+
+Изменения в `Sources/Impuls/Settings/SettingsWindow.swift` — один doc comment, фиксирующий, что окно намеренно не использует `Theme` (реальный `NSWindow`/`Form`, а не ещё один рендер панели). Ни одного persisted key, migration или export/backup поля это не касается; вся правка — комментарий над существующим `SettingsView`.
 
 ### Review 1.4.16 — iPhone/iPad Battery reliability
 
