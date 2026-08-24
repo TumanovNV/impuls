@@ -20,7 +20,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 VERSION_RE = re.compile(r"(?m)^VERSION=(\d+\.\d+\.\d+)\s*$")
 APP_LANGUAGE_RE = re.compile(r'^\s*case\s+\w+\s*=\s*"([^"]+)"\s*$', re.M)
-VERSION_LITERAL_RE = re.compile(r"\b\d+\.\d+\.\d+\b")
 
 
 def read(path: str) -> str:
@@ -155,6 +154,25 @@ def validate_agent_routes(errors: list[str]) -> None:
             errors.append(f"PROJECT-MANIFEST route {label} must be {expected!r}")
 
 
+def validate_public_readmes(errors: list[str]) -> None:
+    readme_en = read("README.md")
+    readme_ru = read("README.ru.md")
+    count = len(resource_locales())
+    canonical_policy = "https://tumanovnv.github.io/impuls/privacy/"
+
+    en_count_markers = {f"{count} interface languages"}
+    if count == 7:
+        en_count_markers.add("seven interface languages")
+    if not any(marker in readme_en.lower() for marker in en_count_markers):
+        errors.append("README.md does not expose the current shipped application locale count")
+    if f"{count} языков интерфейса" not in readme_ru.lower():
+        errors.append("README.ru.md does not expose the current shipped application locale count")
+
+    for path, text in (("README.md", readme_en), ("README.ru.md", readme_ru)):
+        if canonical_policy not in text:
+            errors.append(f"{path} does not link the canonical /privacy/ policy")
+
+
 def validate_current_entrypoints(errors: list[str]) -> None:
     version = current_version()
     kb_readme = read("knowledge-base/README.md")
@@ -194,6 +212,8 @@ def validate_current_entrypoints(errors: list[str]) -> None:
         if candidate != version:
             errors.append(f"SECURITY.md calls {candidate} current while Scripts/version is {version}")
 
+    validate_public_readmes(errors)
+
 
 def validate_data() -> list[str]:
     errors: list[str] = []
@@ -214,8 +234,8 @@ def main() -> int:
             print(f"- {error}", file=sys.stderr)
         return 1
     print(
-        "Current documentation OK: version routing, app/website/legal locale sets, "
-        "agent entrypoints and public privacy route are consistent."
+        "Current documentation OK: version routing, public README/privacy facts, "
+        "app/website/legal locale sets and agent entrypoints are consistent."
     )
     return 0
 
