@@ -109,6 +109,11 @@ final class UserNotificationLowBatteryDelivery: NSObject, LowBatteryNotification
 final class LowBatteryAlertService: ObservableObject {
     @Published private(set) var authorization: LowBatteryNotificationAuthorization = .notDetermined
     @Published private(set) var testNotificationInFlight = false
+    /// Low-battery deliveries currently crossing the Notification Center
+    /// boundary. Observable so a caller — a diagnostics view, or a test —
+    /// can wait for `confirmDelivery`/`cancelDelivery` to actually land
+    /// instead of guessing how many actor hops that takes.
+    @Published private(set) var pendingDeliveryCount = 0
 
     private let engine: LowBatteryAlertEngine
     private let delivery: LowBatteryNotificationDelivering
@@ -223,7 +228,14 @@ final class LowBatteryAlertService: ObservableObject {
         for alert in alerts {
             let notification = Self.notification(for: alert)
             let evaluationNow = latestEvaluation.now
+            pendingDeliveryCount += 1
             Task { [weak self, delivery] in
+                // Runs on this MainActor-isolated task before it yields the
+                // executor again, immediately after `confirmDelivery` /
+                // `cancelDelivery` below — so anyone observing the count
+                // reach zero also observes the engine's pending state as
+                // already settled, not merely the delivery attempt as made.
+                defer { self?.pendingDeliveryCount -= 1 }
                 do {
                     try await delivery.deliver(notification)
                     guard let self else { return }

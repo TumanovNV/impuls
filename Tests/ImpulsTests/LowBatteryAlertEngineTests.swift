@@ -1,3 +1,4 @@
+import Combine
 import XCTest
 @testable import ImpulsCore
 
@@ -265,6 +266,7 @@ final class LowBatteryAlertPermissionTests: XCTestCase {
     }
 
     func testDeliveryFailureRetriesAtSameReadingAndOnlySuccessPersists() async throws {
+        var cancellables: Set<AnyCancellable> = []
         let store = MemoryAlertStateStore()
         let delivery = FlakyAlertDelivery()
         let service = LowBatteryAlertService(
@@ -277,6 +279,22 @@ final class LowBatteryAlertPermissionTests: XCTestCase {
             components: [.init(kind: .primary, percentage: 20, lastUpdated: Fixtures.noon)]
         )
 
+        // `onAttempt` fulfills inside `delivery.deliver`, on the far side of
+        // the actor hop into a non-isolated delivery type. The service's
+        // `cancelDelivery` call only runs after hopping back onto the main
+        // actor, so waiting on the attempt alone races the retry below
+        // against that hop. `pendingDeliveryCount` returning to zero is
+        // published from the same main-actor slice as `cancelDelivery`
+        // itself, so it is the deterministic signal that the failure has
+        // actually settled.
+        let settledAfterFailure = expectation(description: "failed delivery settles pending state")
+        service.$pendingDeliveryCount
+            .dropFirst()
+            .filter { $0 == 0 }
+            .prefix(1)
+            .sink { _ in settledAfterFailure.fulfill() }
+            .store(in: &cancellables)
+
         let failedAttempt = expectation(description: "first Notification Center attempt fails")
         delivery.onAttempt = failedAttempt
         service.setEnabled(true, requestAuthorization: false)
@@ -285,7 +303,7 @@ final class LowBatteryAlertPermissionTests: XCTestCase {
             now: Fixtures.noon,
             staleAfter: DeviceSnapshotMerger.defaultStaleInterval
         )
-        await fulfillment(of: [failedAttempt], timeout: 2)
+        await fulfillment(of: [failedAttempt, settledAfterFailure], timeout: 2)
         XCTAssertNil(store.data, "failed delivery must not persist fired state")
 
         let retryAttempt = expectation(description: "same low reading retries")

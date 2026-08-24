@@ -2,7 +2,7 @@
 title: Power and Battery Module
 type: module
 status: production
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, module, battery, devices, iokit]
@@ -82,6 +82,8 @@ Opt-in. Persisted setting не prompt'ит notifications самостоятел�
 - pending state намеренно не переживает process death. Если процесс завершился до подтверждения системной доставки, безопасная ошибка — повторить предупреждение после следующего запуска, а не считать недоставленное уведомление показанным.
 
 `UNUserNotificationCenter.add` подтверждает принятие request системой, но не доказывает, что пользователь физически увидел banner. Поэтому Behavioral QA отдельно проверяет реальный Notification Center/TCC path; unit tests владеют retry, dedup, persistence и precedence state machine.
+
+Между тем моментом, когда `deliver()` бросает ошибку, и моментом, когда `LowBatteryAlertService` возвращается на `@MainActor`, чтобы вызвать `cancelDelivery`, есть реальный actor hop (`delivery` не MainActor-изолирован). Наблюдаемый `@Published pendingDeliveryCount` уменьшается тем же `defer`, что окружает этот hop, поэтому его возврат к нулю — единственный детерминированный сигнал, что pending state уже осел; ожидание только самой попытки доставки гонится с этим hop. Deterministic tests синхронизируются на этом счётчике, а не на количестве `Task.yield()`.
 
 ## Identity
 
