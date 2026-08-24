@@ -2,15 +2,15 @@
 title: IMPULS Module Catalog
 type: module-index
 status: active
-documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+documentation_version: 1.2
+app_version: 1.4.15
+last_reviewed: 2026-08-24
 tags: [impuls, modules, index]
 ---
 
 # Module Catalog
 
-ИМПУЛЬС 1.4.11 содержит девять основных panel modules. Menu Bar workspace документируется рядом как отдельная presentation surface.
+Текущий shipped catalog содержит девять основных panel modules. Источник состава — `Sources/Impuls/Services/AppFeatureCatalog.swift`, а `PROJECT-MANIFEST.json` машинно проверяется против него. Точный номер текущего release здесь намеренно не дублируется. Menu Bar workspace документируется рядом как отдельная presentation surface, а не десятый domain module.
 
 | ID | Пользовательское имя | Документ | Основной state owner |
 | --- | --- | --- | --- |
@@ -45,4 +45,6 @@ flowchart LR
 - sensitive permission не запрашивается автоматически;
 - отсутствующие hardware/data values не угадываются;
 - новая network boundary требует ADR/security review;
+- новый user-facing string следует current application localization contract и добавляется во все shipped app tables;
+- изменение shipped module set обновляет `AppFeatureCatalog`, этот каталог и `PROJECT-MANIFEST.json` в одном change set;
 - module contract меняется вместе с этим каталогом и конкретной page.
