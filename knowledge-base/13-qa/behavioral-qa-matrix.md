@@ -38,7 +38,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | PERM-05 | Apple Music automation not determined | manual-macos | read path does not silently prompt; explicit resolve action may prompt |
 | PERM-06 | Apple Music automation denied | mixed | explanatory access state and System Settings route; no crash/retry storm |
 | PERM-07 | External Apple devices disabled | mixed | no usbmuxd topology socket/read is started |
-| PERM-08 | Notifications not granted for low-battery alert | manual-macos | feature explains/handles permission state without blocking Power module |
+| PERM-08 | Low-battery Notifications permission and macOS delivery | manual-macos | persisted/restored settings never prompt on their own; denied access leaves Power monitoring functional and exposes a useful denied state; an explicitly authorized QA/test path reaches macOS Notification Center without fabricating a device reading or exposing a raw device identifier. Request acceptance is evidence for the system boundary, not proof that a human saw a banner. |
 
 ## Power and connected devices
 
@@ -55,7 +55,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | PWR-09 | iPhone unplugged during read | manual-hardware | task/session unwinds; backoff/topology state recovers |
 | PWR-10 | macOS Wi-Fi sync topology transition | manual-hardware | topology change does not require 1 s battery polling and does not leak raw identity |
 | PWR-11 | Repeated provider failures | automated | scheduler doubles cadence up to 600 s cap and resets after success |
-| PWR-12 | Low-battery Notification Center delivery at 20% / 10% | mixed | a sufficiently fresh, connected, non-charging external-device reading creates at most one in-flight alert per threshold; a rejected Notification Center request does **not** persist fired-state and the next ordinary provider evaluation can retry without a new timer or tighter cadence; an accepted request persists dedup state across relaunch; critical still subsumes same-cycle warning; no raw device identifier reaches Notification Center. Real macOS QA verifies the authorized Notification Center path and the 20%/10% user-facing behavior without claiming that request acceptance proves a human saw the banner. |
+| PWR-12 | Low-battery delivery transaction at 20% / 10% | automated | a sufficiently fresh, connected, non-charging external-device reading creates at most one in-flight alert per threshold; rejected delivery does **not** persist fired-state and the next ordinary evaluation can retry without a new timer or tighter cadence; accepted delivery persists dedup state across engine restart; critical subsumes same-cycle warning; re-arm invalidates stale pending state and no raw device identifier is persisted. |
 
 ## Local data, migration and bounds
 
