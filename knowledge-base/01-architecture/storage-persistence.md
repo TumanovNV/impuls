@@ -46,6 +46,8 @@ flowchart TD
 
 Notification diagnostics в `AppleDeviceSettingsPane` — presentation/TCC change, а не storage change. `Allowed / Denied / Not Requested`, переход в System Settings и тестовое уведомление ничего нового не сохраняют. Существующий ключ `appleDevices.lowBatteryAlerts.enabled` не менялся, по-прежнему machine-local и excluded from backup; состояние системного разрешения остаётся владельцем macOS Notification Center и не дублируется в UserDefaults. Новый migration или backup schema для 1.4.16 здесь не нужен.
 
+Финальная привязка автообновления status к `NSApplication.didBecomeActiveNotification` через Combine повторно проверена после исправления импорта: publisher живёт только в процессе и также не добавляет persisted state, background storage work или новую migration obligation.
+
 ## Язык интерфейса
 
 Выбор языка персистится отдельно от snapshot'а и в backup не попадает: он машинно-локален, потому что применяется через `AppleLanguages` в домене конкретного Mac. Владелец — `AppLanguageService`; `SettingsStore` держит его по композиции и второй копии не хранит.
@@ -85,7 +87,6 @@ Notification diagnostics в `AppleDeviceSettingsPane` — presentation/TCC chang
 ## Clipboard history
 
 `load()` различает «архива нет» и «архив есть, но открыть его не удалось». Второй исход ставит write latch в `ClipboardHistoryPersistence`: пока он активен, ни один путь записи — clipboard event, `prune`, смена retention, shutdown-`flush` — не заменяет файл, и снять латч может только успешное чтение. Восстановление и явный destructive reset описаны в [Clipboard](../02-modules/clipboard.md). Keychain service/account инжектируемы (по образцу `DeviceIdentityResolver`), чтобы тест пути записи не мог создать или удалить ключ, которым шифруется настоящий архив; значения по умолчанию не изменились.
-
 
 По умолчанию persistent history выключена. При opt-in:
 
