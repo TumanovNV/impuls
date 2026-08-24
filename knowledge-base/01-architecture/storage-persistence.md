@@ -2,9 +2,9 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.1
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.2
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, storage, persistence, privacy]
 ---
 
@@ -41,6 +41,10 @@ flowchart TD
 ## Settings
 
 `SettingsStore` хранит persisted preferences в UserDefaults. Export snapshot включает переносимые настройки, но **не включает local-only device keys** и selected physical device identity.
+
+### Review 1.4.16
+
+Notification diagnostics в `AppleDeviceSettingsPane` — presentation/TCC change, а не storage change. `Allowed / Denied / Not Requested`, переход в System Settings и тестовое уведомление ничего нового не сохраняют. Существующий ключ `appleDevices.lowBatteryAlerts.enabled` не менялся, по-прежнему machine-local и excluded from backup; состояние системного разрешения остаётся владельцем macOS Notification Center и не дублируется в UserDefaults. Новый migration или backup schema для 1.4.16 здесь не нужен.
 
 ## Язык интерфейса
 
