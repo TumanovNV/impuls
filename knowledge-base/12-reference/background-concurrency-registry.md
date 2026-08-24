@@ -2,7 +2,7 @@
 title: Background Work & Concurrency Registry
 type: reference
 status: active
-documentation_version: 1.8
+documentation_version: 1.9
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, performance, concurrency, timers, background-work, ai]
@@ -62,7 +62,7 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 | `NotchController` | Return-to-idle signal | event driven; fires from the existing collapse completion, no work of its own | `@MainActor` | one report per folded session that contained deliberate use; the flag is cleared on delivery, on `teardown()` and on `foldImmediately()`, so a torn-down controller or a vanished display reports nothing |
 | `AppDelegate` | Launch-time deferrals | update consent `+0.75 s`; version heartbeat first attempt `+2 s`, then starts `VersionTelemetryScheduler` for the hourly follow-ups | main queue delayed callbacks | one-shot deferrals; consent prompt is skipped under `CI=true`; neither opens a socket at launch, which CI verifies with `lsof`; the scheduler itself is stopped in `applicationWillTerminate` |
 | `AppRelaunchService` | One-shot helper waits for the old Impuls PID, then reopens the exact bundle | explicit confirmed relaunch only; at most `100` liveness probes at `0.1 s` (≈`10 s`), then one `0.2 s` settle delay after the PID disappears | `AppRelaunchService` starts a detached `/bin/sh` child; the helper uses `kill -0` as a liveness probe and does no app-state I/O | exits after `open`, or exits fail-closed at the probe cap without opening anything. If helper launch fails, the old app stays alive. No daemon, Login Item or LaunchAgent survives the restart |
-| `FileToolsCoordinator` | File batches and status auto-clear | user-initiated; status clears after `3 s` | `Task.detached(.userInitiated)` per batch, `autoreleasepool` per item | status writes guarded by a generation. **Known gap:** batch tasks keep no handle, so they are not cancelled on teardown — see `09-known-issues/current-limitations.md` |
+| `FileToolsCoordinator` | File batches and status auto-clear | user-initiated; status clears after `3 s` | `Task.detached(.userInitiated)` per item via `DetachedFileToolsWorkRunner`, `autoreleasepool` per item | status writes guarded by `statusGeneration`. **1.4.16 (#101):** one operation at a time — `beginOperation` takes a single slot and an `operationGeneration` guards every main-actor write a completing operation makes, so a superseded result cannot reach status, Shelf or Undo. Cancellation is **cooperative and explicit**: `Task.detached` inherits none, and the ImageIO/Vision work is synchronous, so a `FileToolsCancellation` flag is read at documented boundaries — between batch items, and between PDF pages. An item already in flight is allowed to finish rather than being abandoned mid-write; the remaining items never start. No timer, no polling, no extra concurrency: the batch stays sequential. The operation deliberately **survives** panel close — it is owned by the coordinator, which lives for the process — and is stopped only by the user's explicit Cancel |
 | `NotchContentView` | Rail hover dwell | `150 ms` before a hover switches module | SwiftUI `.task(id:)` | id change cancels; hover is an affordance and must not become selection |
 | Panes (`Actions`, `Clipboard`, `Notes`, `Snippets`, `Translate`) | "Copied" toast clear | `1.1 s` per pane | main queue delayed callback | value comparison discards a stale clear; no repeating work |
 

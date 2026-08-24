@@ -645,3 +645,13 @@
 "If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "Si Impuls vous a été utile, vous pouvez soutenir le projet avec une étoile sur GitHub. Si quelque chose peut être amélioré, vos retours nous intéressent.";
 "Support on GitHub" = "Soutenir sur GitHub";
 "Share Feedback" = "Envoyer un retour";
+
+/* Cancellable file operations 1.4.16 */
+"Cancelling…" = "Annulation…";
+"Cancelled" = "Annulé";
+"Cancelled · Processed: %d" = "Annulé · Traités : %d";
+"Cancelled · Processed: %d · Skipped: %d" = "Annulé · Traités : %d · Ignorés : %d";
+"Cancelled · Clipboard Unchanged" = "Annulé · Presse-papiers inchangé";
+"Cancel File Operation" = "Annuler l’opération sur les fichiers";
+"Stop the running file operation" = "Arrêter l’opération en cours sur les fichiers";
+"Finishes the file being processed and does not start the rest" = "Termine le fichier en cours et ne démarre pas les suivants";

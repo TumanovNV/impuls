@@ -106,6 +106,26 @@ struct ShelfPane: View {
                     .font(Theme.Typo.caption)
                     .foregroundStyle(Theme.tertiary)
                     .lineLimit(1)
+                if tools.canCancel {
+                    // Next to the status rather than with the trailing buttons:
+                    // this is the only control that acts on the thing the
+                    // progress text is describing, and the trailing group is
+                    // entirely disabled while an operation runs.
+                    //
+                    // The title stays "Cancel" once pressed instead of becoming
+                    // "Cancelling…" — the status text already says that, and a
+                    // label that changes width under the pointer moves the hit
+                    // target away from the finger going for it. Disabling is
+                    // what stops the second press; the wording is not.
+                    Button("Cancel") { tools.cancelActiveOperation() }
+                        .buttonStyle(.plain)
+                        .font(Theme.Typo.captionStrong)
+                        .foregroundStyle(tools.isCancelling ? Theme.tertiary : Theme.secondary)
+                        .disabled(tools.isCancelling)
+                        .help(localized("Stop the running file operation"))
+                        .accessibilityLabel(localized("Cancel File Operation"))
+                        .accessibilityHint(localized("Finishes the file being processed and does not start the rest"))
+                }
             } else if let message = tools.statusMessage {
                 Image(systemName: tools.statusIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
                     .font(Theme.Typo.caption)
