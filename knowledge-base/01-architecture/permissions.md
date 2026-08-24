@@ -2,7 +2,7 @@
 title: Permission Architecture
 type: architecture
 status: active
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, permissions, tcc, architecture]
@@ -46,6 +46,8 @@ Metadata/control использует public Apple Events/scripting path чер�
 Тестовое уведомление намеренно не содержит процента устройства и не вызывает `LowBatteryAlertEngine`: оно проверяет только системную Notification Center boundary и не меняет persisted warning/critical state. `UNUserNotificationCenter.add` подтверждает принятие request системой, а не то, что человек физически увидел banner.
 
 Возврат Impuls в active state после System Settings обновляет status автоматически; ручной `Refresh Status` остаётся явным fallback. Ни refresh, ни открытие Settings не запрашивают permission сами.
+
+Общая вкладка Settings → Permissions отображает тот же real state через `PermissionCenter.notifications` и также предлагает явную кнопку `Allow` при `Not Requested` (вызывает `PermissionCenter.requestNotifications()`), чтобы описание разрешения и точка входа совпадали с фактическим использованием (low-battery alerts), а не с устаревшим "meeting reminders" placeholder-текстом.
 
 ## Apple device trust
 

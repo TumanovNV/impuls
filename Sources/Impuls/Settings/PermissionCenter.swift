@@ -9,7 +9,6 @@ final class PermissionCenter: ObservableObject {
         case denied
         case notRequested
         case restricted
-        case future
 
         var title: String {
             switch self {
@@ -17,7 +16,6 @@ final class PermissionCenter: ObservableObject {
             case .denied: return localized("Denied")
             case .notRequested: return localized("Not Requested")
             case .restricted: return localized("Restricted")
-            case .future: return localized("Planned")
             }
         }
     }
