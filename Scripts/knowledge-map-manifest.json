@@ -1,6 +1,6 @@
 {
-  "documentation_version": "1.3",
-  "last_reviewed": "2026-08-19",
+  "documentation_version": "1.4",
+  "last_reviewed": "2026-08-24",
   "entries": [
     {
       "area": "Panel / multi-display",
@@ -317,6 +317,34 @@
       "doc": "knowledge-base/12-reference/project-manifest.md",
       "tests": [
         "Tests/PythonTests/test_project_manifest.py"
+      ]
+    },
+    {
+      "area": "Application / localization",
+      "symbol": "AppLanguageService",
+      "source": "Sources/Impuls/Services/AppLanguageService.swift",
+      "doc": "knowledge-base/04-development/localization.md",
+      "tests": [
+        "Tests/ImpulsTests/AppLanguageServiceTests.swift"
+      ]
+    },
+    {
+      "area": "Application lifecycle",
+      "symbol": "AppRelaunchService",
+      "source": "Sources/Impuls/Services/AppRelaunchService.swift",
+      "doc": "knowledge-base/04-development/localization.md",
+      "tests": [
+        "Tests/ImpulsTests/AppRelaunchServiceTests.swift"
+      ]
+    },
+    {
+      "area": "Project support",
+      "symbol": "ProjectSupportPromptService",
+      "source": "Sources/Impuls/Services/ProjectSupportPromptService.swift",
+      "doc": "knowledge-base/01-architecture/settings-onboarding-feedback.md",
+      "tests": [
+        "Tests/ImpulsTests/ProjectSupportPromptServiceTests.swift",
+        "Tests/ImpulsTests/ProjectSupportPromptLifecycleTests.swift"
       ]
     }
   ]
