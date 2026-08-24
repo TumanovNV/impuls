@@ -2,7 +2,7 @@
 title: Schema & Migration Registry
 type: reference
 status: active
-documentation_version: 1.6
+documentation_version: 1.7
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, schemas, migrations, persistence, compatibility]
@@ -73,6 +73,8 @@ The registry records **ownership and compatibility policy**, not secret values.
 После финального исправления Combine-подписки на `NSApplication.didBecomeActiveNotification` контракт проверен повторно: эта подписка process-local, ничего не сериализует и не создаёт новой schema/migration boundary.
 
 Общий `PermissionSettingsPane` также обновлён: устаревшее описание "meeting reminders" заменено на реальное использование, и его `Allow` теперь вызывает уже существующий `PermissionCenter.requestNotifications()`. Никакого нового persisted key, migration marker или backup field это не добавляет.
+
+Reviewed for 1.4.16 iPhone/iPad reliability audit: новый `DeviceProviderStatus.deviceLocked` и связанные UI-правки — только process-local runtime state и presentation, никакого нового persisted/backup поля или миграции.
 
 ## Main settings compatibility
 

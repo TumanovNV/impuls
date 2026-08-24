@@ -2,7 +2,7 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, storage, persistence, privacy]
@@ -53,6 +53,10 @@ Notification diagnostics в `AppleDeviceSettingsPane` — presentation/TCC chang
 ### Review 1.4.16 — version-statistics diagnostics
 
 `VersionTelemetryService.diagnostics()` — read-only local presentation, а не storage change сама по себе. Единственное реальное изменение — новый UserDefaults-ключ `versionStatistics.lastSuccess.v1` (см. [Schema & Migration Registry](../12-reference/schema-migration-registry.md)); он local-only, excluded from export/backup, как и остальные ключи этой группы, и не требует миграции. Diagnostics ничего не пишет — только читает существующие ключи под тем же `lock`, которым уже владеет `sendHeartbeatIfNeeded`.
+
+### Review 1.4.16 — iPhone/iPad Battery reliability
+
+`DeviceProviderStatus.deviceLocked` и honest-messaging правки в `AppleDeviceSettingsPane`/`PowerPane` — presentation/in-memory state, никакого нового persisted key. `DevicePowerCenter.lastGoodDevices`/`statuses` остаются process-local runtime state, как и раньше; ничего из этого не сериализуется в UserDefaults/backup. Никакой schema/migration impact.
 
 ## Язык интерфейса
 
