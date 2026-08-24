@@ -108,6 +108,7 @@ final class UserNotificationLowBatteryDelivery: NSObject, LowBatteryNotification
 @MainActor
 final class LowBatteryAlertService: ObservableObject {
     @Published private(set) var authorization: LowBatteryNotificationAuthorization = .notDetermined
+    @Published private(set) var testNotificationInFlight = false
 
     private let engine: LowBatteryAlertEngine
     private let delivery: LowBatteryNotificationDelivering
@@ -143,6 +144,13 @@ final class LowBatteryAlertService: ObservableObject {
         refreshAuthorization(requestIfNeeded: requestAuthorization)
     }
 
+    /// Explicit Settings action. Restoring a persisted preference continues to
+    /// call `setEnabled(... requestAuthorization: false)` and therefore never
+    /// produces a TCC prompt by itself.
+    func requestAuthorization() {
+        refreshAuthorization(requestIfNeeded: true)
+    }
+
     func refreshAuthorization(requestIfNeeded: Bool = false) {
         permissionTask?.cancel()
         permissionTask = Task { [weak self] in
@@ -156,6 +164,25 @@ final class LowBatteryAlertService: ObservableObject {
             authorization = status
             evaluateLatestIfPossible()
             deliverQATriggerIfRequested()
+        }
+    }
+
+    /// Sends a deliberately synthetic notification from an explicit Settings
+    /// action. It never calls the alert engine, never fabricates a percentage,
+    /// and therefore cannot arm, re-arm or persist low-battery policy state.
+    func sendTestNotification() {
+        guard authorization == .authorized, !testNotificationInFlight else { return }
+        testNotificationInFlight = true
+        let notification = Self.testNotification()
+        Task { [weak self, delivery] in
+            do {
+                try await delivery.deliver(notification)
+                DevicePowerLog.note("notification test accepted by Notification Center")
+            } catch {
+                DevicePowerLog.note("notification test delivery failed")
+            }
+            guard let self else { return }
+            testNotificationInFlight = false
         }
     }
 
@@ -226,14 +253,15 @@ final class LowBatteryAlertService: ObservableObject {
               !didDeliverQATrigger,
               ProcessInfo.processInfo.environment["IMPULS_LOW_BATTERY_NOTIFICATION_QA"] == "1" else { return }
         didDeliverQATrigger = true
-        let notification = LowBatteryNotification(
+        sendTestNotification()
+    }
+
+    private static func testNotification() -> LowBatteryNotification {
+        LowBatteryNotification(
             title: localized("Impuls Notification QA"),
             body: localized("Test notification only. No device battery reading was used."),
             devicePreferenceKey: "qa"
         )
-        Task { [delivery] in
-            try? await delivery.deliver(notification)
-        }
     }
 
     static func notification(for alert: LowBatteryAlert) -> LowBatteryNotification {
