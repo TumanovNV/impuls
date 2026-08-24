@@ -30,9 +30,16 @@ final class LowBatteryAlertServiceDiagnosticTests: XCTestCase {
         await fulfillment(of: [authorized], timeout: 2)
 
         let delivered = expectation(description: "test notification delivered")
+        let completed = expectation(description: "diagnostic delivery completed")
         delivery.onDelivery = delivered
+        service.$testNotificationInFlight
+            .dropFirst()
+            .filter { !$0 }
+            .prefix(1)
+            .sink { _ in completed.fulfill() }
+            .store(in: &cancellables)
         service.sendTestNotification()
-        await fulfillment(of: [delivered], timeout: 2)
+        await fulfillment(of: [delivered, completed], timeout: 2)
 
         XCTAssertEqual(delivery.notifications.count, 1)
         XCTAssertEqual(delivery.notifications.first?.devicePreferenceKey, "qa")
@@ -78,6 +85,7 @@ final class LowBatteryAlertServiceDiagnosticTests: XCTestCase {
         delivery.onStatusRead = initialRead
         service.setEnabled(true, requestAuthorization: false)
         await fulfillment(of: [initialRead], timeout: 2)
+        delivery.onStatusRead = nil
         XCTAssertEqual(delivery.requestCount, 0)
 
         let requested = expectation(description: "explicit action requests authorization")
