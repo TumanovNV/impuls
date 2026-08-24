@@ -606,6 +606,9 @@ struct PowerPane: View {
         if diagnostics.contains(where: { $0.status == .permissionRequired }) {
             return localized("Unlock your iPhone or iPad and tap Trust This Computer.")
         }
+        if diagnostics.contains(where: { $0.status == .deviceLocked }) {
+            return localized("A device is locked. Its last known reading is shown until it unlocks.")
+        }
         if diagnostics.contains(where: { $0.status == .temporarilyFailed }) {
             return localized("Some device readings are stale.")
         }
@@ -621,6 +624,9 @@ struct PowerPane: View {
     private var externalStatusSymbol: String {
         if devices.diagnostics.contains(where: { $0.status == .permissionRequired }) {
             return "lock.open"
+        }
+        if devices.diagnostics.contains(where: { $0.status == .deviceLocked }) {
+            return "lock"
         }
         if devices.diagnostics.contains(where: { $0.status == .temporarilyFailed }) {
             return "exclamationmark.triangle"

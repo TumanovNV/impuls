@@ -426,6 +426,7 @@
 "Some devices could not be refreshed. Last known readings show their age." = "一部のデバイスを更新できませんでした。最後に取得した値には取得時期が表示されます。";
 "Some device readings are stale." = "一部のデバイスの値が古くなっています。";
 "Unlock your iPhone or iPad and tap Trust This Computer." = "iPhoneまたはiPadのロックを解除し、「このコンピュータを信頼」をタップしてください。";
+"A device is locked. Its last known reading is shown until it unlocks." = "デバイスがロックされています。ロック解除されるまで、最後に確認できた情報を表示します。";
 "iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device." = "iPhoneとiPadのバッテリー対応は試験的な機能です。USBまたはmacOSのWi-Fi同期による既存の信頼関係を利用し、デバイスをペアリングしたり変更したりすることはありません。";
 "This Mac" = "このMac";
 "Mac" = "Mac";

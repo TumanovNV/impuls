@@ -426,6 +426,7 @@
 "Some devices could not be refreshed. Last known readings show their age." = "部分设备无法刷新。最后一次已知读数会标明其时间。";
 "Some device readings are stale." = "部分设备读数已过时。";
 "Unlock your iPhone or iPad and tap Trust This Computer." = "请解锁你的 iPhone 或 iPad，并轻点「信任此电脑」。";
+"A device is locked. Its last known reading is shown until it unlocks." = "设备已锁定。在解锁前将显示其最后已知读数。";
 "iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device." = "iPhone 与 iPad 的电池支持尚属实验性功能。它利用通过 USB 或 macOS Wi-Fi 同步建立的既有信任关系，绝不会配对或更改设备。";
 "This Mac" = "这台 Mac";
 "Mac" = "Mac";

@@ -427,6 +427,7 @@
 "Some devices could not be refreshed. Last known readings show their age." = "Some devices could not be refreshed. Last known readings show their age.";
 "Some device readings are stale." = "Some device readings are stale.";
 "Unlock your iPhone or iPad and tap Trust This Computer." = "Unlock your iPhone or iPad and tap Trust This Computer.";
+"A device is locked. Its last known reading is shown until it unlocks." = "A device is locked. Its last known reading is shown until it unlocks.";
 "iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device." = "iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device.";
 "This Mac" = "This Mac";
 "Mac" = "Mac";

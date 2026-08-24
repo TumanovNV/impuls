@@ -426,6 +426,7 @@
 "Some devices could not be refreshed. Last known readings show their age." = "Не все устройства удалось обновить. Для последних известных данных указан их возраст.";
 "Some device readings are stale." = "Некоторые данные об устройствах устарели.";
 "Unlock your iPhone or iPad and tap Trust This Computer." = "Разблокируйте iPhone или iPad и нажмите «Доверять этому компьютеру».";
+"A device is locked. Its last known reading is shown until it unlocks." = "Устройство заблокировано. Показана последняя известная информация до его разблокировки.";
 "iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device." = "Поддержка аккумуляторов iPhone и iPad экспериментальная. Она использует существующее доверие через USB или синхронизацию macOS по Wi-Fi, не создаёт пару и не изменяет устройство.";
 "This Mac" = "Этот Mac";
 "Mac" = "Mac";
