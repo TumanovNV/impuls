@@ -427,6 +427,7 @@
 "Some devices could not be refreshed. Last known readings show their age." = "Einige Geräte konnten nicht aktualisiert werden. Die letzten bekannten Werte zeigen ihr Alter.";
 "Some device readings are stale." = "Einige Gerätewerte sind veraltet.";
 "Unlock your iPhone or iPad and tap Trust This Computer." = "Entsperre dein iPhone oder iPad und tippe auf „Diesem Computer vertrauen“.";
+"A device is locked. Its last known reading is shown until it unlocks." = "Ein Gerät ist gesperrt. Der letzte bekannte Stand wird angezeigt, bis es entsperrt wird.";
 "iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device." = "Die Batterieunterstützung für iPhone und iPad ist experimentell. Sie nutzt eine bestehende Vertrauensbeziehung über USB oder die WLAN-Synchronisierung von macOS und koppelt oder verändert das Gerät nie.";
 "This Mac" = "Dieser Mac";
 "Mac" = "Mac";

@@ -185,6 +185,9 @@ struct AppleDeviceSettingsPane: View {
         if relevantDiagnostics.contains(where: { $0.status == .permissionRequired }) {
             return localized("Unlock your iPhone or iPad and tap Trust This Computer.")
         }
+        if relevantDiagnostics.contains(where: { $0.status == .deviceLocked }) {
+            return localized("A device is locked. Its last known reading is shown until it unlocks.")
+        }
         if relevantDiagnostics.contains(where: { $0.status == .temporarilyFailed }) {
             return localized("Some devices could not be refreshed. Last known readings show their age.")
         }
@@ -198,6 +201,9 @@ struct AppleDeviceSettingsPane: View {
     private var statusSymbol: String {
         if relevantDiagnostics.contains(where: { $0.status == .permissionRequired }) {
             return "lock.open"
+        }
+        if relevantDiagnostics.contains(where: { $0.status == .deviceLocked }) {
+            return "lock"
         }
         if relevantDiagnostics.contains(where: { $0.status == .temporarilyFailed }) {
             return "exclamationmark.triangle"

@@ -198,8 +198,11 @@ final class DevicePowerCenter: ObservableObject {
 
         statuses[update.identifier] = update.status
         switch update.status {
-        case .temporarilyFailed:
+        case .temporarilyFailed, .deviceLocked:
             // Keep whatever this provider last knew; the age is visible.
+            // A locked device is still the same physical device with the same
+            // last-read charge — it did not stop existing, it stopped
+            // answering for a moment.
             DevicePowerLog.note("provider \(update.identifier.rawValue) failed temporarily")
         case .disabled, .permissionRequired, .unavailable:
             lastGoodDevices[update.identifier] = []

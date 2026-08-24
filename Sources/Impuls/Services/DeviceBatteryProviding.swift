@@ -33,6 +33,13 @@ enum DeviceProviderStatus: Equatable, Hashable, Sendable {
     case starting
     case ready
     case permissionRequired
+    /// Distinct from `permissionRequired`: this Mac already has a valid
+    /// pairing, but the device itself currently refuses to answer because it
+    /// is locked. Unlike `permissionRequired` — which means the user needs to
+    /// grant something — this is transient and self-resolving, so a provider
+    /// reporting it should keep the caller's last-known reading rather than
+    /// clearing it, the same way `temporarilyFailed` does.
+    case deviceLocked
     case unavailable
     case temporarilyFailed
 }

@@ -632,6 +632,46 @@ The model leaves room for additional sources — a real CoreBluetooth provider, 
 one day a companion-supplied source — but 1.4.6 builds none of them, and nothing
 in the architecture depends on one existing.
 
+## 1.4.16 reliability audit addendum
+
+Issue #93 asked whether the reliability work this document's protocol enabled
+could honestly drop Beta. The transport dedup and USB-preferred/Network-fallback
+routing described above were re-verified against current code and found
+unchanged and already covered by deterministic tests — no rewrite was needed
+there.
+
+Two real defects were found and fixed, both provable from the code's own stated
+contracts rather than assumed:
+
+- A locked-but-trusted device (`PasswordProtected`) and a genuinely untrusted
+  Mac (`InvalidHostID` / `UserDeniedPairing`) were already distinguished by
+  `MobileDeviceClient.error(for:)`, but the provider collapsed both into the
+  same `permissionRequired` status, and `DevicePowerCenter` discarded the
+  last-known reading for that status — directly contradicting its own
+  documented rule that a transient failure must not blank the list. A device
+  that is merely locked now reports a distinct `deviceLocked` status and keeps
+  its last-known reading, shown honestly as such rather than dropped.
+- A read already in flight when the device set changed (disconnect, or the Mac
+  waking from sleep) was previously only queued behind by a follow-up refresh,
+  not cancelled — so a stale read for a device that had already disappeared
+  could still complete and briefly publish it as live before the follow-up
+  corrected it. A topology change or wake now cancels the in-flight read and
+  starts fresh instead, closing that window. No new timer or generation
+  counter — this reuses the existing `Task.cancel()` / `Task.isCancelled` path.
+
+Neither fix touched cadence, the network/LAN boundary, or added any private
+API. See `knowledge-base/02-modules/power.md` for the current architecture
+summary and `Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift` /
+`Tests/ImpulsTests/DevicePowerCenterTests.swift` for the deterministic
+coverage.
+
+**Beta was not lifted.** Both fixes are real and tested, but the underlying
+hardware-validation evidence is still what it was when this document was
+written — one iPhone, one iOS version, one iPad, both over USB and Wi-Fi sync.
+This audit did not add a new real-device validation run, so there is not yet
+enough evidence to promise the range of phones, iPads and iOS versions "Stable"
+would imply.
+
 ## Sources
 
 - Apple: [IOPowerSources](https://developer.apple.com/documentation/iokit/iopowersources_h),
