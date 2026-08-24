@@ -2,7 +2,7 @@
 title: Behavioral QA Matrix
 type: qa-reference
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, qa, scenarios, hardware, permissions, release]
@@ -51,8 +51,8 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | PWR-05 | Supported Apple accessory appears/disappears | manual-hardware | list updates from event/read path without duplicate rows |
 | PWR-06 | AirPods component topology changes | manual-hardware | bounded active polling observes public-source lag without busy polling |
 | PWR-07 | Trusted unlocked iPhone over USB | manual-hardware | battery snapshot arrives off-main; UI remains responsive |
-| PWR-08 | iPhone locked / temporarily unavailable | manual-hardware | temporary failure/backoff, no UI freeze and no invented percentage |
-| PWR-09 | iPhone unplugged during read | manual-hardware | task/session unwinds; backoff/topology state recovers |
+| PWR-08 | iPhone locked / temporarily unavailable | mixed | a locked-but-trusted device reports the distinct `deviceLocked` state, never the same generic state as "not trusted"; its last known reading is kept and shown as Last Known rather than dropped; no UI freeze and no invented percentage |
+| PWR-09 | iPhone unplugged during read | mixed | task/session unwinds; a topology change or wake cancels any in-flight read instead of letting it publish after the fact, so a phone that disconnected mid-read cannot be briefly resurrected as live; backoff/topology state recovers |
 | PWR-10 | macOS Wi-Fi sync topology transition | manual-hardware | topology change does not require 1 s battery polling and does not leak raw identity |
 | PWR-11 | Repeated provider failures | automated | scheduler doubles cadence up to 600 s cap and resets after success |
 | PWR-12 | Low-battery delivery transaction at 20% / 10% | automated | a sufficiently fresh, connected, non-charging external-device reading creates at most one in-flight alert per threshold; rejected delivery does **not** persist fired-state and the next ordinary evaluation can retry without a new timer or tighter cadence; accepted delivery persists dedup state across engine restart; critical subsumes same-cycle warning; re-arm invalidates stale pending state and no raw device identifier is persisted. |
