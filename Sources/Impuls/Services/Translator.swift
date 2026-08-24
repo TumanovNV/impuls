@@ -106,6 +106,16 @@ final class Translator: ObservableObject {
     /// "downloadable" and "impossible" have to look different in the menu —
     /// offering a pair that can never work is worse than not offering it.
     enum Readiness: Equatable {
+        /// The scan for this pair has not landed yet. Distinct from
+        /// `downloadable`: before the audit that added this case, an
+        /// unscanned pair silently defaulted to `downloadable`, so a menu
+        /// freshly opened on a Mac with everything already installed showed
+        /// a download arrow next to languages that needed nothing — a false
+        /// fact, not a placeholder. `unknown` is presented like `installed`
+        /// (no icon, not disabled): offering it is kinder than guessing
+        /// either "ready" or "impossible", and the pane explains itself the
+        /// moment it is tried either way.
+        case unknown
         case installed
         case downloadable
         case unsupported
@@ -122,6 +132,18 @@ final class Translator: ObservableObject {
     private let defaults: UserDefaults
     private var attempt = 0
     private var availabilityTask: Task<Void, Never>?
+    /// Guards `loadSupportedLanguages()` against a second concurrent scan:
+    /// `supported.isEmpty` alone does not rule one out, since the first
+    /// scan is still in flight — and still empty — for the whole time it
+    /// takes to answer. The pane calls `loadSupportedLanguages()` from
+    /// every `onAppear`, including a rapid tab-away-and-back before the
+    /// first scan lands.
+    private var supportedLanguagesTask: Task<Void, Never>?
+    /// Counts real scans started, not calls to `loadSupportedLanguages()` —
+    /// the two are supposed to differ once the guard above is doing its job.
+    /// Not `private`: it is the seam a deterministic test needs to prove no
+    /// duplicate scan starts, without faking `LanguageAvailability` itself.
+    private(set) var languageListScansStarted = 0
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -211,21 +233,35 @@ final class Translator: ObservableObject {
     /// Loads the language list once, then the install status of every candidate
     /// against the current pair. Both are framework queries; neither touches
     /// the network from Impuls.
+    ///
+    /// Called from every `onAppear` of the pane, not only the first. The list
+    /// itself does not change while Impuls runs, so a second call is a no-op
+    /// past the guards below — but the *readiness* of the current pair can:
+    /// the user may have just come back from System Settings having installed
+    /// or removed a language pack. Re-scanning on every appearance is how
+    /// that shows up without a background poll — it rides an existing
+    /// lifecycle event instead of creating a new one.
     func loadSupportedLanguages() {
-        guard supported.isEmpty else { return }
-        Task { [weak self] in
-            let languages = await LanguageAvailability().supportedLanguages
-            var seen: Set<String> = []
-            let unique = languages
-                .filter { seen.insert(Translator.code($0)).inserted }
-                .map(Translator.base)
-                .sorted {
-                    Translator.name($0).localizedStandardCompare(Translator.name($1)) == .orderedAscending
-                }
-            guard let self else { return }
-            self.supported = unique
-            self.refreshAvailability()
+        guard !supported.isEmpty else {
+            guard supportedLanguagesTask == nil else { return }
+            languageListScansStarted += 1
+            supportedLanguagesTask = Task { [weak self] in
+                let languages = await LanguageAvailability().supportedLanguages
+                var seen: Set<String> = []
+                let unique = languages
+                    .filter { seen.insert(Translator.code($0)).inserted }
+                    .map(Translator.base)
+                    .sorted {
+                        Translator.name($0).localizedStandardCompare(Translator.name($1)) == .orderedAscending
+                    }
+                guard let self else { return }
+                self.supportedLanguagesTask = nil
+                self.supported = unique
+                self.refreshAvailability()
+            }
+            return
         }
+        refreshAvailability()
     }
 
     private func refreshAvailability() {
@@ -271,9 +307,7 @@ final class Translator: ObservableObject {
         guard !Self.same(candidate, language) else { return .installed }
         let staying = Self.same(language, pair.first) ? pair.second : pair.first
         guard !Self.same(candidate, staying) else { return .installed }
-        // Unknown until the scan lands. Offering it is the kinder default: the
-        // pane says what is missing the moment it is tried.
-        return self.readiness[Self.readinessKey(candidate, staying)] ?? .downloadable
+        return self.readiness[Self.readinessKey(candidate, staying)] ?? .unknown
     }
 
     // MARK: - Running
@@ -305,12 +339,22 @@ final class Translator: ObservableObject {
         // answer is about a pair the user has already moved on from. Letting it
         // land is what made a working translator start reporting the failure of
         // a pair no longer on screen.
-        let expected = Self.identifier(of: pair)
         let wanted = route(for: text)
         guard Self.same(source, wanted.source), Self.same(target, wanted.target) else {
             NSLog("Impuls: translate ignoring stale \(Self.code(source)) → \(Self.code(target)) session")
             return
         }
+
+        // Captured once and compared again after every suspension point.
+        // `.translationTask` cancelling the previous invocation on a
+        // configuration change is the documented path, but nothing here
+        // relies on that alone: a retry of the *same* text at the *same*
+        // pair also has to win over an older run already in flight, and
+        // `Task.isCancelled` cannot tell those two requests apart — only
+        // `Request` (text + pair + the retry counter together) can. This is
+        // the same identity `TranslatePane` already keys its debounced task
+        // on, reused here for the second half of the same race.
+        let expected = request
 
         // No language pack ships installed. `prepareTranslation()` is what asks
         // for one, but it blocks until its system prompt is answered — and that
@@ -318,7 +362,7 @@ final class Translator: ObservableObject {
         // never activates, so it would hang forever. Check instead, and send
         // the user to the one place that can actually install it.
         let status = await LanguageAvailability().status(from: source, to: target)
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, request == expected else { return }
         guard status == .installed else {
             NSLog("""
             Impuls: translate \(source.maximalIdentifier) → \(target.maximalIdentifier) \
@@ -333,22 +377,66 @@ final class Translator: ObservableObject {
         }
 
         // The session belongs to the modifier that handed it over and dies with
-        // it. Changing the language tears that task down, so anything resuming
-        // from the await above has to check that its pair is still the one on
-        // screen before touching the session again.
-        guard Self.identifier(of: pair) == expected, !Task.isCancelled else { return }
+        // it. Changing the language, retrying or typing further tears down (or
+        // supersedes) this request, so anything resuming from the await above
+        // has to check it is still the one on screen before touching the
+        // session again.
+        guard request == expected, !Task.isCancelled else { return }
 
         do {
             let response = try await session.translate(text)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, request == expected else { return }
             output = response.targetText
             failure = nil
             needsDownload = false
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, request == expected else { return }
+            // A cancelled request is not a translation failure, whether Swift
+            // reports it as `CancellationError` or the framework reports its
+            // own `TranslationError.alreadyCancelled` for a session already
+            // torn down by a superseding configuration.
+            guard !(error is CancellationError) else { return }
+            if let translationError = error as? TranslationError {
+                // `.alreadyCancelled` and `.notInstalled` were added to
+                // `TranslationError` after this project's macOS 15 minimum,
+                // so they cannot appear in an unqualified switch over every
+                // case on an older system — matched explicitly instead of
+                // widening the deployment target for two case labels.
+                if #available(macOS 26.0, *) {
+                    if case .alreadyCancelled = translationError { return }
+                    // The framework's own runtime check found what our
+                    // `LanguageAvailability` pre-check above did not — e.g. a
+                    // pack removed in the moment between that check and this
+                    // call. Same honest state either way: a missing pack the
+                    // user can go install.
+                    if case .notInstalled = translationError {
+                        output = ""
+                        needsDownload = true
+                        failure = localized(
+                            "The %@ → %@ language pack is not installed.", Self.name(source), Self.name(target)
+                        )
+                        return
+                    }
+                }
+                switch translationError {
+                case .unsupportedSourceLanguage, .unsupportedTargetLanguage, .unsupportedLanguagePairing:
+                    output = ""
+                    needsDownload = false
+                    failure = localized("macOS does not translate this pair of languages.")
+                    return
+                default:
+                    break
+                }
+            }
+            // An unrecognised TranslationError case, or a completely
+            // different error type: `error.localizedDescription` here would
+            // be Apple's own system-language text, which does not
+            // necessarily match Impuls's own chosen interface language —
+            // a safe, already-localized fallback instead of a raw string in
+            // whatever language macOS itself happens to be running.
             output = ""
             needsDownload = false
-            failure = error.localizedDescription
+            failure = localized("Translation failed. Try again.")
         }
     }
 
@@ -370,10 +458,21 @@ final class Translator: ObservableObject {
         return name.prefix(1).uppercased() + name.dropFirst()
     }
 
-    /// System Settings → General → Language & Region, which is where the
-    /// "Translation Languages…" button lives.
+    /// System Settings → General → Language & Region → Translation
+    /// Languages, opened directly rather than at the top of the surrounding
+    /// pane. Same `x-apple.systempreferences:` scheme Impuls already uses
+    /// elsewhere to deep-link into a Settings pane (`PermissionCenter`,
+    /// `CalendarStore`, `MediaController` each open a different one this
+    /// way) — not a private API, and not new to this file.
+    /// `com.apple.Localization-Settings.extension` is the Language & Region
+    /// pane itself; `?translation` is that same pane's documented anchor
+    /// straight to its Translation Languages section. If the anchor is ever
+    /// not recognised, this still opens the same pane it did before —
+    /// nothing regresses, since both forms share one identifier.
     static func openLanguageSettings() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.Localization-Settings.extension") else { return }
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.Localization-Settings.extension?translation"
+        ) else { return }
         NSWorkspace.shared.open(url)
     }
 }

@@ -64,6 +64,7 @@
 "Retry" = "Erneut versuchen";
 "The %@ → %@ language pack is not installed." = "Das Sprachpaket %@ → %@ ist nicht installiert.";
 "macOS does not translate this pair of languages." = "macOS übersetzt dieses Sprachpaar nicht.";
+"Translation failed. Try again." = "Übersetzung fehlgeschlagen. Versuche es erneut.";
 
 /* Calendar */
 "Join" = "Beitreten";
