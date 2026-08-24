@@ -273,6 +273,21 @@ enum Theme {
         Color.accentColor.opacity(increaseContrast ? 0.85 : 0.48)
     }
 
+    /// Stroke width for `selectionStroke`, wherever a card or row draws its
+    /// selected state as an accent outline rather than a plain fill (Shelf's
+    /// items, Power's Device Navigator rows). One width for the whole family.
+    static let selectionStrokeWidth: CGFloat = 1.5
+
+    /// What a control drawing its own foreground (rather than relying on
+    /// SwiftUI's automatic disabled-dimming of system chrome) should use for
+    /// enabled vs. disabled. Pulled out as a pure function — not inlined in
+    /// `NotchButtonStyle` — so "enabled and disabled must look different" is
+    /// a regression-tested contract rather than something only visible by
+    /// reading the view body.
+    static func foregroundColor(isEnabled: Bool) -> Color {
+        isEnabled ? primary : tertiary
+    }
+
     /// Focus ring for controls inside the panel.
     ///
     /// The panel deliberately suppresses AppKit's own focus ring — it is drawn
@@ -351,19 +366,28 @@ struct NotchButtonStyle: ButtonStyle {
         let prominent: Bool
 
         @Environment(\.isFocused) private var isFocused
+        // `.disabled(...)` alone leaves this style's own drawing untouched —
+        // SwiftUI only dims a control automatically when it renders its own
+        // system chrome, and this style draws its own glyph/fill instead. A
+        // disabled button using it was pixel-identical to an enabled one, so
+        // the capability gating added in 1.4.16 (Music transport controls)
+        // had no visible effect. `Theme.tertiary` is the same de-emphasis
+        // already used for secondary text elsewhere — legible, not faded to
+        // the point of unreadable.
+        @Environment(\.isEnabled) private var isEnabled
 
         var body: some View {
             configuration.label
                 .font(prominent ? Theme.Typo.title : Theme.Typo.label)
-                .foregroundStyle(Theme.primary)
+                .foregroundStyle(Theme.foregroundColor(isEnabled: isEnabled))
                 .frame(width: size, height: size)
                 .background(
-                    Circle().fill(prominent ? Theme.surfaceHover : Color.clear)
+                    Circle().fill(prominent && isEnabled ? Theme.surfaceHover : Color.clear)
                 )
                 .overlay(
                     Circle()
                         .strokeBorder(Theme.focusRing, lineWidth: 2)
-                        .opacity(isFocused ? 1 : 0)
+                        .opacity(isFocused && isEnabled ? 1 : 0)
                         .allowsHitTesting(false)
                 )
                 .opacity(configuration.isPressed ? 0.55 : 1)
