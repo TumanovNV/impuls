@@ -2,9 +2,9 @@
 title: macOS Permissions and TCC
 type: platform
 status: active
-documentation_version: 1.1
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.2
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, macos, tcc, permissions]
 ---
 
@@ -49,6 +49,8 @@ Without stable Developer ID identity, macOS may treat replaced builds in ways th
 ## Изменения 1.4.12-hardening
 
 TCC-контракт не менялся. Правка в `PlayerBridge` касалась только безопасного преобразования позиции воспроизведения; ни один вызов, вызывающий системный запрос, не добавлен и не перемещён.
+
+1.4.16: `NativeMusicBridging`/`LivePlayerBridge` — тестовая DI-обёртка вокруг тех же статических вызовов `PlayerBridge`, не системный вызов сам по себе. `automationAuthorization(prompt:completion:)` форвардит один-в-один в существующий `PlayerBridge.automationAuthorization(for: .music, prompt:completion:)`; TCC-путь и prompt-политика идентичны.
 
 ## Entitlements
 

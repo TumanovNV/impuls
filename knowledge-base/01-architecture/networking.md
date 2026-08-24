@@ -2,7 +2,7 @@
 title: Networking Architecture
 type: architecture
 status: active
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, networking, security]
@@ -35,6 +35,8 @@ Fixed feed: `https://github.com/TumanovNV/impuls/releases/latest/download/appcas
 ## 2. WebMusicPlayer
 
 WebKit создаётся только после явного `Open Web Player`. Выбор web source сам по себе не создаёт `WKWebView` и не выполняет request. Main-frame navigation ограничена allow-list доменами выбранного provider; unrelated links уходят в default browser.
+
+1.4.16 добавил в JS-мост и в `WebMusicState` четыре capability-поля (`canNext`/`canPrevious`/`canPlayPause`/`canSeek`) — тот же `transport-route lookup`, который уже использовал `command(_:)`, теперь дополнительно репортится в Swift вместо того, чтобы оставаться неиспользуемым внутри страницы. Это не новый network endpoint и не новое исходящее сообщение: поля идут тем же самым каналом (`impulsMusic` postMessage раз в секунду, уже существующий и bounded), тем же provider-allowlist. `WebMusicPlaying` — тестовый DI-протокол вокруг `WebMusicPlayer`; production always resolves to the real `WebMusicPlayer()`, so this network boundary is unchanged in kind. `MusicProviderCatalog` (regional Recommended/All Services ordering) выполняется полностью локально — единственный вход `Locale.current.region`/app-language fallback, без сети и без изменения каталога поддерживаемых источников (см. [Music](../02-modules/music.md)).
 
 ## 3. VersionTelemetryService
 
