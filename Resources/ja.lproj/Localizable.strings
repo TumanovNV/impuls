@@ -165,13 +165,12 @@
 "Denied" = "拒否";
 "Not Requested" = "未要求";
 "Restricted" = "制限あり";
-"Planned" = "予定";
 "Shows upcoming meetings inside the Calendar module." = "カレンダーモジュールに今後の会議を表示します。";
 "Music Automation" = "ミュージックのオートメーション";
 "Reads track information and controls the Apple Music app. Web players do not need this permission." = "曲の情報を読み取り、Apple Musicアプリを操作します。Webプレーヤーにこのアクセス権は不要です。";
 "Allow Automation access to read %@." = "%@を読み取るためにオートメーションのアクセスを許可してください。";
 "Notifications" = "通知";
-"Will be used for optional meeting reminders in a later update. No permission is requested yet." = "今後のアップデートで、任意の会議リマインダーに使用されます。現時点ではアクセス権を要求していません。";
+"Used for low-battery device alerts. Requested only when you choose Allow." = "バッテリー低下時の通知に使用されます。「許可」を選択した場合のみ許可をリクエストします。";
 "Open Settings" = "設定を開く";
 "Refresh Status" = "状態を更新";
 "Backup" = "バックアップ";

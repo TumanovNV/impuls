@@ -157,7 +157,8 @@
         "PWR-08",
         "PWR-09",
         "PWR-10",
-        "PWR-11"
+        "PWR-11",
+        "PWR-12"
       ]
     },
     {
@@ -176,7 +177,6 @@
       "test_globs": [
         "Tests/ImpulsTests/BackupDocumentTests.swift",
         "Tests/ImpulsTests/BoundedDataTests.swift",
-        "Tests/ImpulsTests/BoundedTextTests.swift",
         "Tests/ImpulsTests/ClipboardContentTests.swift",
         "Tests/ImpulsTests/ClipboardHistoryPersistenceTests.swift",
         "Tests/ImpulsTests/ClipboardStoreTests.swift",

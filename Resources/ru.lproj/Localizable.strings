@@ -165,13 +165,12 @@
 "Denied" = "Запрещено";
 "Not Requested" = "Не запрашивалось";
 "Restricted" = "Ограничено";
-"Planned" = "Запланировано";
 "Shows upcoming meetings inside the Calendar module." = "Показывает ближайшие встречи в модуле «Календарь».";
 "Music Automation" = "Автоматизация музыки";
 "Reads track information and controls the Apple Music app. Web players do not need this permission." = "Читает данные трека и управляет приложением Apple Music. Веб-плеерам это разрешение не требуется.";
 "Allow Automation access to read %@." = "Разрешите доступ к автоматизации, чтобы Impuls мог читать данные %@.";
 "Notifications" = "Уведомления";
-"Will be used for optional meeting reminders in a later update. No permission is requested yet." = "Будут использоваться для необязательных напоминаний о встречах в одном из следующих обновлений. Сейчас разрешение не запрашивается.";
+"Used for low-battery device alerts. Requested only when you choose Allow." = "Используется для оповещений о низком заряде устройств. Запрашивается только при нажатии «Разрешить».";
 "Open Settings" = "Открыть настройки";
 "Refresh Status" = "Обновить статус";
 "Backup" = "Резервная копия";

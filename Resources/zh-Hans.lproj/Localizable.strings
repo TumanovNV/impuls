@@ -165,13 +165,12 @@
 "Denied" = "已拒绝";
 "Not Requested" = "未请求";
 "Restricted" = "受限";
-"Planned" = "计划中";
 "Shows upcoming meetings inside the Calendar module." = "在日历模块中显示即将到来的会议。";
 "Music Automation" = "音乐自动化";
 "Reads track information and controls the Apple Music app. Web players do not need this permission." = "读取曲目信息并控制 Apple Music 应用。网页播放器不需要此权限。";
 "Allow Automation access to read %@." = "请允许「自动化」访问以读取 %@。";
 "Notifications" = "通知";
-"Will be used for optional meeting reminders in a later update. No permission is requested yet." = "将在后续更新中用于可选的会议提醒。目前尚未请求任何权限。";
+"Used for low-battery device alerts. Requested only when you choose Allow." = "用于低电量设备提醒。仅在您点击“允许”时才会请求权限。";
 "Open Settings" = "打开设置";
 "Refresh Status" = "刷新状态";
 "Backup" = "备份";

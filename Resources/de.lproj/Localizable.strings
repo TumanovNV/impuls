@@ -166,13 +166,12 @@
 "Denied" = "Verweigert";
 "Not Requested" = "Nicht angefragt";
 "Restricted" = "Eingeschränkt";
-"Planned" = "Geplant";
 "Shows upcoming meetings inside the Calendar module." = "Zeigt bevorstehende Termine im Kalendermodul.";
 "Music Automation" = "Musik-Automation";
 "Reads track information and controls the Apple Music app. Web players do not need this permission." = "Liest Titelinformationen und steuert die Apple-Music-App. Web-Player benötigen diese Berechtigung nicht.";
 "Allow Automation access to read %@." = "Automation-Zugriff erlauben, um %@ zu lesen.";
 "Notifications" = "Mitteilungen";
-"Will be used for optional meeting reminders in a later update. No permission is requested yet." = "Wird in einem späteren Update für optionale Terminerinnerungen genutzt. Es wird noch keine Berechtigung angefragt.";
+"Used for low-battery device alerts. Requested only when you choose Allow." = "Wird für Benachrichtigungen bei niedrigem Akkustand verwendet. Wird nur angefragt, wenn Sie auf „Erlauben“ tippen.";
 "Open Settings" = "Einstellungen öffnen";
 "Refresh Status" = "Status aktualisieren";
 "Backup" = "Backup";

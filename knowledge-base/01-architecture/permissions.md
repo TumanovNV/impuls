@@ -2,9 +2,9 @@
 title: Permission Architecture
 type: architecture
 status: active
-documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-21
+documentation_version: 1.3
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, permissions, tcc, architecture]
 ---
 
@@ -36,6 +36,19 @@ Metadata/control использует public Apple Events/scripting path чер�
 
 Нужны для opt-in low-battery alerts. Persisted/restored settings сами по себе не имеют права вызвать authorization prompt. `requestAuthorization` передаётся отдельно при явном действии пользователя.
 
+С 1.4.16 Settings показывает реальное состояние этого разрешения как `Allowed`, `Denied` или `Not Requested`; `.notDetermined` больше не маскируется устаревшим состоянием `Planned`. Из Apple Devices пользователь может:
+
+- явно запросить разрешение, если оно ещё не запрашивалось;
+- обновить status без prompt;
+- открыть Notifications в System Settings после отказа;
+- отправить локальное тестовое уведомление после разрешения.
+
+Тестовое уведомление намеренно не содержит процента устройства и не вызывает `LowBatteryAlertEngine`: оно проверяет только системную Notification Center boundary и не меняет persisted warning/critical state. `UNUserNotificationCenter.add` подтверждает принятие request системой, а не то, что человек физически увидел banner.
+
+Возврат Impuls в active state после System Settings обновляет status автоматически; ручной `Refresh Status` остаётся явным fallback. Ни refresh, ни открытие Settings не запрашивают permission сами.
+
+Общая вкладка Settings → Permissions отображает тот же real state через `PermissionCenter.notifications` и также предлагает явную кнопку `Allow` при `Not Requested` (вызывает `PermissionCenter.requestNotifications()`), чтобы описание разрешения и точка входа совпадали с фактическим использованием (low-battery alerts), а не с устаревшим "meeting reminders" placeholder-текстом.
+
 ## Apple device trust
 
 iPhone/iPad trust — не macOS TCC permission. Provider проверяет existing trust до чтения; отсутствие trust превращается в `permissionRequired`/инструкцию. Device discovery полностью off, пока пользователь не включил `Show Connected Apple Devices`.
@@ -46,7 +59,7 @@ iPhone/iPad trust — не macOS TCC permission. Provider проверяет exi
 
 ## PermissionCenter
 
-`PermissionCenter` агрегирует отображаемые states Calendar, Music Automation и Notifications и умеет открыть соответствующие System Settings. Он не является владельцем бизнес-логики модулей.
+`PermissionCenter` агрегирует отображаемые states Calendar, Music Automation и Notifications и умеет открыть соответствующие System Settings. Он не является владельцем бизнес-логики модулей. Notification `.notDetermined` отображается как `Not Requested`; `requestNotifications()` существует только для явного UI action.
 
 ## Изменения 1.4.12-hardening
 
@@ -54,10 +67,11 @@ iPhone/iPad trust — не macOS TCC permission. Provider проверяет exi
 
 ## Инварианты
 
-
 - update не создаёт новый prompt сам;
-- opening tab может refresh status, но prompt требует button/action;
+- opening tab / returning from System Settings может refresh status, но prompt требует button/action;
+- persisted low-battery opt-in не становится permission request при relaunch;
 - denied/restricted state отображается честно;
+- notification diagnostics не меняют low-battery threshold state;
 - смена языка интерфейса prompt не вызывает: она меняет только то, из какой `InfoPlist.strings` macOS возьмёт **текст** usage description, когда запрос всё-таки инициирует пользователь (см. [macOS Permissions and TCC](../03-macos/permissions-and-tcc.md));
 - новые permissions требуют обновить `PRIVACY.md`, `SECURITY.md`, entitlements, CI, knowledge base и security audit.
 

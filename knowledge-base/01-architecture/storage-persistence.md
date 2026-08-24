@@ -2,7 +2,7 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.2
+documentation_version: 1.4
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, storage, persistence, privacy]
@@ -41,6 +41,14 @@ flowchart TD
 ## Settings
 
 `SettingsStore` хранит persisted preferences в UserDefaults. Export snapshot включает переносимые настройки, но **не включает local-only device keys** и selected physical device identity.
+
+### Review 1.4.16 — Power Center Reliability 2.0
+
+Notification diagnostics в `AppleDeviceSettingsPane` — presentation/TCC change, а не storage change. `Allowed / Denied / Not Requested`, переход в System Settings и тестовое уведомление ничего нового не сохраняют. Существующий ключ `appleDevices.lowBatteryAlerts.enabled` не менялся, по-прежнему machine-local и excluded from backup; состояние системного разрешения остаётся владельцем macOS Notification Center и не дублируется в UserDefaults. Новый migration или backup schema для 1.4.16 здесь не нужен.
+
+Финальная привязка автообновления status к `NSApplication.didBecomeActiveNotification` через Combine повторно проверена после исправления импорта: publisher живёт только в процессе и также не добавляет persisted state, background storage work или новую migration obligation.
+
+Общая вкладка Settings → Permissions теперь показывает то же live-only `notifications` state и вызывает существующий explicit `requestNotifications()` из своей кнопки `Allow`; исправлена только stale copy и wiring, никакого нового UserDefaults-ключа или backup-поля это не добавляет.
 
 ### Review 1.4.16 — version-statistics diagnostics
 
@@ -85,7 +93,6 @@ flowchart TD
 ## Clipboard history
 
 `load()` различает «архива нет» и «архив есть, но открыть его не удалось». Второй исход ставит write latch в `ClipboardHistoryPersistence`: пока он активен, ни один путь записи — clipboard event, `prune`, смена retention, shutdown-`flush` — не заменяет файл, и снять латч может только успешное чтение. Восстановление и явный destructive reset описаны в [Clipboard](../02-modules/clipboard.md). Keychain service/account инжектируемы (по образцу `DeviceIdentityResolver`), чтобы тест пути записи не мог создать или удалить ключ, которым шифруется настоящий архив; значения по умолчанию не изменились.
-
 
 По умолчанию persistent history выключена. При opt-in:
 

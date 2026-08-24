@@ -1,3 +1,5 @@
+import AppKit
+import Combine
 import SwiftUI
 
 /// Local controls for the opt-in Apple Device Battery Center.
@@ -74,6 +76,31 @@ struct AppleDeviceSettingsPane: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
+                Label(notificationAuthorizationTitle, systemImage: notificationAuthorizationSymbol)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 8) {
+                    switch lowBatteryAlerts.authorization {
+                    case .notDetermined:
+                        Button(localized("Allow")) {
+                            lowBatteryAlerts.requestAuthorization()
+                        }
+                    case .denied:
+                        Button(localized("Open Settings"), action: openNotificationSettings)
+                    case .authorized:
+                        Button(localized("Impuls Notification QA")) {
+                            lowBatteryAlerts.sendTestNotification()
+                        }
+                        .disabled(lowBatteryAlerts.testNotificationInFlight)
+                    }
+
+                    Button(localized("Refresh Status")) {
+                        lowBatteryAlerts.refreshAuthorization()
+                    }
+                }
+                .controlSize(.small)
+
                 if settings.lowBatteryAlertsEnabled, lowBatteryAlerts.authorization == .denied {
                     Text(localized("Notifications are disabled for Impuls in macOS settings. Battery monitoring will continue without alerts."))
                         .font(.caption)
@@ -94,6 +121,11 @@ struct AppleDeviceSettingsPane: View {
         }
         .formStyle(.grouped)
         .onAppear { lowBatteryAlerts.refreshAuthorization() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            // Returning from System Settings must update the status without
+            // making the user close and reopen this pane.
+            lowBatteryAlerts.refreshAuthorization()
+        }
         .alert(
             localized("Forget Device?"),
             isPresented: Binding(
@@ -133,6 +165,22 @@ struct AppleDeviceSettingsPane: View {
         relevantDiagnostics.contains { $0.status == .starting }
     }
 
+    private var notificationAuthorizationTitle: String {
+        switch lowBatteryAlerts.authorization {
+        case .authorized: return localized("Allowed")
+        case .denied: return localized("Denied")
+        case .notDetermined: return localized("Not Requested")
+        }
+    }
+
+    private var notificationAuthorizationSymbol: String {
+        switch lowBatteryAlerts.authorization {
+        case .authorized: return "checkmark.circle"
+        case .denied: return "exclamationmark.triangle"
+        case .notDetermined: return "bell.badge"
+        }
+    }
+
     private var statusMessage: String {
         if relevantDiagnostics.contains(where: { $0.status == .permissionRequired }) {
             return localized("Unlock your iPhone or iPad and tap Trust This Computer.")
@@ -166,6 +214,11 @@ struct AppleDeviceSettingsPane: View {
             return localized("Turn on discovery to find connected AirPods and Apple accessories.")
         }
         return statusMessage
+    }
+
+    private func openNotificationSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func deviceRow(_ device: AppleDeviceSnapshot) -> some View {

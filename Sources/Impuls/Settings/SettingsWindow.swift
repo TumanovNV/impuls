@@ -962,11 +962,11 @@ private struct PermissionSettingsPane: View {
 
                     permissionRow(
                         title: localized("Notifications"),
-                        detail: localized("Will be used for optional meeting reminders in a later update. No permission is requested yet."),
+                        detail: localized("Used for low-battery device alerts. Requested only when you choose Allow."),
                         symbol: "bell",
                         state: permissions.notifications,
-                        primaryTitle: nil,
-                        primaryAction: {},
+                        primaryTitle: permissions.notifications == .notRequested ? localized("Allow") : nil,
+                        primaryAction: permissions.requestNotifications,
                         settingsAction: permissions.openNotificationSettings
                     )
                 }
