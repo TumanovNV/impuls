@@ -245,12 +245,6 @@ final class LowBatteryAlertService: ObservableObject {
             // `engine.evaluate()` on another thread instead of merely running
             // late.
             Task { @MainActor [weak self, delivery] in
-                // Runs on the main actor before it yields the executor
-                // again, immediately after `confirmDelivery` /
-                // `cancelDelivery` below — so anyone observing the count
-                // reach zero also observes the engine's pending state as
-                // already settled, not merely the delivery attempt as made.
-                defer { self?.pendingDeliveryCount -= 1 }
                 do {
                     try await delivery.deliver(notification)
                     guard let self else { return }
@@ -267,6 +261,13 @@ final class LowBatteryAlertService: ObservableObject {
                     engine.cancelDelivery(alert.deliveryID)
                     DevicePowerLog.note("low-battery notification delivery failed for \(alert.deviceKind.rawValue) at \(alert.severity.rawValue)")
                 }
+                // Runs on the main actor immediately after `confirmDelivery` /
+                // `cancelDelivery` above — so anyone observing the count reach
+                // zero also observes the engine's pending state as already
+                // settled, not merely that the delivery attempt was made.
+                // A plain statement here (not `defer`) matches the pattern
+                // already used by `sendTestNotification` in this file.
+                self?.pendingDeliveryCount -= 1
             }
         }
     }
