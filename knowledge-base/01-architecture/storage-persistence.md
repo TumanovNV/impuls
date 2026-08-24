@@ -2,9 +2,9 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.1
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.2
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, storage, persistence, privacy]
 ---
 
@@ -41,6 +41,10 @@ flowchart TD
 ## Settings
 
 `SettingsStore` хранит persisted preferences в UserDefaults. Export snapshot включает переносимые настройки, но **не включает local-only device keys** и selected physical device identity.
+
+### Review 1.4.16 — version-statistics diagnostics
+
+`VersionTelemetryService.diagnostics()` — read-only local presentation, а не storage change сама по себе. Единственное реальное изменение — новый UserDefaults-ключ `versionStatistics.lastSuccess.v1` (см. [Schema & Migration Registry](../12-reference/schema-migration-registry.md)); он local-only, excluded from export/backup, как и остальные ключи этой группы, и не требует миграции. Diagnostics ничего не пишет — только читает существующие ключи под тем же `lock`, которым уже владеет `sendHeartbeatIfNeeded`.
 
 ## Язык интерфейса
 

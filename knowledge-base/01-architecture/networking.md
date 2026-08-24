@@ -2,9 +2,9 @@
 title: Networking Architecture
 type: architecture
 status: active
-documentation_version: 1.1
-app_version: 1.4.13
-last_reviewed: 2026-08-21
+documentation_version: 1.2
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, networking, security]
 ---
 
@@ -39,6 +39,8 @@ WebKit создаётся только после явного `Open Web Player`
 ## 3. VersionTelemetryService
 
 Отдельный consent. Endpoint отсутствует в source code и приходит из build config/Info.plist. Разрешён только HTTPS endpoint с точным `/v1/heartbeat`, redirects запрещены. Payload allow-list: schema, random installation UUID, app version, optional actually-observed previous version. Не чаще одной попытки в час **для той же app version**; timestamp и версия попытки записываются до request, поэтому и неуспешный collector не может превратить relaunch в обход этого лимита. С 1.4.14 версия, отличная от версии последней попытки, этим лимитом не блокируется — так апдейт репортит себя сразу, а не только после ручного перезапуска. `VersionTelemetryScheduler` дополнительно предлагает попытку примерно раз в час, пока приложение работает; саму throttle-политику по-прежнему решает `VersionTelemetryService`.
+
+С 1.4.16 `VersionTelemetryService.diagnostics()` отдаёт read-only снимок этого же локального состояния для Settings → Data & Privacy. Это не четвёртая network boundary: метод не создаёт `URLRequest`, не вызывает `sendHeartbeatIfNeeded` и не открывает transport — только читает уже существующие `UserDefaults` под тем же lock. Подробности: [Version Statistics Collector](../07-web/version-statistics-collector.md).
 
 ## Время жизни WKWebView
 

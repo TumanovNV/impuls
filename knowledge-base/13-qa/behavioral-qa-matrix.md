@@ -2,9 +2,9 @@
 title: Behavioral QA Matrix
 type: qa-reference
 status: active
-documentation_version: 1.3
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.4
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, qa, scenarios, hardware, permissions, release]
 ---
 
@@ -124,6 +124,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | REL-04 | User enables automatic checks | mixed | Sparkle uses 86,400 s scheduled interval and user-controlled policy |
 | REL-05 | Upgrade preserving local data | manual-macos | settings/notes/snippets and optional encrypted history behave per migration contracts |
 | REL-06 | Reinstall/update TCC behavior | manual-macos | permission behavior is recorded as platform/distribution reality, not assumed from unit tests |
+| REL-07 | Version statistics diagnostics reflects the real heartbeat lifecycle | mixed | Settings → Data & Privacy shows disabled / never-attempted / last-success / last-failure honestly from `VersionTelemetryService.diagnostics()`; opening or refreshing the section sends no request; the displayed current/expected version is the exact string the last or next heartbeat would send, not a separately computed one; after an app update, diagnostics reflects the new version's own attempt/eligibility rather than the old version's cooldown; relaunch restores only what is actually persisted (consent, last attempt, last success) |
 
 ## Evidence routes
 

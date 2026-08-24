@@ -13,10 +13,9 @@
   "exemptions": [
     {
       "source_globs": [
-        "Sources/Impuls/Services/VersionTelemetryService.swift",
         "Sources/Impuls/Services/VersionTelemetryScheduler.swift"
       ],
-      "reason": "Version-only telemetry has no user-facing Behavioral QA row; it is governed by VersionTelemetryServiceTests/VersionTelemetrySchedulerTests, network/privacy docs and the private operations boundary. The scheduler only proposes an attempt on a bounded cadence and carries no policy of its own."
+      "reason": "The scheduler only proposes an attempt on a bounded cadence and carries no policy of its own; it has no user-facing Behavioral QA row and is governed by VersionTelemetrySchedulerTests. VersionTelemetryService.swift moved out of this exemption in 1.4.16: its send/throttle logic remains deterministic and test-owned, but the file now also backs the REL-07 diagnostics display below, so it is mapped rather than exempted."
     },
     {
       "source_globs": [
@@ -344,6 +343,21 @@
       ],
       "qa_ids": [
         "SUP-01"
+      ]
+    },
+    {
+      "id": "version-statistics-diagnostics",
+      "description": "Version statistics heartbeat lifecycle or its local diagnostics display changed",
+      "source_globs": [
+        "Sources/Impuls/Services/VersionTelemetryService.swift",
+        "Sources/Impuls/Settings/SettingsWindow.swift"
+      ],
+      "test_globs": [
+        "Tests/ImpulsTests/VersionTelemetryServiceTests.swift",
+        "Tests/ImpulsTests/VersionTelemetrySchedulerTests.swift"
+      ],
+      "qa_ids": [
+        "REL-07"
       ]
     }
   ]
