@@ -1,64 +1,63 @@
 import Foundation
 
-/// Orders the always-present provider list by region relevance so the Music
-/// pane can show a short "Recommended" group before "All Services".
+/// Picks a short, region-relevant subset of the always-present provider list
+/// for the Music pane's "Recommended" group, ahead of "All Services".
 ///
-/// The supported catalog itself never changes here — `recommended(...)`
-/// returns every source `allServices` does, just reordered. Region comes only
-/// from the local system locale (`Locale.current.region`); the app's own UI
-/// language (`appLanguage`, from `Strings.swift`) is a deterministic secondary
-/// fallback for when the system region did not resolve, never a stand-in for
-/// it and never a geolocation proxy. Neither signal performs a lookup: both
-/// are already-local values, and this type makes no network request, reads no
-/// persisted state and writes none.
+/// `allServices` is the complete supported catalog and never changes here.
+/// `recommended(...)` is deliberately **not** a reordering of it: it is a
+/// small subset reflecting which services actually make sense to lead with
+/// in a region, so it does not just repeat "All Services" under a different
+/// heading. Every source it omits stays one tap away under "All Services" —
+/// nothing becomes unreachable, only unpromoted.
+///
+/// Region comes only from the local system locale (`Locale.current.region`);
+/// the app's own UI language (`appLanguage`, from `Strings.swift`) is a
+/// deterministic secondary fallback for when the system region did not
+/// resolve, never a stand-in for it and never a geolocation proxy. Neither
+/// signal performs a lookup: both are already-local values, and this type
+/// makes no network request, reads no persisted state and writes none.
 enum MusicProviderCatalog {
     /// The complete list, in a fixed order that does not depend on region.
     static var allServices: [MusicSource] { MusicSource.allCases }
 
-    /// `allServices`, reordered so the sources most likely to be usable in the
-    /// caller's region lead. Every source from `allServices` is still present
-    /// at some position — recommending never hides a supported source, it
-    /// only changes which ones are worth listing first.
+    /// A small region-relevant subset of `allServices`. Always a subset,
+    /// never a superset or a reordering of the full catalog.
     static func recommended(
         regionCode: String? = Locale.current.region?.identifier,
         appLanguageCode: String = appLanguage
     ) -> [MusicSource] {
-        let priority = priorityOrder(regionCode: regionCode?.uppercased(), appLanguageCode: appLanguageCode)
-        return allServices.sorted { lhs, rhs in
-            rank(of: lhs, in: priority) < rank(of: rhs, in: priority)
-        }
+        subset(regionCode: regionCode?.uppercased(), appLanguageCode: appLanguageCode)
     }
 
-    private static func rank(of source: MusicSource, in priority: [MusicSource]) -> Int {
-        priority.firstIndex(of: source) ?? priority.count
-    }
-
-    /// Russian-speaking-region order: Apple Music stays first as the reliable
-    /// native path, then the two services with the largest local catalogs.
-    private static let russianSpeakingOrder: [MusicSource] = [
-        .appleMusic, .yandexMusic, .vkMusic, .youtubeMusic,
-    ]
-
-    /// Everywhere else, and whenever the region is unknown: Apple Music and
-    /// YouTube Music lead, since both are usable worldwide without a
-    /// region-specific catalog.
-    private static let globalOrder: [MusicSource] = [
-        .appleMusic, .youtubeMusic, .yandexMusic, .vkMusic,
-    ]
-
-    /// ISO region codes where Yandex Music / VK Music are the locally
-    /// dominant services: Russia and the other CIS markets they already serve.
+    /// Russia and the other CIS markets Yandex Music / VK Music already
+    /// serve. Yandex leads, VK second — both are the locally dominant
+    /// services there — and Apple Music is retained, not promoted ahead of
+    /// them.
     private static let russianSpeakingRegions: Set<String> = [
         "RU", "BY", "KZ", "KG", "AM", "UZ", "TJ",
     ]
 
-    private static func priorityOrder(regionCode: String?, appLanguageCode: String) -> [MusicSource] {
-        if let regionCode, russianSpeakingRegions.contains(regionCode) {
-            return russianSpeakingOrder
+    private static let russianSpeakingRecommended: [MusicSource] = [
+        .yandexMusic, .vkMusic, .appleMusic,
+    ]
+
+    /// Mainland China only (`CN`) — not Hong Kong/Macau/Taiwan, whose market
+    /// reality differs. YouTube Music is not reachable there, so only Apple
+    /// Music is recommended; everything else stays reachable under All
+    /// Services rather than being promoted on a guess.
+    private static let chinaRecommended: [MusicSource] = [.appleMusic]
+
+    /// Everywhere else, and whenever the region is unknown: the two sources
+    /// usable worldwide without a region-specific catalog.
+    private static let globalRecommended: [MusicSource] = [.appleMusic, .youtubeMusic]
+
+    private static func subset(regionCode: String?, appLanguageCode: String) -> [MusicSource] {
+        if let regionCode {
+            if regionCode == "CN" { return chinaRecommended }
+            if russianSpeakingRegions.contains(regionCode) { return russianSpeakingRecommended }
+            return globalRecommended
         }
-        if regionCode == nil, appLanguageCode.lowercased().hasPrefix("ru") {
-            return russianSpeakingOrder
-        }
-        return globalOrder
+        if appLanguageCode.lowercased().hasPrefix("ru") { return russianSpeakingRecommended }
+        return globalRecommended
     }
 }

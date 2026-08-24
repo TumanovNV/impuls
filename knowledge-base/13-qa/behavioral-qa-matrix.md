@@ -2,7 +2,7 @@
 title: Behavioral QA Matrix
 type: qa-reference
 status: active
-documentation_version: 1.5
+documentation_version: 1.6
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, qa, scenarios, hardware, permissions, release]
@@ -96,7 +96,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | MUS-05 | Explicitly open each allowed web source | manual-service | only selected official HTTPS provider loads; Previous/Play-Pause/Next/seek are enabled only when that provider's own page actually supports them — no dead button |
 | MUS-06 | Web provider navigation failure | manual-service | bounded visible error and retry; no silent host expansion |
 | MUS-07 | Artwork oversized / malformed | automated | bounded validation prevents unbounded decode |
-| MUS-08 | Regional Recommended / All Services ordering | automated | ordering is a pure function of system region (+ deterministic app-language fallback for an unresolved region); every region/fallback combination still returns the full catalog, never a subset; no network call |
+| MUS-08 | Regional Recommended subset / All Services full catalog | automated | Recommended is a pure function of system region (+ deterministic app-language fallback for an unresolved region) and is deliberately a small subset, not a reordering of the full catalog; All Services always returns every supported source regardless of region; no network call |
 
 ## Appearance and accessibility
 

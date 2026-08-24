@@ -2,7 +2,7 @@
 title: Music Module
 type: module
 status: production
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, module, music, webkit, automation]
@@ -28,7 +28,7 @@ flowchart TD
     WMP --> MS[Selected provider site]
     WMP --> BR[Bounded Media Session bridge]
     MC --> STATE[Track / artwork / position / playback state / capabilities]
-    CAT[MusicProviderCatalog] -.region-only reorder.-> UI
+    CAT[MusicProviderCatalog] -.region-relevant subset.-> UI
 ```
 
 `NativeMusicBridging` and `WebMusicPlaying` are the two DI seams `MediaController` was given in 1.4.16 so its state machine — source switch, track switch, stale-result suppression, capability propagation, lifecycle — has deterministic unit coverage (`MediaControllerTests.swift`) instead of requiring a real Music app, Automation permission, or WebKit/network. Production always resolves to `LivePlayerBridge` and a real `WebMusicPlayer()`; nothing about the runtime behavior changed.
@@ -39,9 +39,15 @@ Source сохраняется в UserDefaults (`music.selectedSource.v1`). Вы�
 
 ### Regional recommendations (1.4.16)
 
-`MusicProviderCatalog` делит один и тот же список из `MusicSource.allCases` на «Рекомендуемые» и «Все сервисы» в `MediaPane`. Единственный сигнал — `Locale.current.region` (локальный system region), без сети, без IP-geolocation, без backend-запроса. Известный сигнал: приложенческий язык интерфейса (`appLanguage` из `Strings.swift`) используется **только** как вторичный детерминированный fallback, когда `Locale.current.region` не резолвится — никогда как замена региону и никогда как language==country допущение (см. `MusicProviderCatalogTests.swift`, включая проверку, что de/fr/es/ja/zh-Hans языки сами по себе не переключают порядок).
+`MusicProviderCatalog.allServices` — полный, неизменный каталог (`MusicSource.allCases`), который `MediaPane` показывает под «Все сервисы». `recommended(...)` — намеренно **не** переупорядоченный тот же список, а короткое **подмножество** конкретно под регион, иначе «Рекомендуемые» дублирует «Все сервисы» под другим заголовком (это было исправлено по review в PR #96). Единственный сигнал для выбора подмножества — `Locale.current.region` (локальный system region), без сети, без IP-geolocation, без backend-запроса. Приложенческий язык интерфейса (`appLanguage` из `Strings.swift`) используется **только** как вторичный детерминированный fallback, когда `Locale.current.region` не резолвится — никогда как замена региону и никогда как language==country допущение (см. `MusicProviderCatalogTests.swift`, включая проверку, что de/fr/es/ja/zh-Hans языки сами по себе не переключают подмножество).
 
-Каталог самих источников при этом не меняется: `recommended(...)` — это `allServices`, только в другом порядке. Неизвестный/неопознанный регион falls back на global order, а не скрывает часть каталога.
+Product-priority подмножества на 1.4.16 (все источники, которые не входят в подмножество, остаются доступны под «Все сервисы» — ничего не становится недостижимым, только не продвигается):
+
+| Регион | `recommended(...)` |
+| --- | --- |
+| RU, BY, KZ, KG, AM, UZ, TJ | Yandex Music, VK Music, Apple Music (в этом порядке — Yandex и VK впереди, Apple Music сохранён, но не продвинут перед ними) |
+| Материковый Китай (`CN` — не HK/MO/TW) | только Apple Music (YouTube Music там недоступен, поэтому не продвигается) |
+| Всё остальное, включая неизвестный/неопознанный регион | Apple Music, YouTube Music |
 
 ## Apple Music
 
@@ -103,7 +109,7 @@ None of these were ruled RED on principle — they are candidates for a future, 
 - WebKit only explicit user action;
 - provider navigation boundary stays allow-listed;
 - artwork/data reads remain bounded;
-- regional recommendation ordering uses only local system region (+ deterministic app-language fallback), never IP/network/telemetry;
+- regional recommendation subset uses only local system region (+ deterministic app-language fallback), never IP/network/telemetry; every source it omits stays reachable under All Services;
 - capabilities are reported honestly per source, never assumed uniform across providers.
 
 ## Связано
