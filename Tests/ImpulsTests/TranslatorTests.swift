@@ -257,6 +257,12 @@ final class TranslatorTests: XCTestCase {
         translator.retry()
         translator.swap()
 
-        XCTAssertEqual(Set(defaults.dictionaryRepresentation().keys), [Translator.pairKey])
+        // `dictionaryRepresentation()` merges in the whole domain search
+        // list — on a real Mac that includes NSGlobalDomain's trackpad,
+        // language and dozens of other unrelated system keys, so it can
+        // never equal a single-key set. `persistentDomain(forName:)` is
+        // exactly this suite's own on-disk contents, nothing inherited.
+        let persisted = try XCTUnwrap(defaults.persistentDomain(forName: suite))
+        XCTAssertEqual(Set(persisted.keys), [Translator.pairKey])
     }
 }
