@@ -2,7 +2,7 @@
 title: Behavioral QA Matrix
 type: qa-reference
 status: active
-documentation_version: 1.6
+documentation_version: 1.7
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, qa, scenarios, hardware, permissions, release]
@@ -80,10 +80,11 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | ACT-01 | Empty Actions query | automated | builds only the bounded 10-row landing set |
 | ACT-02 | Query over large local stores | automated | query/search/result budgets remain enforced |
 | ACT-03 | Pointer hover over Actions result | automated | hover is visual only; explicit selection is not replaced |
-| TR-01 | Continuous typing | mixed | 320 ms debounce cancels intermediate translation requests |
+| TR-01 | Continuous typing, and a same-pair retry while a run is in flight | mixed | 320 ms debounce cancels intermediate translation requests; a stale in-flight answer for older text at the same pair never overwrites newer output/failure |
 | TR-02 | >20,000 character input | automated | input is clipped to documented maximum |
-| TR-03 | Missing language pack | manual-macos | actionable failure/download route; no hanging session loop |
+| TR-03 | Missing language pack | manual-macos | readiness reads `unknown` (not a false download mark) until the real scan lands; a missing pack is explained with a working "Translation Languages…" route straight to the Translation section, not just the general Language & Region pane; reopening the Translate pane after installing/removing a pack re-scans without a background poll |
 | TR-04 | RU↔EN and another supported pair | manual-macos | direction/pair normalization matches framework availability |
+| TR-05 | Rapid pair switch and repeated panel appearance | automated | `loadSupportedLanguages()` never starts a second concurrent scan while one is in flight; only the language pair is ever persisted, never input/output/failure text |
 
 ## Music and web player
 

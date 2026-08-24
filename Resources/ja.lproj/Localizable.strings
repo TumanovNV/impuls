@@ -63,6 +63,7 @@
 "Retry" = "再試行";
 "The %@ → %@ language pack is not installed." = "%@ → %@ の言語パックがインストールされていません。";
 "macOS does not translate this pair of languages." = "macOSはこの言語の組み合わせを翻訳できません。";
+"Translation failed. Try again." = "翻訳に失敗しました。もう一度お試しください。";
 
 /* Calendar */
 "Join" = "参加";

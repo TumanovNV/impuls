@@ -63,6 +63,7 @@
 "Retry" = "重试";
 "The %@ → %@ language pack is not installed." = "尚未安装 %@ → %@ 语言包。";
 "macOS does not translate this pair of languages." = "macOS 不支持这一语言组合的翻译。";
+"Translation failed. Try again." = "翻译失败，请重试。";
 
 /* Calendar */
 "Join" = "加入";

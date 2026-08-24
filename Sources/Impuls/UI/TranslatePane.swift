@@ -279,7 +279,11 @@ struct TranslatePane: View {
             Label(name, systemImage: "checkmark")
         } else {
             switch readiness {
-            case .installed: Text(name)
+            // Not yet scanned reads the same as installed: a download mark
+            // here would be a fact about the pack that has not been checked
+            // yet, and a scan is usually near-instant, so a transient
+            // spinner would only flicker rather than inform.
+            case .unknown, .installed: Text(name)
             case .downloadable: Label(name, systemImage: "arrow.down.circle")
             case .unsupported: Text(name)
             }

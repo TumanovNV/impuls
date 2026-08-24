@@ -2,7 +2,7 @@
 title: Input & Resource Budget Registry
 type: reference
 status: active
-documentation_version: 1.6
+documentation_version: 1.7
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, performance, limits, budgets, security, ai]
@@ -36,7 +36,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Calendar | fetch horizon | 7 days | `CalendarStore.horizon` |
 | Calendar | meeting-link text scan | 32,768 chars | `MeetingLink.maximumScannedCharacters` |
 | Calendar | displayed event title | 240 chars | bounded title conversion |
-| Translate | input | 20,000 chars | `Translator.maximumInputCharacters` |
+| Translate | input | 20,000 chars | `Translator.maximumInputCharacters`; reviewed for 1.4.16 (#99) language-pack reliability audit — unchanged, no new size/count/cadence/timeout budget introduced (readiness re-scans stay lifecycle-driven, not a new interval) |
 | Apple Music | artwork bytes | 16 MiB | `PlayerBridge.maximumArtworkBytes` |
 | Apple Music | normalized artwork target | 512 px | `PlayerBridge.artworkPixelSize` |
 | Screenshot vault | concurrent pending saves | 2 | `ScreenshotVault.maximumPendingSaves` |

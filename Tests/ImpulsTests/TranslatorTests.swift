@@ -160,15 +160,26 @@ final class TranslatorTests: XCTestCase {
             translator.readiness(choosing: Translator.english, replacing: Translator.russian),
             .installed
         )
-        // Nothing scanned yet, so an unknown language is offered rather than
-        // greyed out; the pane explains itself the moment it is tried.
-        XCTAssertEqual(
-            translator.readiness(
-                choosing: Locale.Language(identifier: "de"),
-                replacing: Translator.russian
-            ),
-            .downloadable
+    }
+
+    /// Before the scan lands, a pair must read as genuinely unknown — not
+    /// silently promoted to `.downloadable`, which used to put a false
+    /// download mark next to a language that might already be fully
+    /// installed (or, just as wrongly, next to one that turns out
+    /// unsupported once the real answer arrives).
+    @MainActor
+    func testUnscannedPairReadsAsUnknownNotAsAnyRealStatus() throws {
+        let (translator, defaults, suite) = try makeTranslator()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let readiness = translator.readiness(
+            choosing: Locale.Language(identifier: "de"),
+            replacing: Translator.russian
         )
+        XCTAssertEqual(readiness, .unknown)
+        XCTAssertNotEqual(readiness, .downloadable)
+        XCTAssertNotEqual(readiness, .installed)
+        XCTAssertNotEqual(readiness, .unsupported)
     }
 
     /// The pane keys its debounced task on this, so a language change has to
@@ -183,5 +194,75 @@ final class TranslatorTests: XCTestCase {
         translator.select(Locale.Language(identifier: "de"), replacing: Translator.russian)
 
         XCTAssertNotEqual(before, translator.request)
+    }
+
+    /// `run(_:)` now guards every resumption point against this identity, not
+    /// only the pair — a stale answer for the *previous* text at the *same*
+    /// pair has to be recognisable as stale too, the same race `Request`
+    /// already existed to solve for a pair change.
+    @MainActor
+    func testRequestIdentityChangesWithTheTextAtTheSamePair() throws {
+        let (translator, defaults, suite) = try makeTranslator()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        translator.input = "hello"
+        let before = translator.request
+        translator.input = "hello world"
+
+        XCTAssertNotEqual(before, translator.request)
+        XCTAssertEqual(before.pair, translator.request.pair)
+    }
+
+    /// An explicit retry of unchanged text at an unchanged pair still has to
+    /// outrank whatever the previous attempt was already computing — that is
+    /// the entire reason `Request` carries an attempt counter.
+    @MainActor
+    func testRequestIdentityChangesOnRetryEvenWithUnchangedTextAndPair() throws {
+        let (translator, defaults, suite) = try makeTranslator()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        translator.input = "hello"
+        let before = translator.request
+        translator.retry()
+
+        XCTAssertNotEqual(before, translator.request)
+        XCTAssertEqual(before.text, translator.request.text)
+        XCTAssertEqual(before.pair, translator.request.pair)
+    }
+
+    /// `onAppear` calls `loadSupportedLanguages()` on every tab switch back
+    /// to Translate, not only the first mount — a rapid switch-away-and-back
+    /// before the first scan's result lands must not start a second one.
+    @MainActor
+    func testLoadSupportedLanguagesDoesNotStartASecondScanWhileOneIsInFlight() throws {
+        let (translator, defaults, suite) = try makeTranslator()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        translator.loadSupportedLanguages()
+        translator.loadSupportedLanguages()
+        translator.loadSupportedLanguages()
+
+        XCTAssertEqual(translator.languageListScansStarted, 1)
+    }
+
+    /// The translated text, the input and any failure text are all runtime
+    /// state. Only the language pair may ever reach disk.
+    @MainActor
+    func testOnlyThePairIsPersistedNeverInputOrOutput() throws {
+        let (translator, defaults, suite) = try makeTranslator()
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        translator.input = "a sentence that must never be written to disk"
+        translator.select(Locale.Language(identifier: "de"), replacing: Translator.russian)
+        translator.retry()
+        translator.swap()
+
+        // `dictionaryRepresentation()` merges in the whole domain search
+        // list — on a real Mac that includes NSGlobalDomain's trackpad,
+        // language and dozens of other unrelated system keys, so it can
+        // never equal a single-key set. `persistentDomain(forName:)` is
+        // exactly this suite's own on-disk contents, nothing inherited.
+        let persisted = try XCTUnwrap(defaults.persistentDomain(forName: suite))
+        XCTAssertEqual(Set(persisted.keys), [Translator.pairKey])
     }
 }
