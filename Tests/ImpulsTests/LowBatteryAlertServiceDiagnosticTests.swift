@@ -74,10 +74,9 @@ final class LowBatteryAlertServiceDiagnosticTests: XCTestCase {
             delivery: delivery
         )
 
-        service.setEnabled(true, requestAuthorization: false)
         let initialRead = expectation(description: "restored preference only reads status")
         delivery.onStatusRead = initialRead
-        service.refreshAuthorization(requestIfNeeded: false)
+        service.setEnabled(true, requestAuthorization: false)
         await fulfillment(of: [initialRead], timeout: 2)
         XCTAssertEqual(delivery.requestCount, 0)
 
@@ -95,6 +94,9 @@ private final class DiagnosticAlertStateStore: LowBatteryAlertStateStoring {
     func save(_ data: Data) { self.data = data }
 }
 
+/// XCTest controls this double from one serialized test flow. `@unchecked`
+/// acknowledges the protocol's Sendable boundary without using NSLock from
+/// async functions, which Swift 6 intentionally forbids.
 private final class DiagnosticAlertDelivery: LowBatteryNotificationDelivering, @unchecked Sendable {
     var onNotificationOpened: (@MainActor @Sendable (String?) -> Void)?
     var onDelivery: XCTestExpectation?
@@ -102,7 +104,6 @@ private final class DiagnosticAlertDelivery: LowBatteryNotificationDelivering, @
     var onRequest: XCTestExpectation?
     private(set) var notifications: [LowBatteryNotification] = []
     private(set) var requestCount = 0
-    private let lock = NSLock()
     private var status: LowBatteryNotificationAuthorization
 
     init(status: LowBatteryNotificationAuthorization) {
@@ -111,24 +112,18 @@ private final class DiagnosticAlertDelivery: LowBatteryNotificationDelivering, @
 
     func authorizationStatus() async -> LowBatteryNotificationAuthorization {
         onStatusRead?.fulfill()
-        lock.lock()
-        defer { lock.unlock() }
         return status
     }
 
     func requestAuthorization() async -> LowBatteryNotificationAuthorization {
-        lock.lock()
         requestCount += 1
         status = .authorized
-        lock.unlock()
         onRequest?.fulfill()
         return .authorized
     }
 
     func deliver(_ notification: LowBatteryNotification) async throws {
-        lock.lock()
         notifications.append(notification)
-        lock.unlock()
         onDelivery?.fulfill()
     }
 }
