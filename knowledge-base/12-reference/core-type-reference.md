@@ -2,9 +2,9 @@
 title: Core Type Reference
 type: reference
 status: active
-documentation_version: 1.3
-app_version: 1.4.13
-last_reviewed: 2026-08-21
+documentation_version: 1.4
+app_version: 1.4.15
+last_reviewed: 2026-08-24
 tags: [impuls, reference, swift, ownership, ai]
 ---
 
@@ -22,10 +22,13 @@ For direct source/test links use the CI-checked [Generated Type → Tests → Do
 flowchart TD
     APP[AppDelegate] --> CTRL[NotchController]
     APP --> MB[MenuBarWorkspaceController]
+    APP --> SUPPORT[ProjectSupportPromptService]
     CTRL --> VM[NotchViewModel]
     CTRL --> DISP[DisplayCoordinator]
     VM --> MOD[Module stores/services]
     VM --> SETTINGS[SettingsStore]
+    SETTINGS --> LANG[AppLanguageService]
+    SETTINGS --> RELAUNCH[AppRelaunchService]
     VM -.existing state.-> MB
 
     MOD --> LOCAL[Local persistence / macOS APIs]
@@ -35,7 +38,7 @@ flowchart TD
     LOCAL --> ENV[StorageEnvironment]
 ```
 
-The important distinction is **owner vs client**. A UI pane or Menu Bar surface renders state and sends intent; it should not quietly become a second owner of storage, network access, timers or hardware discovery.
+The important distinction is **owner vs client**. A UI pane or Menu Bar surface renders state and sends intent; it should not quietly become a second owner of storage, network access, timers or hardware discovery. The same rule applies to language selection, process relaunch and project-support eligibility: each has one explicit owner rather than being incidental presentation behavior.
 
 ## Application and presentation
 
@@ -50,12 +53,13 @@ Owns creation/wiring of:
 - global hot key;
 - `UpdateService`;
 - `VersionTelemetryService`;
-- Settings / onboarding / feedback window controllers;
+- `ProjectSupportPromptService`;
+- Settings / onboarding / feedback / project-support window controllers;
 - Menu Bar workspace controller.
 
 **Must not:** contain module business logic or become a duplicate persistence layer.
 
-Canonical docs: [Application Lifecycle](../01-architecture/application-lifecycle.md).
+Canonical docs: [Application Lifecycle](../01-architecture/application-lifecycle.md), [Settings, Onboarding and Feedback](../01-architecture/settings-onboarding-feedback.md).
 
 ### `NotchController`
 
@@ -69,9 +73,10 @@ Owns:
 - open/close transition intent and generation counters;
 - foreground service activation;
 - keyboard claim ownership across display handoff;
-- backup/restore bridge between Settings and shared stores.
+- backup/restore bridge between Settings and shared stores;
+- the single deliberate-use funnel and return-to-idle signal consumed by the project-support lifecycle.
 
-**Must not:** rebuild shared services when display topology changes.
+**Must not:** rebuild shared services when display topology changes or decide project-support eligibility.
 
 Canonical docs: [Multi-Display](../01-architecture/multi-display.md), [State and Ownership](../01-architecture/state-and-ownership.md).
 
@@ -93,6 +98,33 @@ It converts display descriptors and panel-size policy into collapsed/expanded fr
 
 Canonical docs: [Multi-Display](../01-architecture/multi-display.md).
 
+### `AppLanguageService`
+
+**Role:** single owner of the interface-language preference.
+
+Owns:
+
+- `app.language.v1`;
+- validation against localizations shipped in the bundle;
+- the explicit app-domain `AppleLanguages` override;
+- `requiresRelaunch` for changes made during the current process.
+
+`SettingsStore` holds this service by composition and does not keep a mirrored language preference. Reading or initializing the service does not write `AppleLanguages`; only an explicit user choice does.
+
+**Must not:** replace `Bundle.main`, partially switch the running process, or create a second persisted language source of truth.
+
+Canonical docs: [Localization](../04-development/localization.md), [Schema & Migration Registry](schema-migration-registry.md).
+
+### `AppRelaunchService`
+
+**Role:** safe one-shot application relaunch after a confirmed language change.
+
+It starts a short-lived `/bin/sh` helper before terminating the old Impuls process. The helper waits for the old PID to disappear, bounded by `100` probes at `0.1 s` (about `10 s`), waits a `0.2 s` teardown margin, opens the exact current bundle and exits. Timeout is fail-closed: it does not launch a second instance while the old one may still be alive.
+
+**Must not:** own the language preference, use `open -n`, create a daemon/Login Item/LaunchAgent, or turn the bounded helper into permanent polling.
+
+Canonical docs: [Localization](../04-development/localization.md), [Background Work & Concurrency Registry](background-concurrency-registry.md), [Input & Resource Budget Registry](resource-budget-registry.md).
+
 ## Settings and persistence
 
 ### `SettingsStore`
@@ -110,7 +142,7 @@ Responsibilities include:
 - separate machine-local device/Menu Bar preferences;
 - runtime display list and diagnostics used by Settings.
 
-**Boundary:** raw device identifiers do not enter settings. Machine-local notification/device identity state is excluded from backup.
+**Boundary:** raw device identifiers do not enter settings. Machine-local notification/device identity/project-support state is excluded from backup. Interface language is owned by `AppLanguageService`, not by a duplicate `SettingsStore` field.
 
 See [Schema & Migration Registry](schema-migration-registry.md).
 
@@ -128,7 +160,7 @@ Canonical docs: [Storage and Persistence](../01-architecture/storage-persistence
 
 Current schema: `2`; supported reader range: `1...2`.
 
-Contains settings, snippets and notes. It intentionally excludes clipboard history and machine-local identity/consent state.
+Contains settings, snippets and notes. It intentionally excludes clipboard history and machine-local identity/consent/project-support state.
 
 See [Schema & Migration Registry](schema-migration-registry.md).
 
@@ -291,7 +323,6 @@ Canonical docs: [Actions](../02-modules/actions.md), [Threat Model](../06-securi
 | --- | --- |
 | `MenuBarMenuFingerprint` | Всё, что меню показывает или включает. Сравнивается перед пересборкой; `MediaController.position` не входит намеренно, потому что меню его не отображает. |
 
-
 ### `MenuBarWorkspaceConfiguration`
 
 **Role:** portable configuration for status mode, widgets, quick actions and Smart priority order.
@@ -337,9 +368,7 @@ Owns:
 
 - independent consent;
 - endpoint validation;
-- **once-per-hour maximum attempt cadence for the running app version**, so an
-  app version that differs from the last attempted one is not throttled by an
-  older version's cooldown (1.4.14);
+- **once-per-hour maximum attempt cadence for the running app version**, so an app version that differs from the last attempted one is not throttled by an older version's cooldown (1.4.14);
 - version transition state;
 - device-local installation UUID in Keychain;
 - exact JSON payload schema;
@@ -353,7 +382,7 @@ The installation UUID is not an Apple-device identifier and the collector stores
 
 Canonical docs: [Version Statistics Collector](../07-web/version-statistics-collector.md), [Networking](../01-architecture/networking.md), [Privacy Boundaries](../06-security/privacy-boundaries.md), [Operations Boundary](operations-boundary.md).
 
-## Feedback
+## Feedback and project support
 
 ### `FeedbackService`
 
@@ -362,6 +391,25 @@ Canonical docs: [Version Statistics Collector](../07-web/version-statistics-coll
 It is intentionally **not** an HTTP/API client. Optional diagnostics are limited to app version, macOS version and architecture; clipboard, notes, file paths, calendars, device identifiers and logs are not added automatically.
 
 Canonical docs: [Settings, Onboarding and Feedback](../01-architecture/settings-onboarding-feedback.md), [Privacy Boundaries](../06-security/privacy-boundaries.md).
+
+### `ProjectSupportPromptService`
+
+**Role:** machine-local policy/state owner for the optional project-support prompt.
+
+Owns:
+
+- `projectSupport.prompt.v1`;
+- the `30 calendar days + 10 active days + 20 meaningful uses` eligibility thresholds;
+- the `60 s` meaningful-use coalescing window;
+- the `60 day` snooze policy;
+- the maximum of two automatic appearances;
+- the exact allow-listed project URL and the local state transition after the browser accepts it.
+
+The service stores counters/state, not usage history, and emits no telemetry. `NotchController` owns deliberate-use/idle signals; `AppDelegate` owns the cancellable quiet deferral and current-window/environment checks; `ProjectSupportPromptWindowController` owns presentation.
+
+**Must not:** decide presentation timing by itself, query GitHub, claim whether a star was given, or become a fourth Internet owner.
+
+Canonical docs: [Settings, Onboarding and Feedback](../01-architecture/settings-onboarding-feedback.md), [Schema & Migration Registry](schema-migration-registry.md), [Input & Resource Budget Registry](resource-budget-registry.md), [Privacy Boundaries](../06-security/privacy-boundaries.md).
 
 ## How to use this reference during a change
 

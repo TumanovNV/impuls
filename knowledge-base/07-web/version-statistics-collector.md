@@ -2,9 +2,9 @@
 title: Version Statistics Collector
 type: operations
 status: active
-documentation_version: 1.3
-app_version: 1.4.13
-last_reviewed: 2026-08-21
+documentation_version: 1.4
+app_version: 1.4.15
+last_reviewed: 2026-08-24
 tags: [impuls, telemetry, collector, dashboard, sqlite]
 ---
 
@@ -17,6 +17,8 @@ Collector считает только **consenting active installations**. Эт�
 ## Source-of-truth split
 
 Этот документ описывает **public software contract** collector/dashboard. Конкретный production host, VPN/reverse-proxy topology, service state, server paths, backup state и operational access принадлежат private infrastructure vault.
+
+**Schema/version и поведение ниже — software contract текущего `main`, а не утверждение, что соответствующая миграция уже выполнена в production. Фактически развернутая production-схема может временно отставать; её состояние проверяется только по private operational source of truth перед deployment/rollback решением.**
 
 Правило разделения: [Public / Private Operations Boundary](../12-reference/operations-boundary.md).
 
@@ -34,7 +36,7 @@ flowchart LR
     DB --> DASH[dashboard.py\nowner-only read-only]
 ```
 
-The diagram is intentionally abstract. Current production addresses/routes are private operational facts, not public application architecture.
+The diagram is intentionally abstract. Current production addresses/routes and deployed schema state are private operational facts, not public application architecture.
 
 ## Client contract
 
@@ -92,9 +94,9 @@ Application-side installation identity is a random UUID v4 kept in Keychain and 
 
 ## Database contract
 
-Current SQLite database schema: **1**.
+Current SQLite database **software-contract target in `main`**: **1**.
 
-The version marker is SQLite `PRAGMA user_version`. `DATABASE_SCHEMA_VERSION` in `collector.py` is the code-level source for the currently supported version.
+The version marker is SQLite `PRAGMA user_version`. `DATABASE_SCHEMA_VERSION` in `collector.py` is the code-level source for the currently supported version. This section describes the checked-in collector contract; it does not replace production verification in the private operations repository.
 
 Current schema objects:
 
@@ -127,6 +129,8 @@ Every future `N -> N+1` schema change requires:
 - schema registry and collector documentation updates;
 - a SQLite-safe production backup before the first process using the new schema starts;
 - private operational validation/rollback procedure in `office-it-docs`.
+
+A merge to public `main` completes the software side only. Production is considered migrated only after the private operational procedure verifies and records the deployed database/service state.
 
 Canonical migration policy: [Schema & Migration Registry](../12-reference/schema-migration-registry.md).
 
@@ -178,26 +182,3 @@ Tests: [`test_version_statistics_dashboard.py`](../../Tests/PythonTests/test_ver
 Rotating the HMAC secret creates a new unlinkable installation population. This is both a privacy property and an operational consequence: old and new digests must not be joined.
 
 The **procedure** may be documented privately. The secret value never belongs in Git.
-
-## Public-repo rule
-
-This knowledge base may contain protocol/schema/privacy facts that are already part of the shipped/open-source contract. It must not become a copy of private infrastructure inventory.
-
-For tasks that require current production runtime, use the private operational hub rather than inferring from source defaults or historical audit notes.
-
-## Source map
-
-- [`VersionTelemetryService.swift`](../../Sources/Impuls/Services/VersionTelemetryService.swift)
-- [`collector.py`](../../Collector/version-statistics/collector.py)
-- [`dashboard.py`](../../Collector/version-statistics/dashboard.py)
-- [`report.py`](../../Collector/version-statistics/report.py)
-- [`Dockerfile`](../../Collector/version-statistics/Dockerfile)
-- [`Collector/version-statistics/README.md`](../../Collector/version-statistics/README.md)
-
-## Verification map
-
-- [`VersionTelemetryServiceTests.swift`](../../Tests/ImpulsTests/VersionTelemetryServiceTests.swift)
-- [`test_collector_database_migrations.py`](../../Tests/PythonTests/test_collector_database_migrations.py)
-- [`test_version_statistics.py`](../../Tests/PythonTests/test_version_statistics.py)
-- [`test_version_statistics_dashboard.py`](../../Tests/PythonTests/test_version_statistics_dashboard.py)
-- [Generated Type → Tests → Docs Map](../12-reference/generated-type-test-doc-map.md)

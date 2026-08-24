@@ -2,9 +2,9 @@
 title: Input & Resource Budget Registry
 type: reference
 status: active
-documentation_version: 1.3
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.4
+app_version: 1.4.15
+last_reviewed: 2026-08-24
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
 
@@ -93,6 +93,12 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Project-support prompt snooze | 60 days **and** at least one meaningful use after the prompt | `snoozeDays`. Elapsed time alone does not reopen the question — an app nobody opens has not earned a second ask |
 | Meaningful-use coalescing window | 60 s | `meaningfulUseWindow`. Anchored to the last counted use, not slid forward by further clicks, so "20 uses" means twenty separate times somebody reached for Impuls rather than twenty clicks in one afternoon |
 | Project-support prompt quiet delay | one `+8 s` one-shot per quiet transition | never a timer; scheduled only when eligibility already holds, cancelled when work resumes or the app terminates. Minimum uptime before any prompt is 120 s |
+| Self-relaunch PID wait | max `100 × 0.1 s` ≈ `10 s` | `AppRelaunchService.pollLimit` / `pollInterval`; timeout is fail-closed and exits without opening a second instance |
+| Self-relaunch teardown settle | `0.2 s` once the old PID disappears | one-shot helper margin before opening the exact current bundle; no daemon, Login Item or persistent timer |
+
+## Relaunch lifecycle budget
+
+The self-relaunch helper is bounded process-lifecycle work, not a recurring service. Its approximately ten-second PID wait is an architectural ceiling: if the old process does not disappear, the helper exits rather than becoming an unbounded poller or starting a second Impuls instance. Any change to `pollLimit`, `pollInterval`, the settle delay or the fail-closed behavior must update this registry and the [Background Work & Concurrency Registry](background-concurrency-registry.md) together.
 
 ## Budget change rules
 

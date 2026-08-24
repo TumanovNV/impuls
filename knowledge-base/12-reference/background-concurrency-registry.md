@@ -2,9 +2,9 @@
 title: Background Work & Concurrency Registry
 type: reference
 status: active
-documentation_version: 1.3
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.4
+app_version: 1.4.15
+last_reviewed: 2026-08-24
 tags: [impuls, performance, concurrency, timers, background-work, ai]
 ---
 
@@ -21,6 +21,7 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 5. **Expensive reads are one-in-flight unless there is a proven reason otherwise.** Coalesce duplicate refresh requests instead of stacking identical work.
 6. **Timer tolerance is intentional.** Background utility work should give macOS room to coalesce wake-ups. A new exact timer needs a user-visible reason.
 7. **Synchronous durability is exceptional.** Blocking a serial writer queue is reserved for shutdown or explicit destructive transitions where losing the final state would be worse than a short wait.
+8. **Bounded helpers stay bounded.** A one-shot lifecycle helper may outlive the process it is helping, but it must have an explicit termination bound and must not evolve into a daemon, LaunchAgent, login item or unbounded poller.
 
 ## Runtime registry
 
@@ -58,6 +59,7 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 | `AppDelegate` | Project-support prompt quiet deferral | none by default; one `+8 s` one-shot per quiet transition, and only when `ProjectSupportPromptService.isEligible` already holds | `@MainActor` `DispatchWorkItem` on the main queue | at most one item exists: it is created only by `NotchController.onReturnedToIdle`, cancelled when the user resumes work (`onMeaningfulUse`), cancelled in `applicationWillTerminate`, and cleared when it fires. Not a timer and not a poller — an ineligible or already-answered install schedules nothing at all, and the feature is capped at two presentations for the lifetime of the local state. The re-check when it fires covers this process only: `NSApp.windows` cannot see a system-owned permission dialog, so that case is a manual `SUP-01` obligation rather than a guarantee of this owner |
 | `NotchController` | Return-to-idle signal | event driven; fires from the existing collapse completion, no work of its own | `@MainActor` | one report per folded session that contained deliberate use; the flag is cleared on delivery, on `teardown()` and on `foldImmediately()`, so a torn-down controller or a vanished display reports nothing |
 | `AppDelegate` | Launch-time deferrals | update consent `+0.75 s`; version heartbeat first attempt `+2 s`, then starts `VersionTelemetryScheduler` for the hourly follow-ups | main queue delayed callbacks | one-shot deferrals; consent prompt is skipped under `CI=true`; neither opens a socket at launch, which CI verifies with `lsof`; the scheduler itself is stopped in `applicationWillTerminate` |
+| `AppRelaunchService` | One-shot helper waits for the old Impuls PID, then reopens the exact bundle | explicit confirmed relaunch only; at most `100` liveness probes at `0.1 s` (≈`10 s`), then one `0.2 s` settle delay after the PID disappears | `AppRelaunchService` starts a detached `/bin/sh` child; the helper uses `kill -0` as a liveness probe and does no app-state I/O | exits after `open`, or exits fail-closed at the probe cap without opening anything. If helper launch fails, the old app stays alive. No daemon, Login Item or LaunchAgent survives the restart |
 | `FileToolsCoordinator` | File batches and status auto-clear | user-initiated; status clears after `3 s` | `Task.detached(.userInitiated)` per batch, `autoreleasepool` per item | status writes guarded by a generation. **Known gap:** batch tasks keep no handle, so they are not cancelled on teardown — see `09-known-issues/current-limitations.md` |
 | `NotchContentView` | Rail hover dwell | `150 ms` before a hover switches module | SwiftUI `.task(id:)` | id change cancels; hover is an affordance and must not become selection |
 | Panes (`Actions`, `Clipboard`, `Notes`, `Snippets`, `Translate`) | "Copied" toast clear | `1.1 s` per pane | main queue delayed callback | value comparison discards a stale clear; no repeating work |
@@ -94,6 +96,8 @@ The same design idea is used elsewhere:
 - `BoundedProcess` drains subprocess output on global utility queues under a deadline;
 - callbacks hop back to `MainActor` only to publish/present state.
 
+`AppRelaunchService` is `@MainActor` for the orchestration call because starting a relaunch ends in `NSApp.terminate`. The wait itself is intentionally outside the terminating process in the one-shot helper. The UI actor never spins on PID liveness, and the helper's ≈10-second cap is the boundary preventing it from becoming hidden long-lived work.
+
 Two things stay on `MainActor` on purpose, and both are recorded here so the next
 reader does not "fix" them: `NSPasteboard` access, because AppKit does not promise it
 off the main thread, and `NSWorkspace.icon(forFile:)`, for the same reason. In both
@@ -105,14 +109,10 @@ around it were moved off.
 Update this registry in the same change set when any of these change:
 
 - a repeating `Timer`, polling interval or tolerance;
-- a debounce/retry/delayed task;
+- a debounce/retry/delayed task or bounded helper loop;
 - a long-lived `Task`, observer, topology listener or socket owner;
 - a queue/actor boundary for disk, process, device or network I/O;
 - cancellation/backpressure/one-in-flight behavior;
 - a new background activity that survives while the panel is closed.
 
-Then run `python3 Scripts/check-documentation-guardian.py --base <base-sha>` plus the normal knowledge-base and product CI.
-
-## Performance invariant
-
-A new display, Space, Menu Bar presentation or window is **not** permission to create another sampler/provider/service. A new always-on poller is an architectural performance change and needs an explicit rationale, lifecycle, cadence, tolerance, tests and documentation before it ships.
+Then run `python3 Scripts/check-documentation-guardian.py --base <base-sha>` plus the normal validation suite. If the change introduces or changes a cadence/count/timeout ceiling, review [Input & Resource Budget Registry](resource-budget-registry.md) in the same change set.

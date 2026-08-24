@@ -2,9 +2,9 @@
 title: Generated Type → Tests → Docs Map
 type: generated-reference
 status: active
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 1.4.15
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-24
 tags: [impuls, generated, reference, tests, ai]
 ---
 
@@ -20,6 +20,8 @@ The manifest is intentionally curated: architectural ownership is a design decis
 | --- | --- | --- | --- | --- |
 | Actions / files | `FileToolsService` | [FileToolsService.swift](../../Sources/Impuls/Services/FileToolsService.swift) | [FileToolsServiceTests.swift](../../Tests/ImpulsTests/FileToolsServiceTests.swift) | [actions.md](../02-modules/actions.md) |
 | Actions / files | `ImpulsActionsStore` | [ImpulsActionsStore.swift](../../Sources/Impuls/Services/ImpulsActionsStore.swift) | [ImpulsActionsStoreTests.swift](../../Tests/ImpulsTests/ImpulsActionsStoreTests.swift) | [actions.md](../02-modules/actions.md) |
+| Application / localization | `AppLanguageService` | [AppLanguageService.swift](../../Sources/Impuls/Services/AppLanguageService.swift) | [AppLanguageServiceTests.swift](../../Tests/ImpulsTests/AppLanguageServiceTests.swift) | [localization.md](../04-development/localization.md) |
+| Application lifecycle | `AppRelaunchService` | [AppRelaunchService.swift](../../Sources/Impuls/Services/AppRelaunchService.swift) | [AppRelaunchServiceTests.swift](../../Tests/ImpulsTests/AppRelaunchServiceTests.swift) | [localization.md](../04-development/localization.md) |
 | Backup / data | `ImpulsBackupDocument` | [BackupService.swift](../../Sources/Impuls/Services/BackupService.swift) | [BackupDocumentTests.swift](../../Tests/ImpulsTests/BackupDocumentTests.swift) | [storage-persistence.md](../01-architecture/storage-persistence.md) |
 | Calendar | `CalendarStore` | [CalendarStore.swift](../../Sources/Impuls/Services/CalendarStore.swift) | [CalendarStoreTests.swift](../../Tests/ImpulsTests/CalendarStoreTests.swift) | [calendar.md](../02-modules/calendar.md) |
 | Clipboard | `ClipboardHistoryPersistence` | [ClipboardHistoryPersistence.swift](../../Sources/Impuls/Services/ClipboardHistoryPersistence.swift) | [ClipboardHistoryPersistenceTests.swift](../../Tests/ImpulsTests/ClipboardHistoryPersistenceTests.swift)<br>[StorageIsolationTests.swift](../../Tests/ImpulsTests/StorageIsolationTests.swift) | [clipboard.md](../02-modules/clipboard.md) |
@@ -42,6 +44,7 @@ The manifest is intentionally curated: architectural ownership is a design decis
 | Power / devices | `MobileDeviceBatteryProvider` | [MobileDeviceBatteryProvider.swift](../../Sources/Impuls/Services/MobileDeviceBatteryProvider.swift) | [MobileDeviceBatteryProviderTests.swift](../../Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift)<br>[MobileDeviceProtocolTests.swift](../../Tests/ImpulsTests/MobileDeviceProtocolTests.swift) | [power.md](../02-modules/power.md) |
 | Power / devices | `PowerMonitor` | [PowerMonitor.swift](../../Sources/Impuls/Services/PowerMonitor.swift) | [PowerMonitorTests.swift](../../Tests/ImpulsTests/PowerMonitorTests.swift) | [power.md](../02-modules/power.md) |
 | Power / privacy | `DeviceIdentityResolver` | [AppleDeviceIdentity.swift](../../Sources/Impuls/Services/AppleDeviceIdentity.swift) | [IORegistryAccessoryTests.swift](../../Tests/ImpulsTests/IORegistryAccessoryTests.swift)<br>[MobileDeviceBatteryProviderTests.swift](../../Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift) | [privacy-boundaries.md](../06-security/privacy-boundaries.md) |
+| Project support | `ProjectSupportPromptService` | [ProjectSupportPromptService.swift](../../Sources/Impuls/Services/ProjectSupportPromptService.swift) | [ProjectSupportPromptServiceTests.swift](../../Tests/ImpulsTests/ProjectSupportPromptServiceTests.swift)<br>[ProjectSupportPromptLifecycleTests.swift](../../Tests/ImpulsTests/ProjectSupportPromptLifecycleTests.swift) | [settings-onboarding-feedback.md](../01-architecture/settings-onboarding-feedback.md) |
 | Project topology | `AppFeatureCatalog` | [AppFeatureCatalog.swift](../../Sources/Impuls/Services/AppFeatureCatalog.swift) | [test_project_manifest.py](../../Tests/PythonTests/test_project_manifest.py) | [project-manifest.md](project-manifest.md) |
 | Safety / bounds | `BoundedFileReader` | [BoundedData.swift](../../Sources/Impuls/Services/BoundedData.swift) | [BoundedDataTests.swift](../../Tests/ImpulsTests/BoundedDataTests.swift) | [resource-budget-registry.md](resource-budget-registry.md) |
 | Safety / bounds | `BoundedText` | [BoundedText.swift](../../Sources/Impuls/Services/BoundedText.swift) | [BoundedTextTests.swift](../../Tests/ImpulsTests/BoundedTextTests.swift) | [resource-budget-registry.md](resource-budget-registry.md) |
