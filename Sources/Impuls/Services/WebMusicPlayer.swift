@@ -11,6 +11,14 @@ struct WebMusicState: Equatable {
     /// Identity of the cover the page is currently showing. Impuls never
     /// downloads it — the page hands the bytes over on request.
     var artworkKey: String
+    /// What the page's own transport route lookup found — the exact same
+    /// lookup `command(_:)` uses to act, not a separate guess. Absent from an
+    /// older/mismatched payload defaults to `false`: an unproven capability is
+    /// not offered.
+    var canNext: Bool
+    var canPrevious: Bool
+    var canPlayPause: Bool
+    var canSeek: Bool
 
     var key: String { "web|\(title)|\(artist)|\(album)" }
 
@@ -34,7 +42,11 @@ struct WebMusicState: Equatable {
             duration: duration,
             position: duration > 0 ? min(rawPosition, duration) : rawPosition,
             isPlaying: (payload["playing"] as? NSNumber)?.boolValue ?? false,
-            artworkKey: bounded(payload["artworkKey"] as? String, maximum: 2_048)
+            artworkKey: bounded(payload["artworkKey"] as? String, maximum: 2_048),
+            canNext: (payload["canNext"] as? NSNumber)?.boolValue ?? false,
+            canPrevious: (payload["canPrevious"] as? NSNumber)?.boolValue ?? false,
+            canPlayPause: (payload["canPlayPause"] as? NSNumber)?.boolValue ?? false,
+            canSeek: (payload["canSeek"] as? NSNumber)?.boolValue ?? false
         )
     }
 
@@ -143,12 +155,34 @@ final class WebMusicWindow: NSWindow {
     }
 }
 
+/// What `MediaController` needs from a web player, kept separate from
+/// `WebMusicPlayer`'s WebKit machinery so a test can drive the exact same
+/// state-adoption path `MediaController` runs in production without ever
+/// building a `WKWebView` — construction that alone would touch the network
+/// boundary CI's `lsof` check exists to catch.
+@MainActor
+protocol WebMusicPlaying: AnyObject {
+    var onState: ((MusicSource, WebMusicState?) -> Void)? { get set }
+    var onArtwork: ((MusicSource, String, NSImage?) -> Void)? { get set }
+    var onLoading: ((MusicSource, Bool) -> Void)? { get set }
+    var onFailure: ((MusicSource, String) -> Void)? { get set }
+    var source: MusicSource? { get }
+    var currentState: WebMusicState? { get }
+
+    func show(source: MusicSource)
+    func command(_ command: WebMusicCommand)
+    func seek(to seconds: TimeInterval)
+    func requestSnapshot()
+    func deactivate()
+    func teardown()
+}
+
 /// Owns a user-opened web player. Merely creating `MediaController` or choosing
 /// a source never constructs a WKWebView and therefore never starts networking.
 /// The first request is made only by `show(source:)`, which is wired to the
 /// explicit "Open web player" button in the Music pane.
 @MainActor
-final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
+final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMusicPlaying {
     var onState: ((MusicSource, WebMusicState?) -> Void)?
     var onArtwork: ((MusicSource, String, NSImage?) -> Void)?
     var onLoading: ((MusicSource, Bool) -> Void)?
@@ -941,7 +975,14 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
           duration: duration,
           position: position,
           playing: isPlaying(),
-          artworkKey: coverURL()
+          artworkKey: coverURL(),
+          // Honest capability, not an assumption: the same route lookup that
+          // would carry the actual command. Play/pause has a further element
+          // fallback in `drive()`, so any loaded media counts.
+          canNext: hasRoute('next', 'nexttrack'),
+          canPrevious: hasRoute('previous', 'previoustrack'),
+          canPlayPause: Boolean(handlers.play || handlers.pause) || findKnown('playPause') !== null || Boolean(element),
+          canSeek: Boolean(handlers.seekto) || (Number.isFinite(element?.duration) && element.duration > 0)
         };
       };
 
@@ -955,7 +996,9 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
         if (stopped) return;
         const payload = snapshot();
         const signature = [payload.title, payload.artist, payload.album, payload.playing,
-                           Math.round(payload.duration), payload.artworkKey].join('|');
+                           Math.round(payload.duration), payload.artworkKey,
+                           payload.canNext, payload.canPrevious, payload.canPlayPause, payload.canSeek]
+          .join('|');
         const now = Date.now();
         if (!force && signature === lastSignature && now - lastSentAt < 900) return;
         lastSignature = signature;
@@ -995,20 +1038,32 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate {
         const rect = element.getBoundingClientRect();
         return rect.bottom > innerHeight - 140 && rect.top < innerHeight;
       };
-      const clickKnown = action => {
+      // Finds the element `clickKnown` would press, without pressing it. This
+      // is also the honest signal behind `canNext`/`canPrevious`/`canPlayPause`
+      // in the state snapshot: the same lookup that decides whether a command
+      // can act decides whether the button should look enabled, so the two can
+      // never disagree.
+      const findKnown = action => {
         for (const selector of pack[action] || []) {
           const candidates = [...document.querySelectorAll(selector)].filter(visible);
           const button = candidates.find(inTransportBar) || candidates[0];
-          if (button) { button.click(); return true; }
+          if (button) return button;
         }
         const pattern = LABELS[action];
         const labelled = [...document.querySelectorAll('button, [role="button"]')].filter(element => {
           const text = `${element.getAttribute('aria-label') || ''} ${element.getAttribute('title') || ''}`;
           return visible(element) && pattern?.test(text);
         });
-        const candidate = labelled.find(inTransportBar) || labelled[0];
-        if (candidate) { candidate.click(); return true; }
+        return labelled.find(inTransportBar) || labelled[0] || null;
+      };
+      const clickKnown = action => {
+        const button = findKnown(action);
+        if (button) { button.click(); return true; }
         return false;
+      };
+      const hasRoute = (action, mediaSessionAction) => {
+        if (mediaSessionAction && handlers[mediaSessionAction]) return true;
+        return findKnown(action) !== null;
       };
 
       // Whether the page is playing has to survive a player that exposes no

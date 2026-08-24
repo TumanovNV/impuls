@@ -2,7 +2,7 @@
 title: Input & Resource Budget Registry
 type: reference
 status: active
-documentation_version: 1.5
+documentation_version: 1.6
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, performance, limits, budgets, security, ai]
@@ -59,6 +59,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Web music | reported string fields | 512 / 2,048 chars | `WebMusicState.decode` |
 | Web music | artwork transferred from the page | 6 MiB base64 → 16 MiB decoded | `WebMusicPlayer`, then `PlayerBridge.maximumArtworkBytes` |
 | Web music | page diagnostic line | 512 chars | forwarded to `NSLog`; page-controlled text |
+| Web music | capability flags (`canNext`/`canPrevious`/`canPlayPause`/`canSeek`) | fixed 4 booleans, `?? false` when absent | `WebMusicState.decode`; reviewed for 1.4.16 — no new size/count budget, an unproven capability defaults to unavailable rather than needing a bound |
 | Feedback | summary / details / prefilled URL | 120 / 4,000 / 7,000 chars | `FeedbackService`; an over-long body is copied instead of prefilled |
 
 ## Cadence and wake-up budgets

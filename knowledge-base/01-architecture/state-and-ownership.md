@@ -2,9 +2,9 @@
 title: State and Ownership
 type: architecture
 status: active
-documentation_version: 1.3
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.4
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, architecture, state, ownership]
 ---
 
@@ -86,6 +86,8 @@ These boundaries are guarded by Documentation Guardian and the Background Work &
 Ownership of the *moment* is deliberately elsewhere. `NotchController` owns the single meaningful-use funnel and the single return-to-idle report; `AppDelegate` owns the cancellable one-shot deferral and the environment checks. The service therefore cannot decide to appear, and the controller cannot decide whether the app has earned it. Those environment checks reach exactly as far as this process: `NSApp.windows` lists Impuls's own windows and nothing else, so a macOS permission dialog owned by a system process is outside the boundary. That is a limit of the ownership model, not an oversight — `AppDelegate` cannot observe another process's surfaces — and it is why the manual contract states the TCC case as something to verify rather than something the code proves.
 
 `AppLanguageService` is `@MainActor` for the ordinary reason — it is an `ObservableObject` a Settings pane binds to — and answers the questions above narrowly. It protects one published value, `selection`, plus the two `UserDefaults` keys described in the [Schema & Migration Registry](../12-reference/schema-migration-registry.md). Only the main actor reaches it; the pane observes the service directly rather than through `SettingsStore`, which holds it by composition and publishes no copy of its own. Nothing suspends: the service performs synchronous `UserDefaults` reads and writes and starts no task, timer or observer, so it adds no background work and cannot stall the main thread. It never mutates state on initialisation — reading the preference must not change what language the user's Mac is in — and it never changes the *running* process's language, only what the next launch will resolve.
+
+`NativeMusicBridging` (`PlayerBridge.swift`) and `WebMusicPlaying` (`WebMusicPlayer.swift`), added in 1.4.16, are `@MainActor` protocols in front of `MediaController`'s two collaborators. This does not move an isolation boundary: `PlayerBridge`'s static functions and `WebMusicPlayer` were already reachable only from the main actor through `MediaController`, itself `@MainActor`. The protocols exist purely as a dependency-injection seam so `MediaControllerTests.swift` can drive source switch, track switch, the stale-refresh generation guard and capability propagation with `FakeNativeMusicBridging`/`FakeWebMusicPlayer` — synchronous, in-memory doubles — instead of a real Music app, Automation permission, WebKit or network. Production always resolves to `LivePlayerBridge()` and a real `WebMusicPlayer()`, both still `@MainActor`, so nothing about where this work runs changed.
 
 ## Published-state budget
 

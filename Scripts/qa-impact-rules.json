@@ -101,12 +101,15 @@
         "Sources/Impuls/Services/PlayerBridge.swift",
         "Sources/Impuls/Services/MusicSource.swift",
         "Sources/Impuls/Services/WebMusicPlayer.swift",
+        "Sources/Impuls/Services/MusicProviderCatalog.swift",
         "Sources/Impuls/UI/*Music*.swift",
         "Sources/Impuls/UI/*Media*.swift"
       ],
       "test_globs": [
         "Tests/ImpulsTests/MusicSourceTests.swift",
-        "Tests/ImpulsTests/PlayerBridgeTests.swift"
+        "Tests/ImpulsTests/PlayerBridgeTests.swift",
+        "Tests/ImpulsTests/MediaControllerTests.swift",
+        "Tests/ImpulsTests/MusicProviderCatalogTests.swift"
       ],
       "qa_ids": [
         "PERM-05",
@@ -117,7 +120,8 @@
         "MUS-04",
         "MUS-05",
         "MUS-06",
-        "MUS-07"
+        "MUS-07",
+        "MUS-08"
       ]
     },
     {

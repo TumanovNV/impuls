@@ -25,15 +25,14 @@ struct MediaPane: View {
     private var sourceBar: some View {
         HStack(spacing: 8) {
             Menu {
-                ForEach(MusicSource.allCases) { source in
-                    Button {
-                        media.selectSource(source)
-                    } label: {
-                        if media.selectedSource == source {
-                            Label(source.displayName, systemImage: "checkmark")
-                        } else {
-                            Text(source.displayName)
-                        }
+                Section(localized("Recommended")) {
+                    ForEach(MusicProviderCatalog.recommended()) { source in
+                        sourceMenuItem(source)
+                    }
+                }
+                Section(localized("All Services")) {
+                    ForEach(MusicProviderCatalog.allServices) { source in
+                        sourceMenuItem(source)
                     }
                 }
             } label: {
@@ -67,6 +66,19 @@ struct MediaPane: View {
             .help(media.selectedSource.isWeb ? localized("Open Web Player") : localized("Open Apple Music"))
         }
         .frame(height: 24)
+    }
+
+    @ViewBuilder
+    private func sourceMenuItem(_ source: MusicSource) -> some View {
+        Button {
+            media.selectSource(source)
+        } label: {
+            if media.selectedSource == source {
+                Label(source.displayName, systemImage: "checkmark")
+            } else {
+                Text(source.displayName)
+            }
+        }
     }
 
     // MARK: - Player
@@ -218,16 +230,19 @@ struct MediaPane: View {
         HStack(spacing: Theme.Space.l + 2) {
             Button { media.previous() } label: { Image(systemName: "backward.fill") }
                 .buttonStyle(NotchButtonStyle(size: 28))
+                .disabled(!media.capabilities.canPrevious)
                 .accessibilityLabel(localized("Previous Track"))
                 .help(localized("Previous Track"))
             Button { media.togglePlayPause() } label: {
                 Image(systemName: media.isPlaying ? "pause.fill" : "play.fill")
             }
             .buttonStyle(NotchButtonStyle(size: 36, prominent: true))
+            .disabled(!media.capabilities.canPlayPause)
             .accessibilityLabel(media.isPlaying ? localized("Pause") : localized("Play"))
             .help(media.isPlaying ? localized("Pause") : localized("Play"))
             Button { media.next() } label: { Image(systemName: "forward.fill") }
                 .buttonStyle(NotchButtonStyle(size: 28))
+                .disabled(!media.capabilities.canNext)
                 .accessibilityLabel(localized("Next Track"))
                 .help(localized("Next Track"))
         }

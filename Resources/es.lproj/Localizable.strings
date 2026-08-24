@@ -30,6 +30,8 @@
 "Remove from Shelf" = "Quitar del estante";
 
 /* Media */
+"Recommended" = "Recomendados";
+"All Services" = "Todos los servicios";
 "Nothing is playing" = "No se está reproduciendo nada";
 "Open Web Player" = "Abrir reproductor web";
 "Show Web Player" = "Mostrar reproductor web";

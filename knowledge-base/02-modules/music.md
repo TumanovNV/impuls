@@ -2,9 +2,9 @@
 title: Music Module
 type: module
 status: production
-documentation_version: 1.1
-app_version: 1.4.11
-last_reviewed: 2026-08-20
+documentation_version: 1.3
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, module, music, webkit, automation]
 ---
 
@@ -12,32 +12,56 @@ tags: [impuls, module, music, webkit, automation]
 
 ## Назначение
 
-Управление **явно выбранным** источником музыки без угадывания «какой из запущенных плееров главный».
+Управление **явно выбранным** источником музыки без угадывания «какой из запущенных плееров главный», с честным Now Playing state — источник не выдаёт непроверенную возможность за доступную.
 
-Поддерживаются Apple Music, Яндекс Музыка, VK Музыка и YouTube Music. Spotify намеренно отсутствует: WebKit не обеспечивает Widevine playback для его web player.
+Поддерживаются Apple Music, Яндекс Музыка, VK Музыка и YouTube Music. Каталог источников в 1.4.16 не расширился: см. «Provider compatibility audit (1.4.16)» ниже — расширение возможно только для источника, реально прошедшего весь gate из этого раздела, а не просто присутствующего в market-share таблице.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
     UI[MediaPane] --> MC[MediaController]
-    MC -->|Apple Music| PB[PlayerBridge]
+    MC -->|Apple Music| NB["NativeMusicBridging (LivePlayerBridge)"]
+    NB --> PB[PlayerBridge]
     PB --> AE[Apple Events / Music app]
-    MC -->|Explicit Open Web Player| WP[WebMusicPlayer]
-    WP --> MS[Selected provider site]
-    WP --> BR[Bounded Media Session bridge]
-    MC --> STATE[Track / artwork / position / playback state]
+    MC -->|Explicit Open Web Player| WMP["WebMusicPlaying (WebMusicPlayer)"]
+    WMP --> MS[Selected provider site]
+    WMP --> BR[Bounded Media Session bridge]
+    MC --> STATE[Track / artwork / position / playback state / capabilities]
+    CAT[MusicProviderCatalog] -.region-relevant subset.-> UI
 ```
+
+`NativeMusicBridging` and `WebMusicPlaying` are the two DI seams `MediaController` was given in 1.4.16 so its state machine — source switch, track switch, stale-result suppression, capability propagation, lifecycle — has deterministic unit coverage (`MediaControllerTests.swift`) instead of requiring a real Music app, Automation permission, or WebKit/network. Production always resolves to `LivePlayerBridge` and a real `WebMusicPlayer()`; nothing about the runtime behavior changed.
 
 ## Source selection
 
 Source сохраняется в UserDefaults (`music.selectedSource.v1`). Выбор web source **не создаёт WebKit**. Только `openSelectedSource()` создаёт/показывает `WebMusicPlayer` и разрешает request.
 
+### Regional recommendations (1.4.16)
+
+`MusicProviderCatalog.allServices` — полный, неизменный каталог (`MusicSource.allCases`), который `MediaPane` показывает под «Все сервисы». `recommended(...)` — намеренно **не** переупорядоченный тот же список, а короткое **подмножество** конкретно под регион, иначе «Рекомендуемые» дублирует «Все сервисы» под другим заголовком (это было исправлено по review в PR #96). Единственный сигнал для выбора подмножества — `Locale.current.region` (локальный system region), без сети, без IP-geolocation, без backend-запроса. Приложенческий язык интерфейса (`appLanguage` из `Strings.swift`) используется **только** как вторичный детерминированный fallback, когда `Locale.current.region` не резолвится — никогда как замена региону и никогда как language==country допущение (см. `MusicProviderCatalogTests.swift`, включая проверку, что de/fr/es/ja/zh-Hans языки сами по себе не переключают подмножество).
+
+Product-priority подмножества на 1.4.16 (все источники, которые не входят в подмножество, остаются доступны под «Все сервисы» — ничего не становится недостижимым, только не продвигается):
+
+| Регион | `recommended(...)` |
+| --- | --- |
+| RU, BY, KZ, KG, AM, UZ, TJ | Yandex Music, VK Music, Apple Music (в этом порядке — Yandex и VK впереди, Apple Music сохранён, но не продвинут перед ними) |
+| Материковый Китай (`CN` — не HK/MO/TW) | только Apple Music (YouTube Music там недоступен, поэтому не продвигается) |
+| Всё остальное, включая неизвестный/неопознанный регион | Apple Music, YouTube Music |
+
 ## Apple Music
 
-`PlayerBridge` получает state через scripting interface/public Automation path и distributed player notifications. Active pane имеет bounded 1 s native refresh; duplicate refreshes coalesced.
+`PlayerBridge` получает state через scripting interface/public Automation path и distributed player notifications, за `NativeMusicBridging` (production: `LivePlayerBridge`). Active pane имеет bounded 1 s native refresh; duplicate refreshes coalesced.
 
 Permission: Apple Events Automation. Status check не prompt'ит; пользователь сам инициирует request.
+
+### Stale-refresh guard (1.4.16 fix)
+
+До этого исправления возможна была гонка: scripting-refresh для трека A ещё in-flight, когда distributed notification для более нового трека B синхронно адаптируется через `adopt(_:)`; когда fetch трека A наконец возвращался, он безусловно перезаписывал уже актуальный трек B на короткое время, до следующего self-correcting refresh. `MediaController` теперь ведёт monotonic `stateGeneration`, инкрементируемый в каждом `adopt(...)`; `refreshFromAppleMusic()` захватывает generation перед запросом и отбрасывает завершение fetch, если generation успел сдвинуться. Тест: `MediaControllerTests.testLateAppleMusicFetchForAnOldTrackDoesNotOverwriteANewerAdoptedTrack`.
+
+## Capabilities (1.4.16)
+
+`MediaController.capabilities: MediaCapabilities` (`canPlayPause` / `canNext` / `canPrevious` / `canSeek`) заменяет прежнее допущение «у всех источников доступен весь transport». Apple Music отдаёт capability `true` безусловно, как только трек загружен — scripting-мост не даёт частичной granularity. Web-источник отдаёт ровно то, что нашёл его собственный transport-route lookup (тот же, которым пользуется `command(_:)`) — до этого изменения бридж уже вычислял этот сигнал (`handlers['nexttrack']` / Media Session action handlers / DOM-fallback через `clickKnown`), но никогда не передавал его в Swift. `MediaPane` теперь `.disabled()`-гейтит Previous/Play-Pause/Next по этим полям вместо того, чтобы всегда предлагать кнопку, которая может ничего не делать. `clear(reason:)` сбрасывает capabilities к all-false — недоказанная возможность не предлагается.
 
 ## Web players
 
@@ -52,18 +76,29 @@ Main-frame navigation ограничена provider allow-list; sign-in hosts в
 ## Network
 
 
-Это один из трёх разрешённых network owners: `WebMusicPlayer.swift`. Network возникает только после явного `Open Web Player`.
+Это один из трёх разрешённых network owners: `WebMusicPlayer.swift`. Network возникает только после явного `Open Web Player`. 1.4.16 не меняет это в принципе: конструирование `MediaController`, выбор источника и чтение regional recommendations остаются полностью локальными (`MediaControllerTests.testConstructionAndSourceSelectionNeverBuildAWebPlayer`).
 
 ## State / persistence
 
-Track/artwork/play state — runtime. Selected source — UserDefaults. Web session/cache управляются WebKit по своей конфигурации; module не превращает metadata в product telemetry.
+Track/artwork/play state — runtime. Selected source — UserDefaults. Web session/cache управляются WebKit по своей конфигурации; module не превращает metadata в product telemetry. Capabilities и regional recommendation order — тоже чисто runtime/local, ничего нового не персистится и не логируется.
+
+## Provider compatibility audit (1.4.16)
+
+Issue #95 запросил desk-research аудит кандидатов, а не задачу «добавить максимум сервисов». Ни один кандидат не прошёл весь gate (реальный вход, реальное воспроизведение без неподдерживаемого DRM, метаданные через стабильный публичный surface / Media Session, а не через fragile DOM-scraping, контролы без хрупкого DOM-clicking, никакого архитектурного rewrite `WebMusicPlayer`) на уровне, достаточном для honest GREEN без учётной записи/региона/подписки, которых у аудита не было — поэтому 1.4.16 сознательно не добавляет новых источников:
+
+- **Spotify** — remains unsupported. Technical reason unchanged and re-verified: Spotify Web Playback requires Widevine-decrypted audio, which WKWebView does not implement on macOS, so an embedded Spotify tab can authenticate but not produce sound. This is a limitation of the current WebKit-based web-player architecture, not a permanent claim about Spotify — no private framework, injection, Accessibility-scraping, or Widevine-redistribution workaround was considered acceptable, so none was attempted.
+- **Zvuk, Amazon Music, Deezer** — YELLOW/UNKNOWN: plausible web-player candidates in principle, but without a live account/subscription in-session they could not be proven to clear the full gate (real sign-in, real audio, non-fragile metadata). Deferred rather than shipped on a guess.
+- **LINE MUSIC, QQ Music, NetEase Cloud Music, KuGou Music, Kuwo Music** — UNKNOWN: region/account-gated services the audit had no way to verify live; deferred rather than silently promoted to GREEN.
+
+None of these were ruled RED on principle — they are candidates for a future, properly account-verified pass (1.4.17+), not permanently rejected.
 
 ## Source map
 
 - `MediaController.swift`
 - `MusicSource.swift`
-- `PlayerBridge.swift`
-- `WebMusicPlayer.swift`
+- `MusicProviderCatalog.swift`
+- `PlayerBridge.swift` (includes `NativeMusicBridging` / `LivePlayerBridge`)
+- `WebMusicPlayer.swift` (includes `WebMusicPlaying`)
 - `MediaPane.swift`
 
 ## Инварианты
@@ -73,7 +108,9 @@ Track/artwork/play state — runtime. Selected source — UserDefaults. Web sess
 - source selection itself is offline;
 - WebKit only explicit user action;
 - provider navigation boundary stays allow-listed;
-- artwork/data reads remain bounded.
+- artwork/data reads remain bounded;
+- regional recommendation subset uses only local system region (+ deterministic app-language fallback), never IP/network/telemetry; every source it omits stays reachable under All Services;
+- capabilities are reported honestly per source, never assumed uniform across providers.
 
 ## Связано
 

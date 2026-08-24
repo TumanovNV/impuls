@@ -2,7 +2,7 @@
 title: Permission Architecture
 type: architecture
 status: active
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, permissions, tcc, architecture]
@@ -64,6 +64,8 @@ iPhone/iPad trust — не macOS TCC permission. Provider проверяет exi
 ## Изменения 1.4.12-hardening
 
 Контракт разрешений не менялся. `PlayerBridge` правился только в части преобразования позиции воспроизведения перед подстановкой в AppleScript: значение приходит из плеера и раньше конвертировалось через `Int(_:)`, что является trap вне диапазона `Int`. `AEDeterminePermissionToAutomateTarget` с `prompt: false` на всех автоматических путях и `prompt: true` только из Settings остались как были.
+
+1.4.16 добавил `NativeMusicBridging`/`LivePlayerBridge` — тонкую обёртку над теми же статическими вызовами `PlayerBridge`, введённую только ради deterministic unit-тестов `MediaController`. `LivePlayerBridge.automationAuthorization(prompt:completion:)` вызывает тот же `PlayerBridge.automationAuthorization(for: .music, prompt:completion:)` с теми же аргументами; ни prompt-политика, ни entitlement, ни путь запроса не изменились.
 
 ## Инварианты
 

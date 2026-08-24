@@ -2,7 +2,7 @@
 title: Background Work & Concurrency Registry
 type: reference
 status: active
-documentation_version: 1.6
+documentation_version: 1.7
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, performance, concurrency, timers, background-work, ai]
@@ -31,7 +31,7 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 | `ClipboardStore` | Pasteboard `changeCount` polling | `0.5 s`, tolerance `0.2 s`; payload is read only after the counter changes | `@MainActor`; normal tick is one integer read | `stop()` invalidates timer and flushes optional persistence |
 | `ClipboardStore` | Delayed image availability retry | `0.5 s`, maximum 12 attempts for the same pasteboard generation | main queue delayed callback; generation protected by pasteboard `changeCount` | stops on generation change, successful image, fallback or attempt cap |
 | `MediaController` | Playback-position ticker | `0.25 s`, tolerance `0.05 s`; only while playing and panel active | `@MainActor`; presentation-only arithmetic | invalidated when inactive, paused/empty or `stop()` |
-| `MediaController` | Native Apple Music refresh | `1 s`, tolerance `0.15 s`; only active Apple Music pane | `@MainActor` coordinator; actual Apple Event work is delegated to `PlayerBridge` utility queue | invalidated when inactive/source changes/stop; in-flight refreshes coalesced with one pending flag |
+| `MediaController` | Native Apple Music refresh | `1 s`, tolerance `0.15 s`; only active Apple Music pane | `@MainActor` coordinator; actual Apple Event work is delegated to `PlayerBridge` utility queue | invalidated when inactive/source changes/stop; in-flight refreshes coalesced with one pending flag; **1.4.16**: a monotonic `stateGeneration` captured before each fetch is compared on completion, so a fetch that started before a newer state was already adopted (e.g. by the distributed-notification path) is discarded instead of reverting the UI — cadence and coalescing are otherwise unchanged |
 | `PlayerBridge` | Apple Events / metadata / artwork work | event or refresh driven, no repeating timer | serial utility queue `io.tumanov.impuls.applescript`; callback returns to main | queue serializes work; permission prompt is explicit user action only |
 | `CalendarStore` | Visible countdown tick | `30 s`, tolerance `5 s`; active pane only | `@MainActor` | `stopTimer()` when pane closes; EventKit change observer handles closed-state changes |
 | `PowerMonitor` | Local Mac fast power refresh | `2 s`, tolerance `0.5 s`; only while Power is enabled and pane active | `@MainActor`; provider snapshot is bounded/local | timer stops when folded/disabled; IOKit observer remains the event path while enabled |
