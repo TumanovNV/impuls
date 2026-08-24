@@ -2,9 +2,9 @@
 title: Release QA Evidence — TEMPLATE
 type: qa-evidence-template
 status: active
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 0.0.0
-last_reviewed: 2026-08-19
+last_reviewed: 2026-08-24
 tags: [impuls, qa, release, evidence, template]
 evidence_schema: 1
 release_commit: 0000000000000000000000000000000000000000
@@ -71,6 +71,7 @@ For enforced releases, `not-recorded` is invalid. `not-run` is allowed only as a
 | REL-04 | not-run | NONE | pending | Replace with real result or explain gap. |
 | REL-05 | not-run | NONE | pending | Replace with real result or explain gap. |
 | REL-06 | not-run | NONE | pending | Replace with real result or explain gap. |
+| REL-07 | not-run | NONE | pending | Replace with real result or explain gap. |
 <!-- qa-results:end -->
 
 ## Known gaps
