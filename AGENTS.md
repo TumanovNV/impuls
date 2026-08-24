@@ -17,11 +17,12 @@ Start with:
 5. `knowledge-base/10-ai/invariants.md` — concise project invariants.
 6. `knowledge-base/12-reference/README.md` — schema/type/performance reference routes.
 7. `knowledge-base/13-qa/README.md` — behavioral verification, source/test impact traceability and release-evidence routes when platform/hardware behavior matters.
-8. The implementation and tests for the area you are changing.
+8. `knowledge-base/04-development/localization.md` — canonical route when language support, website locale support or legal/privacy localization is involved.
+9. The implementation and tests for the area you are changing.
 
 The root manifest is a routing aid, not a duplicate implementation database. Do not put persisted keys, performance constants, live endpoints, production topology, addresses or secrets into it.
 
-At Documentation v1.3 the baseline in `main` is Impuls 1.4.12. Always verify `Scripts/version` when the exact version matters. For a whole-repository security/performance audit, audit `main` only; historical branches and release handoffs are not current source of truth.
+The exact shipped version is owned by `Scripts/version` and summarized by `knowledge-base/00-project/project-status.md`; do not copy a release number into this file as a second current-state source. For a whole-repository security/performance audit, audit `main` only; historical branches and release handoffs are not current source of truth.
 
 Historical technical documents under `docs/` remain valuable evidence, especially the 1.4.6 device-battery and 1.4.7 multi-display documents, but they are not automatically current state.
 
@@ -32,6 +33,7 @@ swift test -c release
 ./Scripts/bundle.sh release
 ./Scripts/dmg.sh
 python3 Scripts/check-project-manifest.py
+python3 Scripts/check-current-documentation.py
 python3 Scripts/check-knowledge-base.py
 python3 Scripts/generate-knowledge-map.py --check
 python3 Scripts/check-documentation-freshness.py
@@ -53,7 +55,7 @@ open build/Impuls.app
 3. **Sparkle is pinned.** `exact: "2.9.5"` in `Package.swift` and the matching revision in `Package.resolved`. Adding, bumping or replacing a dependency is a reviewed architecture/security change.
 4. **The panel follows system appearance.** Semantic colours come from the project's theme system. The collapsed tab is the deliberate black exception so it visually merges with the physical cutout.
 5. **Actions selection never follows the pointer.** Hover is visual affordance only; it must not silently replace explicit selection.
-6. **Localization is complete.** Every `localized("…")` key must exist in **every** shipped localization table, and all tables must carry the same key set. The current tables are `en`, `ru`, `de`, `fr`, `es`, `zh-Hans` and `ja` under `Resources/*.lproj/Localizable.strings`. `Scripts/check-localization.py` discovers the tables from the filesystem, so a new `.lproj` folder joins the contract automatically; the canonical description lives in `knowledge-base/04-development/localization.md`. There is no "RU/EN parity" rule any more — partial translation is not a state the checker accepts.
+6. **Application localization is complete.** Every `localized("…")` key must exist in **every** shipped localization table, and all tables must carry the same key set. The current tables are `en`, `ru`, `de`, `fr`, `es`, `zh-Hans` and `ja` under `Resources/*.lproj/Localizable.strings`. `Scripts/check-localization.py` discovers the tables from the filesystem, so a new `.lproj` folder joins the app contract automatically; the canonical description lives in `knowledge-base/04-development/localization.md`. There is no "RU/EN parity" rule any more — partial translation is not a state the checker accepts.
 7. **Version, release notes and release QA evidence travel together.** `Scripts/version` holds `VERSION=x.y.z`, `docs/releases/x.y.z.md` must exist and be non-empty, and `knowledge-base/13-qa/release-evidence/x.y.z.md` must account for the release's manual/mixed Behavioral QA rows. From 1.4.12 onward `not-recorded` is forbidden.
 8. **The website has CI-sensitive literals.** `docs/index.html` is part of the GitHub Pages production contract. Read `.claude/rules/website.md` and current CI before editing it.
 9. **Feedback collects nothing automatically.** `FeedbackService.swift` must not grow hidden networking, hardware identifiers or user-content collection. Feedback is explicit and user-visible.
@@ -65,6 +67,7 @@ open build/Impuls.app
 15. **QA inventory is not pass evidence.** A Behavioral QA row, unit test or historical screenshot does not prove a particular release passed real hardware/TCC. A `pass`/`fail`/`blocked` manual result must be tied to a truthful release-specific environment without serials, UDIDs or secrets.
 16. **Behavioral source/test ownership is traceable.** `Scripts/qa-impact-rules.json` maps product owners and verification tests to Behavioral QA IDs. Run `Scripts/check-qa-impact.py --base <base-sha>` for real diffs. A changed tracked behavioral source with no route must be mapped or receive a narrow documented exemption; broad exemptions are forbidden in spirit and must not be used to silence CI.
 17. **Project-support eligibility is machine-local, never telemetry or network, and automatic prompting is capped at two lifetime appearances for the local state.** See `knowledge-base/01-architecture/settings-onboarding-feedback.md` for the full contract.
+18. **App, marketing-site and legal/privacy localization are three separate contracts.** They currently expose the same locale set, but one must never be inferred from another. `Scripts/check-current-documentation.py` compares the shipped `.lproj` set, `AppLanguageService`, `CFBundleLocalizations`, website registry and legal locale configs. A language rollout must update all intended surfaces or document the intentional divergence.
 
 ## Device and power invariants
 
@@ -95,7 +98,9 @@ See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-
 | `Sources/Impuls/UI` | module panes and `Theme.swift` |
 | `Sources/ImpulsLauncher` | executable target |
 | `Tests/ImpulsTests` | Swift tests |
-| `Resources` | localization and entitlements/resources |
+| `Resources` | application localization and entitlements/resources |
+| `Scripts/site-locales` | public website locale registry/configs |
+| `Scripts/site-privacy-locales` | localized legal/privacy copy and policy metadata |
 | `Scripts` | build, packaging, versioning and maintenance scripts |
 | `docs` | public website, release notes, audits and historical technical material |
 | `knowledge-base` | current structured project knowledge for humans and AI |
@@ -106,7 +111,7 @@ See `knowledge-base/02-modules/README.md`, `knowledge-base/06-security/security-
 - UI numbers come from the existing theme/geometry system, not taste.
 - Stores/services do not import SwiftUI; panes do not touch the filesystem directly.
 - One responsibility per file where practical.
-- A new shipped module requires a new tab/destination, store/service, pane, strings for every supported localization per the canonical localization contract, tests and an update to the module catalog **and `PROJECT-MANIFEST.json`**.
+- A new shipped module requires a new tab/destination, store/service, pane, strings for every supported application localization per the canonical localization contract, tests and an update to the module catalog **and `PROJECT-MANIFEST.json`**.
 - **Shared services, per-display presentation.** `NotchViewModel` and stores are shared. Each display owns only presentation state/window/view/geometry. Do not create a store, timer or monitor per display. Exactly one surface is active.
 - `PointerWatcher` is a shared sampler with per-display zones; do not add a timer per display.
 - Menu Bar is a presentation/workspace surface over existing state, not a reason to start providers, permissions, polling or networking.
@@ -117,7 +122,7 @@ Before adding or changing a repeating timer, poller, debounce, delayed retry, lo
 
 Before raising/removing a size, count, cadence, timeout or backpressure limit, read `knowledge-base/12-reference/resource-budget-registry.md`. Prefer bounded/lazy/streaming designs over removing a limit.
 
-The semantic `Documentation Guardian` checks sensitive changed lines during PR CI. The historical freshness guard checks whether curated canonical docs are newer than their tracked source. The QA impact checker maps changed behavioral source/tests to Behavioral QA IDs and fails unmapped tracked product ownership. Do not bypass any of these with meaningless Markdown edits, broad exemptions or a fake `last_reviewed`: establish the real code/test/QA contract and make the smallest truthful update.
+The semantic `Documentation Guardian` checks sensitive changed lines during PR CI. The historical freshness guard checks whether curated canonical docs are newer than their tracked source. The current-documentation guard checks cold-start/current-state entrypoints and cross-surface locale/routing parity. The QA impact checker maps changed behavioral source/tests to Behavioral QA IDs and fails unmapped tracked product ownership. Do not bypass any of these with meaningless Markdown edits, broad exemptions or a fake `last_reviewed`: establish the real code/test/QA contract and make the smallest truthful update.
 
 ## Release flow
 
@@ -141,9 +146,9 @@ See `knowledge-base/05-release/release-process.md`, `knowledge-base/13-qa/change
 
 **Code changes and project knowledge travel together.**
 
-If a change alters stable project topology — shipped modules, canonical owners, network owners, permission domains or major repository routes — update `PROJECT-MANIFEST.json` in the same change. Keep it routing-only.
+If a change alters stable project topology — shipped modules, canonical owners, network owners, permission domains, localization/public-site ownership or major repository routes — update `PROJECT-MANIFEST.json` in the same change. Keep it routing-only.
 
-If a change alters architecture, module ownership, networking, permissions, persistence, device identity, background work/concurrency, resource budgets, release semantics or the current shipped baseline, update the corresponding document under `knowledge-base/` in the same change. Long-lived architectural decisions require an ADR under `knowledge-base/08-decisions/`.
+If a change alters architecture, module ownership, networking, permissions, persistence, device identity, background work/concurrency, resource budgets, localization, website/legal routing, release semantics or the current shipped baseline, update the corresponding document under `knowledge-base/` in the same change. Long-lived architectural decisions require an ADR under `knowledge-base/08-decisions/`.
 
 If a change introduces a new user-visible platform/hardware/TCC/lifecycle edge, update `knowledge-base/13-qa/behavioral-qa-matrix.md` even when part of the deterministic core is unit-tested. Give the new ID a source/test route in `Scripts/qa-impact-rules.json`. If a release is being prepared, the version-specific evidence file must classify that row too.
 
