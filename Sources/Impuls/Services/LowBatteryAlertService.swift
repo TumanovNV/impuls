@@ -158,7 +158,12 @@ final class LowBatteryAlertService: ObservableObject {
 
     func refreshAuthorization(requestIfNeeded: Bool = false) {
         permissionTask?.cancel()
-        permissionTask = Task { [weak self] in
+        // `@MainActor` is explicit for the same reason as the delivery task
+        // below: Swift 5 language mode does not guarantee this unstructured
+        // `Task { }` inherits the isolation of the synchronous method that
+        // creates it, and `authorization`/`evaluateLatestIfPossible()` must
+        // not run concurrently with the rest of this MainActor-only type.
+        permissionTask = Task { @MainActor [weak self] in
             guard let self else { return }
             var status = await delivery.authorizationStatus()
             guard !Task.isCancelled else { return }
@@ -179,7 +184,7 @@ final class LowBatteryAlertService: ObservableObject {
         guard authorization == .authorized, !testNotificationInFlight else { return }
         testNotificationInFlight = true
         let notification = Self.testNotification()
-        Task { [weak self, delivery] in
+        Task { @MainActor [weak self, delivery] in
             do {
                 try await delivery.deliver(notification)
                 DevicePowerLog.note("notification test accepted by Notification Center")
@@ -229,9 +234,19 @@ final class LowBatteryAlertService: ObservableObject {
             let notification = Self.notification(for: alert)
             let evaluationNow = latestEvaluation.now
             pendingDeliveryCount += 1
-            Task { [weak self, delivery] in
-                // Runs on this MainActor-isolated task before it yields the
-                // executor again, immediately after `confirmDelivery` /
+            // `@MainActor` is explicit, not inferred: `LowBatteryAlertEngine`
+            // has no internal locking of its own and is safe only because
+            // every call to it — this one included — is required to land on
+            // the same serial executor as `evaluate()`. Package.swift builds
+            // this target in Swift 5 language mode, where an unstructured
+            // `Task { }` created from a synchronous MainActor method is not
+            // guaranteed to inherit that isolation; leaving it implicit risks
+            // `confirmDelivery`/`cancelDelivery` racing a concurrent
+            // `engine.evaluate()` on another thread instead of merely running
+            // late.
+            Task { @MainActor [weak self, delivery] in
+                // Runs on the main actor before it yields the executor
+                // again, immediately after `confirmDelivery` /
                 // `cancelDelivery` below — so anyone observing the count
                 // reach zero also observes the engine's pending state as
                 // already settled, not merely the delivery attempt as made.
