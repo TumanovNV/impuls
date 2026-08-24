@@ -1,0 +1,137 @@
+import Combine
+import XCTest
+@testable import ImpulsCore
+
+@MainActor
+final class LowBatteryAlertServiceDiagnosticTests: XCTestCase {
+    private var cancellables: Set<AnyCancellable> = []
+
+    override func tearDown() {
+        cancellables.removeAll()
+        super.tearDown()
+    }
+
+    func testExplicitTestNotificationUsesNoBatteryState() async {
+        let store = DiagnosticAlertStateStore()
+        let delivery = DiagnosticAlertDelivery(status: .authorized)
+        let service = LowBatteryAlertService(
+            engine: LowBatteryAlertEngine(store: store),
+            delivery: delivery
+        )
+        let authorized = expectation(description: "authorization published")
+        service.$authorization
+            .dropFirst()
+            .filter { $0 == .authorized }
+            .prefix(1)
+            .sink { _ in authorized.fulfill() }
+            .store(in: &cancellables)
+
+        service.setEnabled(true, requestAuthorization: false)
+        await fulfillment(of: [authorized], timeout: 2)
+
+        let delivered = expectation(description: "test notification delivered")
+        let completed = expectation(description: "diagnostic delivery completed")
+        delivery.onDelivery = delivered
+        service.$testNotificationInFlight
+            .dropFirst()
+            .filter { !$0 }
+            .prefix(1)
+            .sink { _ in completed.fulfill() }
+            .store(in: &cancellables)
+        service.sendTestNotification()
+        await fulfillment(of: [delivered, completed], timeout: 2)
+
+        XCTAssertEqual(delivery.notifications.count, 1)
+        XCTAssertEqual(delivery.notifications.first?.devicePreferenceKey, "qa")
+        XCTAssertEqual(delivery.notifications.first?.title, localized("Impuls Notification QA"))
+        XCTAssertEqual(
+            delivery.notifications.first?.body,
+            localized("Test notification only. No device battery reading was used.")
+        )
+        XCTAssertNil(store.data, "a diagnostic notification must never mutate low-battery policy state")
+        XCTAssertFalse(service.testNotificationInFlight)
+    }
+
+    func testDeniedAuthorizationCannotSendDiagnosticNotification() async {
+        let delivery = DiagnosticAlertDelivery(status: .denied)
+        let service = LowBatteryAlertService(
+            engine: LowBatteryAlertEngine(store: DiagnosticAlertStateStore()),
+            delivery: delivery
+        )
+        let denied = expectation(description: "denied authorization published")
+        service.$authorization
+            .dropFirst()
+            .filter { $0 == .denied }
+            .prefix(1)
+            .sink { _ in denied.fulfill() }
+            .store(in: &cancellables)
+
+        service.setEnabled(true, requestAuthorization: false)
+        await fulfillment(of: [denied], timeout: 2)
+        service.sendTestNotification()
+
+        XCTAssertTrue(delivery.notifications.isEmpty)
+        XCTAssertFalse(service.testNotificationInFlight)
+    }
+
+    func testExplicitAuthorizationRequestIsTheOnlyPathThatPrompts() async {
+        let delivery = DiagnosticAlertDelivery(status: .notDetermined)
+        let service = LowBatteryAlertService(
+            engine: LowBatteryAlertEngine(store: DiagnosticAlertStateStore()),
+            delivery: delivery
+        )
+
+        let initialRead = expectation(description: "restored preference only reads status")
+        delivery.onStatusRead = initialRead
+        service.setEnabled(true, requestAuthorization: false)
+        await fulfillment(of: [initialRead], timeout: 2)
+        delivery.onStatusRead = nil
+        XCTAssertEqual(delivery.requestCount, 0)
+
+        let requested = expectation(description: "explicit action requests authorization")
+        delivery.onRequest = requested
+        service.requestAuthorization()
+        await fulfillment(of: [requested], timeout: 2)
+        XCTAssertEqual(delivery.requestCount, 1)
+    }
+}
+
+private final class DiagnosticAlertStateStore: LowBatteryAlertStateStoring {
+    var data: Data?
+    func load() -> Data? { data }
+    func save(_ data: Data) { self.data = data }
+}
+
+/// XCTest controls this double from one serialized test flow. `@unchecked`
+/// acknowledges the protocol's Sendable boundary without using NSLock from
+/// async functions, which Swift 6 intentionally forbids.
+private final class DiagnosticAlertDelivery: LowBatteryNotificationDelivering, @unchecked Sendable {
+    var onNotificationOpened: (@MainActor @Sendable (String?) -> Void)?
+    var onDelivery: XCTestExpectation?
+    var onStatusRead: XCTestExpectation?
+    var onRequest: XCTestExpectation?
+    private(set) var notifications: [LowBatteryNotification] = []
+    private(set) var requestCount = 0
+    private var status: LowBatteryNotificationAuthorization
+
+    init(status: LowBatteryNotificationAuthorization) {
+        self.status = status
+    }
+
+    func authorizationStatus() async -> LowBatteryNotificationAuthorization {
+        onStatusRead?.fulfill()
+        return status
+    }
+
+    func requestAuthorization() async -> LowBatteryNotificationAuthorization {
+        requestCount += 1
+        status = .authorized
+        onRequest?.fulfill()
+        return .authorized
+    }
+
+    func deliver(_ notification: LowBatteryNotification) async throws {
+        notifications.append(notification)
+        onDelivery?.fulfill()
+    }
+}

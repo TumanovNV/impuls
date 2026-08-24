@@ -108,6 +108,7 @@ final class UserNotificationLowBatteryDelivery: NSObject, LowBatteryNotification
 @MainActor
 final class LowBatteryAlertService: ObservableObject {
     @Published private(set) var authorization: LowBatteryNotificationAuthorization = .notDetermined
+    @Published private(set) var testNotificationInFlight = false
 
     private let engine: LowBatteryAlertEngine
     private let delivery: LowBatteryNotificationDelivering
@@ -143,9 +144,21 @@ final class LowBatteryAlertService: ObservableObject {
         refreshAuthorization(requestIfNeeded: requestAuthorization)
     }
 
+    /// Explicit Settings action. Restoring a persisted preference continues to
+    /// call `setEnabled(... requestAuthorization: false)` and therefore never
+    /// produces a TCC prompt by itself.
+    func requestAuthorization() {
+        refreshAuthorization(requestIfNeeded: true)
+    }
+
     func refreshAuthorization(requestIfNeeded: Bool = false) {
         permissionTask?.cancel()
-        permissionTask = Task { [weak self] in
+        // `@MainActor` is explicit for the same reason as the delivery task
+        // below: Swift 5 language mode does not guarantee this unstructured
+        // `Task { }` inherits the isolation of the synchronous method that
+        // creates it, and `authorization`/`evaluateLatestIfPossible()` must
+        // not run concurrently with the rest of this MainActor-only type.
+        permissionTask = Task { @MainActor [weak self] in
             guard let self else { return }
             var status = await delivery.authorizationStatus()
             guard !Task.isCancelled else { return }
@@ -156,6 +169,25 @@ final class LowBatteryAlertService: ObservableObject {
             authorization = status
             evaluateLatestIfPossible()
             deliverQATriggerIfRequested()
+        }
+    }
+
+    /// Sends a deliberately synthetic notification from an explicit Settings
+    /// action. It never calls the alert engine, never fabricates a percentage,
+    /// and therefore cannot arm, re-arm or persist low-battery policy state.
+    func sendTestNotification() {
+        guard authorization == .authorized, !testNotificationInFlight else { return }
+        testNotificationInFlight = true
+        let notification = Self.testNotification()
+        Task { @MainActor [weak self, delivery] in
+            do {
+                try await delivery.deliver(notification)
+                DevicePowerLog.note("notification test accepted by Notification Center")
+            } catch {
+                DevicePowerLog.note("notification test delivery failed")
+            }
+            guard let self else { return }
+            testNotificationInFlight = false
         }
     }
 
@@ -195,11 +227,32 @@ final class LowBatteryAlertService: ObservableObject {
         )
         for alert in alerts {
             let notification = Self.notification(for: alert)
-            Task { [delivery] in
+            let evaluationNow = latestEvaluation.now
+            // `@MainActor` is explicit, not inferred: `LowBatteryAlertEngine`
+            // has no internal locking of its own and is safe only because
+            // every call to it — this one included — is required to land on
+            // the same serial executor as `evaluate()`. Package.swift builds
+            // this target in Swift 5 language mode, where an unstructured
+            // `Task { }` created from a synchronous MainActor method is not
+            // guaranteed to inherit that isolation; leaving it implicit risks
+            // `confirmDelivery`/`cancelDelivery` racing a concurrent
+            // `engine.evaluate()` on another thread instead of merely running
+            // late.
+            Task { @MainActor [weak self, delivery] in
                 do {
                     try await delivery.deliver(notification)
+                    guard let self else { return }
+                    // The engine keeps this threshold pending while the async
+                    // Notification Center boundary is in flight. Only an
+                    // accepted request becomes durable fired state.
+                    engine.confirmDelivery(alert.deliveryID, now: evaluationNow)
                     DevicePowerLog.note("low-battery notification delivered for \(alert.deviceKind.rawValue) at \(alert.severity.rawValue)")
                 } catch {
+                    guard let self else { return }
+                    // A transient delivery failure must be retryable on the
+                    // next ordinary provider evaluation. No extra retry timer
+                    // or higher polling cadence is introduced here.
+                    engine.cancelDelivery(alert.deliveryID)
                     DevicePowerLog.note("low-battery notification delivery failed for \(alert.deviceKind.rawValue) at \(alert.severity.rawValue)")
                 }
             }
@@ -215,14 +268,15 @@ final class LowBatteryAlertService: ObservableObject {
               !didDeliverQATrigger,
               ProcessInfo.processInfo.environment["IMPULS_LOW_BATTERY_NOTIFICATION_QA"] == "1" else { return }
         didDeliverQATrigger = true
-        let notification = LowBatteryNotification(
+        sendTestNotification()
+    }
+
+    private static func testNotification() -> LowBatteryNotification {
+        LowBatteryNotification(
             title: localized("Impuls Notification QA"),
             body: localized("Test notification only. No device battery reading was used."),
             devicePreferenceKey: "qa"
         )
-        Task { [delivery] in
-            try? await delivery.deliver(notification)
-        }
     }
 
     static func notification(for alert: LowBatteryAlert) -> LowBatteryNotification {

@@ -166,13 +166,12 @@
 "Denied" = "Denied";
 "Not Requested" = "Not Requested";
 "Restricted" = "Restricted";
-"Planned" = "Planned";
 "Shows upcoming meetings inside the Calendar module." = "Shows upcoming meetings inside the Calendar module.";
 "Music Automation" = "Music Automation";
 "Reads track information and controls the Apple Music app. Web players do not need this permission." = "Reads track information and controls the Apple Music app. Web players do not need this permission.";
 "Allow Automation access to read %@." = "Allow Automation access to read %@.";
 "Notifications" = "Notifications";
-"Will be used for optional meeting reminders in a later update. No permission is requested yet." = "Will be used for optional meeting reminders in a later update. No permission is requested yet.";
+"Used for low-battery device alerts. Requested only when you choose Allow." = "Used for low-battery device alerts. Requested only when you choose Allow.";
 "Open Settings" = "Open Settings";
 "Refresh Status" = "Refresh Status";
 "Backup" = "Backup";

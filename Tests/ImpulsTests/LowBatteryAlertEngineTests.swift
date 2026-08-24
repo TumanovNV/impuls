@@ -86,10 +86,25 @@ final class LowBatteryAlertEngineTests: XCTestCase {
         XCTAssertEqual(harness.evaluate(10).map(\.severity), [.critical])
     }
 
-    func testPersistedStatePreventsDuplicateAfterEngineRestart() {
+    func testPendingAlertIsNotPersistedBeforeDeliveryConfirmation() throws {
         let store = MemoryAlertStateStore()
         let first = Harness(store: store)
-        XCTAssertEqual(first.evaluate(18).count, 1)
+        let alert = try XCTUnwrap(first.evaluate(18).first)
+
+        XCTAssertNil(store.data, "an in-flight notification is not evidence that the user was warned")
+
+        // A new process has no in-memory pending token. Because Notification
+        // Center was never confirmed, the same low reading must be retryable.
+        let restarted = Harness(store: store)
+        let retry = try XCTUnwrap(restarted.evaluate(18).first)
+        XCTAssertNotEqual(retry.deliveryID, alert.deliveryID)
+    }
+
+    func testConfirmedDeliveryPersistsAndPreventsDuplicateAfterEngineRestart() throws {
+        let store = MemoryAlertStateStore()
+        let first = Harness(store: store)
+        let alert = try XCTUnwrap(first.evaluate(18).first)
+        first.engine.confirmDelivery(alert.deliveryID, now: Fixtures.noon)
 
         let second = Harness(store: store)
 
@@ -98,6 +113,17 @@ final class LowBatteryAlertEngineTests: XCTestCase {
         XCTAssertFalse(text.lowercased().contains("udid"))
         XCTAssertFalse(text.lowercased().contains("serial"))
         XCTAssertFalse(text.contains("Test iPhone"), "display names do not belong in persisted alert state")
+    }
+
+    func testCancelledDeliveryRetriesAtTheSameLowReading() throws {
+        let harness = Harness()
+        let first = try XCTUnwrap(harness.evaluate(20).first)
+
+        harness.engine.cancelDelivery(first.deliveryID)
+
+        let retry = try XCTUnwrap(harness.evaluate(20).first)
+        XCTAssertEqual(retry.severity, .warning)
+        XCTAssertNotEqual(retry.deliveryID, first.deliveryID)
     }
 
     func testPersistedStateIsStrictlyBoundedAndCleanedOnLoad() throws {
@@ -170,6 +196,21 @@ final class LowBatteryAlertEngineTests: XCTestCase {
         XCTAssertTrue(harness.engine.evaluate([snapshot], now: Fixtures.noon).isEmpty)
     }
 
+    func testCriticalConfirmationAlsoCommitsSuppressedWarningsFromTheSameCycle() throws {
+        let store = MemoryAlertStateStore()
+        let harness = Harness(store: store, kind: .airPodsPro, name: "AirPods Pro")
+        let snapshot = harness.snapshot(components: [
+            .init(kind: .left, percentage: 18, lastUpdated: Fixtures.noon),
+            .init(kind: .right, percentage: 9, lastUpdated: Fixtures.noon),
+        ])
+        let alert = try XCTUnwrap(harness.engine.evaluate([snapshot], now: Fixtures.noon).first)
+
+        harness.engine.confirmDelivery(alert.deliveryID, now: Fixtures.noon)
+
+        let restarted = Harness(store: store, kind: .airPodsPro, name: "AirPods Pro")
+        XCTAssertTrue(restarted.engine.evaluate([snapshot], now: Fixtures.noon).isEmpty)
+    }
+
     func testAlertCadenceUsesTheExistingSchedulerAndTurnsOffCleanly() async {
         await MainActor.run {
             let scheduler = DeviceRefreshScheduler()
@@ -221,6 +262,65 @@ final class LowBatteryAlertPermissionTests: XCTestCase {
         XCTAssertEqual(delivery.delivered.count, 1)
         XCTAssertEqual(delivery.delivered.first?.devicePreferenceKey.count, 32)
         XCTAssertFalse(delivery.delivered.first?.body.contains("serial") ?? true)
+    }
+
+    func testDeliveryFailureRetriesAtSameReadingAndOnlySuccessPersists() async throws {
+        let store = MemoryAlertStateStore()
+        let delivery = FlakyAlertDelivery()
+        let service = LowBatteryAlertService(
+            engine: LowBatteryAlertEngine(store: store, now: Fixtures.noon),
+            delivery: delivery
+        )
+        let snapshot = Fixtures.device(
+            kind: .magicMouse,
+            name: "Magic Mouse",
+            components: [.init(kind: .primary, percentage: 20, lastUpdated: Fixtures.noon)]
+        )
+
+        let failedAttempt = expectation(description: "first Notification Center attempt fails")
+        delivery.onAttempt = failedAttempt
+        service.setEnabled(true, requestAuthorization: false)
+        service.evaluate(
+            [snapshot],
+            now: Fixtures.noon,
+            staleAfter: DeviceSnapshotMerger.defaultStaleInterval
+        )
+        await fulfillment(of: [failedAttempt], timeout: 2)
+        XCTAssertNil(store.data, "failed delivery must not persist fired state")
+        delivery.onAttempt = nil
+
+        delivery.shouldFail = false
+        let committed = expectation(description: "successful delivery commits alert state")
+        store.onSave = committed
+
+        // `cancelDelivery` only lands once the service's delivery task hops
+        // back onto the main actor, which happens after `onAttempt` already
+        // fired inside `deliver`. In production the next retry is always a
+        // separately scheduled provider evaluation, seconds away at the
+        // soonest — plenty of time for that hop. A bounded poll that keeps
+        // re-invoking the real `evaluate()` entry point mirrors that retry
+        // path directly, rather than guessing which single instant the hop
+        // completes at.
+        var retried = false
+        for _ in 0..<100 {
+            service.evaluate(
+                [snapshot],
+                now: Fixtures.noon,
+                staleAfter: DeviceSnapshotMerger.defaultStaleInterval
+            )
+            if delivery.attemptCount == 2 {
+                retried = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertTrue(retried, "same low reading must retry once the failed delivery settles")
+        await fulfillment(of: [committed], timeout: 2)
+        XCTAssertEqual(delivery.attemptCount, 2)
+
+        store.onSave = nil
+        let restarted = Harness(store: store, kind: .magicMouse, name: "Magic Mouse")
+        XCTAssertTrue(restarted.engine.evaluate([snapshot], now: Fixtures.noon).isEmpty)
     }
 
     func testDeniedPermissionDoesNotDisableDevicePowerCenter() async {
@@ -284,8 +384,12 @@ final class LowBatteryAlertPermissionTests: XCTestCase {
 
 private final class MemoryAlertStateStore: LowBatteryAlertStateStoring {
     var data: Data?
+    var onSave: XCTestExpectation?
     func load() -> Data? { data }
-    func save(_ data: Data) { self.data = data }
+    func save(_ data: Data) {
+        self.data = data
+        onSave?.fulfill()
+    }
 }
 
 private final class Harness {
@@ -382,6 +486,25 @@ private final class AuthorizedAlertDelivery: LowBatteryNotificationDelivering, @
     func deliver(_ notification: LowBatteryNotification) async throws {
         delivered.append(notification)
         onDelivery?.fulfill()
+    }
+}
+
+private enum FlakyAlertDeliveryError: Error {
+    case rejected
+}
+
+private final class FlakyAlertDelivery: LowBatteryNotificationDelivering, @unchecked Sendable {
+    var onNotificationOpened: (@MainActor @Sendable (String?) -> Void)?
+    var shouldFail = true
+    var onAttempt: XCTestExpectation?
+    private(set) var attemptCount = 0
+
+    func authorizationStatus() async -> LowBatteryNotificationAuthorization { .authorized }
+    func requestAuthorization() async -> LowBatteryNotificationAuthorization { .authorized }
+    func deliver(_ notification: LowBatteryNotification) async throws {
+        attemptCount += 1
+        onAttempt?.fulfill()
+        if shouldFail { throw FlakyAlertDeliveryError.rejected }
     }
 }
 

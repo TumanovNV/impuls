@@ -10,10 +10,12 @@ struct LowBatteryAlertComponent: Equatable, Sendable {
     let percentage: Int
 }
 
-/// A delivery request contains only presentation data and the local opaque key.
-/// The latter is enough to route a click inside Impuls without putting a raw
-/// hardware identifier into Notification Center.
+/// A delivery request contains only presentation data, an in-process delivery
+/// token and the local opaque key. The token never leaves Impuls; the key is
+/// enough to route a click without putting a raw hardware identifier into
+/// Notification Center.
 struct LowBatteryAlert: Equatable, Sendable {
+    let deliveryID: UUID
     let devicePreferenceKey: String
     let deviceKind: AppleDeviceKind
     let displayName: String
@@ -49,6 +51,12 @@ final class UserDefaultsLowBatteryAlertStateStore: LowBatteryAlertStateStoring {
 /// It deliberately knows nothing about transports or hardware. Stable opaque
 /// identities and normalized component readings are the complete input, which
 /// means a future provider receives the same alert semantics automatically.
+///
+/// A threshold has two states: pending in this process, and confirmed after
+/// Notification Center accepts the delivery. Pending state prevents duplicate
+/// async sends but is never persisted. If delivery fails, cancelling the token
+/// re-arms that same low reading for a later normal evaluation instead of
+/// silently suppressing it until the battery rises above the re-arm threshold.
 final class LowBatteryAlertEngine {
     struct Policy: Equatable, Sendable {
         let warningThreshold: Int
@@ -67,6 +75,20 @@ final class LowBatteryAlertEngine {
     private struct ComponentKey: Hashable {
         let device: String
         let component: DeviceBatteryComponentKind
+    }
+
+    private struct Candidate {
+        let key: ComponentKey
+        let component: LowBatteryAlertComponent
+    }
+
+    private struct PendingState {
+        var warningDeliveryID: UUID?
+        var criticalDeliveryID: UUID?
+
+        var isEmpty: Bool {
+            warningDeliveryID == nil && criticalDeliveryID == nil
+        }
     }
 
     private struct PersistedDocument: Codable {
@@ -88,6 +110,10 @@ final class LowBatteryAlertEngine {
     let policy: Policy
     private let store: LowBatteryAlertStateStoring
     private var records: [ComponentKey: PersistedRecord]
+    /// In-flight Notification Center work. Deliberately process-local: a crash
+    /// or force-quit before confirmation must retry rather than persist a false
+    /// claim that the user was warned.
+    private var pending: [ComponentKey: PendingState] = [:]
 
     init(
         store: LowBatteryAlertStateStoring,
@@ -112,8 +138,8 @@ final class LowBatteryAlertEngine {
         var changed = false
 
         for snapshot in snapshots where !snapshot.identity.isLocalMac && snapshot.availability == .connected {
-            var warningCandidates: [LowBatteryAlertComponent] = []
-            var criticalCandidates: [LowBatteryAlertComponent] = []
+            var warningCandidates: [Candidate] = []
+            var criticalCandidates: [Candidate] = []
             let deviceKey = snapshot.identity.localPreferenceKey
 
             for component in snapshot.components {
@@ -121,6 +147,7 @@ final class LowBatteryAlertEngine {
                       componentIsFresh(component, in: snapshot, now: now, staleAfter: staleAfter) else { continue }
 
                 let key = ComponentKey(device: deviceKey, component: component.kind)
+                let hadRecord = records[key] != nil
                 var record = records[key] ?? PersistedRecord(
                     device: deviceKey,
                     component: component.kind.rawValue,
@@ -128,60 +155,110 @@ final class LowBatteryAlertEngine {
                     criticalFired: false,
                     lastSeen: now
                 )
-                let previous = record
+                let previousWarning = record.warningFired
+                let previousCritical = record.criticalFired
+                let previousLastSeen = record.lastSeen
+                var pendingState = pending[key] ?? PendingState()
+
                 // Cleanup timestamps need day-scale precision. Rewriting
                 // UserDefaults on every one-minute poll would turn a bounded
                 // state machine into needless disk churn.
-                if now.timeIntervalSince(record.lastSeen) >= 24 * 60 * 60 {
+                if hadRecord, now.timeIntervalSince(record.lastSeen) >= 24 * 60 * 60 {
                     record.lastSeen = now
                 }
 
-                if percentage > policy.warningRearmThreshold { record.warningFired = false }
-                if percentage > policy.criticalRearmThreshold { record.criticalFired = false }
+                // Re-arm applies to both confirmed and in-flight state. If a
+                // component recovers while Notification Center work is still
+                // pending, a late confirmation for that old cycle becomes a
+                // no-op and a future drop can alert normally.
+                if percentage > policy.warningRearmThreshold {
+                    record.warningFired = false
+                    pendingState.warningDeliveryID = nil
+                }
+                if percentage > policy.criticalRearmThreshold {
+                    record.criticalFired = false
+                    pendingState.criticalDeliveryID = nil
+                }
+
+                let warningAlreadyHandled = record.warningFired || pendingState.warningDeliveryID != nil
+                let criticalAlreadyHandled = record.criticalFired || pendingState.criticalDeliveryID != nil
 
                 if component.chargingState != .charging {
-                    if percentage <= policy.criticalThreshold, !record.criticalFired {
-                        criticalCandidates.append(.init(kind: component.kind, percentage: percentage))
-                        // A critical alert subsumes the lower-priority warning.
-                        record.criticalFired = true
-                        record.warningFired = true
-                    } else if percentage <= policy.warningThreshold, !record.warningFired {
-                        warningCandidates.append(.init(kind: component.kind, percentage: percentage))
-                        record.warningFired = true
+                    if percentage <= policy.criticalThreshold, !criticalAlreadyHandled {
+                        criticalCandidates.append(.init(
+                            key: key,
+                            component: .init(kind: component.kind, percentage: percentage)
+                        ))
+                    } else if percentage <= policy.warningThreshold, !warningAlreadyHandled {
+                        warningCandidates.append(.init(
+                            key: key,
+                            component: .init(kind: component.kind, percentage: percentage)
+                        ))
                     }
                 }
 
                 if record.warningFired || record.criticalFired {
                     records[key] = record
-                    if record.warningFired != previous.warningFired
-                        || record.criticalFired != previous.criticalFired
-                        || record.lastSeen != previous.lastSeen {
+                    if !hadRecord
+                        || record.warningFired != previousWarning
+                        || record.criticalFired != previousCritical
+                        || record.lastSeen != previousLastSeen {
                         changed = true
                     }
                 } else if records.removeValue(forKey: key) != nil {
-                    // Fully re-armed state carries no information. Removing it
-                    // keeps persistence proportional to outstanding alerts.
+                    // Fully re-armed confirmed state carries no information.
                     changed = true
+                }
+
+                if pendingState.isEmpty {
+                    pending.removeValue(forKey: key)
+                } else {
+                    pending[key] = pendingState
                 }
             }
 
             if !criticalCandidates.isEmpty {
-                // Warning candidates from the same cycle were marked as fired
-                // above, but only the actionable critical components are shown.
+                let deliveryID = UUID()
+                // A critical notification subsumes lower-priority warnings from
+                // the same device/cycle. Those warning candidates become
+                // pending under the same delivery token and are committed only
+                // if the critical notification is accepted.
+                for candidate in criticalCandidates {
+                    var state = pending[candidate.key] ?? PendingState()
+                    state.criticalDeliveryID = deliveryID
+                    if records[candidate.key]?.warningFired != true,
+                       state.warningDeliveryID == nil {
+                        state.warningDeliveryID = deliveryID
+                    }
+                    pending[candidate.key] = state
+                }
+                for candidate in warningCandidates {
+                    var state = pending[candidate.key] ?? PendingState()
+                    state.warningDeliveryID = deliveryID
+                    pending[candidate.key] = state
+                }
                 alerts.append(LowBatteryAlert(
+                    deliveryID: deliveryID,
                     devicePreferenceKey: deviceKey,
                     deviceKind: snapshot.kind,
                     displayName: snapshot.displayName,
                     severity: .critical,
-                    components: criticalCandidates.sorted(by: componentOrder)
+                    components: criticalCandidates.map(\.component).sorted(by: componentOrder)
                 ))
             } else if !warningCandidates.isEmpty {
+                let deliveryID = UUID()
+                for candidate in warningCandidates {
+                    var state = pending[candidate.key] ?? PendingState()
+                    state.warningDeliveryID = deliveryID
+                    pending[candidate.key] = state
+                }
                 alerts.append(LowBatteryAlert(
+                    deliveryID: deliveryID,
                     devicePreferenceKey: deviceKey,
                     deviceKind: snapshot.kind,
                     displayName: snapshot.displayName,
                     severity: .warning,
-                    components: warningCandidates.sorted(by: componentOrder)
+                    components: warningCandidates.map(\.component).sorted(by: componentOrder)
                 ))
             }
         }
@@ -189,6 +266,65 @@ final class LowBatteryAlertEngine {
         if cleanup(now: now) { changed = true }
         if changed { persist() }
         return alerts
+    }
+
+    /// Promotes only state that is still pending under this exact delivery.
+    /// This makes late async completion safe after a component has re-armed or
+    /// a newer critical cycle has superseded an older warning delivery.
+    func confirmDelivery(_ deliveryID: UUID, now: Date) {
+        var changed = false
+        for key in Array(pending.keys) {
+            guard var state = pending[key] else { continue }
+            let confirmsCritical = state.criticalDeliveryID == deliveryID
+            let confirmsWarning = state.warningDeliveryID == deliveryID
+            guard confirmsCritical || confirmsWarning else { continue }
+
+            var record = records[key] ?? PersistedRecord(
+                device: key.device,
+                component: key.component.rawValue,
+                warningFired: false,
+                criticalFired: false,
+                lastSeen: now
+            )
+            if confirmsCritical {
+                record.criticalFired = true
+                record.warningFired = true
+                state.criticalDeliveryID = nil
+                // A delivered critical alert makes any older warning delivery
+                // for this component redundant as well.
+                state.warningDeliveryID = nil
+            } else if confirmsWarning {
+                record.warningFired = true
+                state.warningDeliveryID = nil
+            }
+            record.lastSeen = now
+            records[key] = record
+            if state.isEmpty {
+                pending.removeValue(forKey: key)
+            } else {
+                pending[key] = state
+            }
+            changed = true
+        }
+
+        if cleanup(now: now) { changed = true }
+        if changed { persist() }
+    }
+
+    /// Delivery failure must not become durable policy state. Clearing the
+    /// matching in-process token lets the next ordinary provider evaluation
+    /// retry without adding a new timer or retry loop.
+    func cancelDelivery(_ deliveryID: UUID) {
+        for key in Array(pending.keys) {
+            guard var state = pending[key] else { continue }
+            if state.warningDeliveryID == deliveryID { state.warningDeliveryID = nil }
+            if state.criticalDeliveryID == deliveryID { state.criticalDeliveryID = nil }
+            if state.isEmpty {
+                pending.removeValue(forKey: key)
+            } else {
+                pending[key] = state
+            }
+        }
     }
 
     private func componentIsFresh(

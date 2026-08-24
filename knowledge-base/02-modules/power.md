@@ -2,9 +2,9 @@
 title: Power and Battery Module
 type: module
 status: production
-documentation_version: 1.1
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.3
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, module, battery, devices, iokit]
 ---
 
@@ -57,7 +57,6 @@ IOKit и usbmuxd отдают `CFNumber` той ширины, которую в�
 
 ## Honest missing data
 
-
 Missing value остаётся missing: нет fabricated 0%, guessed charging state или guessed connector. Last-good external reading может временно оставаться с freshness timestamp после transient failure; alerts используют более строгий current-ready set.
 
 ## Refresh lifecycle
@@ -69,6 +68,22 @@ Missing value остаётся missing: нет fabricated 0%, guessed charging s
 ## Low battery alerts
 
 Opt-in. Persisted setting не prompt'ит notifications самостоятельно. Alerts оценивают только sufficiently fresh/current provider data.
+
+### Delivery reliability contract (1.4.16)
+
+`LowBatteryAlertEngine` различает **pending** и **confirmed** state:
+
+- пересечение порога сначала создаёт process-local `deliveryID`; оно блокирует duplicate async sends, но не записывает `warningFired` / `criticalFired` на диск;
+- `LowBatteryAlertService` пересекает единственную системную границу через `UNUserNotificationCenter.add`;
+- только после того, как Notification Center принял request без ошибки, service вызывает `confirmDelivery`, и соответствующее fired-state становится durable;
+- ошибка доставки вызывает `cancelDelivery`: тот же sufficiently fresh low reading может повториться на следующей **обычной** provider evaluation. Отдельного retry timer, tighter cadence или busy loop для этого нет;
+- если компонент успел подняться выше re-arm threshold, pending token инвалидируется. Позднее завершение старой async delivery не должно закреплять уже завершившийся low-battery cycle;
+- critical alert по-прежнему имеет приоритет над warning в одном цикле устройства. Успешный critical commit также закрывает lower-priority warning state, которое он заместил;
+- pending state намеренно не переживает process death. Если процесс завершился до подтверждения системной доставки, безопасная ошибка — повторить предупреждение после следующего запуска, а не считать недоставленное уведомление показанным.
+
+`UNUserNotificationCenter.add` подтверждает принятие request системой, но не доказывает, что пользователь физически увидел banner. Поэтому Behavioral QA отдельно проверяет реальный Notification Center/TCC path; unit tests владеют retry, dedup, persistence и precedence state machine.
+
+Между тем моментом, когда `deliver()` бросает ошибку, и моментом, когда `LowBatteryAlertService` возвращается на `@MainActor`, чтобы вызвать `cancelDelivery`, есть реальный actor hop (`delivery` не MainActor-изолирован); `Task { @MainActor ... }` теперь явный, а не выведенный, потому что `Package.swift` собирает этот target в Swift 5 language mode, где implicit-isolation inheritance для unstructured `Task {}` не гарантирован. Deterministic tests не гадают число `Task.yield()`: `testDeliveryFailureRetriesAtSameReadingAndOnlySuccessPersists` повторно вызывает тот же production `evaluate()` в bounded poll до тех пор, пока retry не пройдёт, что и есть реальный retry-путь — следующая обычная provider evaluation, а не отдельный таймер.
 
 ## Identity
 
@@ -94,7 +109,9 @@ Raw UDID/serial/Bluetooth/pairing material не выходит в UI/logs/backup
 - raw identifiers never UI/log/feedback/backup;
 - I/O off main actor;
 - missing stays missing;
-- mobile provider failure не ломает local/accessory providers.
+- mobile provider failure не ломает local/accessory providers;
+- failed Notification Center delivery never becomes persisted fired-state;
+- retry uses the existing provider lifecycle rather than a new background loop.
 
 ## Связано
 
