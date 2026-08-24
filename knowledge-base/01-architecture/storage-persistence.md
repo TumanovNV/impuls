@@ -2,7 +2,7 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, storage, persistence, privacy]
@@ -47,6 +47,8 @@ flowchart TD
 Notification diagnostics в `AppleDeviceSettingsPane` — presentation/TCC change, а не storage change. `Allowed / Denied / Not Requested`, переход в System Settings и тестовое уведомление ничего нового не сохраняют. Существующий ключ `appleDevices.lowBatteryAlerts.enabled` не менялся, по-прежнему machine-local и excluded from backup; состояние системного разрешения остаётся владельцем macOS Notification Center и не дублируется в UserDefaults. Новый migration или backup schema для 1.4.16 здесь не нужен.
 
 Финальная привязка автообновления status к `NSApplication.didBecomeActiveNotification` через Combine повторно проверена после исправления импорта: publisher живёт только в процессе и также не добавляет persisted state, background storage work или новую migration obligation.
+
+Общая вкладка Settings → Permissions теперь показывает то же live-only `notifications` state и вызывает существующий explicit `requestNotifications()` из своей кнопки `Allow`; исправлена только stale copy и wiring, никакого нового UserDefaults-ключа или backup-поля это не добавляет.
 
 ## Язык интерфейса
 
