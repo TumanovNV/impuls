@@ -23,6 +23,10 @@ class DocumentationFreshnessTests(unittest.TestCase):
             entries["knowledge-base/04-development/localization.md"],
         )
         self.assertIn(
+            "Sources/Impuls/Services/AppRelaunchService.swift",
+            entries["knowledge-base/04-development/localization.md"],
+        )
+        self.assertIn(
             "Scripts/site-locales/registry.json",
             entries["knowledge-base/07-web/website.md"],
         )
@@ -35,9 +39,39 @@ class DocumentationFreshnessTests(unittest.TestCase):
             entries["knowledge-base/01-architecture/settings-onboarding-feedback.md"],
         )
         self.assertIn(
+            "Sources/Impuls/Settings/ProjectSupportPromptWindow.swift",
+            entries["knowledge-base/01-architecture/settings-onboarding-feedback.md"],
+        )
+        self.assertIn(
             "Sources/Impuls/Services/ProjectSupportPromptService.swift",
             entries["knowledge-base/06-security/privacy-boundaries.md"],
         )
+
+    def test_core_owner_registries_track_language_relaunch_and_project_support(self):
+        entries = {entry["doc"]: set(entry["tracked_paths"]) for entry in FRESHNESS.load_manifest()}
+
+        core = entries["knowledge-base/12-reference/core-type-reference.md"]
+        self.assertIn("Sources/Impuls/Services/AppLanguageService.swift", core)
+        self.assertIn("Sources/Impuls/Services/AppRelaunchService.swift", core)
+        self.assertIn("Sources/Impuls/Services/ProjectSupportPromptService.swift", core)
+
+        state = entries["knowledge-base/01-architecture/state-and-ownership.md"]
+        self.assertIn("Sources/Impuls/Services/AppLanguageService.swift", state)
+        self.assertIn("Sources/Impuls/Services/AppRelaunchService.swift", state)
+        self.assertIn("Sources/Impuls/Services/ProjectSupportPromptService.swift", state)
+
+        schema = entries["knowledge-base/12-reference/schema-migration-registry.md"]
+        self.assertIn("Sources/Impuls/Services/AppLanguageService.swift", schema)
+        self.assertIn("Sources/Impuls/Services/ProjectSupportPromptService.swift", schema)
+        self.assertIn("Sources/Impuls/UI/OnboardingFlow.swift", schema)
+
+        background = entries["knowledge-base/12-reference/background-concurrency-registry.md"]
+        self.assertIn("Sources/Impuls/Services/AppRelaunchService.swift", background)
+        self.assertIn("Sources/Impuls/Notch/NotchController.swift", background)
+
+        budgets = entries["knowledge-base/12-reference/resource-budget-registry.md"]
+        self.assertIn("Sources/Impuls/Services/AppRelaunchService.swift", budgets)
+        self.assertIn("Sources/Impuls/Services/ProjectSupportPromptService.swift", budgets)
 
     def test_fresh_document_has_no_reasons(self):
         reasons = FRESHNESS.freshness_reasons(
