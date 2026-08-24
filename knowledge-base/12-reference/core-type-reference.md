@@ -2,8 +2,8 @@
 title: Core Type Reference
 type: reference
 status: active
-documentation_version: 1.4
-app_version: 1.4.15
+documentation_version: 1.5
+app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, reference, swift, ownership, ai]
 ---
@@ -377,6 +377,8 @@ Owns:
 - best-effort failure isolation from app behavior.
 
 The installation UUID is not an Apple-device identifier and the collector stores an HMAC digest rather than the raw value.
+
+`diagnostics()` (1.4.16) returns a `Diagnostics` value type — consent, the exact version string a heartbeat would send, last attempt/success timestamps, next eligible attempt and a safe outcome — derived read-only from the same locked state `sendHeartbeatIfNeeded()` already owns. It is not a second policy: it neither sends a request nor mutates anything, and `Settings`'s diagnostics section is its only caller.
 
 `VersionTelemetryScheduler` (1.4.14) is a small `@MainActor` companion that proposes an attempt roughly once an hour for as long as `AppDelegate` runs. It owns no throttle/consent/endpoint policy of its own — every proposal still goes through `VersionTelemetryService.sendHeartbeatIfNeeded()`, which decides whether it becomes a request.
 

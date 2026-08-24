@@ -2,8 +2,8 @@
 title: Input & Resource Budget Registry
 type: reference
 status: active
-documentation_version: 1.4
-app_version: 1.4.15
+documentation_version: 1.5
+app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
@@ -95,6 +95,8 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Project-support prompt quiet delay | one `+8 s` one-shot per quiet transition | never a timer; scheduled only when eligibility already holds, cancelled when work resumes or the app terminates. Minimum uptime before any prompt is 120 s |
 | Self-relaunch PID wait | max `100 × 0.1 s` ≈ `10 s` | `AppRelaunchService.pollLimit` / `pollInterval`; timeout is fail-closed and exits without opening a second instance |
 | Self-relaunch teardown settle | `0.2 s` once the old PID disappears | one-shot helper margin before opening the exact current bundle; no daemon, Login Item or persistent timer |
+
+Reviewed for 1.4.16: `VersionTelemetryService.diagnostics()` added no new cadence, size or count budget — it is a synchronous read of already-persisted state with no polling interval of its own, so the "Version telemetry attempt"/"proposal" rows above are unchanged.
 
 ## Relaunch lifecycle budget
 

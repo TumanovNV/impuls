@@ -2,8 +2,8 @@
 title: Privacy Boundaries
 type: security
 status: active
-documentation_version: 1.4
-app_version: 1.4.15
+documentation_version: 1.5
+app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, privacy, boundaries]
 ---
@@ -74,6 +74,8 @@ No name/contact information, app content, clipboard/notes/snippets/calendar/file
 ## UI honesty
 
 Privacy включает не только «не отправлять», но и не придумывать: missing battery %, connector, charging state или stale device status должны быть visibly unknown/stale. The Menu Bar presentation consumes the same already-resolved local state and does not start a new provider/network boundary.
+
+The 1.4.16 version-statistics diagnostics section in Settings follows the same rule and does not widen the payload contract above: `VersionTelemetryService.diagnostics()` only echoes consent, the exact version string a heartbeat would send, local attempt/success timestamps and a safe never-attempted/succeeded/failed outcome — never a raw installation UUID, request/response body or server detail. Opening or refreshing that section is a local read; it never becomes a heartbeat attempt on its own.
 
 Support/feedback UI follows the same honesty rule: opening GitHub is recorded only as the browser action being accepted, never as proof that a star or issue was actually submitted.
 
