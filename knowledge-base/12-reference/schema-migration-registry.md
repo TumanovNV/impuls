@@ -70,6 +70,8 @@ The registry records **ownership and compatibility policy**, not secret values.
 
 `AppleDeviceSettingsPane` и `PermissionCenter` получили notification diagnostics, но persisted contract не изменился. Системный authorization status остаётся в macOS; Impuls его только читает. Явный тест Notification Center использует process-local UI state `testNotificationInFlight`, не пишет его на диск и не касается `appleDevices.lowBatteryAlerts.v1`. Поэтому для 1.4.16 не требуется новый schema version, migration marker или backup field.
 
+После финального исправления Combine-подписки на `NSApplication.didBecomeActiveNotification` контракт проверен повторно: эта подписка process-local, ничего не сериализует и не создаёт новой schema/migration boundary.
+
 ## Main settings compatibility
 
 `ImpulsSettingsSnapshot` deliberately mixes strict and tolerant decoding.
@@ -139,7 +141,6 @@ Persisted-контракт не менялся. `ClipboardHistoryPersistence` se
 **Forward compatibility архива — write latch.** Формат не менялся, но правило замены файла — да, и это часть контракта совместимости. `EncryptedClipboardArchive.open` отвергает `version != currentVersion`, поэтому архив, записанный более новой сборкой, для текущей нечитаем. Раньше это заканчивалось перезаписью: `load()` возвращал пустой результат, и первое же копирование запечатывало его поверх — понижение версии уничтожало историю. Теперь неудачное чтение переводит `ClipboardHistoryPersistence` в состояние, в котором `saveImmediately` — единственная точка записи файла — не пишет ничего, пока чтение не удастся. То же покрывает архив сверх бюджета 64 MiB и недоступный ключ. Единственное исключение — `delete()`, то есть явное выключение persistence пользователем. Подробности жизненного цикла и восстановления — в [Clipboard](../02-modules/clipboard.md).
 
 ## Legacy product migration
-
 
 `LegacyMigration.runIfNeeded()` is the explicit Cyclop → Impuls bridge.
 
