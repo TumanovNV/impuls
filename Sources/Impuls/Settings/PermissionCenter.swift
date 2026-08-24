@@ -24,7 +24,7 @@ final class PermissionCenter: ObservableObject {
 
     @Published private(set) var calendar: State = .notRequested
     @Published private(set) var musicAutomation: State = .notRequested
-    @Published private(set) var notifications: State = .future
+    @Published private(set) var notifications: State = .notRequested
 
     private let eventStore = EKEventStore()
 
@@ -42,9 +42,9 @@ final class PermissionCenter: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 switch settings.authorizationStatus {
-                case .authorized, .provisional: self.notifications = .allowed
+                case .authorized, .provisional, .ephemeral: self.notifications = .allowed
                 case .denied: self.notifications = .denied
-                case .notDetermined: self.notifications = .future
+                case .notDetermined: self.notifications = .notRequested
                 @unknown default: self.notifications = .restricted
                 }
             }
@@ -61,6 +61,23 @@ final class PermissionCenter: ObservableObject {
     func requestMusicAutomation() {
         PlayerBridge.automationAuthorization(for: .music, prompt: true) { [weak self] _ in
             self?.refreshMusicAutomation()
+        }
+    }
+
+    func requestNotifications() {
+        Task { [weak self] in
+            guard let self else { return }
+            let current = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
+            guard current == .notDetermined else {
+                refresh()
+                return
+            }
+            do {
+                _ = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+            } catch {
+                NSLog("Impuls: Notifications permission request failed: \(error.localizedDescription)")
+            }
+            refresh()
         }
     }
 
