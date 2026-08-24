@@ -2,9 +2,9 @@
 title: Schema & Migration Registry
 type: reference
 status: active
-documentation_version: 1.3
-app_version: 1.4.14
-last_reviewed: 2026-08-21
+documentation_version: 1.4
+app_version: 1.4.16
+last_reviewed: 2026-08-24
 tags: [impuls, schemas, migrations, persistence, compatibility]
 ---
 
@@ -44,7 +44,7 @@ The registry records **ownership and compatibility policy**, not secret values.
 | Main settings snapshot | `settings.v1` | `SettingsStore`, `ImpulsSettingsSnapshot` | `UserDefaults` JSON data | Included | Decoder supplies safe defaults for fields added later; unknown `PanelSize` falls back instead of invalidating the entire snapshot. |
 | External-device presentation prefs | `appleDevices.presentation.v1` | `SettingsStore` | local `UserDefaults` Codable blob | Excluded | Contains HMAC-derived local preference keys only; bounded/normalized before use. Never promote to exported settings. |
 | Menu Bar selected-device pref | `menuBarWorkspace.presentation.v1` | `SettingsStore` | local `UserDefaults` Codable blob | Excluded | Physical-device selection is meaningful only on the current Mac. Generic Menu Bar configuration lives in the main snapshot. |
-| Low-battery alert preference | `appleDevices.lowBatteryAlerts.enabled` | `SettingsStore` / alert service | local `UserDefaults` bool | Excluded | macOS notification authorization and this preference are machine-local. |
+| Low-battery alert preference | `appleDevices.lowBatteryAlerts.enabled` | `SettingsStore` / alert service | local `UserDefaults` bool | Excluded | macOS notification authorization and this preference are machine-local. 1.4.16 notification status/test controls read system authorization live and introduce no new persisted field or migration. |
 | Interface language preference | `app.language.v1` | `AppLanguageService` | local `UserDefaults` string | Excluded | The only persistent record of the in-app language choice; `SettingsStore` holds the service by composition and keeps no second copy. An absent, unparsable or no-longer-shipped value degrades to `system` in memory without writing. Both keys are flushed synchronously on selection, because a confirmed change restarts the app moments later and the next process has to read the new value. |
 | Interface language system override | `AppleLanguages` (app domain) | `AppLanguageService` | local `UserDefaults` string array | Excluded | Not an Impuls key: this is the macOS per-app language mechanism, and the user may have set it from macOS itself. Written only on an explicit choice in Settings, and removed only when the user returns to `system` after Impuls had set it. Reading state never writes or clears it. |
 | Project-support prompt state | `projectSupport.prompt.v1` | `ProjectSupportPromptService` | local `UserDefaults` Codable blob | Excluded | Anti-nag bookkeeping for the GitHub-star/feedback prompt: first meaningful use, last active day, active-day count, meaningful-use count, last counted use, last prompt, shown count and state. Counts only, never a history of what was used. Machine-local because the thresholds describe how this Mac was used, and restoring a backup elsewhere must not import somebody else's eligibility or their answer. Decoding is tolerant and fails **towards fewer prompts**: absent fields take fresh-install values, counts clamp to `>= 0`, and an unrecognised `state` decodes as `dismissedForever` rather than as permission to ask. A corrupt blob degrades to the empty record, which is not eligible. Written only by the prompt itself, and closing the window without choosing writes too — a dismissal is a recorded decline, because leaving it undecided would mean asking again at the next opportunity. The permanent Settings action opens the same URL statelessly and writes nothing. **Decision writes are flushed synchronously** (shown, declined, opened GitHub, opened feedback), like the language preference and for a related reason: the two-appearance cap only holds if the decision outlives the process, and a menu-bar utility is routinely force-quit rather than shut down gracefully. Counting a use is deliberately not flushed — it happens up to once a minute and losing one only delays eligibility. |
@@ -65,6 +65,10 @@ The registry records **ownership and compatibility policy**, not secret values.
 | Version heartbeat | JSON `schema: 1` | `VersionTelemetryService` + collector | `POST /v1/heartbeat` | n/a | Exact allow-listed fields, canonical UUID v4, bounded version strings, max request body enforced by collector. Changing payload requires coordinated client/collector/tests/docs change. |
 | Collector database | SQLite schema `1` via `PRAGMA user_version = 1`; tables `installations` + `transitions` | `Collector/version-statistics/collector.py` | SQLite/WAL | operational backup, not app backup | Historical unversioned schema is treated as v0 and adopted only after exact table-column validation. Existing rows are preserved. Future schema versions are rejected by older collectors. Every future version bump requires an ordered migration and tests from every supported prior schema. |
 | Cyclop → Impuls migration marker | `migration.cyclop.completed` | `LegacyMigration` | `UserDefaults` | Excluded | One-time migration copies supported files/preferences only when destination values are absent, then records completion. |
+
+## Review 1.4.16
+
+`AppleDeviceSettingsPane` и `PermissionCenter` получили notification diagnostics, но persisted contract не изменился. Системный authorization status остаётся в macOS; Impuls его только читает. Явный тест Notification Center использует process-local UI state `testNotificationInFlight`, не пишет его на диск и не касается `appleDevices.lowBatteryAlerts.v1`. Поэтому для 1.4.16 не требуется новый schema version, migration marker или backup field.
 
 ## Main settings compatibility
 
