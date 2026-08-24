@@ -359,8 +359,17 @@ final class FileToolsCancellationTests: XCTestCase {
         undoing.undoLastOperation()
         XCTAssertTrue(undoing.isWorking)
         XCTAssertFalse(undoing.canCancel, "Undo runs to completion or not at all")
+
+        // Calling it anyway must change nothing — no "Cancelling…" promising a
+        // stop that Undo will never honour.
+        let statusDuringUndo = undoing.statusMessage
+        undoing.cancelActiveOperation()
+        XCTAssertFalse(undoing.isCancelling)
+        XCTAssertEqual(undoing.statusMessage, statusDuringUndo)
+
         undoGate.releaseEverythingFromNowOn()
         await waitUntilIdle(undoing)
+        XCTAssertEqual(undoing.statusMessage, localized("Generated Files Moved to Trash"))
     }
 
     // MARK: - Text batch clipboard policy
@@ -464,11 +473,7 @@ final class FileToolsCancellationTests: XCTestCase {
 
     /// Waits for the operation to finish by observing the state it publishes,
     /// rather than by sleeping long enough to be probably right.
-    private func waitUntilIdle(
-        _ tools: FileToolsCoordinator,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) async {
+    private func waitUntilIdle(_ tools: FileToolsCoordinator) async {
         guard tools.isWorking else { return }
         let finished = expectation(description: "file operation finished")
         var token: AnyCancellable?

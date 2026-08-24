@@ -117,7 +117,12 @@ final class FileToolsCoordinator: ObservableObject {
     /// Repeat presses are no-ops — the flag only moves one way, and
     /// `isCancelling` keeps the UI from re-announcing a decision already taken.
     func cancelActiveOperation() {
-        guard isWorking, !isCancelling, let cancellation = activeCancellation else { return }
+        // `canCancel` and not merely `isWorking`: an operation that ignores the
+        // flag — Undo — must not be able to display "Cancelling…" and promise a
+        // stop that is never going to arrive.
+        guard isWorking, canCancel, !isCancelling, let cancellation = activeCancellation else {
+            return
+        }
         cancellation.cancel()
         isCancelling = true
         showStatus(localized("Cancelling…"), automaticallyClear: false)
