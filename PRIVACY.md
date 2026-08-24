@@ -1,22 +1,29 @@
 # Privacy and Local Data Model
 
-The operator's Russian-language policy under Federal Law No. 152-FZ is
-published at
-[`site-privacy.html`](https://tumanovnv.github.io/impuls/site-privacy.html).
+The operator's source Russian-language privacy policy is published at
+[`/privacy/`](https://tumanovnv.github.io/impuls/privacy/). Localized privacy
+notices are also published under the corresponding `/en/privacy/`,
+`/de/privacy/`, `/fr/privacy/`, `/es/privacy/`, `/ja/privacy/`, and
+`/zh-hans/privacy/` routes. The old `/site-privacy.html` address is a legacy
+`noindex` handoff only and is not the canonical policy.
+
 This document is the technical inventory of application data flows and local
-storage; it complements, but does not replace, that operator policy.
+storage. It complements, but does not replace, the operator policy. Website and
+legal-page generation/routing is documented in
+`knowledge-base/07-web/legal-privacy.md`.
 
 Impuls is designed to work locally. It has no advertising, automatic
 crash-report upload, remote configuration, account system, or device
-fingerprinting. Impuls 1.4.10 adds one minimal first-party version statistic,
-disabled until the user explicitly enables it. It never contains Impuls content
-or personal, account, or hardware identifiers.
+fingerprinting. It includes one minimal first-party version statistic, disabled
+until the user explicitly enables it. That statistic never contains Impuls
+content, account data, or hardware identifiers. Project-support eligibility is
+also local-only and is not telemetry.
 
 ## Network access
 
-On first launch, Impuls asks whether it may check for updates. Existing 1.2.8
-decisions are preserved during migration. If the user declines, Impuls performs
-no update request. The setting can be changed later.
+On first launch, Impuls asks whether it may check for updates. Existing update
+consent decisions are preserved during migrations. If the user declines, Impuls
+performs no update request. The setting can be changed later.
 
 When allowed, Sparkle checks the fixed HTTPS feed at:
 
@@ -27,14 +34,14 @@ from the same repository's GitHub Release. GitHub may redirect that download to
 its release-asset CDN. GitHub receives the IP address required for an internet
 connection, ordinary TLS/HTTP metadata, and a User-Agent containing application
 information. Sparkle's system profiling — the profile it can attach to an
-update check — is explicitly disabled. Impuls sends no clipboard
-data, notes, snippets, files, calendar content, playback data, analytics
-identifiers, hardware serial numbers, or device identifiers.
+update check — is explicitly disabled. Impuls sends no clipboard data, notes,
+snippets, files, calendar content, playback data, analytics identifiers,
+hardware serial numbers, or device identifiers through the update channel.
 
 Update archives are stored in temporary system storage, authenticated before
 extraction, and cleaned by Sparkle after installation. Impuls does not place
 update installers in the Downloads folder. Automatic download and unattended
-installation are disabled.
+installation are disabled by default and remain subject to update consent.
 
 Web music is a separate, user-initiated network boundary. Choosing a source in
 the Music pane is local and performs no request. Only the explicit **Open Web
@@ -58,31 +65,40 @@ Version statistics are a third network boundary, separate from updates and web
 music. The consent state is `unknown`, `allowed`, or `denied`. New and upgraded
 installations start at `unknown`; `unknown` and `denied` make no statistics
 request. The choice can be changed under **Settings → Data and Privacy**. A
-release build also needs an owner-configured HTTPS collector endpoint; the
-repository does not contain or invent a production URL, and a build without the
+release build also needs an owner-configured HTTPS collector endpoint; source
+code contains no hard-coded live production endpoint, and a build without the
 endpoint cannot make the request even after consent.
 
-The public 1.4.12 build is configured for the first-party endpoint
-`https://stats.tumanov.space/v1/heartbeat`. The endpoint is visible in the
-application's `Info.plist`; it is not a hidden or remotely changed destination.
+The configured endpoint is embedded in the built application's `Info.plist` and
+must pass the release workflow's fail-closed HTTPS/exact-`/v1/heartbeat`
+validation. Exact current production host/topology is an operational fact and
+must be verified from the actual release/private operations source rather than
+copied from an old release into this technical document.
 
 When allowed and configured, Impuls sends at most one `POST /v1/heartbeat`
-attempt per hour, outside the critical launch path. The JSON body has an
-exact allow-list:
+attempt per hour **for the same app version**, outside the critical launch
+path. The attempt timestamp and attempted version are persisted before
+transport, so a failed request/relaunch cannot bypass the limit. When the
+running app version changes, the new version can make one immediate attempt
+instead of waiting for the previous version's cooldown. A best-effort
+in-process scheduler may propose another attempt roughly hourly while Impuls is
+running; `VersionTelemetryService` remains the sole throttle owner.
+
+The JSON body has an exact allow-list. The version strings below are
+illustrative, not a statement of the currently released version:
 
 ```json
 {
   "schema": 1,
   "installation_id": "random-uuid",
-  "app_version": "1.4.12",
-  "previous_version": "1.4.11"
+  "app_version": "1.2.3",
+  "previous_version": "1.2.2"
 }
 ```
 
-`previous_version` is omitted unless Impuls previously recorded the running
-version and can identify a real transition. In particular, 1.4.10 does not guess
-that every first observation came from 1.4.9. The previous version is sent once
-after a successful transition heartbeat.
+`previous_version` is omitted unless Impuls previously recorded a real running
+version and can identify an actual transition. It is never guessed from the
+current release number.
 
 The installation UUID is generated randomly and stored as a device-only item in
 the user's macOS Keychain so it is stable across launches. It is not derived
@@ -96,9 +112,10 @@ The collector receives normal connection metadata such as an IP address and
 User-Agent at the transport layer, as any HTTPS server does, but neither is a
 payload field or stored as product analytics. Before database storage, the raw
 installation UUID is replaced with a server-side HMAC-SHA256 digest using an
-owner secret. The database stores only that digest, `first_seen`, `last_seen`,
-current version, and an available previous version. Collector and reverse-proxy
-deployment instructions disable or anonymize access logs for this route.
+owner secret. The product database stores only that digest, `first_seen`,
+`last_seen`, current version, and an available previous version. Collector and
+reverse-proxy deployment instructions disable or anonymize access logs for this
+route.
 
 The stable installation pseudonym and connection metadata are treated as
 personal data where applicable law requires that classification; the product
@@ -108,16 +125,18 @@ retention in the same transaction that records new heartbeats.
 
 The heartbeat never includes clipboard contents, notes, snippets, file names or
 paths, calendar data, music/playback data, device names, serial numbers, UDIDs,
-hardware identifiers, installed applications, logs, or other user content. A
-timeout, server error, or malformed response has no effect on Impuls operation.
+hardware identifiers, installed applications, logs, project-support counters,
+or other user content. A timeout, server error, or malformed response has no
+effect on Impuls operation.
 
-## Feedback
+## Feedback and project support
 
-Impuls 1.2.6 includes a voluntary feedback window. The app prepares the report
-locally and shows exactly what will be shared. Basic technical context is
-optional and contains only the Impuls version, macOS version, and processor
-architecture. It never adds clipboard contents, notes, snippets, file names,
-file paths, calendar data, logs, hardware serial numbers, or device identifiers.
+Impuls includes a voluntary feedback window. The app prepares the report locally
+and shows exactly what will be shared. Basic technical context is optional and
+contains only the Impuls version, macOS version, and processor architecture. It
+never adds clipboard contents, notes, snippets, file names, file paths, calendar
+data, logs, hardware serial numbers, device identifiers, or project-support
+eligibility state.
 
 Impuls does not upload the report. After an explicit button press, it copies the
 report to the pasteboard and asks the default browser to open a fixed public
@@ -125,12 +144,28 @@ GitHub new-issue page. The user can review and edit the report again before
 submitting it. GitHub issues are public and are governed by GitHub's own privacy
 terms. No report, rating, or draft is retained by Impuls or sent automatically.
 
+After sustained deliberate use, Impuls may also present a bounded project-support
+prompt offering the project's GitHub page or the existing Feedback window. Its
+eligibility is calculated entirely on the Mac from coarse local counters/state
+such as first meaningful use, active-use days, meaningful-use count, prompt
+state and shown count. These values are not sent to Impuls, GitHub or the
+version-statistics collector and are excluded from portable backup. Automatic
+presentation is capped at two appearances for the lifetime of that local state.
+Opening GitHub happens only after an explicit user action and Impuls does not
+query GitHub to determine whether a star was actually given.
+
 ## Local data
 
 - notes and snippets are stored in `~/Library/Application Support/Impuls`;
 - saved clipboard screenshots are stored in `~/Pictures/Impuls` when available;
 - shelf references, preferences, version-statistics consent and the last
-  observed app version are stored in macOS UserDefaults;
+  observed/attempted app-version state are stored in macOS UserDefaults;
+- the explicit interface-language preference is stored locally as
+  `app.language.v1`; Impuls uses macOS `AppleLanguages` only when the user
+  explicitly selects/clears an app-language override. No language pack is
+  downloaded;
+- project-support eligibility/decision counters are stored locally in
+  UserDefaults, excluded from portable backup, and never transmitted;
 - the selected music source is stored in macOS UserDefaults; web login cookies
   and website data are managed locally by the system WebKit data store;
 - clipboard history is held in memory by default and is not uploaded;
@@ -142,9 +177,9 @@ terms. No report, rating, or draft is retained by Impuls or sent automatically.
   bundle identifiers in settings;
 - concealed password-manager entries are excluded;
 - an exported backup is a user-selected local JSON file containing settings,
-  snippets, and notes; Impuls never uploads it.
+  snippets, and notes; Impuls never uploads it;
 - Impuls Actions searches the live clipboard, snippet, and note stores locally;
-  it creates no separate search database and sends no query or result anywhere.
+  it creates no separate search database and sends no query or result anywhere;
 - the Battery / Power module reads live power state locally from macOS public
   IOPowerSources and, when available, further values from the local IORegistry.
   It stores no power telemetry, adapter identifiers, or hardware serial numbers
