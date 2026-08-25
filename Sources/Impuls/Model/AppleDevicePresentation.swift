@@ -195,8 +195,11 @@ enum AppleDevicePresentation {
         }
     }
 
-    static func isBeta(_ kind: AppleDeviceKind) -> Bool {
-        kind == .iPhone || kind == .iPad
+    /// All currently shipping Apple-device battery sources are product-stable.
+    /// Keep the decision centralized so a future experimental device kind can
+    /// opt into a Beta badge without scattering presentation policy through UI.
+    static func isBeta(_: AppleDeviceKind) -> Bool {
+        false
     }
 
     static func accessibilityValue(

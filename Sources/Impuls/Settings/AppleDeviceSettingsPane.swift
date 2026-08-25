@@ -107,17 +107,6 @@ struct AppleDeviceSettingsPane: View {
                         .foregroundStyle(.secondary)
                 }
             }
-
-            // Always shown while external discovery exists: the Beta
-            // sentence is what tells somebody why their phone may be the one
-            // device that does not answer, and hiding it behind the same
-            // condition that hid the feature is how it went unnoticed.
-            Section(localized("Beta")) {
-                Text(localized("iPhone and iPad battery support is experimental. It uses an existing trust relationship over USB or macOS Wi-Fi sync and never pairs or changes the device."))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
         .formStyle(.grouped)
         .onAppear { lowBatteryAlerts.refreshAuthorization() }

@@ -69,11 +69,11 @@ final class AppleDevicePresentationTests: XCTestCase {
         XCTAssertFalse(value.contains(device.identity.localPreferenceKey))
     }
 
-    func testMobileDevicesAreBetaAndMissingDataNeverBecomesZero() {
+    func testMobileDevicesAreStableAndMissingDataNeverBecomesZero() {
         let missing = DeviceBatteryComponent(kind: .primary)
 
-        XCTAssertTrue(AppleDevicePresentation.isBeta(.iPhone))
-        XCTAssertTrue(AppleDevicePresentation.isBeta(.iPad))
+        XCTAssertFalse(AppleDevicePresentation.isBeta(.iPhone))
+        XCTAssertFalse(AppleDevicePresentation.isBeta(.iPad))
         XCTAssertFalse(AppleDevicePresentation.isBeta(.airPodsPro))
         XCTAssertEqual(AppleDevicePresentation.readingTitle(missing), localized("No Current Reading"))
         XCTAssertNotEqual(AppleDevicePresentation.readingTitle(missing), "0%")
@@ -162,7 +162,7 @@ final class AppleDevicePresentationTests: XCTestCase {
 
         let value = AppleDevicePresentation.accessibilityValue(for: phone, now: Fixtures.noon)
 
-        XCTAssertTrue(value.contains(localized("Beta")))
+        XCTAssertFalse(value.contains(localized("Beta")))
         XCTAssertTrue(value.contains("69%"))
         XCTAssertTrue(value.contains(localized("Charging")))
         XCTAssertTrue(value.contains(localized("USB")))

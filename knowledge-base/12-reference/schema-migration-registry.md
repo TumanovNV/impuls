@@ -2,7 +2,7 @@
 title: Schema & Migration Registry
 type: reference
 status: active
-documentation_version: 1.9
+documentation_version: 2.0
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, schemas, migrations, persistence, compatibility]
@@ -74,6 +74,8 @@ The registry records **ownership and compatibility policy**, not secret values.
 
 Перенос backup import/export с main actor проверен отдельно: изменились только исполнение (`Task.detached`, `nonisolated`) и предварительная проверка типа файла. `ImpulsBackupDocument.schemaVersion` остаётся `2`, диапазон чтения `1...2`, настройки `JSONEncoder` (`prettyPrinted`, `sortedKeys`, `withoutEscapingSlashes`, `iso8601`) и `.atomic` write semantics не тронуты, имя файла по умолчанию прежнее. Новый `BackupError.unsupportedFileType` — отказ до чтения, а не поле формата. Поэтому новый schema version или migration marker не требуется.
 
+
+iPhone/iPad Battery Beta → Stable (#103/#106) проверено отдельно: изменилась только продуктовая маркировка — `AppleDevicePresentation.isBeta(_:)` возвращает `false`, а поясняющий Beta-раздел удалён из `AppleDeviceSettingsPane`. Beta никогда не была persisted state, поэтому ни нового schema version, ни migration marker, ни backup-поля это не требует. Device identity, pairing record, transport frame format и хранение machine-local ключей этой группы не менялись; usbmuxd/lockdown остаётся тем же техническим boundary и не становится public API.
 Общий `PermissionSettingsPane` также обновлён: устаревшее описание "meeting reminders" заменено на реальное использование, и его `Allow` теперь вызывает уже существующий `PermissionCenter.requestNotifications()`. Никакого нового persisted key, migration marker или backup field это не добавляет.
 
 Reviewed for 1.4.16 iPhone/iPad reliability audit: новый `DeviceProviderStatus.deviceLocked` и связанные UI-правки — только process-local runtime state и presentation, никакого нового persisted/backup поля или миграции.

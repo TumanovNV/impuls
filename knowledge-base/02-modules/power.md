@@ -4,7 +4,7 @@ type: module
 status: production
 documentation_version: 1.4
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, module, battery, devices, iokit]
 ---
 
@@ -39,7 +39,7 @@ flowchart TD
 
 ## External device privacy boundary
 
-Module switch и external-device switch различны. External providers стартуют только когда Power module enabled **и** пользователь включил `Show Connected Apple Devices`. Production `MobileDeviceBatteryProvider.featureEnabled` default = true; hidden product gate отсутствует. iPhone/iPad support остаётся Beta/undocumented-protocol risk.
+Module switch и external-device switch различны. External providers стартуют только когда Power module enabled **и** пользователь включил `Show Connected Apple Devices`. Production `MobileDeviceBatteryProvider.featureEnabled` default = true; hidden product gate отсутствует. iPhone/iPad support имеет статус Stable с 1.4.16 после повторного owner hardware QA. Сам transport по-прежнему использует undocumented Apple protocol и потому остаётся изолированным implementation boundary; Stable здесь означает подтверждённое пользовательское поведение, а не превращение протокола в public API.
 
 ## Providers
 
@@ -51,7 +51,7 @@ Module switch и external-device switch различны. External providers с�
 
 ### iPhone/iPad reliability audit (1.4.16)
 
-Аудит existing experimental provider для issue #93. Полная протокольная история — `docs/APPLE_DEVICE_BATTERY_SUPPORT.md`; здесь фиксируется только то, что реально изменилось в 1.4.16 и итоговое решение Beta/Stable.
+Аудит existing mobile provider для issue #93. Полная протокольная история — `docs/APPLE_DEVICE_BATTERY_SUPPORT.md`; здесь фиксируется только то, что реально изменилось в 1.4.16 и итоговое решение Beta/Stable.
 
 Transport dedup/precedence (USB предпочтителен, Network — fallback, группировка по стабильному `rawIdentifier`, а не по transient numeric `DeviceID`) уже существовал и покрыт deterministic tests — не менялся.
 
@@ -62,7 +62,7 @@ Transport dedup/precedence (USB предпочтителен, Network — fallba
 
 Cadence не менялся (60s active / 900s idle остаются). Никакого нового network/LAN discovery, private API или изменения privacy boundary.
 
-**Beta → Stable: Beta остаётся.** Оба defect честно доказаны и исправлены deterministic-тестами, но evidence по-прежнему ограничен: hardware validation исторически стоит на одном iPhone/одной iOS версии и одном iPad (см. `docs/APPLE_DEVICE_BATTERY_SUPPORT.md`), а этот аудит не добавил нового real-hardware прогона (PWR-07/08/09/10 остаются manual/mixed rows без нового `pass`). Недостаточно evidence, чтобы честно снять Beta — см. manual QA checklist в PR.
+**Beta → Stable: Stable approved.** После stabilization #93/#94 владелец продукта многократно проверил реальные iPhone и iPad в рабочих сценариях, включая USB и уже настроенный Finder Wi-Fi Sync. Устройства стабильно появляются, показывают фактическое состояние батареи и корректно возвращаются после reconnect; correctness gaps, требующие сохранять пользовательскую маркировку Beta, в этом цикле не подтверждены. В 1.4.16 продуктовая маркировка Beta снимается. Это presentation/status change: transport, cadence, privacy/network boundary, trust model и правило «missing stays missing» не меняются. Недокументированность usbmuxd/lockdown остаётся техническим риском и продолжает явно фиксироваться в архитектуре и research-документации.
 
 ## Числа из системных словарей
 
