@@ -2,7 +2,7 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.7
+documentation_version: 1.8
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, storage, persistence, privacy]
@@ -61,6 +61,14 @@ Notification diagnostics в `AppleDeviceSettingsPane` — presentation/TCC chang
 ### Review 1.4.16 — iPhone/iPad Battery reliability
 
 `DeviceProviderStatus.deviceLocked` и honest-messaging правки в `AppleDeviceSettingsPane`/`PowerPane` — presentation/in-memory state, никакого нового persisted key. `DevicePowerCenter.lastGoodDevices`/`statuses` остаются process-local runtime state, как и раньше; ничего из этого не сериализуется в UserDefaults/backup. Никакой schema/migration impact.
+
+### Review 1.4.16 — iPhone/iPad Battery Beta → Stable (#103/#106)
+
+Снятие маркировки Beta — **presentation/product-status change**. `AppleDevicePresentation.isBeta(_:)` теперь возвращает `false` для всех kinds, и из `AppleDeviceSettingsPane` убран поясняющий Beta-раздел. Больше ничего в этой области не изменилось.
+
+Storage-контракт не затронут: новых persisted keys нет, backup schema и состав экспорта прежние, device identity и pairing material по-прежнему не сериализуются и не попадают в backup, `AppleDeviceIdentity` остаётся тем же непрозрачным boundary, а machine-local ключи этой группы (включая selected-device key) остаются excluded from backup. Ни один Beta-флаг никогда не персистился — это была строка в UI, а не состояние на диске, поэтому migration тут нечего мигрировать.
+
+Статусу Stable соответствует повторный owner hardware QA на реальных iPhone/iPad (см. [Power](../02-modules/power.md)). Технический usbmuxd/lockdown boundary при этом **не менялся**: transport, cadence (60 s active / 900 s idle), privacy/network boundary и trust model прежние. Stable описывает подтверждённое пользовательское поведение, а не переход на private Apple frameworks/API — протокол остаётся недокументированным и изолированным.
 
 ## Язык интерфейса
 
