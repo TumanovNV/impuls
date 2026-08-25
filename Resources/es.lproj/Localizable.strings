@@ -655,3 +655,6 @@
 "Cancel File Operation" = "Cancelar la operación de archivos";
 "Stop the running file operation" = "Detener la operación de archivos en curso";
 "Finishes the file being processed and does not start the rest" = "Termina el archivo en curso y no inicia los restantes";
+
+/* Backup import file-type validation 1.4.16 */
+"The selected item is not a regular file." = "El elemento seleccionado no es un archivo normal.";

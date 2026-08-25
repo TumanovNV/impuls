@@ -654,3 +654,6 @@
 "Cancel File Operation" = "取消文件操作";
 "Stop the running file operation" = "停止正在进行的文件操作";
 "Finishes the file being processed and does not start the rest" = "完成当前文件，不再开始其余文件";
+
+/* Backup import file-type validation 1.4.16 */
+"The selected item is not a regular file." = "所选项目不是常规文件。";

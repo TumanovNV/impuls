@@ -2,9 +2,9 @@
 title: Input & Resource Budget Registry
 type: reference
 status: active
-documentation_version: 1.7
+documentation_version: 1.8
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
 
@@ -30,7 +30,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Snippets | items | 5,000 | `SnippetStore.maximumItems` |
 | Snippets | query | 256 chars | `SnippetStore.maximumQueryCharacters` |
 | Snippets | searchable text per field | 16,384 chars | `SnippetStore.maximumSearchCharacters` |
-| Backup | encoded/import file | 10 MiB | `ImpulsBackupDocument.maximumEncodedBytes` |
+| Backup | encoded/import file | 10 MiB | `ImpulsBackupDocument.maximumEncodedBytes`. **1.4.16:** unchanged as a number, but its scope is now stated: a byte budget bounds how *much* is read, never how *long* a read waits, and it is consulted only after a read returns. `BoundedFileReader` therefore also refuses anything that is not a regular file, so a FIFO, device or socket cannot wait on a peer that never arrives. Slow *regular* files remain bounded only by the filesystem — see the `BackupService` row in the background/concurrency registry |
 | Backup | notes / snippets | 5,000 each | backup decoder guard |
 | Calendar | fetched meetings | 250 | `CalendarStore.maximumMeetings` |
 | Calendar | fetch horizon | 7 days | `CalendarStore.horizon` |

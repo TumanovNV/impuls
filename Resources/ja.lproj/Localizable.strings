@@ -654,3 +654,6 @@
 "Cancel File Operation" = "ファイル操作をキャンセル";
 "Stop the running file operation" = "実行中のファイル操作を停止";
 "Finishes the file being processed and does not start the rest" = "処理中のファイルだけ完了し、残りは開始しません";
+
+/* Backup import file-type validation 1.4.16 */
+"The selected item is not a regular file." = "選択された項目は通常のファイルではありません。";

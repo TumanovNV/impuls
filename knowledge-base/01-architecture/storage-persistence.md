@@ -2,9 +2,9 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.6
+documentation_version: 1.7
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, storage, persistence, privacy]
 ---
 
@@ -125,6 +125,10 @@ Backup schema v2 содержит:
 - metadata schema/app version/date.
 
 Не содержит clipboard history, encrypted keys, raw device identities, local selected-device key, состояние project-support prompt или содержимое Shelf files. Максимум backup — 10 MiB.
+
+### Review 1.4.16 — backup import/export responsiveness
+
+Чтение, декодирование, кодирование и запись backup перенесены с main actor на `Task.detached`; `BackupService.decode(contentsOf:)` и `write(_:to:)` стали `nonisolated`. Это изменение **исполнения**, а не хранения: schema остаётся `2`, диапазон чтения `1...2`, состав документа и список исключённых данных выше не изменились, настройки `JSONEncoder` и `.atomic` write semantics прежние, имя файла по умолчанию прежнее. Дополнительно `BoundedFileReader` отказывает не-regular файлам (FIFO/устройство/сокет/каталог) до чтения: byte budget ограничивает объём, но не время ожидания. Это отказ до чтения, а не новое поле формата, поэтому нового persisted key, migration или backup-поля здесь нет.
 
 ## Правило
 

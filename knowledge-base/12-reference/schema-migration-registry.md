@@ -2,9 +2,9 @@
 title: Schema & Migration Registry
 type: reference
 status: active
-documentation_version: 1.8
+documentation_version: 1.9
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, schemas, migrations, persistence, compatibility]
 ---
 
@@ -71,6 +71,8 @@ The registry records **ownership and compatibility policy**, not secret values.
 `AppleDeviceSettingsPane` и `PermissionCenter` получили notification diagnostics, но persisted contract не изменился. Системный authorization status остаётся в macOS; Impuls его только читает. Явный тест Notification Center использует process-local UI state `testNotificationInFlight`, не пишет его на диск и не касается `appleDevices.lowBatteryAlerts.v1`. Поэтому для 1.4.16 не требуется новый schema version, migration marker или backup field.
 
 После финального исправления Combine-подписки на `NSApplication.didBecomeActiveNotification` контракт проверен повторно: эта подписка process-local, ничего не сериализует и не создаёт новой schema/migration boundary.
+
+Перенос backup import/export с main actor проверен отдельно: изменились только исполнение (`Task.detached`, `nonisolated`) и предварительная проверка типа файла. `ImpulsBackupDocument.schemaVersion` остаётся `2`, диапазон чтения `1...2`, настройки `JSONEncoder` (`prettyPrinted`, `sortedKeys`, `withoutEscapingSlashes`, `iso8601`) и `.atomic` write semantics не тронуты, имя файла по умолчанию прежнее. Новый `BackupError.unsupportedFileType` — отказ до чтения, а не поле формата. Поэтому новый schema version или migration marker не требуется.
 
 Общий `PermissionSettingsPane` также обновлён: устаревшее описание "meeting reminders" заменено на реальное использование, и его `Allow` теперь вызывает уже существующий `PermissionCenter.requestNotifications()`. Никакого нового persisted key, migration marker или backup field это не добавляет.
 

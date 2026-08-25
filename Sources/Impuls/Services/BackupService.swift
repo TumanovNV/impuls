@@ -47,6 +47,7 @@ enum BackupError: LocalizedError, Equatable {
     case unsupportedSchema(Int)
     case fileTooLarge
     case tooManyItems
+    case unsupportedFileType
 
     var errorDescription: String? {
         switch self {
@@ -56,6 +57,8 @@ enum BackupError: LocalizedError, Equatable {
             return localized("The selected backup is larger than 10 MB.")
         case .tooManyItems:
             return localized("The selected backup contains too many notes or snippets.")
+        case .unsupportedFileType:
+            return localized("The selected item is not a regular file.")
         }
     }
 }
@@ -69,15 +72,41 @@ enum BackupService {
         panel.allowedContentTypes = [.json]
         begin(panel, from: window) { response in
             guard response == .OK, let url = panel.url else { return }
-            do {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-                encoder.dateEncodingStrategy = .iso8601
-                try encoder.encode(document).write(to: url, options: .atomic)
-            } catch {
-                showError(localized("Could Not Export Data"), error: error, window: window)
+            // Same reason as the import side: this closure runs on the main
+            // actor, and encoding up to 10 MB of JSON and writing it to a
+            // volume that may be slow or remote is not work the UI thread
+            // should be doing. Only the failure alert comes back here.
+            Task { @MainActor in
+                do {
+                    try await store(document, to: url)
+                } catch {
+                    showError(localized("Could Not Export Data"), error: error, window: window)
+                }
             }
         }
+    }
+
+    /// Runs the blocking part of an export off the main actor.
+    ///
+    /// `Task.detached` for the same reason as `loadDocument(at:)`: in Swift 5
+    /// language mode a plain `Task { }` started from a main-actor context is
+    /// not guaranteed to leave it, which would move nothing.
+    private static func store(_ document: ImpulsBackupDocument, to url: URL) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            try write(document, to: url)
+        }.value
+    }
+
+    /// Encodes and writes a backup. `nonisolated` so it cannot be pulled back
+    /// onto the main actor by the enclosing annotation.
+    ///
+    /// The encoder settings and `.atomic` are unchanged: the file format, key
+    /// order and replace-or-nothing write semantics are exactly what they were.
+    nonisolated static func write(_ document: ImpulsBackupDocument, to url: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(document).write(to: url, options: .atomic)
     }
 
     static func importData(from window: NSWindow?, completion: @escaping (ImpulsBackupDocument) -> Void) {
@@ -88,25 +117,54 @@ enum BackupService {
         panel.canChooseDirectories = false
         begin(panel, from: window) { response in
             guard response == .OK, let url = panel.url else { return }
-            do {
-                let document = try decode(contentsOf: url)
-                let alert = NSAlert()
-                alert.alertStyle = .warning
-                alert.messageText = localized("Replace Current Impuls Data?")
-                alert.informativeText = localized("Settings, snippets, and notes will be replaced by the selected backup. A new export can preserve the current data first.")
-                alert.addButton(withTitle: localized("Import and Replace"))
-                alert.addButton(withTitle: localized("Cancel"))
-                present(alert, from: window) { result in
-                    guard result == .alertFirstButtonReturn else { return }
-                    completion(document)
+            // The panel hands back a path, not a promise that reading it is
+            // quick. A network volume that has stopped answering, or a file
+            // being written by another process, makes the read take as long as
+            // the filesystem wants — and this closure runs on the main actor,
+            // so doing it here is what froze the UI. Everything up to and
+            // including the decode now happens off the main actor; only the
+            // alert and the completion come back to it.
+            Task { @MainActor in
+                do {
+                    let document = try await loadDocument(at: url)
+                    let alert = NSAlert()
+                    alert.alertStyle = .warning
+                    alert.messageText = localized("Replace Current Impuls Data?")
+                    alert.informativeText = localized("Settings, snippets, and notes will be replaced by the selected backup. A new export can preserve the current data first.")
+                    alert.addButton(withTitle: localized("Import and Replace"))
+                    alert.addButton(withTitle: localized("Cancel"))
+                    present(alert, from: window) { result in
+                        guard result == .alertFirstButtonReturn else { return }
+                        completion(document)
+                    }
+                } catch {
+                    showError(localized("Could Not Import Data"), error: error, window: window)
                 }
-            } catch {
-                showError(localized("Could Not Import Data"), error: error, window: window)
             }
         }
     }
 
-    static func decode(contentsOf url: URL) throws -> ImpulsBackupDocument {
+    /// Runs the blocking part of an import off the main actor.
+    ///
+    /// `Task.detached` rather than a plain `Task`: this target builds in Swift 5
+    /// language mode, where an unstructured `Task { }` started from a main-actor
+    /// context is not guaranteed to leave that actor — which would move the
+    /// blocking read nowhere at all. Detaching states the boundary instead of
+    /// inferring it, and matches how `FileToolsCoordinator` already gets file
+    /// work off the main actor.
+    ///
+    /// `ImpulsBackupDocument` is a tree of value types, so it is already
+    /// implicitly `Sendable` and crosses back without any `@unchecked` help.
+    private static func loadDocument(at url: URL) async throws -> ImpulsBackupDocument {
+        try await Task.detached(priority: .userInitiated) {
+            try decode(contentsOf: url)
+        }.value
+    }
+
+    /// Reads and decodes a backup. `nonisolated`, so it never runs on the main
+    /// actor merely because `BackupService` is annotated with it — the whole
+    /// point of this path is that it must not.
+    nonisolated static func decode(contentsOf url: URL) throws -> ImpulsBackupDocument {
         let data: Data
         do {
             data = try BoundedFileReader.read(
@@ -115,6 +173,8 @@ enum BackupService {
             )
         } catch BoundedDataError.limitExceeded {
             throw BackupError.fileTooLarge
+        } catch BoundedDataError.notARegularFile {
+            throw BackupError.unsupportedFileType
         }
         return try ImpulsBackupDocument.decode(data)
     }
