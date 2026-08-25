@@ -2,7 +2,7 @@
 title: Behavioral QA Matrix
 type: qa-reference
 status: active
-documentation_version: 1.8
+documentation_version: 1.9
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, qa, scenarios, hardware, permissions, release]
@@ -72,6 +72,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | DATA-09 | Clipboard persistence disabled | automated | archive and device-only encryption key are deleted |
 | DATA-10 | Concealed/internal clipboard item | automated | item is not captured |
 | DATA-11 | Oversized clipboard text/image | automated | payload rejected within documented bounds |
+| DATA-12 | Backup import target is not a regular file | automated | a FIFO, directory, device or socket — including behind a symlink — is refused before any read, with a localized unsupported-file-type error; the descriptor actually opened is what is checked |
 
 ## Actions and translation
 

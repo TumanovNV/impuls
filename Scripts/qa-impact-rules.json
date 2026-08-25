@@ -180,6 +180,7 @@
       ],
       "test_globs": [
         "Tests/ImpulsTests/BackupDocumentTests.swift",
+        "Tests/ImpulsTests/BackupIsolationTests.swift",
         "Tests/ImpulsTests/BoundedDataTests.swift",
         "Tests/ImpulsTests/ClipboardContentTests.swift",
         "Tests/ImpulsTests/ClipboardHistoryPersistenceTests.swift",
@@ -199,6 +200,7 @@
         "DATA-09",
         "DATA-10",
         "DATA-11",
+        "DATA-12",
         "REL-05"
       ]
     },
