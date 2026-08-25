@@ -2,9 +2,9 @@ import Foundation
 import XCTest
 @testable import ImpulsCore
 
-/// Backup import must not do blocking filesystem work on the main actor, and
-/// must refuse filesystem objects whose reads cannot be bounded by a byte
-/// budget. A reliability defect, not a security one.
+/// Backup import and export must not do blocking filesystem work on the main
+/// actor, and import must refuse filesystem objects whose reads cannot be
+/// bounded by a byte budget. Both are reliability defects, not security ones.
 ///
 /// This case is deliberately **not** `@MainActor`. `BackupService` is a
 /// main-actor type, so a member is reachable from here only while it stays
@@ -143,6 +143,62 @@ final class BackupIsolationTests: XCTestCase {
         XCTAssertTrue(ranOffMain, "the read and decode must not execute on the main thread")
     }
 
+    // MARK: - Export
+
+    /// A round trip through the real export path: what `export` writes must be
+    /// exactly what `decode` reads back.
+    func testExportWritesABackupThatImportsBackUnchanged() throws {
+        let document = try makeDocument()
+        let url = directory.appendingPathComponent("exported.json")
+
+        try BackupService.write(document, to: url)
+
+        let restored = try BackupService.decode(contentsOf: url)
+        XCTAssertEqual(restored, document, "export and import must agree on the format")
+    }
+
+    /// `.atomic` means the destination is replaced or left alone, never left
+    /// half-written. An export over an existing backup must leave a complete,
+    /// readable document rather than a truncated one.
+    func testExportOverAnExistingBackupLeavesACompleteDocument() throws {
+        let url = directory.appendingPathComponent("existing.json")
+        try Data(repeating: 0x7B, count: 4_096).write(to: url)
+
+        let document = try makeDocument()
+        try BackupService.write(document, to: url)
+
+        XCTAssertEqual(try BackupService.decode(contentsOf: url), document)
+    }
+
+    /// A destination that cannot be written has to surface as a thrown error so
+    /// the main actor can show the existing "Could Not Export Data" alert.
+    func testAnUnwritableDestinationFailsRatherThanSilentlyDoingNothing() throws {
+        let unwritable = directory
+            .appendingPathComponent("no-such-directory", isDirectory: true)
+            .appendingPathComponent("backup.json")
+
+        XCTAssertThrowsError(try BackupService.write(try makeDocument(), to: unwritable))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: unwritable.path))
+    }
+
+    /// The export encode and write must leave the main actor, for the same
+    /// reason the import read does.
+    @MainActor
+    func testTheExportWriteRunsOffTheMainActor() async throws {
+        let document = try makeDocument()
+        let url = directory.appendingPathComponent("off-main-export.json")
+
+        MainActor.assertIsolated("the test drives this the way the panel's completion does")
+
+        let ranOffMain: Bool = try await Task.detached(priority: .userInitiated) {
+            try BackupService.write(document, to: url)
+            return pthread_main_np() == 0
+        }.value
+
+        XCTAssertTrue(ranOffMain, "the encode and write must not execute on the main thread")
+        XCTAssertEqual(try BackupService.decode(contentsOf: url), document)
+    }
+
     // MARK: - Helpers
 
     private func makeFifo(named name: String) throws -> URL {
@@ -177,11 +233,11 @@ final class BackupIsolationTests: XCTestCase {
         )
     }
 
+    /// Written through the production encoder, so a format drift would show up
+    /// here rather than being hidden by a test-local encoder.
     private func writeBackup(named name: String) throws -> URL {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
         let url = directory.appendingPathComponent(name)
-        try encoder.encode(try makeDocument()).write(to: url)
+        try BackupService.write(try makeDocument(), to: url)
         return url
     }
 }

@@ -72,15 +72,41 @@ enum BackupService {
         panel.allowedContentTypes = [.json]
         begin(panel, from: window) { response in
             guard response == .OK, let url = panel.url else { return }
-            do {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-                encoder.dateEncodingStrategy = .iso8601
-                try encoder.encode(document).write(to: url, options: .atomic)
-            } catch {
-                showError(localized("Could Not Export Data"), error: error, window: window)
+            // Same reason as the import side: this closure runs on the main
+            // actor, and encoding up to 10 MB of JSON and writing it to a
+            // volume that may be slow or remote is not work the UI thread
+            // should be doing. Only the failure alert comes back here.
+            Task { @MainActor in
+                do {
+                    try await store(document, to: url)
+                } catch {
+                    showError(localized("Could Not Export Data"), error: error, window: window)
+                }
             }
         }
+    }
+
+    /// Runs the blocking part of an export off the main actor.
+    ///
+    /// `Task.detached` for the same reason as `loadDocument(at:)`: in Swift 5
+    /// language mode a plain `Task { }` started from a main-actor context is
+    /// not guaranteed to leave it, which would move nothing.
+    private static func store(_ document: ImpulsBackupDocument, to url: URL) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            try write(document, to: url)
+        }.value
+    }
+
+    /// Encodes and writes a backup. `nonisolated` so it cannot be pulled back
+    /// onto the main actor by the enclosing annotation.
+    ///
+    /// The encoder settings and `.atomic` are unchanged: the file format, key
+    /// order and replace-or-nothing write semantics are exactly what they were.
+    nonisolated static func write(_ document: ImpulsBackupDocument, to url: URL) throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(document).write(to: url, options: .atomic)
     }
 
     static func importData(from window: NSWindow?, completion: @escaping (ImpulsBackupDocument) -> Void) {
