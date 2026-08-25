@@ -128,6 +128,7 @@
       "id": "power-devices",
       "description": "Local power, Apple accessory, mobile-device discovery, identity or low-battery behavior changed",
       "source_globs": [
+        "Sources/Impuls/Model/AppleDevicePresentation.swift",
         "Sources/Impuls/Services/*Power*.swift",
         "Sources/Impuls/Services/*Battery*.swift",
         "Sources/Impuls/Services/AppleAccessory*.swift",
