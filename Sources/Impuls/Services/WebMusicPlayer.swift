@@ -229,6 +229,20 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
         }
     }
 
+    /// Test seam: reaches the state a running session has — a web view and a
+    /// selected source — **without loading a page**, so the lifecycle tests
+    /// never touch the network or a provider's servers.
+    ///
+    /// Production gets here through `show(source:)`, which does the same and
+    /// then loads. Kept internal for the same reason `hasWebView` and
+    /// `bridgeScript` are: the alternative is a test that proves nothing about
+    /// the real object.
+    @discardableResult
+    func prepareWithoutLoading(source: MusicSource) -> WKWebView {
+        self.source = source
+        return webView ?? makeWebView()
+    }
+
     func command(_ command: WebMusicCommand) {
         guard command == .playPause else {
             evaluate("window.__impulsMusicBridge?.command('\(command.rawValue)')")
@@ -633,6 +647,50 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
         withError error: Error
     ) {
         navigationFailed(error, in: webView)
+    }
+
+    /// The web content process died — a crash, or the system reclaiming it
+    /// under memory pressure. Routine with a heavy single-page app.
+    ///
+    /// Nothing else reports this. Without it the view goes blank while the last
+    /// adopted track stays on screen, with transport buttons that silently do
+    /// nothing: the JS pump died with the process, so no later push corrects
+    /// the picture and only an explicit reload recovers. Clearing here is what
+    /// turns a dead player into an honest one.
+    ///
+    /// Deliberately **no automatic reload**. A page that crashes once tends to
+    /// crash again, and reloading from the callback that reports the crash is
+    /// how a retry storm is built. The user's next explicit Open or Reload
+    /// rebuilds it through the ordinary path — `show(source:)` still finds a
+    /// usable web view, and WebKit spawns a fresh process for it.
+    ///
+    /// No timer, no task, no network: this method only reports.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        // Identity, not just presence. After `teardown()` the view this object
+        // owns is `nil`, and a popup's process dying is not the player's
+        // business — in neither case may a late callback clear live state.
+        guard let current = self.webView, current === webView, !isPopup(webView) else { return }
+        guard let source else { return }
+
+        NSLog("Impuls: web music content process terminated")
+        currentState = nil
+        requestedArtworkKey = nil
+        // Any press in flight belonged to a page that no longer exists.
+        playbackIntent += 1
+
+        onLoading?(source, false)
+        // Clearing the state is what resets the transport capabilities: they
+        // travel with it through the same pipeline rather than being cleared
+        // by a second, separate path that could disagree with it.
+        onState?(source, nil)
+        onFailure?(source, Self.processTerminatedMessage)
+    }
+
+    /// Fixed and localized, carrying nothing from the page. The failure channel
+    /// is user-visible, and a crash tells us nothing about the site worth
+    /// repeating into it.
+    static var processTerminatedMessage: String {
+        localized("The web player stopped unexpectedly. Reload to continue.")
     }
 
     private func navigationFailed(_ error: Error, in webView: WKWebView) {

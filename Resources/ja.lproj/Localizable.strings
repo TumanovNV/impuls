@@ -664,3 +664,6 @@
 "Mouse" = "マウス";
 "Trackpad" = "トラックパッド";
 "Bluetooth Accessory" = "Bluetoothアクセサリ";
+
+/* Web player process termination 1.4.16 */
+"The web player stopped unexpectedly. Reload to continue." = "Webプレーヤーが予期せず停止しました。再読み込みしてください。";

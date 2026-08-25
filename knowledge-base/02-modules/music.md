@@ -2,13 +2,29 @@
 title: Music Module
 type: module
 status: production
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, module, music, webkit, automation]
 ---
 
 # Music
+
+## Web content process termination (1.4.16, IMP-12 / #112)
+
+WebKit's content process может умереть — краш или system reclaim под memory pressure, что для тяжёлого SPA обычное дело. Раньше это никем не обрабатывалось: view становился пустым, а последний adopted track оставался на экране вместе с transport-кнопками, которые молча ничего не делали. JS-pump умирал вместе с процессом, поэтому ничего само не исправлялось — помогал только явный reload.
+
+`WebMusicPlayer.webViewWebContentProcessDidTerminate(_:)` теперь очищает состояние и сообщает об отказе:
+
+- guard по **идентичности** web view (`current === webView`) плюс `isPopup` — поздний callback от view, которым player уже не владеет (после `teardown()`), или от popup, не может очистить живое состояние;
+- `onState(source, nil)` — capabilities сбрасываются через тот же state pipeline, а не вторым независимым путём, который мог бы с ним разойтись;
+- `onFailure(source, …)` — фиксированное локализованное сообщение, ничего со страницы;
+- `playbackIntent += 1` — press, который был в полёте, принадлежал странице, которой больше нет.
+
+**Automatic reload намеренно отсутствует.** Страница, упавшая один раз, склонна упасть снова, и перезагрузка из того же callback'а, который сообщает о падении, — это и есть retry storm. Восстановление идёт обычным путём: следующий явный Open/Reload пользователя, `show(source:)` находит пригодный web view, WebKit поднимает новый процесс. Никаких новых таймеров, задач или сетевых путей.
+
+Источник в отчёте передаётся как обычно, поэтому существующий guard `selectedSource == source` в `MediaController` решает, вправе ли уже переключённый сервис что-то менять. Обе половины защищают пользователя только вместе, и обе покрыты тестами.
+
 
 ## Назначение
 

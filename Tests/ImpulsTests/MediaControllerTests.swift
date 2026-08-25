@@ -213,6 +213,135 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertEqual(player.commandsSent, [.next])
     }
 
+    // MARK: - Stale web callbacks after a service switch
+    //
+    // Every web callback is wired through `makeWebPlayer()` with a
+    // `selectedSource == source` guard. These drive that production wiring —
+    // the closures the controller itself installed — rather than a helper
+    // written for the test, so removing the guard makes them fail.
+
+    /// The scenario in full: Yandex publishes a track, the user switches to
+    /// YouTube, YouTube publishes its own, and only then does Yandex's late
+    /// push arrive. It must change nothing.
+    func testALateWebStateFromThePreviousServiceCannotReplaceTheCurrentOne() throws {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.yandexMusic.rawValue, forKey: MediaController.selectedSourceKey)
+        var webPlayer: FakeWebMusicPlayer?
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge, webPlayerFactory: {
+            let player = FakeWebMusicPlayer()
+            webPlayer = player
+            return player
+        })
+
+        controller.openSelectedSource()
+        let player = try XCTUnwrap(webPlayer)
+        player.onState?(.yandexMusic, webState(title: "Track A", canNext: true))
+        XCTAssertEqual(controller.track?.title, "Track A")
+
+        controller.selectSource(.youtubeMusic)
+        player.onState?(.youtubeMusic, webState(title: "Track B", canPrevious: true))
+        XCTAssertEqual(controller.track?.title, "Track B")
+
+        // Yandex's page, still alive for a moment, pushes one more snapshot.
+        player.onState?(.yandexMusic, webState(title: "Track A again", canNext: true))
+
+        XCTAssertEqual(controller.track?.title, "Track B", "the old service must not win a late race")
+        XCTAssertEqual(controller.capabilities, MediaCapabilities(
+            canPlayPause: true, canNext: false, canPrevious: true, canSeek: false
+        ), "and must not restore its own transport capabilities either")
+    }
+
+    /// A late *clear* is the more dangerous half: it would blank a service that
+    /// is playing perfectly well.
+    func testALateWebClearFromThePreviousServiceCannotBlankTheCurrentOne() throws {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.yandexMusic.rawValue, forKey: MediaController.selectedSourceKey)
+        var webPlayer: FakeWebMusicPlayer?
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge, webPlayerFactory: {
+            let player = FakeWebMusicPlayer()
+            webPlayer = player
+            return player
+        })
+
+        controller.openSelectedSource()
+        let player = try XCTUnwrap(webPlayer)
+        controller.selectSource(.youtubeMusic)
+        player.onState?(.youtubeMusic, webState(title: "Track B"))
+        XCTAssertEqual(controller.track?.title, "Track B")
+
+        player.onState?(.yandexMusic, nil)
+
+        XCTAssertEqual(controller.track?.title, "Track B", "a dead service does not get to clear a live one")
+        XCTAssertTrue(controller.capabilities.canPlayPause)
+    }
+
+    func testALateWebFailureFromThePreviousServiceIsIgnored() throws {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.yandexMusic.rawValue, forKey: MediaController.selectedSourceKey)
+        var webPlayer: FakeWebMusicPlayer?
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge, webPlayerFactory: {
+            let player = FakeWebMusicPlayer()
+            webPlayer = player
+            return player
+        })
+
+        controller.openSelectedSource()
+        let player = try XCTUnwrap(webPlayer)
+        controller.selectSource(.youtubeMusic)
+        player.onState?(.youtubeMusic, webState(title: "Track B"))
+
+        player.onFailure?(.yandexMusic, "old service failed")
+        XCTAssertNil(controller.webPlayerError)
+
+        player.onLoading?(.yandexMusic, true)
+        XCTAssertFalse(controller.isLoading, "a stale loading flag would spin forever")
+
+        XCTAssertEqual(controller.track?.title, "Track B")
+    }
+
+    /// Artwork travels its own path and carries its own key, so it gets its own
+    /// case rather than being assumed to follow the state guard.
+    func testALateWebArtworkFromThePreviousServiceIsIgnored() throws {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.yandexMusic.rawValue, forKey: MediaController.selectedSourceKey)
+        var webPlayer: FakeWebMusicPlayer?
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge, webPlayerFactory: {
+            let player = FakeWebMusicPlayer()
+            webPlayer = player
+            return player
+        })
+
+        controller.openSelectedSource()
+        let player = try XCTUnwrap(webPlayer)
+        controller.selectSource(.youtubeMusic)
+        player.onState?(.youtubeMusic, webState(title: "Track B", artworkKey: "https://example.invalid/b.jpg"))
+
+        player.onArtwork?(.yandexMusic, "https://example.invalid/a.jpg", NSImage(size: NSSize(width: 1, height: 1)))
+
+        XCTAssertNil(controller.artwork, "another service's cover is not this track's cover")
+    }
+
+    private func webState(
+        title: String,
+        artworkKey: String = "",
+        canNext: Bool = false,
+        canPrevious: Bool = false
+    ) -> WebMusicState {
+        WebMusicState(
+            title: title, artist: "Artist", album: "Album",
+            duration: 200, position: 0, isPlaying: true, artworkKey: artworkKey,
+            canNext: canNext, canPrevious: canPrevious, canPlayPause: true, canSeek: false
+        )
+    }
+
     func testClearingResetsCapabilitiesToAllFalse() throws {
         let bridge = FakeNativeMusicBridging()
         let (defaults, suite) = freshDefaults()

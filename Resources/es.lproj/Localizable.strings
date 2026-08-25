@@ -665,3 +665,6 @@
 "Mouse" = "Ratón";
 "Trackpad" = "Trackpad";
 "Bluetooth Accessory" = "Accesorio Bluetooth";
+
+/* Web player process termination 1.4.16 */
+"The web player stopped unexpectedly. Reload to continue." = "El reproductor web se detuvo inesperadamente. Vuelve a cargar para continuar.";
