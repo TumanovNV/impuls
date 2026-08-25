@@ -483,8 +483,8 @@ final class ProjectSupportPromptServiceTests: XCTestCase {
 
         XCTAssertEqual(cloudTips.absoluteString, "https://pay.cloudtips.ru/p/e04ac53f")
         XCTAssertEqual(boosty.absoluteString, "https://boosty.to/tumanovnv/donate")
-        XCTAssertTrue(ProjectSupportPromptService.isAllowedVoluntarySupportURL(cloudTips))
-        XCTAssertTrue(ProjectSupportPromptService.isAllowedVoluntarySupportURL(boosty))
+        XCTAssertTrue(VoluntarySupportDestination.allows(cloudTips))
+        XCTAssertTrue(VoluntarySupportDestination.allows(boosty))
     }
 
     func testHTTPCloudTipsURLIsRejected() {
@@ -571,7 +571,7 @@ final class ProjectSupportPromptServiceTests: XCTestCase {
             return XCTFail("invalid test URL: \(candidate)", file: file, line: line)
         }
         XCTAssertFalse(
-            ProjectSupportPromptService.isAllowedVoluntarySupportURL(url),
+            VoluntarySupportDestination.allows(url),
             "\(candidate) must not be openable",
             file: file,
             line: line

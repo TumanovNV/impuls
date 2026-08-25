@@ -142,6 +142,14 @@ enum VoluntarySupportDestination: String, CaseIterable, Equatable, Sendable {
     case boosty = "https://boosty.to/tumanovnv/donate"
 
     var url: URL? { URL(string: rawValue) }
+
+    /// Exact-string comparison intentionally rejects every URL variation,
+    /// including credentials, ports, queries, fragments and lookalike hosts.
+    static func allows(_ url: URL) -> Bool {
+        allCases.contains { destination in
+            destination.rawValue == url.absoluteString
+        }
+    }
 }
 
 /// Decides — entirely on this Mac — whether Impuls has earned the right to ask
@@ -390,16 +398,8 @@ final class ProjectSupportPromptService {
         using open: (URL) -> Bool = { NSWorkspace.shared.open($0) }
     ) -> Bool {
         guard let url = destination.url,
-              isAllowedVoluntarySupportURL(url) else { return false }
+              VoluntarySupportDestination.allows(url) else { return false }
         return open(url)
-    }
-
-    /// Exact-string comparison intentionally rejects every URL variation,
-    /// including credentials, ports, queries, fragments and lookalike hosts.
-    nonisolated static func isAllowedVoluntarySupportURL(_ url: URL) -> Bool {
-        VoluntarySupportDestination.allCases.contains { destination in
-            destination.rawValue == url.absoluteString
-        }
     }
 
     // MARK: - Persistence
