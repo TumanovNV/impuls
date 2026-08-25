@@ -2,7 +2,7 @@
 title: Power and Battery Module
 type: module
 status: production
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, module, battery, devices, iokit]
@@ -48,6 +48,25 @@ Module switch и external-device switch различны. External providers с�
 - iPhone/iPad: local usbmuxd/lockdown transport over USB or Wi-Fi sync, existing trust required.
 
 `IORegistryAccessoryMapper` (1.4.14) распознаёт Bluetooth Magic Keyboard/Magic Mouse/Magic Trackpad и по USB-IF vendor ID `0x05AC`, и по Bluetooth SIG Apple vendor ID `0x004C` — `AppleDeviceManagementHIDEventService` репортит эти аксессуары под `0x004C`, что раньше приводило к тихой потере записи на реальном Mac mini, хотя Control Center видел заряд корректно. Пустой `Product` string на этих устройствах закрывается небольшой hardware-confirmed таблицей Bluetooth ProductID, а registry-флаг `Built-In` теперь приоритетнее эвристики по transport string, когда он присутствует.
+
+### Third-party Bluetooth accessories (1.4.16, #108)
+
+Apple vendorship больше **не является условием показа**. Показывается то, для чего система сама отдаёт battery percentage.
+
+Раньше `SystemProfilerAccessoryParser.device(named:)` начинался с `guard isApple(properties)`, то есть стороннее устройство отбрасывалось **до** того, как вообще проверялось наличие батареи. Это и был дефект: наушники, у которых macOS читает заряд, не показывались из-за производителя.
+
+Теперь порядок обратный: обязательны `device_address` (стабильная identity) и хотя бы один валидный `device_batteryLevel*`. Нет показания — нет карточки, независимо от вендора.
+
+Vendor ID при этом сохраняет одну роль — он решает, **как устройство называется**:
+
+- Apple vendor (`0x004C`) → прежняя классификация по product name; AirPods и Magic-аксессуары не затронуты, включая fallback `.unknown` = «Apple Device»;
+- не-Apple → generic kind строго из `device_minorType` (`Headset`/`Headphones` → `.headphones`, `Keyboard`, `Mouse`, `Trackpad`, иначе `.accessory`). Product name **не** используется для классификации: сторонний девайс волен назвать себя «AirPods Pro Max Ultra», и это не доказательство бренда.
+
+Generic kinds (`.headphones`, `.keyboard`, `.mouse`, `.trackpad`, `.accessory`) — vendor-neutral: реальное user-visible имя устройства плюс класс, который заявила сама система. Бренд/модель не угадываются.
+
+`externalPower` остаётся `.unknown` для всех аксессуаров любого вендора: этот источник не сообщает charging state ни для кого. Новых источников, сканирования, сетевых запросов и изменения cadence нет — это тот же single `system_profiler` read.
+
+**Что осталось недоступным.** Bluetooth-устройство, для которого `SPBluetoothDataType` не публикует battery field, показать нельзя. Единственное место в системе, где такое значение встречается, — anonymous accessory power source в `pmset -g accps`; он идёт через `IOPSCopyPowerSourcesByType`/`kIOPSAccessoryType`, которых нет в public SDK headers, и не содержит ни имени, ни стабильной identity. Привязать этот процент к конкретному Bluetooth-устройству без догадки невозможно, поэтому Impuls этого не делает. См. `13-qa/behavioral-qa-matrix.md` PWR-13.
 
 ### iPhone/iPad reliability audit (1.4.16)
 

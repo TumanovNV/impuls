@@ -147,7 +147,8 @@
         "Tests/ImpulsTests/LowBatteryAlertEngineTests.swift",
         "Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift",
         "Tests/ImpulsTests/MobileDeviceProtocolTests.swift",
-        "Tests/ImpulsTests/PowerMonitorTests.swift"
+        "Tests/ImpulsTests/PowerMonitorTests.swift",
+        "Tests/ImpulsTests/ThirdPartyBluetoothBatteryTests.swift"
       ],
       "qa_ids": [
         "PERM-07",
@@ -163,7 +164,8 @@
         "PWR-09",
         "PWR-10",
         "PWR-11",
-        "PWR-12"
+        "PWR-12",
+        "PWR-13"
       ]
     },
     {

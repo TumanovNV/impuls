@@ -27,7 +27,26 @@ enum AppleDeviceKind: String, Equatable, Hashable, Sendable, CaseIterable {
     case visionPro
     case airTag
     case siriRemote
+    /// Unrecognised **Apple** device. Kept distinct from the generic kinds
+    /// below so an Apple accessory whose model this build does not know still
+    /// reads as an Apple device rather than as an anonymous one.
     case unknown
+
+    // Generic, vendor-neutral kinds.
+    //
+    // A Bluetooth accessory is not required to be Apple hardware to have a
+    // battery macOS can read. When the system reports a usable level for a
+    // third-party device, the honest presentation is its real name plus the
+    // device class the system itself stated — never a guessed brand or model.
+    // These are deliberately coarse: `Headset` and `Headphones` both become
+    // `.headphones`, because that is the distinction the source actually
+    // supports.
+    case headphones
+    case keyboard
+    case mouse
+    case trackpad
+    /// A battery-carrying accessory whose class the system did not state.
+    case accessory
 }
 
 /// Which battery inside a device a reading belongs to.

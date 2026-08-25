@@ -66,16 +66,33 @@ enum SystemProfilerAccessoryParser {
         return order.compactMap { devices[$0] }
     }
 
+    /// One connected Bluetooth device, or nothing.
+    ///
+    /// Apple vendorship is **not** a precondition. What actually decides is
+    /// whether this output carries a usable battery level: a third-party
+    /// headset macOS reads the battery of is exactly as showable as an Apple
+    /// one, and a device with no reading is not showable whoever made it.
+    /// Requiring the Apple vendor id first meant a third-party accessory was
+    /// dropped before its battery was ever looked at.
+    ///
+    /// Vendorship still decides how the device is *named*. Apple hardware keeps
+    /// the existing product-name matching, so AirPods and Magic accessories are
+    /// unaffected. Everything else is classified only from `device_minorType` —
+    /// the class the system itself stated — and never from a product name,
+    /// because a third-party device is free to put "AirPods" in its name and
+    /// that would be a guess about brand, not evidence.
     static func device(
         named name: String,
         properties: [String: Any],
         now: Date,
         resolver: DeviceIdentityResolver
     ) -> AppleDeviceSnapshot? {
-        guard isApple(properties) else { return nil }
         guard let address = string(properties[Key.address]) else { return nil }
 
-        let kind = AppleAccessoryNaming.kind(fromProductName: name)
+        let isAppleDevice = isApple(properties)
+        let kind = isAppleDevice
+            ? AppleAccessoryNaming.kind(fromProductName: name)
+            : AppleAccessoryNaming.kind(fromBluetoothMinorType: string(properties[Key.minorType]))
         guard let identity = resolver.identity(forRawIdentifier: address, kind: kind) else { return nil }
 
         let components = self.components(from: properties, now: now)
@@ -84,12 +101,16 @@ enum SystemProfilerAccessoryParser {
         return AppleDeviceSnapshot(
             identity: identity,
             kind: kind,
-            displayName: AppleDeviceNormalizer.displayName(name, fallback: "Apple device"),
+            displayName: AppleDeviceNormalizer.displayName(
+                name,
+                fallback: isAppleDevice ? "Apple device" : AppleDevicePresentation.kindTitle(kind)
+            ),
             modelName: string(properties[Key.minorType]),
             connection: .bluetooth,
             availability: .connected,
-            // Nothing in this output says an accessory is charging. A case that
-            // is plugged in does not report it here, so it is not claimed.
+            // Nothing in this output says an accessory is charging, for any
+            // vendor. A case that is plugged in does not report it here, so it
+            // is not claimed.
             externalPower: .unknown,
             components: components,
             lastSeen: now,
@@ -182,5 +203,23 @@ enum AppleAccessoryNaming {
     static func kind(fromBluetoothProductID productID: Int?) -> AppleDeviceKind {
         guard let productID else { return .unknown }
         return bluetoothProductIDs[productID] ?? .unknown
+    }
+
+    /// The device class for hardware Impuls has no brand evidence about.
+    ///
+    /// `device_minorType` is the system's own statement of what the device is
+    /// — "Headset", "Keyboard", "Mouse" — so using it is reading a fact rather
+    /// than inferring one. Anything outside this small set becomes
+    /// `.accessory`: a battery worth showing, on a device whose class the
+    /// source did not state. Matching is substring-based and lowercased
+    /// because the field carries values like "Headphones" and "Audio Headset"
+    /// across releases.
+    static func kind(fromBluetoothMinorType minorType: String?) -> AppleDeviceKind {
+        guard let value = minorType?.lowercased() else { return .accessory }
+        if value.contains("headset") || value.contains("headphone") { return .headphones }
+        if value.contains("keyboard") { return .keyboard }
+        if value.contains("trackpad") { return .trackpad }
+        if value.contains("mouse") { return .mouse }
+        return .accessory
     }
 }

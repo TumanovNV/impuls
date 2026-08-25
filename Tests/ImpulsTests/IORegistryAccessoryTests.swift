@@ -983,17 +983,43 @@ final class SystemProfilerAccessoryTests: DeviceIdentityTestCase {
         XCTAssertTrue(parsed.isEmpty)
     }
 
-    func testANonAppleAccessoryIsFilteredByVendorIdentifier() throws {
+    /// The vendor identifier decides how a device is *named*, not whether it
+    /// is shown.
+    ///
+    /// This used to assert the opposite: both devices below were dropped for
+    /// not being Apple, despite the system reporting a real battery for each.
+    /// That was the defect in #108 — a third-party headset macOS reads the
+    /// battery of was filtered out before the battery was ever looked at. What
+    /// still holds is that a non-Apple device gets no Apple classification: it
+    /// is presented by the class the system stated, under its own name.
+    func testANonAppleAccessoryWithABatteryIsShownWithGenericClassification() throws {
         let parsed = try devices("""
-        {"SPBluetoothDataType":[{"device_connected":[{"Apple-Compatible Buds":{
+        {"SPBluetoothDataType":[{"device_connected":[{"Third-Party Buds":{
           "device_address":"11-22-33-44-55-66",
+          "device_minorType":"Headphones",
           "device_batteryLevelMain":"55 %",
           "device_vendorID":"0x046D"}}]},{"device_connected":[{"No Vendor At All":{
           "device_address":"22-33-44-55-66-77",
           "device_batteryLevelMain":"55 %"}}]}]}
         """)
 
-        XCTAssertTrue(parsed.isEmpty)
+        XCTAssertEqual(parsed.count, 2, "a readable battery is showable whoever made the device")
+        XCTAssertEqual(parsed.map(\.kind), [.headphones, .accessory])
+        XCTAssertEqual(parsed.map(\.displayName), ["Third-Party Buds", "No Vendor At All"])
+        XCTAssertEqual(parsed.compactMap { $0.components.first?.percentage }, [55, 55])
+        XCTAssertEqual(parsed.map(\.externalPower), [.unknown, .unknown])
+    }
+
+    /// The other half of the same rule: no battery, no card — for any vendor.
+    func testANonAppleAccessoryWithoutABatteryIsStillNotShown() throws {
+        let parsed = try devices("""
+        {"SPBluetoothDataType":[{"device_connected":[{"Third-Party Buds":{
+          "device_address":"11-22-33-44-55-66",
+          "device_minorType":"Headphones",
+          "device_vendorID":"0x046D"}}]}]}
+        """)
+
+        XCTAssertTrue(parsed.isEmpty, "dropping it for having no reading is correct; dropping it for its vendor was not")
     }
 
     func testSeveralDevicesAreAllParsedAndKeptDistinct() throws {
