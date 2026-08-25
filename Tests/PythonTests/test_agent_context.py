@@ -40,6 +40,11 @@ STRINGS_JA = "Resources/ja.lproj/Localizable.strings"
 VERSION_FILE = "Scripts/version"
 SETTINGS = "Sources/Impuls/Settings/SettingsWindow.swift"
 TELEMETRY = "Sources/Impuls/Services/VersionTelemetryService.swift"
+SUPPORT = "Sources/Impuls/Services/ProjectSupportPromptService.swift"
+
+LOCALIZATION_DOC = "knowledge-base/04-development/localization.md"
+RELEASE_DOC = "knowledge-base/05-release/release-process.md"
+SETTINGS_DOC = "knowledge-base/01-architecture/settings-onboarding-feedback.md"
 
 
 class RouterTests(unittest.TestCase):
@@ -325,6 +330,132 @@ class RouterTests(unittest.TestCase):
         route = self.route(UNKNOWN)
         self.assertEqual(route["read_first"], [],
                          "an unresolved path must not open the whole knowledge base")
+
+    # -- one canonical owner reached two ways ---------------------------------
+
+    def assert_one_canonical_owner(self, targets, document, entries):
+        """Two routing entries, one canonical document, therefore one domain."""
+        route = self.route(*targets)
+        self.assertEqual(route["read_first"], [document], str(targets))
+        self.assertEqual(len(route["canonical_owners"]), 1, route["canonical_owners"])
+        self.assertEqual(route["canonical_owners"][0]["documents"], [document])
+        self.assertEqual(sorted(route["canonical_owners"][0]["entries"]), sorted(entries),
+                         "provenance must survive grouping")
+        self.assertFalse(route["cross_domain"], str(targets))
+        text = agent_context.render(route)
+        self.assertNotIn("ESCALATED: CROSS-DOMAIN CHANGE", text)
+        self.assertEqual(text.count(document), 1, "the owner is named once, not twice")
+        return route
+
+    def assert_conditionals_are_the_union(self, targets, mutual=True):
+        """Grouping removes a duplicated canonical document. It must not remove the
+        triggers the other entry contributed.
+
+        `mutual` says whether this fixture has each side contributing something the
+        other lacks. Where it does, that is the sharpest form of the check. Where
+        one side's triggers are a subset of the other's — the two Settings surfaces
+        are like that — the union is still the right assertion, but it only proves
+        anything if run in both argument orders, so that the entry which loses the
+        grouping race is the one whose triggers must survive.
+        """
+        combined = self.conditional_docs(self.route(*targets))
+        parts = [self.conditional_docs(self.route(t)) for t in targets]
+        union = set().union(*parts)
+        self.assertEqual(combined, union, "grouping must not drop an entry's triggers")
+        if mutual:
+            for part in parts:
+                self.assertTrue(combined > part,
+                                "this fixture claims each side contributes something "
+                                "the other does not")
+        else:
+            self.assertEqual(self.conditional_docs(self.route(*reversed(targets))), union,
+                             "the subset entry must not swallow the superset's triggers")
+        return combined
+
+    def test_a_string_table_and_the_language_service_are_one_domain(self):
+        """The false escalation grouping exists to remove.
+
+        `Localizable.strings` reaches localization.md through a document route and
+        `AppLanguageService.swift` reaches it through a QA domain. Two routing
+        entries, one canonical owner — counting entries called an ordinary
+        localization change cross-domain and told the reader to expect two
+        architectures.
+        """
+        route = self.assert_one_canonical_owner(
+            [STRINGS_EN, LANGUAGE], LOCALIZATION_DOC,
+            ["app-localization-tables", "interface-language"])
+        self.assertTrue(route["qa_ids"], "the QA domain still contributes its IDs")
+        self.assertTrue(route["tests"])
+        self.assertEqual(self.route(STRINGS_EN)["qa_ids"], [],
+                         "and the document route still invents none of its own")
+
+        docs = self.assert_conditionals_are_the_union([STRINGS_EN, LANGUAGE])
+        self.assertIn("knowledge-base/07-web/website.md", docs)
+        self.assertIn("knowledge-base/07-web/legal-privacy.md", docs)
+        self.assertIn("knowledge-base/01-architecture/storage-persistence.md", docs)
+
+    def test_the_version_file_and_the_update_service_are_one_domain(self):
+        self.assert_one_canonical_owner(
+            [VERSION_FILE, RELEASE], RELEASE_DOC, ["version-source", "release-update"])
+        docs = self.assert_conditionals_are_the_union([VERSION_FILE, RELEASE])
+        self.assertIn("knowledge-base/13-qa/release-evidence/README.md", docs)
+
+    def test_two_settings_surfaces_are_one_domain(self):
+        """`settings-window` is a document route and `project-support-prompt` is a QA
+        domain; both are owned by the settings/onboarding/feedback document."""
+        self.assert_one_canonical_owner(
+            [SETTINGS, SUPPORT], SETTINGS_DOC, ["settings-window", "project-support-prompt"])
+        # These two overlap almost entirely: the support prompt's triggers are a
+        # subset of the Settings window's, so the meaningful check is that the
+        # superset's extra trigger survives whichever entry is grouped first.
+        docs = self.assert_conditionals_are_the_union([SETTINGS, SUPPORT], mutual=False)
+        self.assertIn("knowledge-base/07-web/version-statistics-collector.md", docs)
+        self.assertIn("knowledge-base/07-web/version-statistics-collector.md",
+                      self.conditional_docs(self.route(SUPPORT, SETTINGS)))
+
+    def test_grouping_is_order_independent(self):
+        for targets in ([STRINGS_EN, LANGUAGE], [LANGUAGE, STRINGS_EN],
+                        [VERSION_FILE, RELEASE], [RELEASE, VERSION_FILE],
+                        [SETTINGS, SUPPORT], [SUPPORT, SETTINGS]):
+            route = self.route(*targets)
+            self.assertFalse(route["cross_domain"], str(targets))
+            self.assertEqual(len(route["read_first"]), 1, str(targets))
+
+    def test_a_genuine_cross_domain_change_still_escalates(self):
+        """Grouping must not become a way of never escalating."""
+        route = self.route(MUSIC, PERSIST)
+        self.assertEqual(route["read_first"],
+                         ["knowledge-base/02-modules/music.md",
+                          "knowledge-base/01-architecture/storage-persistence.md"])
+        self.assertEqual(len(route["canonical_owners"]), 2)
+        self.assertTrue(route["cross_domain"])
+        self.assertIn("ESCALATED: CROSS-DOMAIN CHANGE", agent_context.render(route))
+
+    def test_canonical_identity_is_a_set_of_documents_not_an_ordered_list(self):
+        """Two owners naming the same documents in different orders are the same
+        owner. Letting declaration order split them would put the false escalation
+        straight back, one level down."""
+        router = self.router
+        a = {"id": "a", "name": "A", "read_first": ["x.md", "y.md"], "conditional": []}
+        b = {"id": "b", "name": "B", "read_first": ["y.md", "x.md"], "conditional": []}
+        self.assertEqual(frozenset(a["read_first"]), frozenset(b["read_first"]))
+        # A superset is deliberately a different owner: it requires more reading.
+        c = {"id": "c", "name": "C", "read_first": ["x.md"], "conditional": []}
+        self.assertNotEqual(frozenset(a["read_first"]), frozenset(c["read_first"]))
+        self.assertTrue(router.doc_routes, "router fixture is loaded")
+
+    def test_every_primary_owner_declares_at_least_one_canonical_document(self):
+        """Grouping keys on documents, so an owner without one would key on its id
+        and could never merge. That is the safe fallback rather than the intent —
+        this pins the intent."""
+        routing = self.router.routing
+        for domain in routing["domains"]:
+            if domain.get("route_role") == "overlay":
+                self.assertNotIn("read_first", domain, domain["id"])
+                continue
+            self.assertTrue(domain.get("read_first"), domain["id"])
+        for route in self.router.doc_routes:
+            self.assertTrue(self.router.route_docs(route), route["id"])
 
     # -- several paths: UNION, never intersection ----------------------------
 

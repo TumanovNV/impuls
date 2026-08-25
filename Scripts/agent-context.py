@@ -260,10 +260,45 @@ class Router:
         # change. Being demoted elsewhere does not take that away.
         overlay = [r for r in overlay if r not in primary]
 
-        conditional: list[dict] = []
+        # Group routing entries by the canonical document set they point at.
+        #
+        # A routing entry id is provenance — which table produced this owner — not
+        # architecture. Two entries can honestly name the same canonical owner:
+        # `Resources/*.lproj/Localizable.strings` reaches localization.md through a
+        # document route and `AppLanguageService.swift` reaches it through a QA
+        # domain, and a diff touching both is one documentation domain, not two.
+        # Counting entries called that a cross-domain change.
+        #
+        # Identity is the *set* of read_first documents, not the ordered list: two
+        # entries naming the same two documents in different orders are the same
+        # owner, and letting declaration order split them would reintroduce the
+        # same false escalation one level down. A superset is deliberately a
+        # different owner — an entry requiring an extra document genuinely requires
+        # more reading. An entry with no read_first cannot be grouped by document,
+        # so it keys on its own id and can never collapse into an unrelated one.
+        groups: list[dict] = []
+        by_documents: dict[object, dict] = {}
         for owner in owners:
+            key = frozenset(owner["read_first"]) or owner["id"]
+            group = by_documents.get(key)
+            if group is None:
+                group = {"documents": [], "names": [], "entries": []}
+                by_documents[key] = group
+                groups.append(group)
             for doc in owner["read_first"]:
+                add(group["documents"], doc)
+            group["names"].append(owner["name"])
+            group["entries"].append(owner["id"])
+
+        conditional: list[dict] = []
+        for group in groups:
+            for doc in group["documents"]:
                 add(read_first, doc)
+        # Conditionals stay a union across *entries*, not groups. Grouping removes a
+        # duplicated canonical document; it must not quietly drop the triggers the
+        # other entry contributed — a string-table change still needs the website
+        # and legal triggers that the language service does not carry.
+        for owner in owners:
             for item in owner["conditional"]:
                 if item["doc"] not in {c["doc"] for c in conditional}:
                     conditional.append(item)
@@ -304,6 +339,13 @@ class Router:
             "primary_domains": primary,
             "primary_owners": [o["id"] for o in owners],
             "primary_owner_names": [o["name"] for o in owners],
+            # One entry per distinct canonical owner. `entries` keeps the provenance
+            # that grouping would otherwise hide.
+            "canonical_owners": [
+                {"documents": g["documents"], "names": g["names"], "entries": g["entries"]}
+                for g in groups
+            ],
+            "canonical_owner_names": [" / ".join(g["names"]) for g in groups],
             "document_routes": doc_route_ids,
             "overlay_domains": overlay,
             "overlay_domain_names": [self.domains.get(r, {}).get("name", r) for r in overlay],
@@ -314,10 +356,11 @@ class Router:
             "conditional": conditional,
             "unrouted": unrouted,
             "matched": matched_paths,
-            # Escalation counts documentation owners, not rule matches. A broad QA
-            # overlay, and a file that three rules verify, are not architecture
-            # domains and must never read like one.
-            "cross_domain": len(owners) > 1,
+            # Escalation counts distinct canonical documentation owners — not rule
+            # matches, and not routing entries. A broad QA overlay, a file that
+            # three rules verify, and two tables that name the same document are
+            # none of them architecture domains, and must never read like one.
+            "cross_domain": len(groups) > 1,
             "overlay_only": bool(overlay) and not owners,
             "fallback_doc": self.routing.get("fallback_doc", ""),
         }
@@ -336,8 +379,8 @@ NEVER_BY_DEFAULT = [
 
 def render(route: dict) -> str:
     out: list[str] = []
-    if route["primary_owner_names"]:
-        out.append("DOMAIN: " + ", ".join(route["primary_owner_names"]))
+    if route["canonical_owner_names"]:
+        out.append("DOMAIN: " + ", ".join(route["canonical_owner_names"]))
     else:
         out.append("DOMAIN: (unresolved)")
 
