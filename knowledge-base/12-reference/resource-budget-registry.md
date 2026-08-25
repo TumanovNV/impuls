@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 1.8
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
 
