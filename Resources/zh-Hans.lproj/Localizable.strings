@@ -664,3 +664,6 @@
 "Mouse" = "鼠标";
 "Trackpad" = "触控板";
 "Bluetooth Accessory" = "蓝牙配件";
+
+/* Web player process termination 1.4.16 */
+"The web player stopped unexpectedly. Reload to continue." = "网页播放器意外停止。请重新载入以继续。";

@@ -2,7 +2,7 @@
 title: Behavioral QA Matrix
 type: qa-reference
 status: active
-documentation_version: 2.1
+documentation_version: 2.3
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, qa, scenarios, hardware, permissions, release]
@@ -110,6 +110,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | MUS-06 | Web provider navigation failure | manual-service | bounded visible error and retry; no silent host expansion |
 | MUS-07 | Artwork oversized / malformed | automated | bounded validation prevents unbounded decode |
 | MUS-08 | Regional Recommended subset / All Services full catalog | automated | Recommended is a pure function of system region (+ deterministic app-language fallback for an unresolved region) and is deliberately a small subset, not a reordering of the full catalog; All Services always returns every supported source regardless of region; no network call |
+| MUS-09 | Web player content process terminates, then the user retries | mixed | when WebKit's content process dies — a crash or the system reclaiming it under memory pressure — the panel clears the last track instead of leaving it on screen with transport buttons that do nothing; the failure is a fixed, page-free message; **no automatic reload** is attempted, so a repeatedly crashing page cannot become a retry storm. The next explicit Open/Retry must actually recover: it performs exactly one navigation rather than asking the dead page for a snapshot, and switching to another service after a crash loads that service normally instead of reviving the old one. Handler and decision are deterministic-tested; what needs a real Mac is that WebKit delivers the callback and that the recovery navigation genuinely brings the provider back |
 
 ## Appearance and accessibility
 

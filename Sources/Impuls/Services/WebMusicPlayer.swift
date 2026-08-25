@@ -177,10 +177,42 @@ protocol WebMusicPlaying: AnyObject {
     func teardown()
 }
 
+/// What `show(source:)` should do with the web view it already has.
+///
+/// Extracted because the choice is the interesting part and the alternative —
+/// asserting on a real `WKWebView` — cannot be made without loading a provider
+/// page over the network. `show(source:)` calls exactly this, so a test of it
+/// is a test of the production decision rather than a second algorithm written
+/// to agree with it.
+///
+/// Deliberately **not** actor-isolated: it is a pure value describing a
+/// decision, with no state and nothing to protect. Isolating it would say
+/// something untrue about it — and, when this enum was first added, an
+/// `@MainActor` written here is exactly what silently took that isolation away
+/// from the class below.
+enum WebPlayerShowAction: Equatable {
+    /// The page is healthy and already showing this provider: ask it to speak.
+    case snapshot
+    /// Navigate to the provider's home page.
+    case load
+    /// One explicit reload of a page whose content process died. Allowed only
+    /// because the user asked for it by opening or retrying.
+    case recoveryReload
+}
+
 /// Owns a user-opened web player. Merely creating `MediaController` or choosing
 /// a source never constructs a WKWebView and therefore never starts networking.
 /// The first request is made only by `show(source:)`, which is wired to the
 /// explicit "Open web player" button in the Music pane.
+///
+/// `@MainActor` belongs on the **class**, not merely on `WebMusicPlaying`.
+/// Conforming to a main-actor protocol isolates the protocol's own
+/// requirements; it says nothing about the concrete state this object owns —
+/// the `WKWebView`, the window controller, the popup table, `currentState`,
+/// `source`, `requestedArtworkKey`, `playbackIntent`, `needsRecoveryLoad`, the
+/// navigation callbacks, JS evaluation and teardown. All of that is AppKit and
+/// WebKit state that must stay on the main actor, so the isolation is declared
+/// where the state lives.
 @MainActor
 final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMusicPlaying {
     var onState: ((MusicSource, WebMusicState?) -> Void)?
@@ -204,6 +236,11 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
     /// Identifies the most recent play/pause press, so a stale follow-up check
     /// cannot act on an intent the user has already replaced.
     private var playbackIntent = 0
+    /// Set when the content process died: the view still holds a provider URL,
+    /// but the document behind it — and the injected bridge with it — is gone.
+    /// Without this the next `show(source:)` would see a same-source,
+    /// still-allowlisted URL, ask a dead page for a snapshot, and wait forever.
+    private var needsRecoveryLoad = false
 
     func show(source: MusicSource) {
         guard let homeURL = source.webHomeURL else { return }
@@ -220,13 +257,67 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
         windowController.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
-        if !sourceChanged, webView.isLoading { return }
-        if sourceChanged || webView.url.map({ !source.allowsStateReport(from: $0) }) != false {
+        // A load already in flight is left to finish — unless the page behind
+        // it is the dead one, which finishes nothing.
+        if !sourceChanged, !needsRecoveryLoad, webView.isLoading { return }
+
+        let action = Self.showAction(
+            sourceChanged: sourceChanged,
+            currentURL: webView.url,
+            source: source,
+            needsRecovery: needsRecoveryLoad
+        )
+        // Cleared before navigating, not after: whichever branch runs, this
+        // page has now had its one explicit recovery. A second crash raises the
+        // flag again and gives the user another Retry — which is a cycle only
+        // if the user keeps choosing it.
+        needsRecoveryLoad = false
+
+        switch action {
+        case .snapshot:
+            requestSnapshot()
+        case .load:
             onLoading?(source, true)
             webView.load(URLRequest(url: homeURL))
-        } else {
-            requestSnapshot()
+        case .recoveryReload:
+            onLoading?(source, true)
+            webView.reload()
         }
+    }
+
+    /// Test seam: whether a recovery navigation is still owed. Read-only, so a
+    /// test can observe the flag's lifecycle without being able to forge it.
+    var needsRecoveryLoadForTesting: Bool { needsRecoveryLoad }
+
+    /// The rule `show(source:)` follows, in one testable place.
+    ///
+    /// A source change always loads: the recovery flag belongs to the dead
+    /// page, not to whatever the user asks for next, so switching services
+    /// after a crash is an ordinary load of the new one.
+    static func showAction(
+        sourceChanged: Bool,
+        currentURL: URL?,
+        source: MusicSource,
+        needsRecovery: Bool
+    ) -> WebPlayerShowAction {
+        if sourceChanged { return .load }
+        let showsThisProvider = currentURL.map { source.allowsStateReport(from: $0) } == true
+        if needsRecovery { return showsThisProvider ? .recoveryReload : .load }
+        return showsThisProvider ? .snapshot : .load
+    }
+
+    /// Test seam: reaches the state a running session has — a web view and a
+    /// selected source — **without loading a page**, so the lifecycle tests
+    /// never touch the network or a provider's servers.
+    ///
+    /// Production gets here through `show(source:)`, which does the same and
+    /// then loads. Kept internal for the same reason `hasWebView` and
+    /// `bridgeScript` are: the alternative is a test that proves nothing about
+    /// the real object.
+    @discardableResult
+    func prepareWithoutLoading(source: MusicSource) -> WKWebView {
+        self.source = source
+        return webView ?? makeWebView()
     }
 
     func command(_ command: WebMusicCommand) {
@@ -355,6 +446,7 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
         requestedArtworkKey = nil
         source = nil
         isPresentingFailure = false
+        needsRecoveryLoad = false
         playbackIntent += 1
     }
 
@@ -445,6 +537,8 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
             NSLog("Impuls: web music inspector enabled")
         }
         NSLog("Impuls: web music user agent \(Self.safariUserAgentToken)")
+        // A new view has no dead page behind it.
+        needsRecoveryLoad = false
         self.webView = webView
         return webView
     }
@@ -633,6 +727,54 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
         withError error: Error
     ) {
         navigationFailed(error, in: webView)
+    }
+
+    /// The web content process died — a crash, or the system reclaiming it
+    /// under memory pressure. Routine with a heavy single-page app.
+    ///
+    /// Nothing else reports this. Without it the view goes blank while the last
+    /// adopted track stays on screen, with transport buttons that silently do
+    /// nothing: the JS pump died with the process, so no later push corrects
+    /// the picture and only an explicit reload recovers. Clearing here is what
+    /// turns a dead player into an honest one.
+    ///
+    /// Deliberately **no automatic reload**. A page that crashes once tends to
+    /// crash again, and reloading from the callback that reports the crash is
+    /// how a retry storm is built. The user's next explicit Open or Reload
+    /// rebuilds it through the ordinary path — `show(source:)` still finds a
+    /// usable web view, and WebKit spawns a fresh process for it.
+    ///
+    /// No timer, no task, no network: this method only reports.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        // Identity, not just presence. After `teardown()` the view this object
+        // owns is `nil`, and a popup's process dying is not the player's
+        // business — in neither case may a late callback clear live state.
+        guard let current = self.webView, current === webView, !isPopup(webView) else { return }
+        guard let source else { return }
+
+        NSLog("Impuls: web music content process terminated")
+        currentState = nil
+        requestedArtworkKey = nil
+        // The view keeps its URL, so the next `show(source:)` would otherwise
+        // mistake this for a healthy page. Raising the flag is all that happens
+        // here — nothing is loaded from the callback that reports the crash.
+        needsRecoveryLoad = true
+        // Any press in flight belonged to a page that no longer exists.
+        playbackIntent += 1
+
+        onLoading?(source, false)
+        // Clearing the state is what resets the transport capabilities: they
+        // travel with it through the same pipeline rather than being cleared
+        // by a second, separate path that could disagree with it.
+        onState?(source, nil)
+        onFailure?(source, Self.processTerminatedMessage)
+    }
+
+    /// Fixed and localized, carrying nothing from the page. The failure channel
+    /// is user-visible, and a crash tells us nothing about the site worth
+    /// repeating into it.
+    static var processTerminatedMessage: String {
+        localized("The web player stopped unexpectedly. Reload to continue.")
     }
 
     private func navigationFailed(_ error: Error, in webView: WKWebView) {

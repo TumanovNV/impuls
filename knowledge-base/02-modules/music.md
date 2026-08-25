@@ -2,13 +2,44 @@
 title: Music Module
 type: module
 status: production
-documentation_version: 1.3
+documentation_version: 1.5
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, module, music, webkit, automation]
 ---
 
 # Music
+
+## Web content process termination (1.4.16, IMP-12 / #112)
+
+WebKit's content process может умереть — краш или system reclaim под memory pressure, что для тяжёлого SPA обычное дело. Раньше это никем не обрабатывалось: view становился пустым, а последний adopted track оставался на экране вместе с transport-кнопками, которые молча ничего не делали. JS-pump умирал вместе с процессом, поэтому ничего само не исправлялось — помогал только явный reload.
+
+`WebMusicPlayer.webViewWebContentProcessDidTerminate(_:)` теперь очищает состояние и сообщает об отказе:
+
+- guard по **идентичности** web view (`current === webView`) плюс `isPopup` — поздний callback от view, которым player уже не владеет (после `teardown()`), или от popup, не может очистить живое состояние;
+- `onState(source, nil)` — capabilities сбрасываются через тот же state pipeline, а не вторым независимым путём, который мог бы с ним разойтись;
+- `onFailure(source, …)` — фиксированное локализованное сообщение, ничего со страницы;
+- `playbackIntent += 1` — press, который был в полёте, принадлежал странице, которой больше нет.
+
+**Automatic reload намеренно отсутствует.** Страница, упавшая один раз, склонна упасть снова, и перезагрузка из того же callback'а, который сообщает о падении, — это и есть retry storm. Восстановление идёт обычным путём: следующий явный Open/Reload пользователя, `show(source:)` находит пригодный web view, WebKit поднимает новый процесс. Никаких новых таймеров, задач или сетевых путей.
+
+Источник в отчёте передаётся как обычно, поэтому существующий guard `selectedSource == source` в `MediaController` решает, вправе ли уже переключённый сервис что-то менять. Обе половины защищают пользователя только вместе, и обе покрыты тестами.
+
+**Recovery.** Отказ от automatic reload имеет смысл только если следующий явный Open/Retry действительно восстанавливает плеер. После termination web view сохраняет прежний provider URL, поэтому обычная логика `show(source:)` увидела бы «тот же source, URL всё ещё allowlisted» и запросила бы snapshot у страницы, которой больше нет — пользователь остался бы в failed state даже после Retry.
+
+Поэтому termination поднимает `needsRecoveryLoad`, а `show(source:)` принимает решение через `WebMusicPlayer.showAction(...)`:
+
+| Ситуация | Действие |
+| --- | --- |
+| source изменился | `load` (recovery-флаг к новому сервису не относится) |
+| recovery нужен, текущий URL — provider | `recoveryReload` — ровно одна явная навигация |
+| recovery нужен, URL не provider (например локальная страница ошибки) | `load` домашней страницы |
+| обычный случай, страница жива | `snapshot` |
+
+Флаг снимается **до** навигации, поэтому recovery происходит один раз; повторный краш поднимает его снова и снова даёт пользователю Retry — это цикл ровно настолько, насколько его выбирает пользователь. Сбрасывается также при teardown и при создании нового web view. Ни таймера, ни отложенной перезагрузки, ни фоновой сетевой активности не добавлено: навигация выполняется только внутри явного пользовательского `show(source:)`.
+
+**Actor ownership.** `WebMusicPlayer` изолирован `@MainActor` на уровне класса. Протокол `WebMusicPlaying` тоже `@MainActor`, но изоляция протокола покрывает только его requirements — не конкретное состояние объекта: `WKWebView`, window controller, таблицу popup'ов, `currentState`, `source`, `requestedArtworkKey`, `playbackIntent`, `needsRecoveryLoad`, navigation callbacks, JS evaluation и teardown. Это AppKit/WebKit state, и он обязан оставаться на main actor. `WebPlayerShowAction` рядом — чистое значение и намеренно **не** изолирован. Подробности и причина, по которой это нельзя проверить машинно, — в [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md).
+
 
 ## Назначение
 

@@ -2,9 +2,9 @@
 title: Networking Architecture
 type: architecture
 status: active
-documentation_version: 1.4
+documentation_version: 1.7
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, networking, security]
 ---
 
@@ -49,6 +49,12 @@ WebKit создаётся только после явного `Open Web Player`
 Единственный `WKWebView` теперь имеет путь остановки. `WebMusicPlayer.teardown()` вызывается из `MediaController.stop()`: он останавливает внедрённый мост (`setInterval` 1 с и `MutationObserver`), снимает обработчик сообщений `impulsMusic` и user scripts, освобождает view. Раньше эта работа продолжалась со свёрнутой панелью и переживала `NotchController.teardown()` до выхода процесса.
 
 `teardown()` идемпотентен и **не создаёт** view и не грузит URL, поэтому путь завершения не нарушает инвариант «запуск Impuls не конструирует `WKWebView`». Объект остаётся пригодным к повторному использованию: следующее явное действие пользователя пересобирает плеер.
+
+С 1.4.16 (#112) добавлен `webViewWebContentProcessDidTerminate(_:)` — обработка смерти content process WebKit. **Новой network boundary это не создаёт и network-контракт не меняет:** метод только очищает состояние и сообщает об отказе. Он сознательно **не выполняет reload и не грузит URL** — страница, упавшая один раз, склонна упасть снова, и перезагрузка из того же callback'а была бы retry storm с исходящими запросами. Инвариант «запуск Impuls не конструирует `WKWebView`» и «запрос делает только явное действие пользователя» сохраняются: восстановление идёт через следующий явный Open/Reload. Новых таймеров, задач и запросов не добавлено.
+
+Восстановление после такого краха выполняется **внутри явного `show(source:)`** и представляет собой ровно одну навигацию: `webView.reload()`, если текущий URL всё ещё принадлежит выбранному provider'у, иначе `load(homeURL)`. Это не новый network owner и не новый endpoint — тот же `WebMusicPlayer`, тот же provider allow-list, тот же принцип «запрос делает только явное действие пользователя»: навигация происходит потому, что пользователь нажал Open/Retry. Флаг recovery снимается до навигации, поэтому одна страница получает ровно одну попытку; повторный краш снова требует явного действия пользователя, а не автоматического повтора. Таймеров, отложенных перезагрузок и фоновых запросов по-прежнему нет.
+
+`WebMusicPlayer` — main-actor-isolated на уровне **класса**, а не только через протокол `WebMusicPlaying`: этим owner'ом владеют `WKWebView`, window controller и весь navigation/teardown lifecycle. Изоляция один раз была потеряна молча (атрибут случайно оказался на соседнем enum) — на network boundary это не влияет, но именно этот объект является единственной точкой, где создаётся исходящий запрос web-плеера, поэтому его ownership зафиксирован в [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md). Границы, allow-list и правило «запрос только по явному действию пользователя» при этом не менялись.
 
 ## CI enforcement
 

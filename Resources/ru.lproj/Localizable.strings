@@ -664,3 +664,6 @@
 "Mouse" = "Мышь";
 "Trackpad" = "Трекпад";
 "Bluetooth Accessory" = "Bluetooth-аксессуар";
+
+/* Web player process termination 1.4.16 */
+"The web player stopped unexpectedly. Reload to continue." = "Веб-плеер неожиданно остановился. Перезагрузите, чтобы продолжить.";
