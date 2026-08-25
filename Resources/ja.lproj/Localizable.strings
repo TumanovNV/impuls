@@ -657,3 +657,10 @@
 
 /* Backup import file-type validation 1.4.16 */
 "The selected item is not a regular file." = "選択された項目は通常のファイルではありません。";
+
+/* Generic Bluetooth accessory kinds 1.4.16 */
+"Headphones" = "ヘッドフォン";
+"Keyboard" = "キーボード";
+"Mouse" = "マウス";
+"Trackpad" = "トラックパッド";
+"Bluetooth Accessory" = "Bluetoothアクセサリ";

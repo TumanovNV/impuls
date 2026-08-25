@@ -658,3 +658,10 @@
 
 /* Backup import file-type validation 1.4.16 */
 "The selected item is not a regular file." = "Das ausgewählte Objekt ist keine reguläre Datei.";
+
+/* Generic Bluetooth accessory kinds 1.4.16 */
+"Headphones" = "Kopfhörer";
+"Keyboard" = "Tastatur";
+"Mouse" = "Maus";
+"Trackpad" = "Trackpad";
+"Bluetooth Accessory" = "Bluetooth-Zubehör";

@@ -23,6 +23,11 @@ enum AppleDevicePresentation {
         case .airTag: return "airtag.fill"
         case .siriRemote: return "appletvremote.gen1.fill"
         case .unknown: return "battery.50percent"
+        case .headphones: return "headphones"
+        case .keyboard: return "keyboard"
+        case .mouse: return "computermouse"
+        case .trackpad: return "rectangle.and.hand.point.up.left"
+        case .accessory: return "battery.50percent"
         }
     }
 
@@ -43,6 +48,13 @@ enum AppleDevicePresentation {
         case .airTag: return localized("AirTag")
         case .siriRemote: return localized("Siri Remote")
         case .unknown: return localized("Apple Device")
+        // Vendor-neutral wording on purpose: these describe hardware Impuls
+        // has no brand evidence for, and inventing one would be a guess.
+        case .headphones: return localized("Headphones")
+        case .keyboard: return localized("Keyboard")
+        case .mouse: return localized("Mouse")
+        case .trackpad: return localized("Trackpad")
+        case .accessory: return localized("Bluetooth Accessory")
         }
     }
 

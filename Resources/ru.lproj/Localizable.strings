@@ -657,3 +657,10 @@
 
 /* Backup import file-type validation 1.4.16 */
 "The selected item is not a regular file." = "Выбранный объект не является обычным файлом.";
+
+/* Generic Bluetooth accessory kinds 1.4.16 */
+"Headphones" = "Наушники";
+"Keyboard" = "Клавиатура";
+"Mouse" = "Мышь";
+"Trackpad" = "Трекпад";
+"Bluetooth Accessory" = "Bluetooth-аксессуар";
