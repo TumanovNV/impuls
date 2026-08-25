@@ -2,15 +2,15 @@
 title: Machine-Readable Project Manifest
 type: reference
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, ai, manifest, routing, automation]
 ---
 
 # Machine-Readable Project Manifest
 
-Root [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json) is the fastest machine-readable routing map for Claude, Codex and other coding agents.
+Root [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json) is the machine-readable routing map behind `Scripts/agent-context.py`. The router reads it; agents read the router's answer. It is an input to routing, not a document in the cold-start path — open it directly only when the topology it describes is what changes.
 
 It is deliberately **routing-only**. The manifest tells an agent where to look; it does not copy implementation facts that already have a canonical owner.
 
@@ -26,7 +26,8 @@ It is deliberately **routing-only**. The manifest tells an agent where to look; 
 - release/workflow routes;
 - website architecture, website legal/privacy, locale-registry and collector routes;
 - the public/private operations boundary;
-- the commands/paths that validate the engineering knowledge system.
+- the commands/paths that validate the engineering knowledge system;
+- `agent_routing`: the documentation route behind `Scripts/agent-context.py` — domains keyed by the rule ids in `Scripts/qa-impact-rules.json`, and `document_routes` for paths whose documentation owner is not the rule that verifies them, or that have no rule at all. It carries no test globs and no QA IDs; where the manifest already knows a path or a document, an entry references it with `globs_ref`/`read_first_ref` rather than copying it.
 
 The localization/legal additions are deliberate cold-start routes. They do **not** copy the current language list into the manifest. The actual app locale set belongs to resources/bundle/AppLanguageService; the public website locale/path set belongs to `Scripts/site-locales/registry.json`; legal copy belongs to the legal locale configs.
 

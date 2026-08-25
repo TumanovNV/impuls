@@ -2,9 +2,9 @@
 title: Repository Map
 type: ai-map
 status: active
-documentation_version: 1.1
+documentation_version: 1.2
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, repository, map, ai]
 ---
 
@@ -129,4 +129,4 @@ knowledge-base/13-qa/release-evidence/ version-specific manual/mixed evidence
 
 ## Как пользоваться картой
 
-Не рассматривайте этот файл как замену code search. Он нужен, чтобы сузить область поиска и не начинать каждую задачу с полного обхода repository. Cold-start route: `AGENTS.md` → `PROJECT-MANIFEST.json` → `AI-INDEX.md` → canonical owner → source/tests/CI. При добавлении новой крупной подсистемы или durable repository route карта должна обновляться в том же PR.
+Не рассматривайте этот файл как замену code search. Он нужен, чтобы сузить область поиска и не начинать каждую задачу с полного обхода repository. Cold-start route: `AGENTS.md` → `python3 Scripts/agent-context.py <changed-path>` → возвращённый canonical owner → source/tests/CI. `PROJECT-MANIFEST.json` читает сам router, а `AI-INDEX.md` остаётся fallback'ом для `UNROUTED` и broad exploration — ни тот, ни другой не являются обязательным шагом. При добавлении новой крупной подсистемы или durable repository route карта должна обновляться в том же PR.

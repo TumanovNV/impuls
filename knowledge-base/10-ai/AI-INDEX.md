@@ -4,15 +4,28 @@ type: ai-index
 status: active
 documentation_version: 1.4
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, ai, agents, index, qa]
 ---
 
 # IMPULS AI Documentation Index
 
-## Обязательный старт
+## Когда читать этот файл
 
-Перед изменением проекта: `AGENTS.md` → root `PROJECT-MANIFEST.json` → этот индекс → relevant subsystem/reference docs → code/tests/CI. Manifest — routing-only; старые handoff/release docs используются как history, не как current source of truth. Точная текущая версия принадлежит `Scripts/version`, а не копии номера в агентском entrypoint.
+Проект имеет **один** workflow, и он не начинается здесь:
+
+```text
+AGENTS.md
+  → python3 Scripts/agent-context.py <changed-path>
+  → возвращённый canonical owner
+  → implementation + tests
+```
+
+`AI-INDEX.md` — **fallback**, а не шаг cold start. Приходить сюда следует в трёх случаях: router напечатал `UNROUTED`; задача пока не отображается на путь; идёт broad architecture exploration или явный audit. В первом случае недостаточно прочитать индекс — нужно добавить недостающий route, иначе следующий агент заплатит ту же цену.
+
+Root `PROJECT-MANIFEST.json` — **machine input**. Его читает сам router; загружать его в контекст модели нужно только тогда, когда меняется сама topology. Прежняя формулировка требовала обязательного предварительного чтения манифеста и этого индекса перед любой задачей; она измеренно стоила ~101 KB до первого открытого Swift-файла и больше не действует.
+
+Остальное без изменений: старые handoff/release docs — history, а не current source of truth, и точная текущая версия принадлежит `Scripts/version`, а не копии номера в агентском entrypoint. Полный context budget contract — [Agent rules](agent-rules.md).
 
 ## Core map
 

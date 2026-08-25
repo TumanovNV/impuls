@@ -26,7 +26,9 @@ Behavioral verification that depends on real platform/hardware state lives under
 
 ## Machine-readable cold start
 
-Agents that do not yet know the repository should inspect [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json) first. It is routing-only and CI-validated against the actual shipped feature catalog, stable ownership routes and repository paths. It must not be treated as a replacement for the canonical documents it points to.
+Cold start is `python3 Scripts/agent-context.py <changed-path>`, and it does not begin by reading a file. The router loads [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json) and `Scripts/qa-impact-rules.json` itself and prints only the route, so neither belongs in an agent's context merely to find an owner.
+
+The manifest stays routing-only and CI-validated against the actual shipped feature catalog, stable ownership routes and repository paths, and it must not be treated as a replacement for the canonical documents it points to. Read it directly only when the topology itself is what changes.
 
 The manifest now exposes direct routes for the localization canonical doc, website legal/privacy canonical doc and public website locale registry without copying the mutable locale list itself. `Scripts/check-current-documentation.py` resolves those routes against the live app/website/legal owners so a cold-start agent cannot silently inherit an old RU/EN or old-policy model.
 

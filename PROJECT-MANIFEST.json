@@ -2,43 +2,724 @@
   "schema_version": 1,
   "manifest_role": "routing-only",
   "source_of_truth_rule": "Use this file to locate canonical owners. Implementation details, limits, persisted keys, endpoints and runtime state remain owned by code, tests and the linked canonical documentation.",
-  "product": {"name":"Impuls","platform":"macOS","minimum_os_major":15,"version_source":"Scripts/version","package_manifest":"Package.swift","feature_catalog":"Sources/Impuls/Services/AppFeatureCatalog.swift","localization_doc":"knowledge-base/04-development/localization.md"},
-  "knowledge_entrypoints": {"human_index":"knowledge-base/INDEX.md","ai_index":"knowledge-base/10-ai/AI-INDEX.md","project_status":"knowledge-base/00-project/project-status.md","pre_audit_baseline":"knowledge-base/00-project/pre-audit-baseline-1.4.12.md","invariants":"knowledge-base/10-ai/invariants.md","reference_index":"knowledge-base/12-reference/README.md","qa_index":"knowledge-base/13-qa/README.md","operations_boundary":"knowledge-base/12-reference/operations-boundary.md"},
+  "product": {
+    "name": "Impuls",
+    "platform": "macOS",
+    "minimum_os_major": 15,
+    "version_source": "Scripts/version",
+    "package_manifest": "Package.swift",
+    "feature_catalog": "Sources/Impuls/Services/AppFeatureCatalog.swift",
+    "localization_doc": "knowledge-base/04-development/localization.md"
+  },
+  "knowledge_entrypoints": {
+    "human_index": "knowledge-base/INDEX.md",
+    "ai_index": "knowledge-base/10-ai/AI-INDEX.md",
+    "project_status": "knowledge-base/00-project/project-status.md",
+    "pre_audit_baseline": "knowledge-base/00-project/pre-audit-baseline-1.4.12.md",
+    "invariants": "knowledge-base/10-ai/invariants.md",
+    "reference_index": "knowledge-base/12-reference/README.md",
+    "qa_index": "knowledge-base/13-qa/README.md",
+    "operations_boundary": "knowledge-base/12-reference/operations-boundary.md"
+  },
   "modules": [
-    {"id":"actions","name":"Actions","canonical_doc":"knowledge-base/02-modules/actions.md","core_sources":["Sources/Impuls/Services/ImpulsActionsStore.swift","Sources/Impuls/Services/FileToolsService.swift"]},
-    {"id":"media","name":"Music","canonical_doc":"knowledge-base/02-modules/music.md","core_sources":["Sources/Impuls/Services/MediaController.swift","Sources/Impuls/Services/PlayerBridge.swift","Sources/Impuls/Services/WebMusicPlayer.swift","Sources/Impuls/Services/MusicSource.swift","Sources/Impuls/Services/MusicProviderCatalog.swift"]},
-    {"id":"shelf","name":"Shelf","canonical_doc":"knowledge-base/02-modules/shelf.md","core_sources":["Sources/Impuls/Services/ShelfStore.swift"]},
-    {"id":"clipboard","name":"Clipboard","canonical_doc":"knowledge-base/02-modules/clipboard.md","core_sources":["Sources/Impuls/Services/ClipboardStore.swift","Sources/Impuls/Services/ClipboardHistoryPersistence.swift"]},
-    {"id":"snippets","name":"Snippets","canonical_doc":"knowledge-base/02-modules/snippets.md","core_sources":["Sources/Impuls/Services/SnippetStore.swift"]},
-    {"id":"calendar","name":"Calendar","canonical_doc":"knowledge-base/02-modules/calendar.md","core_sources":["Sources/Impuls/Services/CalendarStore.swift"]},
-    {"id":"translate","name":"Translate","canonical_doc":"knowledge-base/02-modules/translate.md","core_sources":["Sources/Impuls/Services/Translator.swift","Sources/Impuls/UI/TranslatePane.swift"]},
-    {"id":"notes","name":"Notes","canonical_doc":"knowledge-base/02-modules/notes.md","core_sources":["Sources/Impuls/Services/NoteStore.swift"]},
-    {"id":"power","name":"Power","canonical_doc":"knowledge-base/02-modules/power.md","core_sources":["Sources/Impuls/Services/DevicePowerCenter.swift","Sources/Impuls/Services/PowerMonitor.swift","Sources/Impuls/Services/DeviceRefreshScheduler.swift"]}
+    {
+      "id": "actions",
+      "name": "Actions",
+      "canonical_doc": "knowledge-base/02-modules/actions.md",
+      "core_sources": [
+        "Sources/Impuls/Services/ImpulsActionsStore.swift",
+        "Sources/Impuls/Services/FileToolsService.swift"
+      ]
+    },
+    {
+      "id": "media",
+      "name": "Music",
+      "canonical_doc": "knowledge-base/02-modules/music.md",
+      "core_sources": [
+        "Sources/Impuls/Services/MediaController.swift",
+        "Sources/Impuls/Services/PlayerBridge.swift",
+        "Sources/Impuls/Services/WebMusicPlayer.swift",
+        "Sources/Impuls/Services/MusicSource.swift",
+        "Sources/Impuls/Services/MusicProviderCatalog.swift"
+      ]
+    },
+    {
+      "id": "shelf",
+      "name": "Shelf",
+      "canonical_doc": "knowledge-base/02-modules/shelf.md",
+      "core_sources": [
+        "Sources/Impuls/Services/ShelfStore.swift"
+      ]
+    },
+    {
+      "id": "clipboard",
+      "name": "Clipboard",
+      "canonical_doc": "knowledge-base/02-modules/clipboard.md",
+      "core_sources": [
+        "Sources/Impuls/Services/ClipboardStore.swift",
+        "Sources/Impuls/Services/ClipboardHistoryPersistence.swift"
+      ]
+    },
+    {
+      "id": "snippets",
+      "name": "Snippets",
+      "canonical_doc": "knowledge-base/02-modules/snippets.md",
+      "core_sources": [
+        "Sources/Impuls/Services/SnippetStore.swift"
+      ]
+    },
+    {
+      "id": "calendar",
+      "name": "Calendar",
+      "canonical_doc": "knowledge-base/02-modules/calendar.md",
+      "core_sources": [
+        "Sources/Impuls/Services/CalendarStore.swift"
+      ]
+    },
+    {
+      "id": "translate",
+      "name": "Translate",
+      "canonical_doc": "knowledge-base/02-modules/translate.md",
+      "core_sources": [
+        "Sources/Impuls/Services/Translator.swift",
+        "Sources/Impuls/UI/TranslatePane.swift"
+      ]
+    },
+    {
+      "id": "notes",
+      "name": "Notes",
+      "canonical_doc": "knowledge-base/02-modules/notes.md",
+      "core_sources": [
+        "Sources/Impuls/Services/NoteStore.swift"
+      ]
+    },
+    {
+      "id": "power",
+      "name": "Power",
+      "canonical_doc": "knowledge-base/02-modules/power.md",
+      "core_sources": [
+        "Sources/Impuls/Services/DevicePowerCenter.swift",
+        "Sources/Impuls/Services/PowerMonitor.swift",
+        "Sources/Impuls/Services/DeviceRefreshScheduler.swift"
+      ]
+    }
   ],
   "presentation_surfaces": [
-    {"id":"panel","canonical_docs":["knowledge-base/01-architecture/state-and-ownership.md","knowledge-base/01-architecture/multi-display.md"],"core_sources":["Sources/Impuls/App/AppDelegate.swift","Sources/Impuls/Notch/NotchController.swift","Sources/Impuls/Notch/DisplayCoordinator.swift"]},
-    {"id":"menu_bar","canonical_docs":["knowledge-base/02-modules/menu-bar.md"],"core_sources":["Sources/Impuls/App/MenuBarWorkspaceController.swift","Sources/Impuls/App/MenuBarStatusItemPresentation.swift","Sources/Impuls/Services/AppFeatureCatalog.swift"]}
+    {
+      "id": "panel",
+      "canonical_docs": [
+        "knowledge-base/01-architecture/state-and-ownership.md",
+        "knowledge-base/01-architecture/multi-display.md"
+      ],
+      "core_sources": [
+        "Sources/Impuls/App/AppDelegate.swift",
+        "Sources/Impuls/Notch/NotchController.swift",
+        "Sources/Impuls/Notch/DisplayCoordinator.swift"
+      ]
+    },
+    {
+      "id": "menu_bar",
+      "canonical_docs": [
+        "knowledge-base/02-modules/menu-bar.md"
+      ],
+      "core_sources": [
+        "Sources/Impuls/App/MenuBarWorkspaceController.swift",
+        "Sources/Impuls/App/MenuBarStatusItemPresentation.swift",
+        "Sources/Impuls/Services/AppFeatureCatalog.swift"
+      ]
+    }
   ],
   "network_owners": [
-    {"id":"updates","source":"Sources/Impuls/Services/UpdateService.swift","canonical_doc":"knowledge-base/05-release/update-system.md"},
-    {"id":"web_music","source":"Sources/Impuls/Services/WebMusicPlayer.swift","canonical_doc":"knowledge-base/01-architecture/networking.md"},
-    {"id":"version_telemetry","source":"Sources/Impuls/Services/VersionTelemetryService.swift","canonical_doc":"knowledge-base/07-web/version-statistics-collector.md"}
+    {
+      "id": "updates",
+      "source": "Sources/Impuls/Services/UpdateService.swift",
+      "canonical_doc": "knowledge-base/05-release/update-system.md"
+    },
+    {
+      "id": "web_music",
+      "source": "Sources/Impuls/Services/WebMusicPlayer.swift",
+      "canonical_doc": "knowledge-base/01-architecture/networking.md"
+    },
+    {
+      "id": "version_telemetry",
+      "source": "Sources/Impuls/Services/VersionTelemetryService.swift",
+      "canonical_doc": "knowledge-base/07-web/version-statistics-collector.md"
+    }
   ],
   "permission_domains": [
-    {"id":"calendar","core_sources":["Sources/Impuls/Services/CalendarStore.swift","Sources/Impuls/Settings/PermissionCenter.swift"],"canonical_docs":["knowledge-base/01-architecture/permissions.md","knowledge-base/03-macos/permissions-and-tcc.md"]},
-    {"id":"apple_music_automation","core_sources":["Sources/Impuls/Services/PlayerBridge.swift","Sources/Impuls/Settings/PermissionCenter.swift"],"canonical_docs":["knowledge-base/01-architecture/permissions.md","knowledge-base/03-macos/permissions-and-tcc.md"]},
-    {"id":"notifications","core_sources":["Sources/Impuls/Services/LowBatteryAlertEngine.swift","Sources/Impuls/Settings/PermissionCenter.swift"],"canonical_docs":["knowledge-base/01-architecture/permissions.md","knowledge-base/03-macos/permissions-and-tcc.md"]}
+    {
+      "id": "calendar",
+      "core_sources": [
+        "Sources/Impuls/Services/CalendarStore.swift",
+        "Sources/Impuls/Settings/PermissionCenter.swift"
+      ],
+      "canonical_docs": [
+        "knowledge-base/01-architecture/permissions.md",
+        "knowledge-base/03-macos/permissions-and-tcc.md"
+      ]
+    },
+    {
+      "id": "apple_music_automation",
+      "core_sources": [
+        "Sources/Impuls/Services/PlayerBridge.swift",
+        "Sources/Impuls/Settings/PermissionCenter.swift"
+      ],
+      "canonical_docs": [
+        "knowledge-base/01-architecture/permissions.md",
+        "knowledge-base/03-macos/permissions-and-tcc.md"
+      ]
+    },
+    {
+      "id": "notifications",
+      "core_sources": [
+        "Sources/Impuls/Services/LowBatteryAlertEngine.swift",
+        "Sources/Impuls/Settings/PermissionCenter.swift"
+      ],
+      "canonical_docs": [
+        "knowledge-base/01-architecture/permissions.md",
+        "knowledge-base/03-macos/permissions-and-tcc.md"
+      ]
+    }
   ],
-  "persistence": {"canonical_docs":["knowledge-base/01-architecture/storage-persistence.md","knowledge-base/12-reference/schema-migration-registry.md"],"core_sources":["Sources/Impuls/Settings/SettingsStore.swift","Sources/Impuls/Services/StorageEnvironment.swift","Sources/Impuls/Services/BackupService.swift"]},
-  "performance": {"canonical_docs":["knowledge-base/12-reference/background-concurrency-registry.md","knowledge-base/12-reference/resource-budget-registry.md"]},
-  "security": {"canonical_docs":["knowledge-base/06-security/security-model.md","knowledge-base/06-security/threat-model.md","knowledge-base/06-security/data-classification.md","knowledge-base/06-security/privacy-boundaries.md","knowledge-base/06-security/supply-chain.md"],"public_privacy_document":"PRIVACY.md"},
-  "dependencies": {"canonical_doc":"knowledge-base/06-security/supply-chain.md","policy":"Scripts/dependency-policy.json","lockfile":"Package.resolved","package_manifest":"Package.swift"},
-  "release": {"canonical_docs":["knowledge-base/05-release/release-process.md","knowledge-base/05-release/release-pipeline.md","knowledge-base/05-release/update-system.md"],"workflows":[".github/workflows/build.yml",".github/workflows/release.yml"]},
-  "history": {"architecture_timeline":"knowledge-base/11-history/architecture-timeline.md","release_architecture_ledger":"knowledge-base/11-history/release-architecture-ledger.md","milestone_source":"Scripts/architecture-milestones.json"},
-  "web_and_collector": {"website_doc":"knowledge-base/07-web/website.md","website_legal_doc":"knowledge-base/07-web/legal-privacy.md","website_root":"docs/index.html","website_locale_registry":"Scripts/site-locales/registry.json","collector_doc":"knowledge-base/07-web/version-statistics-collector.md","collector_root":"Collector/version-statistics"},
-  "operations_boundary": {"public_software_repo":"TumanovNV/impuls","private_operations_repo":"TumanovNV/office-it-docs","private_entrypoint":"Проекты/Impuls.md","rule":"Production host, network, VPN, reverse-proxy, backup, access and live service state belong to the private operational repository and must not be copied into this public manifest."},
+  "persistence": {
+    "canonical_docs": [
+      "knowledge-base/01-architecture/storage-persistence.md",
+      "knowledge-base/12-reference/schema-migration-registry.md"
+    ],
+    "core_sources": [
+      "Sources/Impuls/Settings/SettingsStore.swift",
+      "Sources/Impuls/Services/StorageEnvironment.swift",
+      "Sources/Impuls/Services/BackupService.swift"
+    ]
+  },
+  "performance": {
+    "canonical_docs": [
+      "knowledge-base/12-reference/background-concurrency-registry.md",
+      "knowledge-base/12-reference/resource-budget-registry.md"
+    ]
+  },
+  "security": {
+    "canonical_docs": [
+      "knowledge-base/06-security/security-model.md",
+      "knowledge-base/06-security/threat-model.md",
+      "knowledge-base/06-security/data-classification.md",
+      "knowledge-base/06-security/privacy-boundaries.md",
+      "knowledge-base/06-security/supply-chain.md"
+    ],
+    "public_privacy_document": "PRIVACY.md"
+  },
+  "dependencies": {
+    "canonical_doc": "knowledge-base/06-security/supply-chain.md",
+    "policy": "Scripts/dependency-policy.json",
+    "lockfile": "Package.resolved",
+    "package_manifest": "Package.swift"
+  },
+  "release": {
+    "canonical_docs": [
+      "knowledge-base/05-release/release-process.md",
+      "knowledge-base/05-release/release-pipeline.md",
+      "knowledge-base/05-release/update-system.md"
+    ],
+    "workflows": [
+      ".github/workflows/build.yml",
+      ".github/workflows/release.yml"
+    ]
+  },
+  "history": {
+    "architecture_timeline": "knowledge-base/11-history/architecture-timeline.md",
+    "release_architecture_ledger": "knowledge-base/11-history/release-architecture-ledger.md",
+    "milestone_source": "Scripts/architecture-milestones.json"
+  },
+  "web_and_collector": {
+    "website_doc": "knowledge-base/07-web/website.md",
+    "website_legal_doc": "knowledge-base/07-web/legal-privacy.md",
+    "website_root": "docs/index.html",
+    "website_locale_registry": "Scripts/site-locales/registry.json",
+    "collector_doc": "knowledge-base/07-web/version-statistics-collector.md",
+    "collector_root": "Collector/version-statistics"
+  },
+  "operations_boundary": {
+    "public_software_repo": "TumanovNV/impuls",
+    "private_operations_repo": "TumanovNV/office-it-docs",
+    "private_entrypoint": "Проекты/Impuls.md",
+    "rule": "Production host, network, VPN, reverse-proxy, backup, access and live service state belong to the private operational repository and must not be copied into this public manifest."
+  },
   "validation": {
-    "repository_paths": ["Scripts/check-project-manifest.py","Scripts/check-current-documentation.py","Scripts/check-dependency-policy.py","Scripts/generate-architecture-ledger.py","Scripts/check-knowledge-base.py","Scripts/generate-knowledge-map.py","Scripts/check-documentation-guardian.py","Scripts/check-documentation-freshness.py","Scripts/check-qa-impact.py","Scripts/qa-impact-rules.json","Scripts/check-release-qa-evidence.py","Scripts/release-qa-policy.json","Tests/PythonTests/test_current_documentation.py"],
-    "commands": ["python3 Scripts/check-project-manifest.py","python3 Scripts/check-current-documentation.py","python3 Scripts/check-dependency-policy.py","python3 Scripts/generate-architecture-ledger.py --check","python3 Scripts/check-knowledge-base.py","python3 Scripts/generate-knowledge-map.py --check","python3 Scripts/check-documentation-guardian.py --base <base-sha>","python3 Scripts/check-documentation-freshness.py","python3 Scripts/check-qa-impact.py --base <base-sha>","python3 Scripts/check-release-qa-evidence.py --release-gate"]
+    "repository_paths": [
+      "Scripts/check-agent-context.py",
+      "Scripts/agent-context.py",
+      "Scripts/check-project-manifest.py",
+      "Scripts/check-current-documentation.py",
+      "Scripts/check-dependency-policy.py",
+      "Scripts/generate-architecture-ledger.py",
+      "Scripts/check-knowledge-base.py",
+      "Scripts/generate-knowledge-map.py",
+      "Scripts/check-documentation-guardian.py",
+      "Scripts/check-documentation-freshness.py",
+      "Scripts/check-qa-impact.py",
+      "Scripts/qa-impact-rules.json",
+      "Scripts/check-release-qa-evidence.py",
+      "Scripts/release-qa-policy.json",
+      "Tests/PythonTests/test_current_documentation.py",
+      "Tests/PythonTests/test_agent_context.py"
+    ],
+    "commands": [
+      "python3 Scripts/check-agent-context.py",
+      "python3 Scripts/check-project-manifest.py",
+      "python3 Scripts/check-current-documentation.py",
+      "python3 Scripts/check-dependency-policy.py",
+      "python3 Scripts/generate-architecture-ledger.py --check",
+      "python3 Scripts/check-knowledge-base.py",
+      "python3 Scripts/generate-knowledge-map.py --check",
+      "python3 Scripts/check-documentation-guardian.py --base <base-sha>",
+      "python3 Scripts/check-documentation-freshness.py",
+      "python3 Scripts/check-qa-impact.py --base <base-sha>",
+      "python3 Scripts/check-release-qa-evidence.py --release-gate"
+    ]
+  },
+  "agent_routing": {
+    "schema": 1,
+    "role": "Routing metadata for Scripts/agent-context.py. Three layers, and the split is the point. domains: keyed by rule id in Scripts/qa-impact-rules.json, which stays the sole owner of source/test/QA mapping; route_role says whether a rule also owns documentation (primary) or only verification (overlay). document_routes: the canonical documentation owner for a set of paths, by glob. A path with a document route takes its owner from there, and every QA rule claiming that path drops to verification for it — which is how one file can be tested by three rules without acquiring three canonical documents, and how a non-behavioural path such as a string table or Scripts/version gets an owner without being given a QA rule it should not have. A document route owns no tests and no QA IDs, ever. An entry id is provenance, not domain identity: owners are grouped by the set of read_first documents they name, so a document route and a QA domain pointing at the same canonical document are one domain and do not escalate. Wherever the manifest already knows a path or a document, these entries point at it with globs_ref/read_first_ref rather than copying it. Routes name canonical project documentation only — agent-specific rule files are the agent's own concern, not the generic router's.",
+    "fallback_doc": "knowledge-base/10-ai/AI-INDEX.md",
+    "document_routes": [
+      {
+        "id": "app-localization-tables",
+        "name": "App localization tables",
+        "globs": [
+          "Resources/*.lproj/*.strings",
+          "Resources/*.lproj/*.stringsdict"
+        ],
+        "read_first_ref": "product.localization_doc",
+        "reason": "A string table is where most localization work actually starts, and no QA rule owns one: Scripts/qa-impact-rules.json tracks behavioural Swift sources, and adding Resources/*.lproj there to satisfy the router would invent a behavioural owner that does not exist. This route supplies the canonical document and nothing else — no tests, no QA IDs.",
+        "conditional": [
+          {
+            "doc": "knowledge-base/07-web/website.md",
+            "trigger": "a marketing-website locale or route changed — a separate contract from the app"
+          },
+          {
+            "doc": "knowledge-base/07-web/legal-privacy.md",
+            "trigger": "a privacy/legal locale, route or policy revision changed — a third, separate contract"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "version-source",
+        "name": "Version source",
+        "globs_ref": "product.version_source",
+        "read_first_ref": "release.canonical_docs.0",
+        "reason": "Scripts/version is the single owner of the version and is release-affecting, but it is not behavioural source, so it has no QA rule and must not be given one. Touching it is release work; the release process document is the owner that says so.",
+        "conditional": [
+          {
+            "doc": "knowledge-base/13-qa/release-evidence/README.md",
+            "trigger": "a version bump needs real manual/hardware QA evidence for that version"
+          },
+          {
+            "doc": "knowledge-base/05-release/release-pipeline.md",
+            "trigger": "packaging, signing or the release workflow changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "settings-window",
+        "name": "Settings window",
+        "globs": [
+          "Sources/Impuls/Settings/SettingsWindow.swift"
+        ],
+        "read_first": [
+          "knowledge-base/01-architecture/settings-onboarding-feedback.md"
+        ],
+        "reason": "One window hosts every setting, so three QA rules claim it: appearance, interface language and version statistics. Two of them are primary domains elsewhere and were therefore making an ordinary Settings edit look like a localization-plus-telemetry cross-domain change. All three still verify this file; none of them documents it. The canonical owner of every surface outside the notch panel is the settings/onboarding/feedback document, and the two specific owners are triggers below.",
+        "conditional": [
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "the supported-language set or the language picker itself changed"
+          },
+          {
+            "doc": "knowledge-base/07-web/version-statistics-collector.md",
+            "trigger": "the version-statistics offer, its consent or its payload changed"
+          },
+          {
+            "doc": "knowledge-base/01-architecture/storage-persistence.md",
+            "trigger": "persisted data, its shape or its location changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      }
+    ],
+    "domains": [
+      {
+        "id": "music-and-web",
+        "name": "Music / web player",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/02-modules/music.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/01-architecture/networking.md",
+            "trigger": "an outbound network path, endpoint or host allow-list changed"
+          },
+          {
+            "doc": "knowledge-base/12-reference/background-concurrency-registry.md",
+            "trigger": "a timer, poller, task, queue or actor boundary changed"
+          },
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "a user-facing string or the supported-language set changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "power-devices",
+        "name": "Power / Apple devices",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/02-modules/power.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/06-security/security-model.md",
+            "trigger": "a security or privacy boundary changed"
+          },
+          {
+            "doc": "knowledge-base/12-reference/background-concurrency-registry.md",
+            "trigger": "a timer, poller, task, queue or actor boundary changed"
+          },
+          {
+            "doc": "knowledge-base/12-reference/resource-budget-registry.md",
+            "trigger": "a size, count, cadence, timeout or backpressure limit changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          },
+          {
+            "doc": "knowledge-base/01-architecture/permissions.md",
+            "trigger": "a permission/TCC prompt or authorization path changed"
+          }
+        ]
+      },
+      {
+        "id": "local-data",
+        "name": "Local data & persistence",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/01-architecture/storage-persistence.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/12-reference/schema-migration-registry.md",
+            "trigger": "a persisted format or schema version changed"
+          },
+          {
+            "doc": "knowledge-base/12-reference/resource-budget-registry.md",
+            "trigger": "a size, count, cadence, timeout or backpressure limit changed"
+          },
+          {
+            "doc": "knowledge-base/06-security/security-model.md",
+            "trigger": "a security or privacy boundary changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "file-tools",
+        "name": "Shelf file tools",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/02-modules/shelf.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/12-reference/background-concurrency-registry.md",
+            "trigger": "a timer, poller, task, queue or actor boundary changed"
+          },
+          {
+            "doc": "knowledge-base/12-reference/resource-budget-registry.md",
+            "trigger": "a size, count, cadence, timeout or backpressure limit changed"
+          },
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "a user-facing string or the supported-language set changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "actions",
+        "name": "Actions search",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/02-modules/actions.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/12-reference/resource-budget-registry.md",
+            "trigger": "a size, count, cadence, timeout or backpressure limit changed"
+          },
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "a user-facing string or the supported-language set changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "translation",
+        "name": "Translate",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/02-modules/translate.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/12-reference/background-concurrency-registry.md",
+            "trigger": "a timer, poller, task, queue or actor boundary changed"
+          },
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "a user-facing string or the supported-language set changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "calendar-permissions",
+        "name": "Calendar",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/02-modules/calendar.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/01-architecture/permissions.md",
+            "trigger": "a permission/TCC prompt or authorization path changed"
+          },
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "a user-facing string or the supported-language set changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "display-lifecycle",
+        "name": "Display, notch & panel lifecycle",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/01-architecture/multi-display.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/12-reference/background-concurrency-registry.md",
+            "trigger": "a timer, poller, task, queue or actor boundary changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "app-lifecycle",
+        "name": "App lifecycle",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/01-architecture/state-and-ownership.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/12-reference/background-concurrency-registry.md",
+            "trigger": "a timer, poller, task, queue or actor boundary changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "appearance-accessibility",
+        "name": "Appearance & accessibility",
+        "route_role": "overlay",
+        "overlay_reason": "Sources/Impuls/UI/*.swift is deliberately broad: every pane inherits the panel's appearance and accessibility QA. That makes it the right owner of UI-01..UI-06, and the wrong owner of any pane's canonical document — PowerPane belongs to power.md, not to a general appearance page. No such general page exists, and inventing one by pointing every pane at menu-bar.md was the actual defect. The real owners below are offered as triggers instead, so a menu-bar or Settings change still reaches them and a module pane is not dragged through them.",
+        "conditional": [
+          {
+            "doc": "knowledge-base/02-modules/menu-bar.md",
+            "trigger": "the menu-bar status item, its widgets or its quick actions changed"
+          },
+          {
+            "doc": "knowledge-base/01-architecture/settings-onboarding-feedback.md",
+            "trigger": "a Settings window surface, the first-run tour or What’s New changed"
+          },
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "a user-facing string or the supported-language set changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "interface-language",
+        "name": "Interface language",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/04-development/localization.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/01-architecture/storage-persistence.md",
+            "trigger": "persisted data, its shape or its location changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "release-update",
+        "name": "Release & update",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/05-release/release-process.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/06-security/security-model.md",
+            "trigger": "a security or privacy boundary changed"
+          },
+          {
+            "doc": "knowledge-base/05-release/release-process.md",
+            "trigger": "Scripts/version, packaging or the release workflow changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "tcc-entitlements",
+        "name": "Entitlements & TCC",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/01-architecture/permissions.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/06-security/security-model.md",
+            "trigger": "a security or privacy boundary changed"
+          },
+          {
+            "doc": "knowledge-base/05-release/release-process.md",
+            "trigger": "Scripts/version, packaging or the release workflow changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "version-statistics-diagnostics",
+        "name": "Version statistics",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/07-web/version-statistics-collector.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/01-architecture/networking.md",
+            "trigger": "an outbound network path, endpoint or host allow-list changed"
+          },
+          {
+            "doc": "knowledge-base/06-security/security-model.md",
+            "trigger": "a security or privacy boundary changed"
+          },
+          {
+            "doc": "knowledge-base/01-architecture/storage-persistence.md",
+            "trigger": "persisted data, its shape or its location changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "project-support-prompt",
+        "name": "Project-support prompt",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/01-architecture/settings-onboarding-feedback.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/01-architecture/storage-persistence.md",
+            "trigger": "persisted data, its shape or its location changed"
+          },
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "a user-facing string or the supported-language set changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "feature-catalog",
+        "name": "Feature catalog",
+        "route_role": "primary",
+        "read_first": [
+          "knowledge-base/02-modules/README.md"
+        ],
+        "conditional": [
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "a user-facing string or the supported-language set changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      }
+    ]
   }
 }

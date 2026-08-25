@@ -2,18 +2,53 @@
 title: Agent Workflow
 type: ai-rules
 status: active
-documentation_version: 1.2
+documentation_version: 1.4
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, ai, workflow, agents]
 ---
 
 # Правила работы AI-агентов
 
+## Context budget contract
+
+Canonical owner of how much an agent should read. Measured problem: following the previous root instructions literally cost roughly **101 KB of documentation before a single Swift file was opened**, most of it irrelevant to a local change.
+
+**Route first.** `python3 Scripts/agent-context.py <changed-path>` returns the domain, the canonical document, the owning source and tests, the Behavioral QA IDs and the conditional owners with their triggers. Read that, not the knowledge base.
+
+**Rules**
+
+1. Route before reading; targeted search before opening a file whole.
+2. Never read all of `knowledge-base/`, all of `Sources/` or all of `Tests/` for a local task.
+3. Historical material — `docs/` handoffs, `knowledge-base/11-history/` — is evidence on demand, never current state.
+4. `pre-audit-baseline-1.4.12.md` is for an explicit whole-repository audit only.
+5. `project-status.md` only when the shipped baseline actually matters.
+6. Release documentation only for release work; `Scripts/version` owns the version.
+7. Localization documentation when a user-facing string or the supported-language set is touched.
+8. Persistence and schema owners when persisted data changes.
+9. Security, networking and concurrency owners when that boundary is touched.
+10. Do not re-read a canonical document already in context.
+11. Stop expanding once the owner, the implementation and the tests are known.
+12. `AI-INDEX.md` is a fallback for an unresolved route or broad exploration — not a cold-start step.
+
+**Escape hatch — this is not optional.** The context budget **never** outranks correctness. If investigating the code reveals a boundary the route did not predict — a new outbound call, a new persisted key, a changed actor boundary, a new user-facing string, a release-affecting file — expand to that boundary's owner immediately and say so. Saving context is worth nothing if the change is wrong.
+
+**Cross-domain diffs** escalate to the union of the affected domains and their conditional owners. They do not disable the budget and they are not a reason to read the whole knowledge base.
+
+
 ## Перед изменением
 
+Один workflow, тот же, что и в [`AGENTS.md`](../../AGENTS.md) — второго порядка чтения не существует:
+
+```text
+AGENTS.md
+  → python3 Scripts/agent-context.py <changed-path>
+  → возвращённый canonical owner
+  → implementation + tests
+```
+
 1. Прочитать [`AGENTS.md`](../../AGENTS.md).
-2. Прочитать root [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json), затем [AI Index](AI-INDEX.md) и документы по области задачи.
+2. Запустить router и прочитать то, что он вернул: canonical owner, source, tests, Behavioral QA IDs и conditional owners с их триггерами. Root [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json) — machine input для самого router'а: открывать его как документ нужно только при изменении topology. [AI Index](AI-INDEX.md) — fallback при `UNROUTED`, при broad exploration и при явном audit; в первом случае вместе с чтением индекса добавляется недостающий route.
 3. Проверить текущую версию через `Scripts/version`, если версия имеет значение; не копировать current release из исторического документа.
 4. Найти implementation + tests, а не делать вывод только из README или старого handoff.
 5. Для security-sensitive области сверить `SECURITY.md`, `PRIVACY.md` и CI invariants.
@@ -67,7 +102,7 @@ tags: [impuls, ai, workflow, agents]
 1. не выбирать самый удобный источник;
 2. определить фактическое поведение по code/tests/CI и current repository/release state;
 3. проверить, не является ли расхождение осознанным историческим контекстом;
-4. определить canonical owner факта через manifest/AI Index;
+4. определить canonical owner факта через router, а при `UNROUTED` — через AI Index;
 5. исправить устаревший current-state документ;
 6. если drift возник в high-value entrypoint, добавить/усилить machine-check, чтобы класс ошибки не повторился;
 7. при существенном расхождении зафиксировать причину в PR.
