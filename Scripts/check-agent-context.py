@@ -62,7 +62,9 @@ ALLOWED_MANIFEST_KEYS = {
     "agent_routing",
 }
 
-ALLOWED_ROUTING_KEYS = {"schema", "role", "fallback_doc", "domains"}
+ALLOWED_ROUTING_KEYS = {"schema", "role", "fallback_doc", "document_routes", "domains"}
+ALLOWED_DOC_ROUTE_KEYS = {"id", "name", "globs", "globs_ref", "read_first",
+                          "read_first_ref", "reason", "conditional"}
 ALLOWED_DOMAIN_KEYS = {"id", "name", "route_role", "read_first", "conditional",
                        "overlay_reason"}
 
@@ -186,6 +188,100 @@ def check_manifest_schema(errors: list[str]) -> None:
                 )
 
     check_route_completeness(errors, routing, qa_ids)
+    check_document_routes(errors, manifest, routing, qa_ids)
+
+
+def check_document_routes(errors: list[str], manifest: dict, routing: dict,
+                          qa_ids: set[str]) -> None:
+    """A document route says who documents a set of paths, and nothing else.
+
+    The failure it must not be allowed to become is a second source/test/QA
+    database. `Scripts/qa-impact-rules.json` owns that, and the way a duplicate
+    starts is somebody adding `test_globs` here "just for this one path" — so the
+    key allowlist rejects it outright rather than warning about it.
+
+    The other rule is that these entries do not copy facts the manifest already
+    holds: `globs_ref` and `read_first_ref` dereference into the manifest, and a
+    ref that stops resolving is an error rather than a silently empty route.
+    """
+    router = load_router().Router()
+    routes = routing.get("document_routes", [])
+    seen: set[str] = set()
+
+    for route in routes:
+        rid = route.get("id", "")
+        unknown = set(route) - ALLOWED_DOC_ROUTE_KEYS
+        if unknown:
+            errors.append(
+                f"document_route {rid!r}: unknown key(s) {sorted(unknown)}. A document "
+                "route carries documentation only — tests and QA IDs belong to "
+                "Scripts/qa-impact-rules.json and must not be duplicated here."
+            )
+        if rid in seen:
+            errors.append(f"document_routes has a duplicate id: {rid}")
+        seen.add(rid)
+        if rid in qa_ids:
+            errors.append(
+                f"document_route {rid!r} collides with a QA rule id. They are different "
+                "namespaces on purpose; a shared id makes the router ambiguous."
+            )
+        if not route.get("reason"):
+            errors.append(f"document_route {rid!r}: state a reason — why these paths are "
+                          "documented here rather than by a QA domain")
+
+        if ("globs" in route) == ("globs_ref" in route):
+            errors.append(f"document_route {rid!r}: set exactly one of globs / globs_ref")
+        if ("read_first" in route) == ("read_first_ref" in route):
+            errors.append(
+                f"document_route {rid!r}: set exactly one of read_first / read_first_ref")
+
+        for key in ("globs_ref", "read_first_ref"):
+            if key not in route:
+                continue
+            try:
+                router.deref(route[key])
+            except (KeyError, IndexError, TypeError, ValueError):
+                errors.append(
+                    f"document_route {rid!r}: {key} {route[key]!r} does not resolve in "
+                    "PROJECT-MANIFEST.json"
+                )
+
+        try:
+            globs = router.route_globs(route)
+            docs = router.route_docs(route)
+        except (KeyError, IndexError, TypeError, ValueError):
+            continue
+
+        if not globs:
+            errors.append(f"document_route {rid!r} matches no paths")
+        if not docs:
+            errors.append(f"document_route {rid!r} names no canonical document")
+        for doc in docs + [i.get("doc", "") for i in route.get("conditional", [])]:
+            if not (ROOT / doc).is_file():
+                errors.append(f"document_route {rid!r}: missing document: {doc}")
+            if doc.startswith(AGENT_PRIVATE_PREFIXES):
+                errors.append(
+                    f"document_route {rid!r} routes to an agent-specific rule file: {doc}")
+        for item in route.get("conditional", []):
+            if not item.get("trigger"):
+                errors.append(
+                    f"document_route {rid!r}: conditional {item.get('doc')} has no trigger")
+
+        # A route nobody can reach is worse than no route: it looks like coverage.
+        if not any(fnmatch.fnmatch(f, g) for g in globs for f in router.tracked):
+            errors.append(
+                f"document_route {rid!r} matches no tracked file, so it is dead routing")
+
+    # Overlapping routes would make the answer depend on declaration order.
+    for path in router.tracked:
+        hits = [r.get("id", "") for r in routes
+                if any(fnmatch.fnmatch(path, g) for g in router.route_globs(r))]
+        if len(hits) > 1:
+            errors.append(
+                f"{path} matches more than one document_route: {hits}. Exactly one "
+                "document owner per path, or the answer depends on declaration order."
+            )
+            break
 
 
 def check_route_completeness(errors: list[str], routing: dict, qa_ids: set[str]) -> None:
@@ -312,6 +408,24 @@ def check_router_resolves(errors: list[str]) -> None:
         if did not in router.resolve([sample])["domains"]:
             errors.append(f"path {sample} does not route back to its domain {did}")
 
+    # The same round trip for document routes: a declared owner that no path
+    # actually reaches is documentation nobody will ever be sent to.
+    for route in router.doc_routes:
+        rid = route["id"]
+        globs = router.route_globs(route)
+        sample = next((f for f in tracked
+                       if any(fnmatch.fnmatch(f, g) for g in globs)), None)
+        if sample is None:
+            continue
+        resolved = router.resolve([sample])
+        if rid not in resolved["primary_owners"]:
+            errors.append(f"path {sample} does not route back to document route {rid}")
+        for doc in router.route_docs(route):
+            if doc not in resolved["read_first"]:
+                errors.append(f"document route {rid}: {sample} does not reach {doc}")
+        if resolved["qa_ids"] and not resolved["domains"]:
+            errors.append(f"document route {rid} invented QA IDs for {sample}")
+
 
 def main() -> int:
     errors: list[str] = []
@@ -328,9 +442,11 @@ def main() -> int:
 
     total = sum(len((ROOT / n).read_bytes()) for n in BOOTSTRAP_FILES)
     manifest = read_json("PROJECT-MANIFEST.json")
+    routing = manifest["agent_routing"]
     print(
         f"Agent context OK: root bootstrap {total} B of {BOOTSTRAP_BUDGET_BYTES} budget; "
-        f"{len(manifest['agent_routing']['domains'])} routing domains resolve."
+        f"{len(routing['domains'])} routing domains and "
+        f"{len(routing.get('document_routes', []))} document routes resolve."
     )
     return 0
 

@@ -246,6 +246,8 @@
   },
   "validation": {
     "repository_paths": [
+      "Scripts/check-agent-context.py",
+      "Scripts/agent-context.py",
       "Scripts/check-project-manifest.py",
       "Scripts/check-current-documentation.py",
       "Scripts/check-dependency-policy.py",
@@ -258,9 +260,11 @@
       "Scripts/qa-impact-rules.json",
       "Scripts/check-release-qa-evidence.py",
       "Scripts/release-qa-policy.json",
-      "Tests/PythonTests/test_current_documentation.py"
+      "Tests/PythonTests/test_current_documentation.py",
+      "Tests/PythonTests/test_agent_context.py"
     ],
     "commands": [
+      "python3 Scripts/check-agent-context.py",
       "python3 Scripts/check-project-manifest.py",
       "python3 Scripts/check-current-documentation.py",
       "python3 Scripts/check-dependency-policy.py",
@@ -275,8 +279,84 @@
   },
   "agent_routing": {
     "schema": 1,
-    "role": "Routing metadata for Scripts/agent-context.py. Domain ids are the rule ids in Scripts/qa-impact-rules.json, which stays the sole owner of source/test/QA mapping — this block adds only the documentation route. route_role separates the two questions a rule answers: a primary domain owns the canonical document for its paths and escalates cross-domain; an overlay contributes tests and Behavioral QA IDs to paths whose documentation owner is somebody else, and contributes no read_first. Routes point at canonical project documentation only — agent-specific rule files are the agent's own concern, not the generic router's.",
+    "role": "Routing metadata for Scripts/agent-context.py. Three layers, and the split is the point. domains: keyed by rule id in Scripts/qa-impact-rules.json, which stays the sole owner of source/test/QA mapping; route_role says whether a rule also owns documentation (primary) or only verification (overlay). document_routes: the canonical documentation owner for a set of paths, by glob. A path with a document route takes its owner from there, and every QA rule claiming that path drops to verification for it — which is how one file can be tested by three rules without acquiring three canonical documents, and how a non-behavioural path such as a string table or Scripts/version gets an owner without being given a QA rule it should not have. A document route owns no tests and no QA IDs, ever. Wherever the manifest already knows a path or a document, these entries point at it with globs_ref/read_first_ref rather than copying it. Routes name canonical project documentation only — agent-specific rule files are the agent's own concern, not the generic router's.",
     "fallback_doc": "knowledge-base/10-ai/AI-INDEX.md",
+    "document_routes": [
+      {
+        "id": "app-localization-tables",
+        "name": "App localization tables",
+        "globs": [
+          "Resources/*.lproj/*.strings",
+          "Resources/*.lproj/*.stringsdict"
+        ],
+        "read_first_ref": "product.localization_doc",
+        "reason": "A string table is where most localization work actually starts, and no QA rule owns one: Scripts/qa-impact-rules.json tracks behavioural Swift sources, and adding Resources/*.lproj there to satisfy the router would invent a behavioural owner that does not exist. This route supplies the canonical document and nothing else — no tests, no QA IDs.",
+        "conditional": [
+          {
+            "doc": "knowledge-base/07-web/website.md",
+            "trigger": "a marketing-website locale or route changed — a separate contract from the app"
+          },
+          {
+            "doc": "knowledge-base/07-web/legal-privacy.md",
+            "trigger": "a privacy/legal locale, route or policy revision changed — a third, separate contract"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "version-source",
+        "name": "Version source",
+        "globs_ref": "product.version_source",
+        "read_first_ref": "release.canonical_docs.0",
+        "reason": "Scripts/version is the single owner of the version and is release-affecting, but it is not behavioural source, so it has no QA rule and must not be given one. Touching it is release work; the release process document is the owner that says so.",
+        "conditional": [
+          {
+            "doc": "knowledge-base/13-qa/release-evidence/README.md",
+            "trigger": "a version bump needs real manual/hardware QA evidence for that version"
+          },
+          {
+            "doc": "knowledge-base/05-release/release-pipeline.md",
+            "trigger": "packaging, signing or the release workflow changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      },
+      {
+        "id": "settings-window",
+        "name": "Settings window",
+        "globs": [
+          "Sources/Impuls/Settings/SettingsWindow.swift"
+        ],
+        "read_first": [
+          "knowledge-base/01-architecture/settings-onboarding-feedback.md"
+        ],
+        "reason": "One window hosts every setting, so three QA rules claim it: appearance, interface language and version statistics. Two of them are primary domains elsewhere and were therefore making an ordinary Settings edit look like a localization-plus-telemetry cross-domain change. All three still verify this file; none of them documents it. The canonical owner of every surface outside the notch panel is the settings/onboarding/feedback document, and the two specific owners are triggers below.",
+        "conditional": [
+          {
+            "doc": "knowledge-base/04-development/localization.md",
+            "trigger": "the supported-language set or the language picker itself changed"
+          },
+          {
+            "doc": "knowledge-base/07-web/version-statistics-collector.md",
+            "trigger": "the version-statistics offer, its consent or its payload changed"
+          },
+          {
+            "doc": "knowledge-base/01-architecture/storage-persistence.md",
+            "trigger": "persisted data, its shape or its location changed"
+          },
+          {
+            "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
+            "trigger": "user-visible behaviour changed"
+          }
+        ]
+      }
+    ],
     "domains": [
       {
         "id": "music-and-web",

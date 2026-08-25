@@ -35,6 +35,12 @@ RELEASE = "Sources/Impuls/Services/UpdateService.swift"
 UI = "Sources/Impuls/UI/PowerPane.swift"
 UNKNOWN = "Sources/Impuls/Services/DeviceClock.swift"
 
+STRINGS_EN = "Resources/en.lproj/Localizable.strings"
+STRINGS_JA = "Resources/ja.lproj/Localizable.strings"
+VERSION_FILE = "Scripts/version"
+SETTINGS = "Sources/Impuls/Settings/SettingsWindow.swift"
+TELEMETRY = "Sources/Impuls/Services/VersionTelemetryService.swift"
+
 
 class RouterTests(unittest.TestCase):
     def setUp(self):
@@ -108,6 +114,123 @@ class RouterTests(unittest.TestCase):
             for doc in docs:
                 self.assertFalse(doc.startswith((".claude/", ".codex/", ".cursor/")),
                                  f"{domain['id']} routes to {doc}")
+
+    # -- paths a QA rule does not and should not own --------------------------
+
+    def test_a_real_string_table_routes_to_the_localization_owner(self):
+        """Where localization work actually starts.
+
+        `AppLanguageService.swift` is the behavioural owner and has a QA rule; the
+        string table an agent actually opens has neither, because
+        `qa-impact-rules.json` tracks behavioural Swift source. Adding
+        `Resources/*.lproj` there to satisfy the router would invent a behavioural
+        owner that does not exist, so the documentation route carries it instead.
+        """
+        for path in (STRINGS_EN, STRINGS_JA):
+            self.assertTrue((ROOT / path).is_file(), f"{path}: fixture must be a real file")
+            route = self.route(path)
+            self.assertEqual(route["unrouted"], [], path)
+            self.assertEqual(route["read_first"],
+                             ["knowledge-base/04-development/localization.md"], path)
+            self.assertEqual(route["primary_owners"], ["app-localization-tables"], path)
+            self.assertFalse(route["cross_domain"], path)
+            self.assertNotIn("UNROUTED", agent_context.render(route))
+
+    def test_the_version_file_routes_to_the_release_owner(self):
+        self.assertTrue((ROOT / VERSION_FILE).is_file())
+        route = self.route(VERSION_FILE)
+        self.assertEqual(route["unrouted"], [])
+        self.assertEqual(route["read_first"],
+                         ["knowledge-base/05-release/release-process.md"])
+        self.assertEqual(route["primary_owners"], ["version-source"])
+        self.assertNotIn("UNROUTED", agent_context.render(route))
+
+    def test_a_documentation_only_route_invents_no_tests_and_no_qa_ids(self):
+        """The line this layer must not cross.
+
+        It exists because these paths have no QA rule. If it started answering with
+        tests or QA IDs it would be a second source/test database, which is the one
+        thing the routing design refuses to have.
+        """
+        for path in (STRINGS_EN, STRINGS_JA, VERSION_FILE):
+            route = self.route(path)
+            self.assertEqual(route["qa_ids"], [], f"{path} must not invent QA IDs")
+            self.assertEqual(route["tests"], [], f"{path} must not invent tests")
+            self.assertEqual(route["domains"], [], f"{path} claims no QA rule")
+            text = agent_context.render(route)
+            self.assertNotIn("\nQA:", text)
+            self.assertNotIn("\nTESTS:", text)
+
+    def test_document_routes_use_the_manifest_instead_of_a_second_copy(self):
+        router = self.router
+        by_id = {r["id"]: r for r in router.doc_routes}
+        self.assertEqual(router.deref("product.localization_doc"),
+                         "knowledge-base/04-development/localization.md")
+        self.assertEqual(router.route_globs(by_id["version-source"]),
+                         [router.deref("product.version_source")])
+        self.assertEqual(router.route_docs(by_id["app-localization-tables"]),
+                         [router.deref("product.localization_doc")])
+        self.assertEqual(router.route_docs(by_id["version-source"]),
+                         [router.deref("release.canonical_docs.0")])
+
+    # -- documentation ownership is per path, not per rule --------------------
+
+    def test_one_window_hosting_every_setting_is_not_a_cross_domain_change(self):
+        """Three QA rules claim `SettingsWindow.swift`, because one window hosts
+        every setting. Two of them are primary domains elsewhere, so a generic
+        Settings edit announced itself as a localization-plus-telemetry
+        architecture change and demanded three canonical documents."""
+        route = self.route(SETTINGS)
+
+        self.assertEqual(route["primary_owners"], ["settings-window"])
+        self.assertEqual(route["read_first"],
+                         ["knowledge-base/01-architecture/settings-onboarding-feedback.md"])
+        self.assertFalse(route["cross_domain"])
+
+        self.assertNotIn("knowledge-base/04-development/localization.md", route["read_first"])
+        self.assertNotIn("knowledge-base/07-web/version-statistics-collector.md",
+                         route["read_first"])
+
+        for rid in ("appearance-accessibility", "interface-language",
+                    "version-statistics-diagnostics"):
+            self.assertIn(rid, route["overlay_domains"], rid)
+            self.assertIn(rid, route["domains"], rid)
+        self.assertTrue(route["tests"], "every claiming rule still contributes its tests")
+        self.assertTrue(route["qa_ids"], "every claiming rule still contributes its QA IDs")
+
+        text = agent_context.render(route)
+        self.assertNotIn("ESCALATED: CROSS-DOMAIN CHANGE", text)
+
+    def test_demotion_is_per_path_and_never_leaks_to_the_owning_file(self):
+        """`interface-language` is demoted for the Settings window. It must stay
+        primary for the file it genuinely owns."""
+        route = self.route(LANGUAGE)
+        self.assertEqual(route["primary_owners"], ["interface-language"])
+        self.assertEqual(route["read_first"], ["knowledge-base/04-development/localization.md"])
+        self.assertEqual(route["overlay_domains"], [])
+
+        route = self.route(TELEMETRY)
+        self.assertEqual(route["primary_owners"], ["version-statistics-diagnostics"])
+        self.assertEqual(route["read_first"],
+                         ["knowledge-base/07-web/version-statistics-collector.md"])
+
+    def test_a_rule_demoted_for_one_path_is_still_primary_for_another_in_the_same_diff(self):
+        """The union again, now across the demotion boundary: changing the Settings
+        window *and* the language service needs the localization owner, from the
+        file that actually has it."""
+        for targets in ([SETTINGS, LANGUAGE], [LANGUAGE, SETTINGS]):
+            route = self.route(*targets)
+            self.assertIn("interface-language", route["primary_owners"], str(targets))
+            self.assertIn("settings-window", route["primary_owners"], str(targets))
+            self.assertIn("knowledge-base/04-development/localization.md",
+                          route["read_first"], str(targets))
+            self.assertNotIn("interface-language", route["overlay_domains"], str(targets))
+            self.assertTrue(route["cross_domain"], str(targets))
+
+    def test_the_real_owners_of_a_demoted_rule_stay_reachable_as_triggers(self):
+        docs = self.conditional_docs(self.route(SETTINGS))
+        self.assertIn("knowledge-base/04-development/localization.md", docs)
+        self.assertIn("knowledge-base/07-web/version-statistics-collector.md", docs)
 
     # -- a QA rule is not a documentation domain ------------------------------
 
@@ -293,6 +416,28 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(reverse["primary_domains"], ["local-data", "music-and-web"])
         self.assertEqual(forward["read_first"], list(reversed(reverse["read_first"])))
 
+    def test_the_router_has_no_historical_mode(self):
+        """`--base <ref>` claimed to resolve deleted and renamed paths and did not.
+
+        It swapped only the tracked-file list; the routing tables were still read
+        from the working tree, so a file renamed on the branch was looked up in the
+        branch's rules under its old name and could answer UNROUTED — the opposite
+        of what the flag advertised. A wrong answer delivered confidently is worse
+        than a missing feature, so the flag is gone rather than half-fixed.
+        """
+        result = subprocess.run(
+            ["python3", "Scripts/agent-context.py", MUSIC, "--base", "main"],
+            cwd=ROOT, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unrecognized arguments", result.stderr)
+
+        source = (ROOT / "Scripts" / "agent-context.py").read_text(encoding="utf-8")
+        self.assertNotIn("ls-tree", source, "no historical file listing remains")
+        self.assertNotIn("add_argument(\"--base\"", source)
+
+        with self.assertRaises(TypeError):
+            agent_context.Router(base="main")
+
     def test_human_output_never_omits_the_escape_hatch(self):
         for targets in ([MUSIC], [UNKNOWN], [MUSIC, PERSIST]):
             self.assertIn("never outranks correctness",
@@ -467,6 +612,66 @@ class GuardTests(unittest.TestCase):
 
         errors = self.simulated_manifest(add_claude_route)
         self.assertTrue(any("agent-specific rule file" in e for e in errors))
+
+    # -- document routes stay documentation-only ------------------------------
+
+    def test_a_document_route_carrying_test_globs_is_rejected(self):
+        """The exact way this layer would turn into a second source/test database."""
+        def add_tests(data):
+            data["agent_routing"]["document_routes"][0]["test_globs"] = [
+                "Tests/ImpulsTests/*.swift"]
+
+        errors = self.simulated_manifest(add_tests)
+        self.assertTrue(any("unknown key(s)" in e and "test_globs" in e for e in errors))
+
+    def test_a_document_route_carrying_qa_ids_is_rejected(self):
+        def add_ids(data):
+            data["agent_routing"]["document_routes"][0]["qa_ids"] = ["UI-01"]
+
+        errors = self.simulated_manifest(add_ids)
+        self.assertTrue(any("unknown key(s)" in e and "qa_ids" in e for e in errors))
+
+    def test_a_manifest_reference_that_stops_resolving_is_rejected(self):
+        def break_ref(data):
+            data["agent_routing"]["document_routes"][0]["read_first_ref"] = "product.no_such_key"
+
+        errors = self.simulated_manifest(break_ref)
+        self.assertTrue(any("does not resolve" in e for e in errors))
+
+    def test_two_document_routes_claiming_one_path_are_rejected(self):
+        def duplicate(data):
+            routes = data["agent_routing"]["document_routes"]
+            clone = json.loads(json.dumps(routes[0]))
+            clone["id"] = "app-localization-tables-copy"
+            routes.append(clone)
+
+        errors = self.simulated_manifest(duplicate)
+        self.assertTrue(any("more than one document_route" in e for e in errors))
+
+    def test_a_document_route_that_collides_with_a_qa_rule_id_is_rejected(self):
+        def collide(data):
+            data["agent_routing"]["document_routes"][0]["id"] = "interface-language"
+
+        errors = self.simulated_manifest(collide)
+        self.assertTrue(any("collides with a QA rule id" in e for e in errors))
+
+    def test_a_document_route_matching_no_tracked_file_is_rejected(self):
+        def orphan(data):
+            data["agent_routing"]["document_routes"][0]["globs"] = ["Resources/nope/*.strings"]
+            data["agent_routing"]["document_routes"][0].pop("globs_ref", None)
+
+        errors = self.simulated_manifest(orphan)
+        self.assertTrue(any("dead routing" in e for e in errors))
+
+    # -- the manifest describes its own validation ----------------------------
+
+    def test_the_manifest_lists_the_agent_context_subsystem(self):
+        validation = check_agent_context.read_json("PROJECT-MANIFEST.json")["validation"]
+        for path in ("Scripts/agent-context.py", "Scripts/check-agent-context.py",
+                     "Tests/PythonTests/test_agent_context.py"):
+            self.assertIn(path, validation["repository_paths"])
+            self.assertTrue((ROOT / path).is_file(), path)
+        self.assertIn("python3 Scripts/check-agent-context.py", validation["commands"])
 
     # -- one bootstrap workflow ----------------------------------------------
 

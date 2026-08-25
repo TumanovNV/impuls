@@ -11,10 +11,10 @@ the route. It deliberately owns no knowledge of its own:
 
   Scripts/qa-impact-rules.json  source/test/QA mapping — the sole owner, already
                                 CI-validated by check-qa-impact.py
-  PROJECT-MANIFEST.json         agent_routing: domain name, route_role,
-                                documentation route and the conditional owners a
-                                domain can escalate to. Keyed by the same rule
-                                ids, so nothing is copied between the two files.
+  PROJECT-MANIFEST.json         agent_routing: domains keyed by the same rule ids,
+                                plus document_routes, plus the conditional owners
+                                each can escalate to. Nothing is copied between
+                                the two files.
   AI-INDEX.md                   fallback when a path routes nowhere
 
 Adding a second source→test database was explicitly rejected: two copies drift,
@@ -31,6 +31,24 @@ itself as cross-domain. `route_role` separates the two:
   overlay   contributes tests and Behavioral QA IDs to paths that belong to
             somebody else. No read_first, and never a reason to escalate. Its
             real owners are offered as conditionals with triggers instead.
+
+`route_role` is a property of the whole rule, which is not fine enough on its own.
+`SettingsWindow.swift` is claimed by three rules — appearance, interface language,
+version statistics — because one window hosts every setting. Two of those are
+primary domains elsewhere, so an ordinary Settings edit reported itself as a
+localization-plus-telemetry cross-domain change. `document_routes` fixes that at
+the level the question is actually asked, the path:
+
+  a path with a document route takes its canonical owner from that route, and
+  every QA rule claiming the path drops to verification for it.
+
+The same mechanism gives an owner to paths that have no QA rule and should not be
+given one. `Resources/*.lproj/Localizable.strings` and `Scripts/version` are where
+localization and release work usually starts, but neither is behavioural Swift
+source; adding them to `qa-impact-rules.json` to satisfy the router would invent a
+behavioural owner. A document route carries documentation and nothing else — no
+test globs, no QA IDs — and where the manifest already knows the path or the
+document, the entry points at it instead of copying it.
 
 Routes name canonical project documentation only. Agent-specific rule files —
 `.claude/rules/*.md` and anything like them — are the agent's own concern: Claude
@@ -60,13 +78,20 @@ def load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def tracked_files(base: str | None) -> list[str]:
-    """Every tracked path, so a glob can be expanded without touching the disk
-    tree. `--base` reads the tree at that ref instead, which is how a path that
-    the working tree has already deleted or renamed still resolves."""
-    argv = ["git", "ls-tree", "-r", "--name-only", base] if base else ["git", "ls-files"]
+def tracked_files() -> list[str]:
+    """Every tracked path, so a test glob can be expanded without walking the disk.
+
+    Deliberately the working tree only. An earlier `--base <ref>` option read the
+    file list at another ref and advertised that it resolved deleted and renamed
+    paths — which it did not: the routing tables themselves were still read from
+    the working tree, so a file renamed on the branch was looked up in the branch's
+    rules under its old name and could answer UNROUTED. Rather than half-implement
+    a historical mode, the option is gone; resolving a route as of another commit
+    means checking that commit out.
+    """
     try:
-        out = subprocess.run(argv, cwd=ROOT, capture_output=True, text=True, check=True)
+        out = subprocess.run(["git", "ls-files"], cwd=ROOT,
+                             capture_output=True, text=True, check=True)
     except (subprocess.CalledProcessError, FileNotFoundError):
         return []
     return out.stdout.split()
@@ -77,13 +102,46 @@ def matches(path: str, globs: list[str]) -> bool:
 
 
 class Router:
-    def __init__(self, base: str | None = None) -> None:
+    def __init__(self) -> None:
         self.manifest = load(MANIFEST)
         self.qa = load(QA_RULES)
         self.routing = self.manifest.get("agent_routing", {})
         self.domains = {d["id"]: d for d in self.routing.get("domains", [])}
         self.rules = {r["id"]: r for r in self.qa.get("rules", [])}
-        self.tracked = tracked_files(base)
+        self.doc_routes = self.routing.get("document_routes", [])
+        self.tracked = tracked_files()
+
+    # -- manifest references ------------------------------------------------
+
+    def deref(self, dotted: str):
+        """Resolve `product.localization_doc` or `release.canonical_docs.0`
+        against the manifest, so a route points at a fact the manifest already
+        owns instead of holding a second copy of it."""
+        node = self.manifest
+        for part in dotted.split("."):
+            if isinstance(node, list):
+                node = node[int(part)]
+            else:
+                node = node[part]
+        return node
+
+    def route_globs(self, route: dict) -> list[str]:
+        if "globs_ref" in route:
+            value = self.deref(route["globs_ref"])
+            return value if isinstance(value, list) else [value]
+        return route.get("globs", [])
+
+    def route_docs(self, route: dict) -> list[str]:
+        if "read_first_ref" in route:
+            value = self.deref(route["read_first_ref"])
+            return value if isinstance(value, list) else [value]
+        return route.get("read_first", [])
+
+    def document_route_for(self, path: str) -> dict | None:
+        for route in self.doc_routes:
+            if matches(path, self.route_globs(route)):
+                return route
+        return None
 
     # -- resolution ---------------------------------------------------------
 
@@ -103,6 +161,26 @@ class Router:
         return [rid for rid, rule in self.rules.items()
                 if matches(path, rule.get("source_globs", []))]
 
+    def claims_for(self, path: str) -> dict:
+        """Who owns this ONE path, before anything is unioned.
+
+        Documentation ownership and QA membership are answered separately, because
+        they are separate questions and a file can honestly have three of the
+        second and one of the first.
+        """
+        route = self.document_route_for(path)
+        qa = self.domains_for(path)
+        if route is not None:
+            # The route is the documentation owner; every rule that also claims
+            # this path is verifying it, not documenting it.
+            return {"doc_route": route, "primary": [], "overlay": qa, "qa": qa}
+        return {
+            "doc_route": None,
+            "primary": [r for r in qa if self.role_of(r) != OVERLAY],
+            "overlay": [r for r in qa if self.role_of(r) == OVERLAY],
+            "qa": qa,
+        }
+
     def resolve(self, targets: list[str]) -> dict:
         """A single route for however many paths or domain ids were given.
 
@@ -110,68 +188,109 @@ class Router:
         wrong: when one changed file touches networking and another touches
         persistence, the change needs *both* owners, and keeping only what they
         share would return neither.
+
+        The union is taken over per-path answers, not over raw rule matches, so a
+        rule demoted for one path stays primary for another. Editing
+        `SettingsWindow.swift` and `AppLanguageService.swift` together still gets
+        the localization owner — from the file that genuinely has it.
         """
-        domain_ids: list[str] = []
+        primary: list[str] = []
+        overlay: list[str] = []
+        claimed: list[str] = []
+        doc_route_ids: list[str] = []
+        read_first: list[str] = []
         unrouted: list[str] = []
         matched_paths: dict[str, list[str]] = {}
+        # Owners in the order the caller's arguments produced them, so the first
+        # path named is the first owner to read. A rule demoted for an earlier
+        # path takes its place at the argument that made it primary, not at the
+        # one that merely mentioned it.
+        owners: list[dict] = []
+        owner_ids: set[str] = set()
+
+        def add(seq: list[str], value: str) -> None:
+            if value not in seq:
+                seq.append(value)
+
+        def add_domain_owner(rid: str) -> None:
+            if rid in owner_ids:
+                return
+            owner_ids.add(rid)
+            add(primary, rid)
+            domain = self.domains.get(rid, {})
+            owners.append({"id": rid, "name": domain.get("name", rid),
+                           "read_first": domain.get("read_first", []),
+                           "conditional": domain.get("conditional", [])})
+
+        def add_route_owner(route: dict) -> None:
+            if route["id"] in owner_ids:
+                return
+            owner_ids.add(route["id"])
+            doc_route_ids.append(route["id"])
+            owners.append({"id": route["id"], "name": route.get("name", route["id"]),
+                           "read_first": self.route_docs(route),
+                           "conditional": route.get("conditional", [])})
 
         for target in targets:
             if target in self.domains or target in self.rules:
-                domain_ids.append(target)
+                add(claimed, target)
+                if self.role_of(target) == OVERLAY:
+                    add(overlay, target)
+                else:
+                    add_domain_owner(target)
                 continue
-            found = self.domains_for(target)
-            if found:
-                domain_ids.extend(found)
-                matched_paths[target] = found
-            else:
+
+            claims = self.claims_for(target)
+            if not claims["qa"] and claims["doc_route"] is None:
                 unrouted.append(target)
+                continue
 
-        seen: set[str] = set()
-        ordered = [d for d in domain_ids if not (d in seen or seen.add(d))]
+            if claims["qa"]:
+                matched_paths[target] = claims["qa"]
+            for rid in claims["qa"]:
+                add(claimed, rid)
+            if claims["doc_route"] is not None:
+                add_route_owner(claims["doc_route"])
+            for rid in claims["primary"]:
+                add_domain_owner(rid)
+            for rid in claims["overlay"]:
+                add(overlay, rid)
 
-        primary = [r for r in ordered if self.role_of(r) != OVERLAY]
-        overlay = [r for r in ordered if self.role_of(r) == OVERLAY]
+        # A domain that is primary for any one path is a primary owner of the
+        # change. Being demoted elsewhere does not take that away.
+        overlay = [r for r in overlay if r not in primary]
 
-        def name_of(rid: str) -> str:
-            return self.domains.get(rid, {}).get("name", rid)
+        conditional: list[dict] = []
+        for owner in owners:
+            for doc in owner["read_first"]:
+                add(read_first, doc)
+            for item in owner["conditional"]:
+                if item["doc"] not in {c["doc"] for c in conditional}:
+                    conditional.append(item)
 
-        names = [name_of(r) for r in primary]
-        overlay_names = [name_of(r) for r in overlay]
+        # An overlay's conditional owners are the route of last resort for the
+        # paths it is the *only* claimant of. Offering them next to a real owner
+        # is noise: PowerPane cannot change the menu-bar status item, so a trigger
+        # it can never meet teaches the reader to skim triggers rather than check
+        # them.
+        if not owners:
+            for rid in overlay:
+                for item in self.domains.get(rid, {}).get("conditional", []):
+                    if item["doc"] not in {c["doc"] for c in conditional}:
+                        conditional.append(item)
 
-        read_first: list[str] = []
+        # Tests and QA IDs come from every rule that claims the path, whether it
+        # documents it or not. Demotion is about documentation, never verification.
         tests: list[str] = []
         qa_ids: list[str] = []
-        conditional: list[dict] = []
-
-        for rid in ordered:
-            domain = self.domains.get(rid)
+        for rid in claimed:
             rule = self.rules.get(rid, {})
-            is_overlay = rid in overlay
-            if domain:
-                # Only a primary domain contributes a canonical document. An
-                # overlay claims paths it does not own the documentation for, so
-                # taking its read_first would hand a pane somebody else's owner.
-                if not is_overlay:
-                    for doc in domain.get("read_first", []):
-                        if doc not in read_first:
-                            read_first.append(doc)
-                # An overlay's conditional owners are the route of last resort for
-                # the paths it is the *only* claimant of — the menu bar and the
-                # Settings surfaces, which have no primary domain of their own.
-                # Offering them alongside a real owner is noise: PowerPane cannot
-                # change the menu-bar status item, so a trigger it can never meet
-                # teaches the reader to skim the triggers rather than check them.
-                if not is_overlay or not primary:
-                    for item in domain.get("conditional", []):
-                        if item["doc"] not in {c["doc"] for c in conditional}:
-                            conditional.append(item)
             for glob in rule.get("test_globs", []):
                 for f in self.tracked:
-                    if fnmatch.fnmatch(f, glob) and f not in tests:
-                        tests.append(f)
+                    if fnmatch.fnmatch(f, glob):
+                        add(tests, f)
             for qid in rule.get("qa_ids", []):
-                if qid not in qa_ids:
-                    qa_ids.append(qid)
+                add(qa_ids, qid)
 
         # A conditional owner that is already required unconditionally is not a
         # conditional: listing it twice would invite re-reading it.
@@ -179,12 +298,15 @@ class Router:
 
         sources = [t for t in targets if t not in self.domains and t not in self.rules]
         return {
-            "domains": ordered,
-            "domain_names": names + overlay_names,
+            "domains": claimed,
+            "domain_names": [o["name"] for o in owners]
+                            + [self.domains.get(r, {}).get("name", r) for r in overlay],
             "primary_domains": primary,
-            "primary_domain_names": names,
+            "primary_owners": [o["id"] for o in owners],
+            "primary_owner_names": [o["name"] for o in owners],
+            "document_routes": doc_route_ids,
             "overlay_domains": overlay,
-            "overlay_domain_names": overlay_names,
+            "overlay_domain_names": [self.domains.get(r, {}).get("name", r) for r in overlay],
             "read_first": read_first,
             "sources": sources,
             "tests": tests,
@@ -192,11 +314,11 @@ class Router:
             "conditional": conditional,
             "unrouted": unrouted,
             "matched": matched_paths,
-            # Escalation is a statement about documentation owners, not about
-            # how many QA rules happened to match. A broad QA overlay is not a
-            # second architecture domain and must never read like one.
-            "cross_domain": len(primary) > 1,
-            "overlay_only": bool(overlay) and not primary,
+            # Escalation counts documentation owners, not rule matches. A broad QA
+            # overlay, and a file that three rules verify, are not architecture
+            # domains and must never read like one.
+            "cross_domain": len(owners) > 1,
+            "overlay_only": bool(overlay) and not owners,
             "fallback_doc": self.routing.get("fallback_doc", ""),
         }
 
@@ -214,8 +336,8 @@ NEVER_BY_DEFAULT = [
 
 def render(route: dict) -> str:
     out: list[str] = []
-    if route["primary_domain_names"]:
-        out.append("DOMAIN: " + ", ".join(route["primary_domain_names"]))
+    if route["primary_owner_names"]:
+        out.append("DOMAIN: " + ", ".join(route["primary_owner_names"]))
     else:
         out.append("DOMAIN: (unresolved)")
 
@@ -276,10 +398,9 @@ def main() -> int:
     parser.add_argument("targets", nargs="+", help="repository path(s) or domain id(s)")
     parser.add_argument("--json", action="store_true", dest="as_json",
                         help="machine-readable output")
-    parser.add_argument("--base", help="resolve paths against this git ref (deleted/renamed)")
     args = parser.parse_args()
 
-    route = Router(base=args.base).resolve(args.targets)
+    route = Router().resolve(args.targets)
     if args.as_json:
         print(json.dumps(route, indent=2, ensure_ascii=False, sort_keys=True))
     else:
