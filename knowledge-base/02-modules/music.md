@@ -2,7 +2,7 @@
 title: Music Module
 type: module
 status: production
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, module, music, webkit, automation]
@@ -37,6 +37,8 @@ WebKit's content process может умереть — краш или system re
 | обычный случай, страница жива | `snapshot` |
 
 Флаг снимается **до** навигации, поэтому recovery происходит один раз; повторный краш поднимает его снова и снова даёт пользователю Retry — это цикл ровно настолько, насколько его выбирает пользователь. Сбрасывается также при teardown и при создании нового web view. Ни таймера, ни отложенной перезагрузки, ни фоновой сетевой активности не добавлено: навигация выполняется только внутри явного пользовательского `show(source:)`.
+
+**Actor ownership.** `WebMusicPlayer` изолирован `@MainActor` на уровне класса. Протокол `WebMusicPlaying` тоже `@MainActor`, но изоляция протокола покрывает только его requirements — не конкретное состояние объекта: `WKWebView`, window controller, таблицу popup'ов, `currentState`, `source`, `requestedArtworkKey`, `playbackIntent`, `needsRecoveryLoad`, navigation callbacks, JS evaluation и teardown. Это AppKit/WebKit state, и он обязан оставаться на main actor. `WebPlayerShowAction` рядом — чистое значение и намеренно **не** изолирован. Подробности и причина, по которой это нельзя проверить машинно, — в [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md).
 
 
 ## Назначение
