@@ -2,7 +2,7 @@
 title: Power and Battery Module
 type: module
 status: production
-documentation_version: 1.5
+documentation_version: 1.6
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, module, battery, devices, iokit]
@@ -67,6 +67,33 @@ Generic kinds (`.headphones`, `.keyboard`, `.mouse`, `.trackpad`, `.accessory`) 
 `externalPower` остаётся `.unknown` для всех аксессуаров любого вендора: этот источник не сообщает charging state ни для кого. Новых источников, сканирования, сетевых запросов и изменения cadence нет — это тот же single `system_profiler` read.
 
 **Что осталось недоступным.** Bluetooth-устройство, для которого `SPBluetoothDataType` не публикует battery field, показать нельзя. Единственное место в системе, где такое значение встречается, — anonymous accessory power source в `pmset -g accps`; он идёт через `IOPSCopyPowerSourcesByType`/`kIOPSAccessoryType`, которых нет в public SDK headers, и не содержит ни имени, ни стабильной identity. Привязать этот процент к конкретному Bluetooth-устройству без догадки невозможно, поэтому Impuls этого не делает. См. `13-qa/behavioral-qa-matrix.md` PWR-13.
+
+### pmset battery overlay для Bluetooth-аксессуаров (1.4.16, #108 follow-up)
+
+**Что это.** Третий accessory-источник, строго overlay. `system_profiler` остаётся **единственным** источником identity подключённых Bluetooth-устройств; `pmset` поставляет только число.
+
+**Почему.** Реальный сторонний headset, который macOS сама показывает как 80%, не публикует battery field в `SPBluetoothDataType`, не имеет battery property нигде в IORegistry и отсутствует в public `IOPSCopyPowerSourcesList`. Значение доходит до macOS через `IOPSCopyPowerSourcesByType`/`kIOPSAccessoryType`, которых нет ни в одном public SDK header — поэтому Impuls их **не вызывает**, а запускает shipped-бинарь, который это делает.
+
+**Честный статус источника.** `/usr/bin/pmset` — публичный системный CLI по фиксированному пути, никаких private symbols Impuls не вызывает. Но `-g accps` и `-xml` не описаны в `man pmset`: это **undocumented compatibility surface**, и обращение с ним соответствующее — любой отказ (нет бинаря, non-zero exit, timeout, не-plist, изменившаяся схема) даёт **пустой overlay**, то есть теряется дополнительное значение батареи и ничего больше. Power продолжает работать, остальные источники не затронуты, выдуманных значений не появляется.
+
+**Correlation rule — строго one-to-one, fail closed.** Два источника не имеют общего идентификатора: accessory UUID из `pmset` — не Bluetooth address и вообще не встречается в выводе `system_profiler` (проверено). Единственная связка — user-visible name, а имя доказательство слабое: пользователь его меняет и уникальность не гарантирована. Поэтому overlay применяется, только когда одновременно:
+
+1. запись `pmset` — Bluetooth accessory (`Transport Type == Bluetooth`, `Type == Accessory Source`);
+2. нормализованные имена совпадают (регистр и пробелы — шум, ничего больше);
+3. классы совместимы по семейству (`Headset`/`Headphones` → headphones, и т.д.);
+4. **ровно один** кандидат и **ровно одна** запись с этим именем.
+
+Иначе overlay не применяется. Два устройства с одним именем дисквалифицируют **оба**: доказательств, какое из них чьё, нет, а выбрать одно — это догадка.
+
+Никогда не используются для сопоставления: сам процент, порядок записей, время появления, «подключён только один аксессуар», похожесть имени, попытка связать accessory UUID с Bluetooth address.
+
+**Identity.** После overlay сохраняется существующая address-derived `AppleDeviceIdentity` из `system_profiler`. Accessory UUID из `pmset` **не читается парсером вообще** — его нет в модели, поэтому он не может быть сохранён, залогирован или показан, а его стабильность при reconnect не является зависимостью. Миграция существующих device preferences не требуется.
+
+**Charging.** Берётся из `Is Charging`, когда источник его сообщает. `Is Charged` не считается доказательством внешнего питания: полная батарея — не кабель. Отсутствующее или противоречивое → `unknown`. 100% по-прежнему не доказательство зарядки.
+
+**Cadence.** Не менялась. `pmset` запускается **только** когда после registry и `system_profiler` остались подключённые устройства без показания — если всё уже отвечено, процесс не порождается.
+
+**Real hardware evidence (2026-08-25).** Владелец подтвердил скриншотом System Settings → Bluetooth: заряд стороннего headset = 80%. Живой прогон production-пути на том же Mac: `system_profiler` — 0 устройств с батареей, 1 подключённое без; `pmset` — 1 Bluetooth accessory reading, 80%, `Is Charging = 0`; overlay — 1 карточка, 80%, headphones, charging `disconnected`; всего accessory cards — 1, дубликата нет. См. `13-qa/behavioral-qa-matrix.md` PWR-14.
 
 ### iPhone/iPad reliability audit (1.4.16)
 

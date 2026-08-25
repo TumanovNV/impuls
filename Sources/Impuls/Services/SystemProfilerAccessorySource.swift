@@ -48,9 +48,20 @@ final class SystemProfilerAccessorySource: DeviceBatterySource, @unchecked Senda
     }
 
     func read() async throws -> [AppleDeviceSnapshot] {
+        try inventory().devices
+    }
+
+    /// The devices with a battery, plus the connected ones without.
+    ///
+    /// One process run answers both questions, so asking for the second half
+    /// costs nothing extra.
+    func inventory() throws -> (
+        devices: [AppleDeviceSnapshot],
+        batteryless: [SystemProfilerAccessoryParser.BatterylessDevice]
+    ) {
         let now = clock.now
         let data = try runner()
-        return try SystemProfilerAccessoryParser.devices(fromJSON: data, now: now, resolver: resolver)
+        return try SystemProfilerAccessoryParser.inventory(fromJSON: data, now: now, resolver: resolver)
     }
 
     // MARK: - The process

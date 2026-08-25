@@ -38,6 +38,9 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
 
     private let registrySource: DeviceBatterySource
     private let profilerSource: SystemProfilerAccessorySource?
+    /// Consulted only for devices the other two sources found but could not
+    /// give a battery for — see `combined`.
+    private let accessorySource: PowerAccessoryBatterySource?
     private var onUpdate: ((DeviceProviderUpdate) -> Void)?
     // The IOKit state `deinit` has to reach: two iterators, a port, and the
     // callback context. Created on the main actor by `installNotifications` and
@@ -57,10 +60,12 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
 
     init(
         registrySource: DeviceBatterySource = IORegistryAccessorySource(),
-        profilerSource: SystemProfilerAccessorySource? = SystemProfilerAccessorySource()
+        profilerSource: SystemProfilerAccessorySource? = SystemProfilerAccessorySource(),
+        accessorySource: PowerAccessoryBatterySource? = PowerAccessoryBatterySource()
     ) {
         self.registrySource = registrySource
         self.profilerSource = profilerSource
+        self.accessorySource = accessorySource
     }
 
     deinit {
@@ -115,8 +120,13 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
             guard let self else { return }
             let registry = self.registrySource
             let profiler = self.profilerSource
+            let accessories = self.accessorySource
             do {
-                let devices = try await Self.combined(registry: registry, profiler: profiler)
+                let devices = try await Self.combined(
+                    registry: registry,
+                    profiler: profiler,
+                    accessories: accessories
+                )
                 guard !Task.isCancelled else { return }
                 self.publish(devices)
             } catch {
@@ -134,7 +144,8 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
     /// coordinator keeps the last good list.
     private static func combined(
         registry: DeviceBatterySource,
-        profiler: DeviceBatterySource?
+        profiler: SystemProfilerAccessorySource?,
+        accessories: PowerAccessoryBatterySource?
     ) async throws -> [AppleDeviceSnapshot] {
         var devices: [AppleDeviceSnapshot] = []
         var registryFailure: Error?
@@ -149,17 +160,33 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
             return devices
         }
 
+        var batteryless: [SystemProfilerAccessoryParser.BatterylessDevice] = []
         do {
+            let inventory = try profiler.inventory()
             let seen = Set(devices.map(\.identity))
             // Identity, not name: both sources derive it from the same hardware
             // address, so the same accessory described twice collapses here
             // rather than appearing twice in the panel.
-            let extra = try await profiler.read().filter { !seen.contains($0.identity) }
-            devices.append(contentsOf: extra)
+            devices.append(contentsOf: inventory.devices.filter { !seen.contains($0.identity) })
+            batteryless = inventory.batteryless
         } catch {
             if devices.isEmpty, let registryFailure { throw registryFailure }
             if devices.isEmpty { throw error }
         }
+
+        // The third source runs **only** when the first two left a connected
+        // device without a reading. With everything already answered there is
+        // nothing for it to add, and spawning a process to learn that would be
+        // a process for nothing.
+        let covered = Set(devices.map(\.identity))
+        let candidates = batteryless.filter { !covered.contains($0.identity) }
+        guard !candidates.isEmpty, let accessories else { return devices }
+
+        devices.append(contentsOf: PowerAccessoryOverlay.apply(
+            candidates: candidates,
+            readings: accessories.readings(),
+            now: Date()
+        ))
         return devices
     }
 
