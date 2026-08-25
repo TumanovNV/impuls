@@ -2,9 +2,9 @@
 title: Privacy Boundaries
 type: security
 status: active
-documentation_version: 1.5
+documentation_version: 1.6
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, privacy, boundaries]
 ---
 
@@ -23,7 +23,7 @@ flowchart TD
     USER --> N1[Update channel\nexplicit consent]
     USER --> N2[Web music\nexplicit Open Web Player]
     USER --> N3[Version statistics\nseparate explicit consent]
-    USER --> BROWSER[Feedback / project links\nexplicit browser action]
+    USER --> BROWSER[Feedback / project / voluntary-support links\nexplicit browser action]
 
     CONTENT -.not sent.-> N1
     CONTENT -.not sent.-> N3
@@ -40,6 +40,8 @@ External Apple-device data remains a local presentation/provider domain. Battery
 
 Project-support eligibility is another local-only domain. First meaningful-use time, coarse use/day counters, prompt state and shown count are used only to decide whether the app may present its bounded support prompt. They are not included in version statistics, feedback diagnostics or portable backup. The prompt is capped at two automatic appearances for the lifetime of that local state. Opening the project GitHub page is an explicit browser action; Impuls does not query GitHub for account/star state.
 
+Voluntary development support is a separate, stateless Settings action. The user explicitly chooses CloudTips or Boosty, and Impuls hands only that provider's exact approved HTTPS page to the system browser. Impuls does not fetch or preflight the page, embed payment UI, receive a callback, or store a provider choice, amount, outcome, account state or entitlement. Card and payment credentials are entered on and processed by the external provider page under that provider's terms; they never pass through Impuls.
+
 The explicit interface-language preference is also local. `AppLanguageService` owns `app.language.v1` and the explicit `AppleLanguages` override path; no language pack or language preference is fetched/sent as telemetry.
 
 ## Сохранность локальных данных
@@ -48,7 +50,7 @@ The explicit interface-language preference is also local. `AppLanguageService` o
 
 ## Consent separation
 
-Update consent, explicit web-player action, version-statistics consent and external-device discovery are separate decisions. Consent/action одной boundary не переносится на другую. Feedback/project links are browser handoffs after explicit user actions rather than hidden product networking.
+Update consent, explicit web-player action, version-statistics consent and external-device discovery are separate decisions. Consent/action одной boundary не переносится на другую. Feedback/project/voluntary-support links are browser handoffs after explicit user actions rather than hidden product networking.
 
 Version statistics remain off until their own opt-in. The client may attempt the narrow heartbeat no more than once per hour for the same app version; a failed collector does not convert application launch or user-facing work into retry traffic. An app version that differs from the version of the last attempt is not held back by that previous version's cooldown, so a newly installed update can report its own version without waiting for a manual relaunch. A best-effort in-process scheduler proposes an attempt roughly hourly for the life of the run; it does not change what is sent or how often a single version may actually attempt.
 
@@ -77,7 +79,7 @@ Privacy включает не только «не отправлять», но �
 
 The 1.4.16 version-statistics diagnostics section in Settings follows the same rule and does not widen the payload contract above: `VersionTelemetryService.diagnostics()` only echoes consent, the exact version string a heartbeat would send, local attempt/success timestamps and a safe never-attempted/succeeded/failed outcome — never a raw installation UUID, request/response body or server detail. Opening or refreshing that section is a local read; it never becomes a heartbeat attempt on its own.
 
-Support/feedback UI follows the same honesty rule: opening GitHub is recorded only as the browser action being accepted, never as proof that a star or issue was actually submitted.
+Support/feedback UI follows the same honesty rule: opening GitHub is recorded only as the browser action being accepted, never as proof that a star or issue was actually submitted. A voluntary-support handoff records nothing at all and cannot change application functionality.
 
 ## Verification owners
 

@@ -2,9 +2,9 @@
 title: Settings, Onboarding and Feedback
 type: architecture
 status: active
-documentation_version: 1.3
-app_version: 1.4.15
-last_reviewed: 2026-08-22
+documentation_version: 1.4
+app_version: 1.4.16
+last_reviewed: 2026-08-25
 tags: [impuls, settings, onboarding, feedback, project-support]
 ---
 
@@ -144,11 +144,20 @@ Impuls не знает и не утверждает, что звезда пос�
 
 Eligibility считается полностью локально. Ни дата первого использования, ни счётчики, ни `shownCount`, ни состояние наружу не отправляются. Это не telemetry: событий `prompt shown` / `star clicked` не существует, и добавлять их нельзя — это была бы отдельная задача про consent. Хранимые данные — счётчики, а не история: ни модулей, ни запросов, ни содержимого. Состояние машинно-локально и не входит в portable backup; см. [Storage and Persistence](storage-persistence.md).
 
-### Постоянный путь
+### Постоянные пути в Settings
 
-Settings → Feedback содержит постоянный блок «Support the Project» с кнопкой «Support Impuls on GitHub» рядом с «Send Feedback…». Он stateless: открывает тот же URL, не трогая состояние prompt, поэтому продолжает работать после `dismissedForever`, а выбор в Settings не считается ответом на вопрос, которого Impuls не задавал.
+Settings → Feedback содержит постоянный блок «Support the Project». Существующая кнопка «Support Impuls on GitHub» остаётся отдельным stateless путём к project URL и не меняет prompt state. Рядом с ней находятся два явных варианта добровольной поддержки разработки: «Russia — CloudTips» и «Other Countries — Boosty». Impuls не выбирает вариант по стране, locale, IP или timezone; пользователь всегда выбирает его сам.
 
-Ручной сценарий записан как `SUP-01` в [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md).
+`VoluntarySupportDestination` содержит ровно два donation destination и не объединён с GitHub project URL:
+
+- `.cloudTips` → `https://pay.cloudtips.ru/p/e04ac53f`;
+- `.boosty` → `https://boosty.to/tumanovnv/donate`.
+
+Settings передаёт только typed destination через callback, а `ProjectSupportPromptService.openVoluntarySupportPage` статически валидирует точный immutable URL и передаёт его `NSWorkspace`/default browser. UI не принимает и не собирает `String`/`URL`. Любая вариация scheme, host, path, profile, credentials, port, query или fragment отклоняется fail-closed; fallback provider и redirect construction отсутствуют.
+
+Этот browser handoff stateless: он не читает и не изменяет `ProjectSupportPromptRecord`, `UserDefaults`, eligibility, thresholds, meaningful-use counters, `shownCount`, snooze или automatic prompt scheduling. Impuls не получает callback о платеже и не создаёт `donated`, supporter, entitlement или provider-selection state. Неудачное открытие показывает локальную ошибку только в Settings; успешное открытие любого provider убирает предыдущую ошибку. Существующее сообщение об ошибке GitHub остаётся независимым.
+
+`SUP-01` по-прежнему принадлежит только automatic prompt. Постоянные voluntary-support actions проверяются `SUP-02`…`SUP-07` в [Behavioral QA Matrix](../13-qa/behavioral-qa-matrix.md).
 
 ## Source map
 
@@ -183,5 +192,6 @@ Settings → Feedback содержит постоянный блок «Support t
 - the support prompt is capped at two automatic appearances for the lifetime of the local state, and every terminal state is terminal;
 - eligibility is computed locally and never transmitted; it must not grow a telemetry event;
 - Impuls never checks, claims or stores whether a GitHub star was given;
-- neither the prompt nor Settings performs an HTTP request; both only hand one exact allow-listed URL to the browser after a click;
+- neither the prompt nor Settings performs an HTTP request; they only hand an exact allow-listed URL to the browser after a click;
+- voluntary-support provider choice is explicit and stateless; it never becomes an eligibility condition, automatic prompt action, entitlement or payment record;
 - the prompt appears only from an idle transition after real use, never at launch and never over another Impuls window.

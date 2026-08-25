@@ -471,6 +471,113 @@ final class ProjectSupportPromptServiceTests: XCTestCase {
         }
     }
 
+    // MARK: - Voluntary support URLs
+
+    func testVoluntarySupportDestinationHasExactlyTwoCases() {
+        XCTAssertEqual(VoluntarySupportDestination.allCases, [.cloudTips, .boosty])
+    }
+
+    func testExactVoluntarySupportURLsAreAllowed() throws {
+        let cloudTips = try XCTUnwrap(VoluntarySupportDestination.cloudTips.url)
+        let boosty = try XCTUnwrap(VoluntarySupportDestination.boosty.url)
+
+        XCTAssertEqual(cloudTips.absoluteString, "https://pay.cloudtips.ru/p/e04ac53f")
+        XCTAssertEqual(boosty.absoluteString, "https://boosty.to/tumanovnv/donate")
+        XCTAssertTrue(ProjectSupportPromptService.isAllowedVoluntarySupportURL(cloudTips))
+        XCTAssertTrue(ProjectSupportPromptService.isAllowedVoluntarySupportURL(boosty))
+    }
+
+    func testHTTPCloudTipsURLIsRejected() {
+        assertVoluntarySupportURLRejected("http://pay.cloudtips.ru/p/e04ac53f")
+    }
+
+    func testWrongCloudTipsPathIsRejected() {
+        assertVoluntarySupportURLRejected("https://pay.cloudtips.ru/p/different")
+    }
+
+    func testWrongBoostyProfileIsRejected() {
+        assertVoluntarySupportURLRejected("https://boosty.to/another-profile/donate")
+    }
+
+    func testLookalikeVoluntarySupportHostIsRejected() {
+        assertVoluntarySupportURLRejected("https://pay.cloudtips.ru.example.com/p/e04ac53f")
+    }
+
+    func testVoluntarySupportURLWithCredentialsIsRejected() {
+        assertVoluntarySupportURLRejected("https://user:secret@pay.cloudtips.ru/p/e04ac53f")
+    }
+
+    func testVoluntarySupportURLWithCustomPortIsRejected() {
+        assertVoluntarySupportURLRejected("https://boosty.to:8443/tumanovnv/donate")
+    }
+
+    func testVoluntarySupportURLWithQueryIsRejected() {
+        assertVoluntarySupportURLRejected("https://pay.cloudtips.ru/p/e04ac53f?redirect=https://example.com")
+    }
+
+    func testVoluntarySupportURLWithFragmentIsRejected() {
+        assertVoluntarySupportURLRejected("https://boosty.to/tumanovnv/donate#support")
+    }
+
+    func testArbitraryVoluntarySupportURLIsRejected() {
+        assertVoluntarySupportURLRejected("https://example.com/support")
+    }
+
+    @MainActor
+    func testEachVoluntarySupportActionOpensItsExactURL() {
+        var opened: [URL] = []
+
+        XCTAssertTrue(ProjectSupportPromptService.openVoluntarySupportPage(
+            .cloudTips,
+            using: { opened.append($0); return true }
+        ))
+        XCTAssertTrue(ProjectSupportPromptService.openVoluntarySupportPage(
+            .boosty,
+            using: { opened.append($0); return true }
+        ))
+
+        XCTAssertEqual(opened.map(\.absoluteString), [
+            "https://pay.cloudtips.ru/p/e04ac53f",
+            "https://boosty.to/tumanovnv/donate",
+        ])
+    }
+
+    @MainActor
+    func testFailedVoluntarySupportOpenerReturnsFalse() {
+        XCTAssertFalse(ProjectSupportPromptService.openVoluntarySupportPage(.cloudTips, using: { _ in false }))
+    }
+
+    @MainActor
+    func testVoluntarySupportActionDoesNotChangePromptRecord() throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let clock = TestClock(Self.epoch)
+        let service = makeService(clock: clock, defaults: defaults)
+        service.recordMeaningfulUse()
+        let recordBeforeOpen = service.record
+
+        XCTAssertTrue(ProjectSupportPromptService.openVoluntarySupportPage(.cloudTips, using: { _ in true }))
+        XCTAssertTrue(ProjectSupportPromptService.openVoluntarySupportPage(.boosty, using: { _ in true }))
+
+        XCTAssertEqual(service.record, recordBeforeOpen)
+    }
+
+    private func assertVoluntarySupportURLRejected(
+        _ candidate: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard let url = URL(string: candidate) else {
+            return XCTFail("invalid test URL: \(candidate)", file: file, line: line)
+        }
+        XCTAssertFalse(
+            ProjectSupportPromptService.isAllowedVoluntarySupportURL(url),
+            "\(candidate) must not be openable",
+            file: file,
+            line: line
+        )
+    }
+
     // MARK: - Quiet moment
 
     func testEveryBadMomentBlocksThePrompt() {

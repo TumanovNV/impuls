@@ -44,11 +44,11 @@ class SitePrivacyLocalizationTests(unittest.TestCase):
 
     def test_policy_metadata_is_machine_readable_and_matches_source_revision(self):
         self.assertEqual(self.metadata["source_locale"], "ru")
-        self.assertEqual(self.metadata["revision"], "3.0")
-        self.assertEqual(self.metadata["effective_date"], "2026-08-23")
+        self.assertEqual(self.metadata["revision"], "3.1")
+        self.assertEqual(self.metadata["effective_date"], "2026-08-25")
         self.assertEqual(SITEMAP.load_privacy_effective_date(), self.metadata["effective_date"])
-        self.assertIn("Редакция 3.0", self.pages["ru"])
-        self.assertIn("23 августа 2026", self.pages["ru"])
+        self.assertIn("Редакция 3.1", self.pages["ru"])
+        self.assertIn("25 августа 2026", self.pages["ru"])
 
     def test_every_privacy_config_matches_registry_and_nine_section_contract(self):
         for code in self.codes:
@@ -67,7 +67,7 @@ class SitePrivacyLocalizationTests(unittest.TestCase):
 
     def test_policy_revision_and_controller_are_consistent(self):
         for code, page in self.pages.items():
-            self.assertIn("3.0", page, code)
+            self.assertIn("3.1", page, code)
             self.assertIn("2026", page, code)
             expected_name = "Туманов Николай Витальевич" if code == "ru" else "Nikolay Vitalyevich Tumanov"
             self.assertIn(expected_name, page, code)
@@ -81,6 +81,15 @@ class SitePrivacyLocalizationTests(unittest.TestCase):
             self.assertIn("HMAC", page, code)
             self.assertIn("PRIVACY.md", page, code)
             self.assertIn(gdpr_source, page, code)
+
+    def test_voluntary_support_provider_boundary_is_disclosed_in_every_translation(self):
+        for code, page in self.pages.items():
+            self.assertIn("CloudTips", page, code)
+            self.assertIn("Boosty", page, code)
+        self.assertIn("только после явного выбора пользователя", self.pages["ru"].lower())
+        self.assertIn("не получает данные карты", self.pages["ru"])
+        self.assertIn("only after the user explicitly chooses", self.pages["en"].lower())
+        self.assertIn("receives no card", self.pages["en"])
 
     def test_russian_and_english_pages_state_non_certification_and_mandatory_rights(self):
         self.assertIn("не является заявлением о сертификации", self.pages["ru"])

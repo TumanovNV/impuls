@@ -645,6 +645,14 @@
 "If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "Si Impuls vous a été utile, vous pouvez soutenir le projet avec une étoile sur GitHub. Si quelque chose peut être amélioré, vos retours nous intéressent.";
 "Support on GitHub" = "Soutenir sur GitHub";
 "Share Feedback" = "Envoyer un retour";
+"Support Impuls Development" = "Soutenir le développement d’Impuls";
+"Support is voluntary. You choose the amount on the external service. Impuls features do not depend on support." = "Le soutien est volontaire. Vous choisissez le montant sur le service externe. Les fonctionnalités d’Impuls ne dépendent pas de votre soutien.";
+"Russia" = "Russie";
+"Other Countries" = "Autres pays";
+"CloudTips" = "CloudTips";
+"Boosty" = "Boosty";
+"Opens in Your Default Browser" = "S’ouvre dans votre navigateur par défaut";
+"Could Not Open Support Page" = "Impossible d’ouvrir la page de soutien";
 
 /* Cancellable file operations 1.4.16 */
 "Cancelling…" = "Annulation…";

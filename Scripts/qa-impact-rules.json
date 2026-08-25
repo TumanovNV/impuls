@@ -368,7 +368,7 @@
     },
     {
       "id": "project-support-prompt",
-      "description": "Local project-support prompt policy, its meaningful-use owner, its idle presentation moment or its window changed",
+      "description": "Local project-support prompt policy, voluntary-support URL contract, meaningful-use owner, idle presentation moment or prompt window changed",
       "source_globs": [
         "Sources/Impuls/Services/ProjectSupportPromptService.swift",
         "Sources/Impuls/Settings/ProjectSupportPromptWindow.swift"
@@ -378,7 +378,13 @@
         "Tests/ImpulsTests/ProjectSupportPromptLifecycleTests.swift"
       ],
       "qa_ids": [
-        "SUP-01"
+        "SUP-01",
+        "SUP-02",
+        "SUP-03",
+        "SUP-04",
+        "SUP-05",
+        "SUP-06",
+        "SUP-07"
       ]
     },
     {
