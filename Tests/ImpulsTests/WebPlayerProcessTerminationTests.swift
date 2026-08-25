@@ -133,6 +133,142 @@ final class WebPlayerProcessTerminationTests: XCTestCase {
         player.teardown()
     }
 
+    // MARK: - Recovery after termination
+    //
+    // `show(source:)` calls `showAction(...)` and does exactly what it returns,
+    // so these test the production decision. Asserting on a real `WKWebView`
+    // instead would mean loading a provider page over the network.
+
+    private let providerURL = URL(string: "https://music.yandex.ru/home")!
+    private let errorPageURL = URL(string: "about:blank")!
+
+    /// 1. Nothing changed for a healthy page: still a snapshot, not a reload.
+    func testAHealthySameSourcePageStillOnlyAsksForASnapshot() {
+        XCTAssertEqual(
+            WebMusicPlayer.showAction(
+                sourceChanged: false,
+                currentURL: providerURL,
+                source: .yandexMusic,
+                needsRecovery: false
+            ),
+            .snapshot
+        )
+    }
+
+    /// 2. The gap this closes. A dead page keeps its provider URL, so without
+    /// the flag this would ask a process that no longer exists for a snapshot
+    /// and wait forever.
+    func testATerminatedSameSourcePageIsRecoveredByNavigationRatherThanASnapshot() {
+        XCTAssertEqual(
+            WebMusicPlayer.showAction(
+                sourceChanged: false,
+                currentURL: providerURL,
+                source: .yandexMusic,
+                needsRecovery: true
+            ),
+            .recoveryReload,
+            "a snapshot here is the dead end the user cannot escape"
+        )
+    }
+
+    /// A crash on the local failure page has no provider URL to reload, so the
+    /// recovery is a fresh load of the provider's home.
+    func testRecoveryFromANonProviderURLLoadsTheProviderHome() {
+        XCTAssertEqual(
+            WebMusicPlayer.showAction(
+                sourceChanged: false,
+                currentURL: errorPageURL,
+                source: .yandexMusic,
+                needsRecovery: true
+            ),
+            .load
+        )
+        XCTAssertEqual(
+            WebMusicPlayer.showAction(
+                sourceChanged: false,
+                currentURL: nil,
+                source: .yandexMusic,
+                needsRecovery: true
+            ),
+            .load
+        )
+    }
+
+    /// 6. The flag belongs to the dead page, not to the next thing the user
+    /// asks for: switching service after a crash is an ordinary load.
+    func testASourceChangeAfterTerminationLoadsTheNewServiceNormally() {
+        XCTAssertEqual(
+            WebMusicPlayer.showAction(
+                sourceChanged: true,
+                currentURL: providerURL,
+                source: .youtubeMusic,
+                needsRecovery: true
+            ),
+            .load,
+            "recovery state must not follow the user to another service"
+        )
+    }
+
+    /// 3 + 4. One recovery, then back to ordinary behaviour. Driven through
+    /// the real `show(source:)`, so the flag's lifecycle is what is tested.
+    func testRecoveryHappensOnceAndThenNormalBehaviourResumes() throws {
+        let (player, _, webView) = try primed()
+        player.webViewWebContentProcessDidTerminate(webView)
+
+        XCTAssertTrue(player.needsRecoveryLoadForTesting, "the crash raised it")
+
+        player.show(source: .yandexMusic)
+        XCTAssertFalse(player.needsRecoveryLoadForTesting, "and the explicit show consumed it")
+
+        // A second show finds a healthy flag and takes the ordinary path.
+        XCTAssertEqual(
+            WebMusicPlayer.showAction(
+                sourceChanged: false,
+                currentURL: providerURL,
+                source: .yandexMusic,
+                needsRecovery: player.needsRecoveryLoadForTesting
+            ),
+            .snapshot
+        )
+        player.teardown()
+    }
+
+    /// 5. The callback reports; it does not navigate.
+    func testTheTerminationCallbackItselfNavigatesNothing() throws {
+        let (player, recorder, webView) = try primed()
+
+        player.webViewWebContentProcessDidTerminate(webView)
+
+        XCTAssertNil(webView.url)
+        XCTAssertFalse(webView.isLoading, "recovery waits for the user, it does not start itself")
+        XCTAssertTrue(player.needsRecoveryLoadForTesting)
+        XCTAssertEqual(recorder.loading.last?.1, false)
+    }
+
+    /// 7. Teardown clears a pending recovery — a rebuilt player starts clean.
+    func testTeardownClearsAPendingRecovery() throws {
+        let (player, _, webView) = try primed()
+        player.webViewWebContentProcessDidTerminate(webView)
+        XCTAssertTrue(player.needsRecoveryLoadForTesting)
+
+        player.teardown()
+
+        XCTAssertFalse(player.needsRecoveryLoadForTesting)
+    }
+
+    /// 8. Repeated crashes leave the flag raised once, not stacked.
+    func testRepeatedTerminationsLeaveOneRecoveryPending() throws {
+        let (player, _, webView) = try primed()
+
+        player.webViewWebContentProcessDidTerminate(webView)
+        player.webViewWebContentProcessDidTerminate(webView)
+
+        XCTAssertTrue(player.needsRecoveryLoadForTesting)
+        player.show(source: .yandexMusic)
+        XCTAssertFalse(player.needsRecoveryLoadForTesting, "one explicit show clears it")
+        player.teardown()
+    }
+
     // MARK: - 6. A view this player no longer owns
 
     func testTerminationOfAForeignWebViewIsIgnored() throws {

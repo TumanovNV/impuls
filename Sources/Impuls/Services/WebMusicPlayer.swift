@@ -182,6 +182,23 @@ protocol WebMusicPlaying: AnyObject {
 /// The first request is made only by `show(source:)`, which is wired to the
 /// explicit "Open web player" button in the Music pane.
 @MainActor
+/// What `show(source:)` should do with the web view it already has.
+///
+/// Extracted because the choice is the interesting part and the alternative —
+/// asserting on a real `WKWebView` — cannot be made without loading a provider
+/// page over the network. `show(source:)` calls exactly this, so a test of it
+/// is a test of the production decision rather than a second algorithm written
+/// to agree with it.
+enum WebPlayerShowAction: Equatable {
+    /// The page is healthy and already showing this provider: ask it to speak.
+    case snapshot
+    /// Navigate to the provider's home page.
+    case load
+    /// One explicit reload of a page whose content process died. Allowed only
+    /// because the user asked for it by opening or retrying.
+    case recoveryReload
+}
+
 final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMusicPlaying {
     var onState: ((MusicSource, WebMusicState?) -> Void)?
     var onArtwork: ((MusicSource, String, NSImage?) -> Void)?
@@ -204,6 +221,11 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
     /// Identifies the most recent play/pause press, so a stale follow-up check
     /// cannot act on an intent the user has already replaced.
     private var playbackIntent = 0
+    /// Set when the content process died: the view still holds a provider URL,
+    /// but the document behind it — and the injected bridge with it — is gone.
+    /// Without this the next `show(source:)` would see a same-source,
+    /// still-allowlisted URL, ask a dead page for a snapshot, and wait forever.
+    private var needsRecoveryLoad = false
 
     func show(source: MusicSource) {
         guard let homeURL = source.webHomeURL else { return }
@@ -220,13 +242,53 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
         windowController.window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
-        if !sourceChanged, webView.isLoading { return }
-        if sourceChanged || webView.url.map({ !source.allowsStateReport(from: $0) }) != false {
+        // A load already in flight is left to finish — unless the page behind
+        // it is the dead one, which finishes nothing.
+        if !sourceChanged, !needsRecoveryLoad, webView.isLoading { return }
+
+        let action = Self.showAction(
+            sourceChanged: sourceChanged,
+            currentURL: webView.url,
+            source: source,
+            needsRecovery: needsRecoveryLoad
+        )
+        // Cleared before navigating, not after: whichever branch runs, this
+        // page has now had its one explicit recovery. A second crash raises the
+        // flag again and gives the user another Retry — which is a cycle only
+        // if the user keeps choosing it.
+        needsRecoveryLoad = false
+
+        switch action {
+        case .snapshot:
+            requestSnapshot()
+        case .load:
             onLoading?(source, true)
             webView.load(URLRequest(url: homeURL))
-        } else {
-            requestSnapshot()
+        case .recoveryReload:
+            onLoading?(source, true)
+            webView.reload()
         }
+    }
+
+    /// Test seam: whether a recovery navigation is still owed. Read-only, so a
+    /// test can observe the flag's lifecycle without being able to forge it.
+    var needsRecoveryLoadForTesting: Bool { needsRecoveryLoad }
+
+    /// The rule `show(source:)` follows, in one testable place.
+    ///
+    /// A source change always loads: the recovery flag belongs to the dead
+    /// page, not to whatever the user asks for next, so switching services
+    /// after a crash is an ordinary load of the new one.
+    static func showAction(
+        sourceChanged: Bool,
+        currentURL: URL?,
+        source: MusicSource,
+        needsRecovery: Bool
+    ) -> WebPlayerShowAction {
+        if sourceChanged { return .load }
+        let showsThisProvider = currentURL.map { source.allowsStateReport(from: $0) } == true
+        if needsRecovery { return showsThisProvider ? .recoveryReload : .load }
+        return showsThisProvider ? .snapshot : .load
     }
 
     /// Test seam: reaches the state a running session has — a web view and a
@@ -369,6 +431,7 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
         requestedArtworkKey = nil
         source = nil
         isPresentingFailure = false
+        needsRecoveryLoad = false
         playbackIntent += 1
     }
 
@@ -459,6 +522,8 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
             NSLog("Impuls: web music inspector enabled")
         }
         NSLog("Impuls: web music user agent \(Self.safariUserAgentToken)")
+        // A new view has no dead page behind it.
+        needsRecoveryLoad = false
         self.webView = webView
         return webView
     }
@@ -675,6 +740,10 @@ final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMus
         NSLog("Impuls: web music content process terminated")
         currentState = nil
         requestedArtworkKey = nil
+        // The view keeps its URL, so the next `show(source:)` would otherwise
+        // mistake this for a healthy page. Raising the flag is all that happens
+        // here — nothing is loaded from the callback that reports the crash.
+        needsRecoveryLoad = true
         // Any press in flight belonged to a page that no longer exists.
         playbackIntent += 1
 

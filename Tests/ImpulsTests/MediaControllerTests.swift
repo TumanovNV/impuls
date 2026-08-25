@@ -329,6 +329,41 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertNil(controller.artwork, "another service's cover is not this track's cover")
     }
 
+    /// The Retry the user actually presses after a crash must reach the show
+    /// path — the one that can perform a recovery navigation — and not the
+    /// snapshot path, which asks a dead page a question it cannot answer.
+    func testRetryAfterAWebFailureGoesThroughShowRatherThanASnapshot() throws {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.yandexMusic.rawValue, forKey: MediaController.selectedSourceKey)
+        var webPlayer: FakeWebMusicPlayer?
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge, webPlayerFactory: {
+            let player = FakeWebMusicPlayer()
+            webPlayer = player
+            return player
+        })
+
+        controller.openSelectedSource()
+        let player = try XCTUnwrap(webPlayer)
+        player.onState?(.yandexMusic, webState(title: "Track A"))
+        let showsBeforeFailure = player.showCallCount
+        let snapshotsBeforeFailure = player.requestSnapshotCallCount
+
+        // What the content-process termination handler reports.
+        player.onState?(.yandexMusic, nil)
+        player.onFailure?(.yandexMusic, WebMusicPlayer.processTerminatedMessage)
+        XCTAssertNil(controller.track, "the dead page's track is gone")
+        XCTAssertEqual(controller.capabilities, MediaCapabilities(), "and so are its controls")
+
+        controller.retry()
+
+        XCTAssertEqual(player.showCallCount, showsBeforeFailure + 1,
+                       "Retry has to reach show(source:), which can navigate")
+        XCTAssertEqual(player.requestSnapshotCallCount, snapshotsBeforeFailure,
+                       "asking a dead page for a snapshot is the dead end being fixed")
+    }
+
     private func webState(
         title: String,
         artworkKey: String = "",
