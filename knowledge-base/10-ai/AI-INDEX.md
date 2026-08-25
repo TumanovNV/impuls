@@ -2,13 +2,16 @@
 title: IMPULS AI Index
 type: ai-index
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, ai, agents, index, qa]
 ---
 
 # IMPULS AI Documentation Index
+
+> **When to read this.** `AI-INDEX.md` is **not** a cold-start requirement. For a local change, run `python3 Scripts/agent-context.py <changed-path>` and read what it returns. Come here when the router prints `UNROUTED`, when the task does not map to a path yet, for broad architecture exploration, or for an explicit audit. See the context budget contract in [Agent rules](agent-rules.md).
+
 
 ## Обязательный старт
 
