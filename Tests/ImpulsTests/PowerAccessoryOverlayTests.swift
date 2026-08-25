@@ -265,13 +265,15 @@ final class PowerAccessoryOverlayTests: DeviceIdentityTestCase {
 
     // MARK: - 9. The tool being unavailable is survivable
 
-    func testAFailingToolYieldsNoReadingsRatherThanAnError() {
+    func testAFailingToolYieldsNoReadingsRatherThanAnError() async {
         struct Boom: Error {}
-        let source = PowerAccessoryBatterySource(runner: { throw Boom() })
-        XCTAssertTrue(source.readings().isEmpty)
+        let failing = await PowerAccessoryBatterySource(runner: { throw Boom() }).readings()
+        XCTAssertTrue(failing.isEmpty)
 
-        let garbage = PowerAccessoryBatterySource(runner: { Data("<html>404</html>".utf8) })
-        XCTAssertTrue(garbage.readings().isEmpty)
+        let garbage = await PowerAccessoryBatterySource(
+            runner: { Data("<html>404</html>".utf8) }
+        ).readings()
+        XCTAssertTrue(garbage.isEmpty)
     }
 
     func testTheProcessBoundaryIsFixedAndArgumentFree() {

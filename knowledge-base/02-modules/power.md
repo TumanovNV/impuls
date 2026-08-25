@@ -91,6 +91,8 @@ Generic kinds (`.headphones`, `.keyboard`, `.mouse`, `.trackpad`, `.accessory`) 
 
 **Charging.** Берётся из `Is Charging`, когда источник его сообщает. `Is Charged` не считается доказательством внешнего питания: полная батарея — не кабель. Отсутствующее или противоречивое → `unknown`. 100% по-прежнему не доказательство зарядки.
 
+**Isolation.** Оба accessory-источника (`system_profiler` и `pmset`) выставляют `async` non-isolated методы и выполняют subprocess вместе с парсингом внутри `Task.detached(priority: .utility)`. Provider остаётся `@MainActor`, но тяжёлая часть на нём не выполняется: синхронный метод, вызванный из main-actor контекста, заморозил бы UI до ответа инструмента или до истечения deadline. Публикация результата и состояние provider'а по-прежнему на MainActor; существующая проверка `Task.isCancelled` перед `publish` продолжает отбрасывать устаревший результат.
+
 **Cadence.** Не менялась. `pmset` запускается **только** когда после registry и `system_profiler` остались подключённые устройства без показания — если всё уже отвечено, процесс не порождается.
 
 **Real hardware evidence (2026-08-25).** Владелец подтвердил скриншотом System Settings → Bluetooth: заряд стороннего headset = 80%. Живой прогон production-пути на том же Mac: `system_profiler` — 0 устройств с батареей, 1 подключённое без; `pmset` — 1 Bluetooth accessory reading, 80%, `Is Charging = 0`; overlay — 1 карточка, 80%, headphones, charging `disconnected`; всего accessory cards — 1, дубликата нет. См. `13-qa/behavioral-qa-matrix.md` PWR-14.

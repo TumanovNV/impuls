@@ -162,7 +162,7 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
 
         var batteryless: [SystemProfilerAccessoryParser.BatterylessDevice] = []
         do {
-            let inventory = try profiler.inventory()
+            let inventory = try await profiler.inventory()
             let seen = Set(devices.map(\.identity))
             // Identity, not name: both sources derive it from the same hardware
             // address, so the same accessory described twice collapses here
@@ -184,7 +184,7 @@ final class AppleAccessoryBatteryProvider: DeviceBatteryProviding {
 
         devices.append(contentsOf: PowerAccessoryOverlay.apply(
             candidates: candidates,
-            readings: accessories.readings(),
+            readings: await accessories.readings(),
             now: Date()
         ))
         return devices

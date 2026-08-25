@@ -43,9 +43,22 @@ final class PowerAccessoryBatterySource: @unchecked Sendable {
     /// the devices this would have decorated are still listed by the sources
     /// that found them, and a device with no reading is dropped exactly as it
     /// was before this source existed.
-    func readings() -> [PowerAccessoryReading] {
-        guard let data = try? runner() else { return [] }
-        return PowerAccessoryBatteryParser.readings(fromXML: data)
+    ///
+    /// `async` and detached for the same reason as
+    /// `SystemProfilerAccessorySource.inventory()`: the caller is a
+    /// `@MainActor` provider, and spawning a subprocess there would freeze the
+    /// UI until the tool answered or its deadline expired. `Task.detached`
+    /// rather than a plain `Task { }`, which in Swift 5 language mode is not
+    /// guaranteed to leave the actor it was started from.
+    ///
+    /// The plist parse happens on the far side too — it is the rest of the
+    /// work, and only `Sendable` value types come back.
+    func readings() async -> [PowerAccessoryReading] {
+        let runner = self.runner
+        return await Task.detached(priority: .utility) {
+            guard let data = try? runner() else { return [] }
+            return PowerAccessoryBatteryParser.readings(fromXML: data)
+        }.value
     }
 }
 
