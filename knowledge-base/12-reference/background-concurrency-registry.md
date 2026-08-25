@@ -2,7 +2,7 @@
 title: Background Work & Concurrency Registry
 type: reference
 status: active
-documentation_version: 2.3
+documentation_version: 2.4
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, performance, concurrency, timers, background-work, ai]
@@ -67,6 +67,8 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 | `FileToolsCoordinator` | File batches and status auto-clear | user-initiated; status clears after `3 s` | `Task.detached(.userInitiated)` per item via `DetachedFileToolsWorkRunner`, `autoreleasepool` per item | status writes guarded by `statusGeneration`. **1.4.16 (#101):** one operation at a time — `beginOperation` takes a single slot and an `operationGeneration` guards every main-actor write a completing operation makes, so a superseded result cannot reach status, Shelf or Undo. Cancellation is **cooperative and explicit**: `Task.detached` inherits none, and the ImageIO/Vision work is synchronous, so a `FileToolsCancellation` flag is read at documented boundaries — between batch items, and between PDF pages. An item already in flight is allowed to finish rather than being abandoned mid-write; the remaining items never start. No timer, no polling, no extra concurrency: the batch stays sequential. The operation deliberately **survives** panel close — it is owned by the coordinator, which lives for the process — and is stopped only by the user's explicit Cancel |
 | `NotchContentView` | Rail hover dwell | `150 ms` before a hover switches module | SwiftUI `.task(id:)` | id change cancels; hover is an affordance and must not become selection |
 | Panes (`Actions`, `Clipboard`, `Notes`, `Snippets`, `Translate`) | "Copied" toast clear | `1.1 s` per pane | main queue delayed callback | value comparison discards a stale clear; no repeating work |
+
+The 1.4.16 voluntary-support wiring does not add a runtime-registry owner. `AppDelegate`'s `onVoluntarySupport` callback is synchronous composition only: one typed destination is passed to the stateless browser opener after a click. It creates no `DispatchWorkItem`, `Task`, timer, poller or retry and performs no background request or preflight. The existing `projectSupportPromptWork` `+8 s` automatic-prompt contract above is unchanged.
 
 ## Provider cadence model
 

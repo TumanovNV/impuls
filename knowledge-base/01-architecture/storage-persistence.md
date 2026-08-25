@@ -2,7 +2,7 @@
 title: Storage and Persistence
 type: architecture
 status: active
-documentation_version: 1.8
+documentation_version: 1.9
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, storage, persistence, privacy]
@@ -90,7 +90,9 @@ Storage-контракт не затронут: новых persisted keys нет
 
 Ничего из этого наружу не отправляется. Это не telemetry: у функции нет ни события «prompt shown», ни «star clicked», ни сервера, у которого можно было бы спросить про звезду.
 
-Записывает это состояние только сам prompt: `ProjectSupportPromptWindowController` сообщает сервису выбранный исход, а постоянная кнопка в Settings → Feedback открывает тот же URL **stateless** и не пишет ничего. Поэтому нажатие в Settings не расходует и не возвращает автоматический показ.
+Записывает это состояние только automatic prompt: `ProjectSupportPromptWindowController` сообщает сервису выбранный исход. Settings → Feedback теперь имеет три постоянных browser action: отдельный GitHub project action и voluntary-support actions для CloudTips и Boosty. Все три пути stateless и не изменяют `projectSupport.prompt.v1`, поэтому нажатие в Settings не расходует и не возвращает автоматический показ.
+
+Ни один permanent voluntary-support action не сохраняет выбор provider, сумму donation, результат платежа, supporter status, entitlement, last donation или payment credentials. Новый persisted key не появился, schema `projectSupport.prompt.v1` не изменилась, а состав и версия portable backup остались прежними.
 
 Закрытие окна без выбора — тоже запись: это засчитанный отказ, а не отсутствие ответа. Иначе состояние осталось бы нетронутым и вопрос вернулся бы при первой же возможности, то есть ровно тем поведением, которого функция избегает.
 

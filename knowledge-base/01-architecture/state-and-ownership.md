@@ -2,9 +2,9 @@
 title: State and Ownership
 type: architecture
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, architecture, state, ownership]
 ---
 
@@ -54,7 +54,8 @@ flowchart LR
 | `MenuBarStatusItemPresentation` | pure formatting of already-resolved logo/player/battery status content | provider selection, domain state, AppKit lifecycle |
 | `AppLanguageService` | the interface-language preference `app.language.v1`, its validation, and the `AppleLanguages` override written on an explicit choice | a mirrored copy in `SettingsStore`, any attempt to switch the running process's language |
 | `AppRelaunchService` | the order of a restart — start the one-shot helper, and only then terminate | the language preference itself, any path that could leave two instances running |
-| `ProjectSupportPromptService` | the machine-local prompt counters `projectSupport.prompt.v1`, the eligibility thresholds and the prompt state machine | the decision about *when* it is a good moment, the presentation itself, any network request, any claim about whether a star was given |
+| `ProjectSupportPromptService` | the machine-local prompt counters `projectSupport.prompt.v1`, the eligibility thresholds and prompt state machine, plus the separate exact GitHub project-URL handoff | the decision about *when* it is a good moment, the presentation itself, any network request, any claim about whether a star or payment was completed |
+| `VoluntarySupportDestination` | the immutable typed policy for the exact CloudTips and Boosty destinations | prompt state, provider selection, payment state or entitlement |
 | `ProjectSupportPromptWindowController` | presenting the prompt and reporting the chosen outcome back | eligibility, thresholds, a second feedback implementation |
 | module store/service | domain state | panel geometry |
 | pane | presentation + user interaction | прямой filesystem/network ownership |
@@ -81,7 +82,9 @@ The 1.4.14 `VersionTelemetryScheduler` addition is a concrete instance of `AppDe
 
 These boundaries are guarded by Documentation Guardian and the Background Work & Concurrency Registry.
 
-`ProjectSupportPromptService` is `@MainActor` because it is read and mutated from `AppDelegate` and the prompt window, both of which are main-actor bound. It protects one value, `record`, and the single `UserDefaults` key behind it. Nothing suspends: reads and writes are synchronous, and the service owns no task, timer, observer or network client. Its policy constants and the URL allow-list are `nonisolated` on purpose — they are immutable and are read from the non-isolated `ProjectSupportPromptMoment`, so making the caller main-actor bound merely to read a constant would be isolation for its own sake. `openProjectPageInBrowser` is the stateless hand-off Settings uses; the instance method wraps it and records the outcome only when the browser accepted the URL.
+`ProjectSupportPromptService` is `@MainActor` because it is read and mutated from `AppDelegate` and the prompt window, both of which are main-actor bound. It protects one value, `record`, and the single `UserDefaults` key behind it, `projectSupport.prompt.v1`. That remains the only persisted project-support prompt state; eligibility, thresholds, state transitions, snooze and the lifetime cap are unchanged. Nothing suspends: reads and writes are synchronous, and the service owns no task, timer, observer or network client. Its prompt policy constants and separate GitHub project URL contract are immutable. `openProjectPageInBrowser` is the stateless Settings handoff for that GitHub URL; the instance method used by the automatic prompt records `openedGitHub` only when the browser accepted it.
+
+Voluntary support is a separate stateless path, not an extension of that record or state machine. `VoluntarySupportDestination` owns the typed exact allow-list consisting only of the approved CloudTips and Boosty endpoints. `ProjectSupportPromptService.openVoluntarySupportPage` delegates validation to that policy and performs one system-browser handoff; it neither reads nor protects `record`. No provider choice, payment result, supporter status or entitlement exists in application state. `AppDelegate` only wires the typed Settings callback to this handoff; ownership of automatic prompt scheduling, including the existing one-shot quiet deferral, is unchanged.
 
 Ownership of the *moment* is deliberately elsewhere. `NotchController` owns the single meaningful-use funnel and the single return-to-idle report; `AppDelegate` owns the cancellable one-shot deferral and the environment checks. The service therefore cannot decide to appear, and the controller cannot decide whether the app has earned it. Those environment checks reach exactly as far as this process: `NSApp.windows` lists Impuls's own windows and nothing else, so a macOS permission dialog owned by a system process is outside the boundary. That is a limit of the ownership model, not an oversight — `AppDelegate` cannot observe another process's surfaces — and it is why the manual contract states the TCC case as something to verify rather than something the code proves.
 

@@ -2,7 +2,7 @@
 title: Settings, Onboarding and Feedback
 type: architecture
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, settings, onboarding, feedback, project-support]
@@ -153,7 +153,7 @@ Settings → Feedback содержит постоянный блок «Support t
 - `.cloudTips` → `https://pay.cloudtips.ru/p/e04ac53f`;
 - `.boosty` → `https://boosty.to/tumanovnv/donate`.
 
-Settings передаёт только typed destination через callback, а `ProjectSupportPromptService.openVoluntarySupportPage` статически валидирует точный immutable URL и передаёт его `NSWorkspace`/default browser. UI не принимает и не собирает `String`/`URL`. Любая вариация scheme, host, path, profile, credentials, port, query или fragment отклоняется fail-closed; fallback provider и redirect construction отсутствуют.
+Settings передаёт только typed destination через callback. `VoluntarySupportDestination` владеет typed exact destination allow-list, а `ProjectSupportPromptService.openVoluntarySupportPage` делегирует проверку этой policy и выполняет stateless handoff в `NSWorkspace`/default browser. UI не принимает и не собирает `String`/`URL`. Любая вариация scheme, host, path, profile, credentials, port, query или fragment отклоняется fail-closed; fallback provider и redirect construction отсутствуют.
 
 Этот browser handoff stateless: он не читает и не изменяет `ProjectSupportPromptRecord`, `UserDefaults`, eligibility, thresholds, meaningful-use counters, `shownCount`, snooze или automatic prompt scheduling. Impuls не получает callback о платеже и не создаёт `donated`, supporter, entitlement или provider-selection state. Неудачное открытие показывает локальную ошибку только в Settings; успешное открытие любого provider убирает предыдущую ошибку. Существующее сообщение об ошибке GitHub остаётся независимым.
 

@@ -2,7 +2,7 @@
 title: Privacy Boundaries
 type: security
 status: active
-documentation_version: 1.6
+documentation_version: 1.7
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, privacy, boundaries]
@@ -40,7 +40,7 @@ External Apple-device data remains a local presentation/provider domain. Battery
 
 Project-support eligibility is another local-only domain. First meaningful-use time, coarse use/day counters, prompt state and shown count are used only to decide whether the app may present its bounded support prompt. They are not included in version statistics, feedback diagnostics or portable backup. The prompt is capped at two automatic appearances for the lifetime of that local state. Opening the project GitHub page is an explicit browser action; Impuls does not query GitHub for account/star state.
 
-Voluntary development support is a separate, stateless Settings action. The user explicitly chooses CloudTips or Boosty, and Impuls hands only that provider's exact approved HTTPS page to the system browser. Impuls does not fetch or preflight the page, embed payment UI, receive a callback, or store a provider choice, amount, outcome, account state or entitlement. Card and payment credentials are entered on and processed by the external provider page under that provider's terms; they never pass through Impuls.
+Voluntary development support is a separate, stateless Settings action. The user explicitly chooses CloudTips or Boosty; `VoluntarySupportDestination` owns the typed exact approved endpoint, and `ProjectSupportPromptService.openVoluntarySupportPage` hands that URL to `NSWorkspace`/the system browser. Impuls does not fetch or preflight the page, embed payment UI, receive a callback, or store a provider choice, amount, outcome, account state or entitlement. Card and payment credentials are entered on and processed by the external provider page under that provider's terms; they never pass through Impuls. No payment or provider state returns to Impuls.
 
 The explicit interface-language preference is also local. `AppLanguageService` owns `app.language.v1` and the explicit `AppleLanguages` override path; no language pack or language preference is fetched/sent as telemetry.
 
@@ -87,7 +87,7 @@ Support/feedback UI follows the same honesty rule: opening GitHub is recorded on
 - `Sources/Impuls/Services/VersionTelemetryService.swift` — consented heartbeat + installation Keychain identity;
 - `Collector/version-statistics/collector.py` — HMAC storage/retention boundary;
 - `Sources/Impuls/Services/FeedbackService.swift` — explicit local report/browser handoff;
-- `Sources/Impuls/Services/ProjectSupportPromptService.swift` — local-only support eligibility/state;
+- `Sources/Impuls/Services/ProjectSupportPromptService.swift` — local-only prompt eligibility/state plus the typed exact voluntary-support destination and stateless system-browser handoff;
 - `Sources/Impuls/Services/AppLanguageService.swift` — local language preference/override owner;
 - `Sources/Impuls/Services/ClipboardHistoryPersistence.swift` — encrypted optional local clipboard archive.
 
