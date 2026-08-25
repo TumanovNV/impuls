@@ -9,7 +9,15 @@ repository or was measured on it:
   * PROJECT-MANIFEST.json accumulates implementation detail and stops being a
     routing map;
   * a route points at a document that has been renamed or deleted, so the
-    router confidently sends an agent nowhere.
+    router confidently sends an agent nowhere;
+  * a new QA rule appears with no documentation route, so the router answers
+    `UNROUTED` for a path CI already considers owned — the checks below compare
+    the two id sets in *both* directions, because only checking that every route
+    has a rule leaves exactly this hole;
+  * a route names an agent-specific rule file. `Scripts/agent-context.py` is
+    generic and is read by more than one agent; `.claude/rules/*.md` already
+    load themselves from their own `paths:` frontmatter, so routing to them
+    would both duplicate that and send other agents into another agent's config.
 
 Deliberately **not** here: any attempt to detect semantic duplication by
 counting keywords or comparing paragraphs. That heuristic cannot tell a
@@ -34,6 +42,12 @@ ROOT = Path(__file__).resolve().parent.parent
 # content, and measured at 9,665 bytes. The ceiling is that figure plus about
 # 15% of headroom, rounded — enough for a genuine new invariant or route,
 # not enough to quietly re-absorb a subsystem contract.
+#
+# The review that separated documentation domains from QA overlays spent part of
+# that headroom (10,395 bytes) explaining how to read the router's output, which
+# is the one thing a bootstrap file cannot delegate. The ceiling deliberately did
+# not move with it: the remaining margin is small on purpose, and the next
+# addition should displace something rather than be appended.
 BOOTSTRAP_FILES = ("AGENTS.md", "CLAUDE.md")
 BOOTSTRAP_BUDGET_BYTES = 11_200
 
@@ -49,7 +63,12 @@ ALLOWED_MANIFEST_KEYS = {
 }
 
 ALLOWED_ROUTING_KEYS = {"schema", "role", "fallback_doc", "domains"}
-ALLOWED_DOMAIN_KEYS = {"id", "name", "read_first", "conditional"}
+ALLOWED_DOMAIN_KEYS = {"id", "name", "route_role", "read_first", "conditional",
+                       "overlay_reason"}
+
+# Routes name canonical project documentation. An agent's own rule files are
+# that agent's concern — see the module docstring.
+AGENT_PRIVATE_PREFIXES = (".claude/", ".codex/", ".github/copilot", ".cursor/")
 
 
 def load_router():
@@ -119,8 +138,30 @@ def check_manifest_schema(errors: list[str]) -> None:
                 f"agent_routing domain {did!r} does not match a rule id in "
                 "Scripts/qa-impact-rules.json, so the router cannot reach its sources or tests"
             )
-        if not domain.get("read_first"):
+        role = domain.get("route_role")
+        if role not in ("primary", "overlay"):
+            errors.append(
+                f"agent_routing domain {did!r}: route_role must be 'primary' or 'overlay', "
+                f"got {role!r}. A QA rule is not automatically a documentation domain."
+            )
+        elif role == "overlay":
+            # An overlay claims paths whose documentation belongs to somebody
+            # else. Letting it carry a read_first is precisely the defect this
+            # role exists to prevent.
+            if domain.get("read_first"):
+                errors.append(
+                    f"agent_routing domain {did!r} is an overlay but declares read_first "
+                    f"{domain['read_first']}. An overlay contributes tests and QA IDs only; "
+                    "put the real owner under conditional with a trigger."
+                )
+            if not domain.get("overlay_reason"):
+                errors.append(
+                    f"agent_routing domain {did!r}: an overlay must state overlay_reason — "
+                    "why its paths are verified here but documented elsewhere"
+                )
+        elif not domain.get("read_first"):
             errors.append(f"agent_routing domain {did!r} has no read_first document")
+
         for doc in domain.get("read_first", []):
             if not (ROOT / doc).is_file():
                 errors.append(f"agent_routing domain {did!r}: read_first missing: {doc}")
@@ -134,6 +175,122 @@ def check_manifest_schema(errors: list[str]) -> None:
             if doc in conditional_docs:
                 errors.append(f"agent_routing domain {did!r}: duplicate conditional route {doc}")
             conditional_docs.add(doc)
+
+        for doc in list(domain.get("read_first", [])) + [
+                i.get("doc", "") for i in domain.get("conditional", [])]:
+            if doc.startswith(AGENT_PRIVATE_PREFIXES):
+                errors.append(
+                    f"agent_routing domain {did!r} routes to an agent-specific rule file: {doc}. "
+                    "Scripts/agent-context.py is generic; route to the canonical project "
+                    "document and let each agent load its own path-scoped rules."
+                )
+
+    check_route_completeness(errors, routing, qa_ids)
+
+
+def check_route_completeness(errors: list[str], routing: dict, qa_ids: set[str]) -> None:
+    """Both directions, because one direction is a hole.
+
+    Every route already had to name a real QA rule. Nothing required the reverse:
+    a new rule in `Scripts/qa-impact-rules.json` could ship with tests and QA IDs
+    and no documentation route at all, and the router would answer `UNROUTED` for
+    a path that CI treats as fully owned — with CI green the whole time. That is
+    the caveat this repository shipped with in 1.4.16 and it is closed by set
+    equality, not by good intentions.
+
+    There is currently no QA rule that should legitimately have no route, so no
+    exemption mechanism exists. If one ever does, add an explicit
+    `router_exemptions` list of `{id, reason}` here rather than loosening the
+    comparison — a silent exception is how the hole reopens.
+    """
+    routed = {d.get("id", "") for d in routing.get("domains", [])}
+    missing = sorted(qa_ids - routed)
+    if missing:
+        errors.append(
+            "Scripts/qa-impact-rules.json rule(s) with no agent_routing domain: "
+            f"{missing}. Every QA rule is routable: add a domain for each id above "
+            "(route_role 'primary' with its canonical document, or 'overlay' with an "
+            "overlay_reason), so the router cannot answer UNROUTED for a path CI "
+            "already considers owned."
+        )
+    extra = sorted(routed - qa_ids)
+    if extra:
+        errors.append(
+            f"agent_routing domain(s) with no matching QA rule id: {extra}"
+        )
+
+
+# The files that tell an agent how to start. Every one of them has, at some
+# point, carried its own version of "read A, then B, then C" — which is how the
+# repository ended up with a router *and* three surviving preload chains that
+# contradicted it.
+AI_ENTRYPOINTS = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "README.ru.md",
+    "knowledge-base/10-ai/AI-INDEX.md",
+    "knowledge-base/10-ai/agent-rules.md",
+    "knowledge-base/10-ai/repository-map.md",
+    "knowledge-base/12-reference/README.md",
+    "knowledge-base/12-reference/project-manifest.md",
+)
+
+ROUTER_INVOCATION = "Scripts/agent-context.py"
+
+# Names that used to be links in the mandatory chain. An arrow from one of these
+# to another is the shape of the contradiction, whatever the surrounding prose
+# says.
+CHAIN_TOKENS = ("AGENTS.md", "PROJECT-MANIFEST.json", "AI-INDEX.md", "AI Index")
+ARROWS = ("\u2192", "->")
+ARROW_WINDOW = 60
+
+
+def check_single_workflow(errors: list[str]) -> None:
+    """One bootstrap workflow, stated the same way everywhere.
+
+    Two deterministic checks, and deliberately no attempt to read the prose:
+
+      * every AI entrypoint names the router. If a file explains how to start and
+        never mentions `Scripts/agent-context.py`, it is describing some other
+        workflow.
+      * no entrypoint contains an arrow leading from one former chain link to
+        another. `AGENTS.md -> PROJECT-MANIFEST.json -> AI-INDEX.md` is a literal
+        shape, not a semantic judgement, so this cannot misfire on a paragraph
+        that merely mentions two of the files.
+
+    What this cannot catch is a chain written in words with no arrow at all. That
+    is stated rather than papered over: the check narrows the failure, it does
+    not claim to close it.
+    """
+    for rel in AI_ENTRYPOINTS:
+        path = ROOT / rel
+        if not path.is_file():
+            errors.append(f"{rel}: AI entrypoint is missing")
+            continue
+        text = path.read_text(encoding="utf-8")
+
+        if ROUTER_INVOCATION not in text:
+            errors.append(
+                f"{rel} explains how to start but never names {ROUTER_INVOCATION}. "
+                "There is one bootstrap workflow: AGENTS.md -> the router -> the owner "
+                "it returns -> implementation and tests."
+            )
+
+        for arrow in ARROWS:
+            start = 0
+            while (hit := text.find(arrow, start)) != -1:
+                start = hit + len(arrow)
+                before = text[max(0, hit - ARROW_WINDOW):hit]
+                after = text[start:start + ARROW_WINDOW]
+                left = {t for t in CHAIN_TOKENS if t in before}
+                right = {t for t in CHAIN_TOKENS if t in after}
+                if left and right - left:
+                    errors.append(
+                        f"{rel} still chains bootstrap entrypoints: "
+                        f"{sorted(left)} -> {sorted(right - left)}. The manifest is the "
+                        "router's input and AI-INDEX.md is its fallback; neither is a "
+                        "step an agent performs before routing."
+                    )
 
 
 def check_router_resolves(errors: list[str]) -> None:
@@ -160,6 +317,7 @@ def main() -> int:
     errors: list[str] = []
     check_bootstrap_budget(errors)
     check_manifest_schema(errors)
+    check_single_workflow(errors)
     check_router_resolves(errors)
 
     if errors:

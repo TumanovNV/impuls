@@ -10,12 +10,22 @@ tags: [impuls, ai, agents, index, qa]
 
 # IMPULS AI Documentation Index
 
-> **When to read this.** `AI-INDEX.md` is **not** a cold-start requirement. For a local change, run `python3 Scripts/agent-context.py <changed-path>` and read what it returns. Come here when the router prints `UNROUTED`, when the task does not map to a path yet, for broad architecture exploration, or for an explicit audit. See the context budget contract in [Agent rules](agent-rules.md).
+## Когда читать этот файл
 
+Проект имеет **один** workflow, и он не начинается здесь:
 
-## Обязательный старт
+```text
+AGENTS.md
+  → python3 Scripts/agent-context.py <changed-path>
+  → возвращённый canonical owner
+  → implementation + tests
+```
 
-Перед изменением проекта: `AGENTS.md` → root `PROJECT-MANIFEST.json` → этот индекс → relevant subsystem/reference docs → code/tests/CI. Manifest — routing-only; старые handoff/release docs используются как history, не как current source of truth. Точная текущая версия принадлежит `Scripts/version`, а не копии номера в агентском entrypoint.
+`AI-INDEX.md` — **fallback**, а не шаг cold start. Приходить сюда следует в трёх случаях: router напечатал `UNROUTED`; задача пока не отображается на путь; идёт broad architecture exploration или явный audit. В первом случае недостаточно прочитать индекс — нужно добавить недостающий route, иначе следующий агент заплатит ту же цену.
+
+Root `PROJECT-MANIFEST.json` — **machine input**. Его читает сам router; загружать его в контекст модели нужно только тогда, когда меняется сама topology. Прежняя формулировка требовала обязательного предварительного чтения манифеста и этого индекса перед любой задачей; она измеренно стоила ~101 KB до первого открытого Swift-файла и больше не действует.
+
+Остальное без изменений: старые handoff/release docs — history, а не current source of truth, и точная текущая версия принадлежит `Scripts/version`, а не копии номера в агентском entrypoint. Полный context budget contract — [Agent rules](agent-rules.md).
 
 ## Core map
 

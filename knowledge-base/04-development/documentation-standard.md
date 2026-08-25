@@ -2,9 +2,9 @@
 title: Documentation Standard
 type: development-standard
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, documentation, obsidian, ai]
 ---
 
@@ -126,7 +126,7 @@ Mermaid diagram должна объяснять ownership/data/control/trust flo
 
 ## Актуальность
 
-При конфликте сначала устанавливается фактический contract по code + tests + CI и актуальному repository/release state, затем через `PROJECT-MANIFEST.json`/AI Index определяется canonical owner. Исправляется canonical doc **и** stale current entrypoint, если он дублировал факт. Historical release note не становится current documentation только потому, что она детальнее.
+При конфликте сначала устанавливается фактический contract по code + tests + CI и актуальному repository/release state, затем canonical owner определяется через `Scripts/agent-context.py`, а при `UNROUTED` — через AI Index. Исправляется canonical doc **и** stale current entrypoint, если он дублировал факт. Historical release note не становится current documentation только потому, что она детальнее.
 
 Если drift обнаружен в cold-start/public файле и класс ошибки можно проверить детерминированно, исправление должно рассмотреть новый assertion в `check-current-documentation.py`, а не надеяться, что следующий агент запомнит инцидент.
 

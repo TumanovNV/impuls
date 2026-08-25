@@ -161,11 +161,14 @@ Cold-start для coding agents:
 
 ```text
 AGENTS.md
-  → PROJECT-MANIFEST.json
-  → knowledge-base/10-ai/AI-INDEX.md
-  → canonical subsystem document
+  → python3 Scripts/agent-context.py <changed-path>
+  → canonical subsystem document, который вернул router
   → source + tests + CI
 ```
+
+Router сам читает `PROJECT-MANIFEST.json` и `Scripts/qa-impact-rules.json`, поэтому
+загружать их не нужно. `knowledge-base/10-ai/AI-INDEX.md` — fallback, если путь пока
+никуда не маршрутизируется.
 
 Точная текущая версия принадлежит `Scripts/version`; README не является вторым
 источником номера релиза.

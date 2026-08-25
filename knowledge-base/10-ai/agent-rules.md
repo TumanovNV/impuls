@@ -2,7 +2,7 @@
 title: Agent Workflow
 type: ai-rules
 status: active
-documentation_version: 1.3
+documentation_version: 1.4
 app_version: 1.4.15
 last_reviewed: 2026-08-25
 tags: [impuls, ai, workflow, agents]
@@ -38,8 +38,17 @@ Canonical owner of how much an agent should read. Measured problem: following th
 
 ## Перед изменением
 
+Один workflow, тот же, что и в [`AGENTS.md`](../../AGENTS.md) — второго порядка чтения не существует:
+
+```text
+AGENTS.md
+  → python3 Scripts/agent-context.py <changed-path>
+  → возвращённый canonical owner
+  → implementation + tests
+```
+
 1. Прочитать [`AGENTS.md`](../../AGENTS.md).
-2. Прочитать root [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json), затем [AI Index](AI-INDEX.md) и документы по области задачи.
+2. Запустить router и прочитать то, что он вернул: canonical owner, source, tests, Behavioral QA IDs и conditional owners с их триггерами. Root [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json) — machine input для самого router'а: открывать его как документ нужно только при изменении topology. [AI Index](AI-INDEX.md) — fallback при `UNROUTED`, при broad exploration и при явном audit; в первом случае вместе с чтением индекса добавляется недостающий route.
 3. Проверить текущую версию через `Scripts/version`, если версия имеет значение; не копировать current release из исторического документа.
 4. Найти implementation + tests, а не делать вывод только из README или старого handoff.
 5. Для security-sensitive области сверить `SECURITY.md`, `PRIVACY.md` и CI invariants.
@@ -93,7 +102,7 @@ Canonical owner of how much an agent should read. Measured problem: following th
 1. не выбирать самый удобный источник;
 2. определить фактическое поведение по code/tests/CI и current repository/release state;
 3. проверить, не является ли расхождение осознанным историческим контекстом;
-4. определить canonical owner факта через manifest/AI Index;
+4. определить canonical owner факта через router, а при `UNROUTED` — через AI Index;
 5. исправить устаревший current-state документ;
 6. если drift возник в high-value entrypoint, добавить/усилить machine-check, чтобы класс ошибки не повторился;
 7. при существенном расхождении зафиксировать причину в PR.

@@ -2,15 +2,15 @@
 title: Machine-Readable Project Manifest
 type: reference
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, ai, manifest, routing, automation]
 ---
 
 # Machine-Readable Project Manifest
 
-Root [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json) is the fastest machine-readable routing map for Claude, Codex and other coding agents.
+Root [`PROJECT-MANIFEST.json`](../../PROJECT-MANIFEST.json) is the machine-readable routing map behind `Scripts/agent-context.py`. The router reads it; agents read the router's answer. It is an input to routing, not a document in the cold-start path — open it directly only when the topology it describes is what changes.
 
 It is deliberately **routing-only**. The manifest tells an agent where to look; it does not copy implementation facts that already have a canonical owner.
 

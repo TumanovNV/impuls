@@ -14,7 +14,11 @@ It prints the domain, the one canonical document to read first, the source and t
 
 The router reads `PROJECT-MANIFEST.json` and `Scripts/qa-impact-rules.json` itself, so neither has to be pulled into context to find a route. `PROJECT-MANIFEST.json` remains the routing-only source of truth for stable topology; read it directly only when you are changing that topology.
 
-If the router prints `UNROUTED`, fall back to `knowledge-base/10-ai/AI-INDEX.md`, and add the missing route. `AI-INDEX.md` is also the right entry for broad architecture exploration or an explicit audit — it is not a cold-start requirement for a local task.
+`DOMAIN` names the documentation owners. `QA OVERLAY` names a rule that owns tests and Behavioral QA IDs for paths documented elsewhere — it contributes verification, never a second canonical document, and never an escalation. Only two `DOMAIN` entries mean a genuinely cross-domain change.
+
+If the router prints `UNROUTED`, fall back to `knowledge-base/10-ai/AI-INDEX.md`, and add the missing route. `AI-INDEX.md` is also the right entry for broad architecture exploration or an explicit audit — it is not a cold-start requirement for a local task. `NO PRIMARY DOMAIN` means only an overlay claimed the path: use the triggers it lists, then add a primary route.
+
+Routes name project documentation only. Agent-specific rule files are each agent's own concern and are never routed to here.
 
 ## Context budget
 

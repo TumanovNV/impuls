@@ -275,12 +275,13 @@
   },
   "agent_routing": {
     "schema": 1,
-    "role": "Routing metadata for Scripts/agent-context.py. Domain ids are the rule ids in Scripts/qa-impact-rules.json, which stays the sole owner of source/test/QA mapping — this block adds only the documentation route and the conditional owners a domain can escalate to.",
+    "role": "Routing metadata for Scripts/agent-context.py. Domain ids are the rule ids in Scripts/qa-impact-rules.json, which stays the sole owner of source/test/QA mapping — this block adds only the documentation route. route_role separates the two questions a rule answers: a primary domain owns the canonical document for its paths and escalates cross-domain; an overlay contributes tests and Behavioral QA IDs to paths whose documentation owner is somebody else, and contributes no read_first. Routes point at canonical project documentation only — agent-specific rule files are the agent's own concern, not the generic router's.",
     "fallback_doc": "knowledge-base/10-ai/AI-INDEX.md",
     "domains": [
       {
         "id": "music-and-web",
         "name": "Music / web player",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/02-modules/music.md"
         ],
@@ -306,6 +307,7 @@
       {
         "id": "power-devices",
         "name": "Power / Apple devices",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/02-modules/power.md"
         ],
@@ -335,6 +337,7 @@
       {
         "id": "local-data",
         "name": "Local data & persistence",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/01-architecture/storage-persistence.md"
         ],
@@ -360,6 +363,7 @@
       {
         "id": "file-tools",
         "name": "Shelf file tools",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/02-modules/shelf.md"
         ],
@@ -385,6 +389,7 @@
       {
         "id": "actions",
         "name": "Actions search",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/02-modules/actions.md"
         ],
@@ -406,6 +411,7 @@
       {
         "id": "translation",
         "name": "Translate",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/02-modules/translate.md"
         ],
@@ -427,6 +433,7 @@
       {
         "id": "calendar-permissions",
         "name": "Calendar",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/02-modules/calendar.md"
         ],
@@ -448,6 +455,7 @@
       {
         "id": "display-lifecycle",
         "name": "Display, notch & panel lifecycle",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/01-architecture/multi-display.md"
         ],
@@ -459,16 +467,13 @@
           {
             "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
             "trigger": "user-visible behaviour changed"
-          },
-          {
-            "doc": ".claude/rules/swift-ui.md",
-            "trigger": "panel UI geometry, theme or selection behaviour changed (Claude: auto-scoped)"
           }
         ]
       },
       {
         "id": "app-lifecycle",
         "name": "App lifecycle",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/01-architecture/state-and-ownership.md"
         ],
@@ -486,10 +491,17 @@
       {
         "id": "appearance-accessibility",
         "name": "Appearance & accessibility",
-        "read_first": [
-          "knowledge-base/02-modules/menu-bar.md"
-        ],
+        "route_role": "overlay",
+        "overlay_reason": "Sources/Impuls/UI/*.swift is deliberately broad: every pane inherits the panel's appearance and accessibility QA. That makes it the right owner of UI-01..UI-06, and the wrong owner of any pane's canonical document — PowerPane belongs to power.md, not to a general appearance page. No such general page exists, and inventing one by pointing every pane at menu-bar.md was the actual defect. The real owners below are offered as triggers instead, so a menu-bar or Settings change still reaches them and a module pane is not dragged through them.",
         "conditional": [
+          {
+            "doc": "knowledge-base/02-modules/menu-bar.md",
+            "trigger": "the menu-bar status item, its widgets or its quick actions changed"
+          },
+          {
+            "doc": "knowledge-base/01-architecture/settings-onboarding-feedback.md",
+            "trigger": "a Settings window surface, the first-run tour or What’s New changed"
+          },
           {
             "doc": "knowledge-base/04-development/localization.md",
             "trigger": "a user-facing string or the supported-language set changed"
@@ -497,16 +509,13 @@
           {
             "doc": "knowledge-base/13-qa/behavioral-qa-matrix.md",
             "trigger": "user-visible behaviour changed"
-          },
-          {
-            "doc": ".claude/rules/swift-ui.md",
-            "trigger": "panel UI geometry, theme or selection behaviour changed (Claude: auto-scoped)"
           }
         ]
       },
       {
         "id": "interface-language",
         "name": "Interface language",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/04-development/localization.md"
         ],
@@ -524,6 +533,7 @@
       {
         "id": "release-update",
         "name": "Release & update",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/05-release/release-process.md"
         ],
@@ -545,6 +555,7 @@
       {
         "id": "tcc-entitlements",
         "name": "Entitlements & TCC",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/01-architecture/permissions.md"
         ],
@@ -566,6 +577,7 @@
       {
         "id": "version-statistics-diagnostics",
         "name": "Version statistics",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/07-web/version-statistics-collector.md"
         ],
@@ -591,6 +603,7 @@
       {
         "id": "project-support-prompt",
         "name": "Project-support prompt",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/01-architecture/settings-onboarding-feedback.md"
         ],
@@ -612,6 +625,7 @@
       {
         "id": "feature-catalog",
         "name": "Feature catalog",
+        "route_role": "primary",
         "read_first": [
           "knowledge-base/02-modules/README.md"
         ],

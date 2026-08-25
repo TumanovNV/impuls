@@ -11,14 +11,31 @@ the route. It deliberately owns no knowledge of its own:
 
   Scripts/qa-impact-rules.json  source/test/QA mapping — the sole owner, already
                                 CI-validated by check-qa-impact.py
-  PROJECT-MANIFEST.json         agent_routing: domain name, documentation route
-                                and the conditional owners a domain can escalate
-                                to. Keyed by the same rule ids, so nothing is
-                                copied between the two files.
+  PROJECT-MANIFEST.json         agent_routing: domain name, route_role,
+                                documentation route and the conditional owners a
+                                domain can escalate to. Keyed by the same rule
+                                ids, so nothing is copied between the two files.
   AI-INDEX.md                   fallback when a path routes nowhere
 
 Adding a second source→test database was explicitly rejected: two copies drift,
 and the drift is invisible until somebody trusts the wrong one.
+
+A QA rule and a documentation domain are not the same thing, and conflating them
+produced a real defect: `appearance-accessibility` claims `Sources/Impuls/UI/*.swift`
+because every pane inherits the panel's appearance QA, so every pane also inherited
+a canonical document that had nothing to do with it, and every pane change reported
+itself as cross-domain. `route_role` separates the two:
+
+  primary   owns the canonical document for its paths, and counts towards
+            cross-domain escalation
+  overlay   contributes tests and Behavioral QA IDs to paths that belong to
+            somebody else. No read_first, and never a reason to escalate. Its
+            real owners are offered as conditionals with triggers instead.
+
+Routes name canonical project documentation only. Agent-specific rule files —
+`.claude/rules/*.md` and anything like them — are the agent's own concern: Claude
+loads them from their own `paths:` frontmatter, and no other agent should be told
+to read them.
 """
 
 from __future__ import annotations
@@ -33,6 +50,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "PROJECT-MANIFEST.json"
 QA_RULES = ROOT / "Scripts" / "qa-impact-rules.json"
+
+PRIMARY = "primary"
+OVERLAY = "overlay"
+ROUTE_ROLES = (PRIMARY, OVERLAY)
 
 
 def load(path: Path) -> dict:
@@ -65,6 +86,12 @@ class Router:
         self.tracked = tracked_files(base)
 
     # -- resolution ---------------------------------------------------------
+
+    def role_of(self, rid: str) -> str:
+        """A rule with no routing entry is treated as primary-but-undeclared:
+        the completeness guard already fails that case loudly, and silently
+        demoting it to an overlay here would hide the missing route."""
+        return self.domains.get(rid, {}).get("route_role", PRIMARY)
 
     def domains_for(self, path: str) -> list[str]:
         """Every QA rule whose source globs claim this path.
@@ -102,25 +129,42 @@ class Router:
         seen: set[str] = set()
         ordered = [d for d in domain_ids if not (d in seen or seen.add(d))]
 
+        primary = [r for r in ordered if self.role_of(r) != OVERLAY]
+        overlay = [r for r in ordered if self.role_of(r) == OVERLAY]
+
+        def name_of(rid: str) -> str:
+            return self.domains.get(rid, {}).get("name", rid)
+
+        names = [name_of(r) for r in primary]
+        overlay_names = [name_of(r) for r in overlay]
+
         read_first: list[str] = []
         tests: list[str] = []
         qa_ids: list[str] = []
         conditional: list[dict] = []
-        names: list[str] = []
 
         for rid in ordered:
             domain = self.domains.get(rid)
             rule = self.rules.get(rid, {})
+            is_overlay = rid in overlay
             if domain:
-                names.append(domain.get("name", rid))
-                for doc in domain.get("read_first", []):
-                    if doc not in read_first:
-                        read_first.append(doc)
-                for item in domain.get("conditional", []):
-                    if item["doc"] not in {c["doc"] for c in conditional}:
-                        conditional.append(item)
-            else:
-                names.append(rid)
+                # Only a primary domain contributes a canonical document. An
+                # overlay claims paths it does not own the documentation for, so
+                # taking its read_first would hand a pane somebody else's owner.
+                if not is_overlay:
+                    for doc in domain.get("read_first", []):
+                        if doc not in read_first:
+                            read_first.append(doc)
+                # An overlay's conditional owners are the route of last resort for
+                # the paths it is the *only* claimant of — the menu bar and the
+                # Settings surfaces, which have no primary domain of their own.
+                # Offering them alongside a real owner is noise: PowerPane cannot
+                # change the menu-bar status item, so a trigger it can never meet
+                # teaches the reader to skim the triggers rather than check them.
+                if not is_overlay or not primary:
+                    for item in domain.get("conditional", []):
+                        if item["doc"] not in {c["doc"] for c in conditional}:
+                            conditional.append(item)
             for glob in rule.get("test_globs", []):
                 for f in self.tracked:
                     if fnmatch.fnmatch(f, glob) and f not in tests:
@@ -136,7 +180,11 @@ class Router:
         sources = [t for t in targets if t not in self.domains and t not in self.rules]
         return {
             "domains": ordered,
-            "domain_names": names,
+            "domain_names": names + overlay_names,
+            "primary_domains": primary,
+            "primary_domain_names": names,
+            "overlay_domains": overlay,
+            "overlay_domain_names": overlay_names,
             "read_first": read_first,
             "sources": sources,
             "tests": tests,
@@ -144,7 +192,11 @@ class Router:
             "conditional": conditional,
             "unrouted": unrouted,
             "matched": matched_paths,
-            "cross_domain": len(ordered) > 1,
+            # Escalation is a statement about documentation owners, not about
+            # how many QA rules happened to match. A broad QA overlay is not a
+            # second architecture domain and must never read like one.
+            "cross_domain": len(primary) > 1,
+            "overlay_only": bool(overlay) and not primary,
             "fallback_doc": self.routing.get("fallback_doc", ""),
         }
 
@@ -162,10 +214,16 @@ NEVER_BY_DEFAULT = [
 
 def render(route: dict) -> str:
     out: list[str] = []
-    if route["domains"]:
-        out.append("DOMAIN: " + ", ".join(route["domain_names"]))
+    if route["primary_domain_names"]:
+        out.append("DOMAIN: " + ", ".join(route["primary_domain_names"]))
     else:
         out.append("DOMAIN: (unresolved)")
+
+    # Printed on its own line, never merged into DOMAIN: an overlay owns the
+    # verification of these paths, not their documentation, and the difference
+    # is the whole point of separating the two.
+    if route["overlay_domain_names"]:
+        out.append("QA OVERLAY: " + ", ".join(route["overlay_domain_names"]))
 
     if route["read_first"]:
         out.append("\nREAD FIRST:")
@@ -193,6 +251,11 @@ def render(route: dict) -> str:
     out += [f"- {n}" for n in NEVER_BY_DEFAULT]
 
     out.append("\nNOTES:")
+    if route["overlay_only"]:
+        out.append("- NO PRIMARY DOMAIN: these paths are claimed only by a QA overlay, which")
+        out.append("  owns their tests and QA IDs but not their canonical document. Use the")
+        out.append("  triggers under CONDITIONAL; if none of them fits, fall back to")
+        out.append(f"  {route['fallback_doc']} and add a primary route.")
     if route["unrouted"]:
         out.append("- UNROUTED: " + ", ".join(route["unrouted"]))
         out.append(f"  fall back to {route['fallback_doc']}, and add a route for this path")

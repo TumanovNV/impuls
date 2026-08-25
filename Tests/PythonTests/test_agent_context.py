@@ -86,11 +86,106 @@ class RouterTests(unittest.TestCase):
         self.assertIn("release-update", route["domains"])
         self.assertIn("knowledge-base/05-release/release-process.md", route["read_first"])
 
-    def test_swift_ui_path_resolves_and_offers_the_scoped_rule(self):
+    def test_the_generic_router_never_routes_to_an_agents_private_rules(self):
+        """`Scripts/agent-context.py` is read by Claude and by Codex.
+
+        `.claude/rules/swift-ui.md` carries its own `paths:` frontmatter, so Claude
+        already loads it for exactly these paths. Repeating it in the generic route
+        duplicated that for one agent and sent every other agent into a config file
+        that is not theirs.
+        """
+        for target in (UI, "Sources/Impuls/Notch/NotchController.swift", MUSIC, POWER):
+            route = self.route(target)
+            for doc in route["read_first"] + [c["doc"] for c in route["conditional"]]:
+                self.assertFalse(
+                    doc.startswith(".claude/"),
+                    f"generic route for {target} names the Claude-private file {doc}")
+
+    def test_no_declared_route_anywhere_names_an_agent_private_file(self):
+        for domain in self.router.routing["domains"]:
+            docs = list(domain.get("read_first", [])) + [
+                c["doc"] for c in domain.get("conditional", [])]
+            for doc in docs:
+                self.assertFalse(doc.startswith((".claude/", ".codex/", ".cursor/")),
+                                 f"{domain['id']} routes to {doc}")
+
+    # -- a QA rule is not a documentation domain ------------------------------
+
+    def test_a_module_pane_gets_its_module_owner_and_nobody_elses(self):
+        """The 1.4.16 defect, kept as a fixture.
+
+        `appearance-accessibility` claims `Sources/Impuls/UI/*.swift`, because every
+        pane inherits the panel's appearance and accessibility QA. Treating that QA
+        rule as a documentation domain gave PowerPane a second canonical owner —
+        `menu-bar.md`, which owns the status item and has nothing to do with battery
+        rows — and reported an ordinary pane edit as a cross-domain architecture
+        change. The QA overlay is still applied; only its documentation claim is gone.
+        """
         route = self.route(UI)
-        self.assertTrue(route["domains"], "a UI path must resolve to at least one domain")
+
+        self.assertEqual(route["primary_domains"], ["power-devices"])
+        self.assertEqual(route["read_first"], ["knowledge-base/02-modules/power.md"])
+        self.assertIn("appearance-accessibility", route["overlay_domains"])
         self.assertIn("appearance-accessibility", route["domains"])
-        self.assertIn(".claude/rules/swift-ui.md", self.conditional_docs(route))
+
+        self.assertNotIn("knowledge-base/02-modules/menu-bar.md", route["read_first"])
+        self.assertFalse(route["cross_domain"],
+                         "a broad QA overlay is not a second architecture domain")
+
+        self.assertTrue(any(q.startswith("PWR-") for q in route["qa_ids"]))
+        self.assertTrue(any(q.startswith("UI-") for q in route["qa_ids"]),
+                        "the overlay must still contribute its appearance QA IDs")
+        self.assertIn("Tests/ImpulsTests/MenuBarStatusItemPresentationTests.swift",
+                      route["tests"], "the overlay must still contribute its tests")
+
+        text = agent_context.render(route)
+        self.assertIn("DOMAIN: Power / Apple devices", text)
+        self.assertIn("QA OVERLAY:", text)
+        self.assertNotIn("ESCALATED: CROSS-DOMAIN CHANGE", text)
+        self.assertNotIn("menu-bar.md", text)
+
+    def test_the_same_holds_for_every_other_pane_the_overlay_claims(self):
+        """One pane could be a coincidence; the rule is general."""
+        for path, domain, owner in (
+            ("Sources/Impuls/UI/TranslatePane.swift", "translation",
+             "knowledge-base/02-modules/translate.md"),
+            ("Sources/Impuls/UI/CalendarPane.swift", "calendar-permissions",
+             "knowledge-base/02-modules/calendar.md"),
+            ("Sources/Impuls/UI/ShelfPane.swift", "file-tools",
+             "knowledge-base/02-modules/shelf.md"),
+        ):
+            route = self.route(path)
+            self.assertEqual(route["primary_domains"], [domain], path)
+            self.assertEqual(route["read_first"], [owner], path)
+            self.assertNotIn("knowledge-base/02-modules/menu-bar.md", route["read_first"], path)
+            self.assertFalse(route["cross_domain"], path)
+            self.assertIn("appearance-accessibility", route["overlay_domains"], path)
+
+    def test_two_real_domains_still_escalate(self):
+        """The overlay change must not disable escalation that is genuinely earned."""
+        route = self.route(UI, PERSIST)
+        self.assertTrue(route["cross_domain"])
+        self.assertEqual(set(route["primary_domains"]), {"power-devices", "local-data"})
+
+    def test_an_overlay_still_reaches_its_real_owner_through_a_trigger(self):
+        """A menu-bar change is claimed only by the overlay. It must still be told
+        about `menu-bar.md` — as a trigger it obviously meets, not as a canonical
+        owner forced on every pane — and must be told no primary domain exists."""
+        route = self.route("Sources/Impuls/App/MenuBarStatusItemPresentation.swift")
+        self.assertEqual(route["primary_domains"], [])
+        self.assertTrue(route["overlay_only"])
+        self.assertIn("knowledge-base/02-modules/menu-bar.md", self.conditional_docs(route))
+        text = agent_context.render(route)
+        self.assertIn("NO PRIMARY DOMAIN", text)
+        self.assertIn("knowledge-base/02-modules/menu-bar.md", text)
+
+    def test_an_overlay_declares_why_it_is_one(self):
+        overlays = [d for d in self.router.routing["domains"]
+                    if d.get("route_role") == "overlay"]
+        self.assertTrue(overlays, "the fixture assumes at least one overlay exists")
+        for domain in overlays:
+            self.assertNotIn("read_first", domain, domain["id"])
+            self.assertTrue(domain.get("overlay_reason"), domain["id"])
 
     # -- unknown -------------------------------------------------------------
 
@@ -151,18 +246,52 @@ class RouterTests(unittest.TestCase):
 
     # -- output --------------------------------------------------------------
 
-    def test_json_output_is_deterministic(self):
-        first = subprocess.run(
-            ["python3", "Scripts/agent-context.py", MUSIC, PERSIST, "--json"],
+    def cli_json(self, *targets):
+        return subprocess.run(
+            ["python3", "Scripts/agent-context.py", *targets, "--json"],
             cwd=ROOT, capture_output=True, text=True, check=True).stdout
-        second = subprocess.run(
-            ["python3", "Scripts/agent-context.py", PERSIST, MUSIC, "--json"],
-            cwd=ROOT, capture_output=True, text=True, check=True).stdout
-        self.assertEqual(json.loads(first)["read_first"].sort(),
-                         json.loads(second)["read_first"].sort())
-        self.assertEqual(first, subprocess.run(
-            ["python3", "Scripts/agent-context.py", MUSIC, PERSIST, "--json"],
-            cwd=ROOT, capture_output=True, text=True, check=True).stdout)
+
+    def test_the_same_invocation_is_byte_stable(self):
+        """Two runs of the same command must produce the same bytes, so a route
+        can be diffed and cached. Nothing here is about argument order."""
+        self.assertEqual(self.cli_json(MUSIC, PERSIST), self.cli_json(MUSIC, PERSIST))
+
+    def test_argument_order_changes_reading_order_but_not_the_route(self):
+        """The intended semantics, stated rather than assumed.
+
+        Input order is preserved on purpose: the first path an agent names is the
+        first owner it is told to read, and a router that reshuffled that would be
+        harder to act on. So reversed arguments are *not* required to be
+        byte-identical — an earlier version of this test asserted they were, via
+        `list.sort()`, which returns None and therefore only ever compared
+        `None == None` and could never fail.
+
+        What must hold is that reversing the arguments changes no route content:
+        same domains, same owners, same tests, same QA IDs, same conditionals,
+        same escalation.
+        """
+        forward = json.loads(self.cli_json(MUSIC, PERSIST))
+        reverse = json.loads(self.cli_json(PERSIST, MUSIC))
+
+        self.assertNotEqual(forward["read_first"], reverse["read_first"],
+                            "the fixture only proves anything if the order really differs")
+
+        for key in ("domains", "primary_domains", "overlay_domains",
+                    "read_first", "tests", "qa_ids"):
+            self.assertEqual(set(forward[key]), set(reverse[key]), f"{key} differs by input order")
+            self.assertEqual(len(forward[key]), len(set(forward[key])), f"{key} has duplicates")
+
+        self.assertEqual({(c["doc"], c["trigger"]) for c in forward["conditional"]},
+                         {(c["doc"], c["trigger"]) for c in reverse["conditional"]})
+        self.assertEqual(forward["cross_domain"], reverse["cross_domain"])
+        self.assertEqual(forward["unrouted"], reverse["unrouted"])
+
+    def test_the_order_that_is_preserved_is_the_order_that_was_asked_for(self):
+        forward = json.loads(self.cli_json(MUSIC, PERSIST))
+        reverse = json.loads(self.cli_json(PERSIST, MUSIC))
+        self.assertEqual(forward["primary_domains"], ["music-and-web", "local-data"])
+        self.assertEqual(reverse["primary_domains"], ["local-data", "music-and-web"])
+        self.assertEqual(forward["read_first"], list(reversed(reverse["read_first"])))
 
     def test_human_output_never_omits_the_escape_hatch(self):
         for targets in ([MUSIC], [UNKNOWN], [MUSIC, PERSIST]):
@@ -244,6 +373,148 @@ class GuardTests(unittest.TestCase):
         finally:
             check_agent_context.read_json = original
         self.assertTrue(any("does not match a rule id" in e for e in errors))
+
+    # -- route completeness, both directions ---------------------------------
+
+    def simulated_manifest(self, mutate):
+        """Run the schema guard against a mutated copy of the real manifest."""
+        errors = []
+        original = check_agent_context.read_json
+
+        def patched(rel):
+            data = original(rel)
+            if rel == "PROJECT-MANIFEST.json":
+                data = json.loads(json.dumps(data))
+                mutate(data)
+            return data
+
+        check_agent_context.read_json = patched
+        try:
+            check_agent_context.check_manifest_schema(errors)
+        finally:
+            check_agent_context.read_json = original
+        return errors
+
+    def test_a_qa_rule_without_a_route_fails_and_names_the_rule(self):
+        """The hole the first version of this guard left open.
+
+        It checked route -> QA rule and stopped there, so a new rule in
+        `Scripts/qa-impact-rules.json` could ship with tests, QA IDs and no
+        documentation route at all: the router would answer UNROUTED for a path CI
+        considered fully owned, with every check green. Deleting a route must fail,
+        and the failure must say which rule id lost it — an error that only says
+        "something is missing" costs the next person the search.
+        """
+        removed = {}
+
+        def drop_power(data):
+            gone = [d for d in data["agent_routing"]["domains"] if d["id"] == "power-devices"]
+            self.assertEqual(len(gone), 1, "fixture expects exactly one power-devices route")
+            removed["id"] = gone[0]["id"]
+            data["agent_routing"]["domains"] = [
+                d for d in data["agent_routing"]["domains"] if d["id"] != "power-devices"]
+
+        errors = self.simulated_manifest(drop_power)
+        self.assertTrue(errors, "removing a route must not leave the guard green")
+        named = [e for e in errors if "power-devices" in e]
+        self.assertTrue(named, f"the failure must name the missing rule id: {errors}")
+        self.assertTrue(any("no agent_routing domain" in e for e in named))
+
+    def test_the_completeness_check_is_a_set_equality_in_both_directions(self):
+        qa_ids = {r["id"] for r in
+                  check_agent_context.read_json("Scripts/qa-impact-rules.json")["rules"]}
+        routed = {d["id"] for d in check_agent_context.read_json(
+            "PROJECT-MANIFEST.json")["agent_routing"]["domains"]}
+        self.assertEqual(routed, qa_ids,
+                         "every QA rule is routable and no route invents a rule; if that "
+                         "ever stops being true, add an explicit exemption with a reason "
+                         "rather than relaxing this")
+
+        errors = []
+        check_agent_context.check_route_completeness(
+            errors, {"domains": [{"id": "a"}]}, {"a", "b"})
+        self.assertTrue(any("'b'" in e or "b" in e for e in errors))
+
+        errors = []
+        check_agent_context.check_route_completeness(
+            errors, {"domains": [{"id": "a"}, {"id": "z"}]}, {"a"})
+        self.assertTrue(any("no matching QA rule id" in e for e in errors))
+
+        errors = []
+        check_agent_context.check_route_completeness(errors, {"domains": [{"id": "a"}]}, {"a"})
+        self.assertEqual(errors, [])
+
+    def test_an_overlay_that_grows_a_read_first_is_rejected(self):
+        def promote(data):
+            for domain in data["agent_routing"]["domains"]:
+                if domain.get("route_role") == "overlay":
+                    domain["read_first"] = ["knowledge-base/02-modules/menu-bar.md"]
+
+        errors = self.simulated_manifest(promote)
+        self.assertTrue(any("is an overlay but declares read_first" in e for e in errors))
+
+    def test_a_domain_without_a_route_role_is_rejected(self):
+        def strip(data):
+            data["agent_routing"]["domains"][0].pop("route_role", None)
+
+        errors = self.simulated_manifest(strip)
+        self.assertTrue(any("route_role must be" in e for e in errors))
+
+    def test_a_route_to_an_agent_private_rule_file_is_rejected(self):
+        def add_claude_route(data):
+            data["agent_routing"]["domains"][0].setdefault("conditional", []).append(
+                {"doc": ".claude/rules/swift-ui.md", "trigger": "panel UI changed"})
+
+        errors = self.simulated_manifest(add_claude_route)
+        self.assertTrue(any("agent-specific rule file" in e for e in errors))
+
+    # -- one bootstrap workflow ----------------------------------------------
+
+    def test_the_repository_states_one_bootstrap_workflow(self):
+        errors = []
+        check_agent_context.check_single_workflow(errors)
+        self.assertEqual(errors, [])
+
+    def test_a_restored_preload_chain_is_rejected(self):
+        """Non-vacuous by construction: the fixture is the exact sentence each of
+        these files carried before this change."""
+        cases = {
+            "knowledge-base/10-ai/AI-INDEX.md":
+                ("## Когда читать этот файл",
+                 "Перед изменением проекта: `AGENTS.md` \u2192 root `PROJECT-MANIFEST.json` "
+                 "\u2192 `AI-INDEX.md`.\n\n## Когда читать этот файл"),
+            "knowledge-base/10-ai/repository-map.md":
+                ("Cold-start route: `AGENTS.md` \u2192 `python3 Scripts/agent-context.py",
+                 "Cold-start route: `AGENTS.md` \u2192 `PROJECT-MANIFEST.json` \u2192 "
+                 "`AI-INDEX.md` \u2192 `python3 Scripts/agent-context.py"),
+            "README.ru.md":
+                ("  \u2192 python3 Scripts/agent-context.py <changed-path>",
+                 "  \u2192 PROJECT-MANIFEST.json\n  \u2192 knowledge-base/10-ai/AI-INDEX.md"),
+        }
+        for rel, (old, new) in cases.items():
+            path = ROOT / rel
+            backup = path.read_text(encoding="utf-8")
+            self.assertIn(old, backup, f"{rel}: the fixture no longer matches the file")
+            errors = []
+            try:
+                path.write_text(backup.replace(old, new, 1), encoding="utf-8")
+                check_agent_context.check_single_workflow(errors)
+            finally:
+                path.write_text(backup, encoding="utf-8")
+            self.assertTrue(any(rel in e and "still chains" in e for e in errors),
+                            f"{rel}: a restored preload chain was not caught")
+
+    def test_an_entrypoint_that_stops_naming_the_router_is_rejected(self):
+        path = ROOT / "knowledge-base/12-reference/README.md"
+        backup = path.read_text(encoding="utf-8")
+        errors = []
+        try:
+            path.write_text(backup.replace("Scripts/agent-context.py", "the manifest"),
+                            encoding="utf-8")
+            check_agent_context.check_single_workflow(errors)
+        finally:
+            path.write_text(backup, encoding="utf-8")
+        self.assertTrue(any("never names" in e for e in errors))
 
     def test_every_declared_domain_resolves_and_round_trips(self):
         errors = []
