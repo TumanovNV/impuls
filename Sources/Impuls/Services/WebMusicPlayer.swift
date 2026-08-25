@@ -177,11 +177,6 @@ protocol WebMusicPlaying: AnyObject {
     func teardown()
 }
 
-/// Owns a user-opened web player. Merely creating `MediaController` or choosing
-/// a source never constructs a WKWebView and therefore never starts networking.
-/// The first request is made only by `show(source:)`, which is wired to the
-/// explicit "Open web player" button in the Music pane.
-@MainActor
 /// What `show(source:)` should do with the web view it already has.
 ///
 /// Extracted because the choice is the interesting part and the alternative —
@@ -189,6 +184,12 @@ protocol WebMusicPlaying: AnyObject {
 /// page over the network. `show(source:)` calls exactly this, so a test of it
 /// is a test of the production decision rather than a second algorithm written
 /// to agree with it.
+///
+/// Deliberately **not** actor-isolated: it is a pure value describing a
+/// decision, with no state and nothing to protect. Isolating it would say
+/// something untrue about it — and, when this enum was first added, an
+/// `@MainActor` written here is exactly what silently took that isolation away
+/// from the class below.
 enum WebPlayerShowAction: Equatable {
     /// The page is healthy and already showing this provider: ask it to speak.
     case snapshot
@@ -199,6 +200,20 @@ enum WebPlayerShowAction: Equatable {
     case recoveryReload
 }
 
+/// Owns a user-opened web player. Merely creating `MediaController` or choosing
+/// a source never constructs a WKWebView and therefore never starts networking.
+/// The first request is made only by `show(source:)`, which is wired to the
+/// explicit "Open web player" button in the Music pane.
+///
+/// `@MainActor` belongs on the **class**, not merely on `WebMusicPlaying`.
+/// Conforming to a main-actor protocol isolates the protocol's own
+/// requirements; it says nothing about the concrete state this object owns —
+/// the `WKWebView`, the window controller, the popup table, `currentState`,
+/// `source`, `requestedArtworkKey`, `playbackIntent`, `needsRecoveryLoad`, the
+/// navigation callbacks, JS evaluation and teardown. All of that is AppKit and
+/// WebKit state that must stay on the main actor, so the isolation is declared
+/// where the state lives.
+@MainActor
 final class WebMusicPlayer: NSObject, WKNavigationDelegate, WKUIDelegate, WebMusicPlaying {
     var onState: ((MusicSource, WebMusicState?) -> Void)?
     var onArtwork: ((MusicSource, String, NSImage?) -> Void)?
