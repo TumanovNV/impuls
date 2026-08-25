@@ -140,7 +140,9 @@
         "Sources/Impuls/UI/*Power*.swift"
       ],
       "test_globs": [
+        "Tests/ImpulsTests/AccessoryCrossSourceDedupTests.swift",
         "Tests/ImpulsTests/AccessorySourceIsolationTests.swift",
+        "Tests/ImpulsTests/AppleAccessoryClassificationTests.swift",
         "Tests/ImpulsTests/AppleDevicePowerModelTests.swift",
         "Tests/ImpulsTests/AppleDevicePresentationTests.swift",
         "Tests/ImpulsTests/DevicePowerCenterTests.swift",
