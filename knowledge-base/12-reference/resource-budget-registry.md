@@ -2,7 +2,7 @@
 title: Input & Resource Budget Registry
 type: reference
 status: active
-documentation_version: 1.8
+documentation_version: 1.9
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, performance, limits, budgets, security, ai]
@@ -45,6 +45,9 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Shelf | cards | 60 | `ShelfStore.limit` — enforced on `add` **and** on the restore's completion, before any icon or thumbnail work. The persisted `shelf.urls` list may exceed it *while a restore is running*: the unrestored tail has not been checked for existence yet, and clamping before knowing which entries still exist would drop live cards to keep dead ones. The completion clamps and writes back, and `load()` clamps too, so the overshoot heals and cannot accumulate |
 | Shelf | inline pasteboard payload | 64 MiB | `ShelfStore.maximumInlinePasteboardBytes` |
 | File tools | decoded image | 64,000,000 px | `FileToolsService.maximumDecodedImagePixels` — a pixel bound; the file itself is read through ImageIO and is not byte-bounded |
+| Accessory battery overlay | `pmset` stdout | 256 KiB | `PowerAccessoryBatterySource.maximumOutputBytes` — measured output for one accessory is a few kilobytes; the bound is far beyond any plausible accessory count and still bounded. stderr `8 KiB`, deadline `5 s`, same `BoundedProcess` contract as `system_profiler` |
+| Accessory battery overlay | parsed accessory records | 32 | `PowerAccessoryBatteryParser.maximumRecords` — a person owns a handful of accessories, not hundreds. Caps both the plist-document split and the readings kept, so malformed or hostile output cannot become unbounded work |
+| Accessory battery overlay | battery percentage | `Current Capacity` ≤ `Max Capacity`, `Max Capacity` > 0 | the maximum is read from the record rather than assumed to be 100, so a source that changes scale is rejected instead of silently rescaled. Out of range, non-numeric or missing reads as absent — never `0%` |
 | File tools | digest read | 512 MiB | `GeneratedFileRecord` streaming SHA-256 cap |
 | File tools / vault | collision-suffix attempts | 1,000 | `uniqueOutputURL`, `ScreenshotVault`; falls back to a UUID |
 | Accessories | `system_profiler` stdout | 1 MiB | `SystemProfilerAccessorySource.maximumOutputBytes`; truncation is an error, never a partial parse |
