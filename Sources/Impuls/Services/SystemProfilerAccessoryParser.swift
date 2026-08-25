@@ -119,9 +119,7 @@ enum SystemProfilerAccessoryParser {
     ) -> BatterylessDevice? {
         guard let address = string(properties[Key.address]) else { return nil }
         let isAppleDevice = isApple(properties)
-        let kind = isAppleDevice
-            ? AppleAccessoryNaming.kind(fromProductName: name)
-            : AppleAccessoryNaming.kind(fromBluetoothMinorType: string(properties[Key.minorType]))
+        let kind = kind(named: name, properties: properties, isAppleDevice: isAppleDevice)
         guard let identity = resolver.identity(forRawIdentifier: address, kind: kind) else { return nil }
         return BatterylessDevice(
             identity: identity,
@@ -158,9 +156,7 @@ enum SystemProfilerAccessoryParser {
         guard let address = string(properties[Key.address]) else { return nil }
 
         let isAppleDevice = isApple(properties)
-        let kind = isAppleDevice
-            ? AppleAccessoryNaming.kind(fromProductName: name)
-            : AppleAccessoryNaming.kind(fromBluetoothMinorType: string(properties[Key.minorType]))
+        let kind = kind(named: name, properties: properties, isAppleDevice: isAppleDevice)
         guard let identity = resolver.identity(forRawIdentifier: address, kind: kind) else { return nil }
 
         let components = self.components(from: properties, now: now)
@@ -186,6 +182,38 @@ enum SystemProfilerAccessoryParser {
             source: .systemProfilerAccessory,
             capabilities: AppleDeviceNormalizer.capabilities(for: components)
         )
+    }
+
+    /// How a device is classified, in one place.
+    ///
+    /// Shared by both entry points deliberately: a device must land on the same
+    /// kind whether or not it happens to publish a battery, because kind is part
+    /// of `AppleDeviceIdentity`. Classifying the two cases differently would
+    /// give one physical accessory two identities.
+    ///
+    /// For Apple hardware the product **name** is tried first and remains the
+    /// primary signal. The product **id** is consulted only when the name
+    /// resolved nothing, which is what a rename causes: the JSON key here is the
+    /// user-visible Bluetooth name, so a Magic Mouse called "Desk Mouse"
+    /// previously fell through to `.unknown` while `system_profiler` was already
+    /// publishing the id that identifies it. The registry mapper has always had
+    /// this fallback; this side did not, and the asymmetry was the defect.
+    ///
+    /// The fallback is confined to the Apple **Bluetooth** vendor namespace —
+    /// which is what `isApple` establishes here — because the same numeric id
+    /// means something else elsewhere. A third-party device therefore never
+    /// reaches the Apple table, whatever id it publishes.
+    static func kind(
+        named name: String,
+        properties: [String: Any],
+        isAppleDevice: Bool
+    ) -> AppleDeviceKind {
+        guard isAppleDevice else {
+            return AppleAccessoryNaming.kind(fromBluetoothMinorType: string(properties[Key.minorType]))
+        }
+        let named = AppleAccessoryNaming.kind(fromProductName: name)
+        guard named == .unknown else { return named }
+        return AppleAccessoryNaming.kind(fromBluetoothProductID: hexValue(properties[Key.productID]))
     }
 
     /// Left, right and case when they are published; otherwise the single main
@@ -224,10 +252,20 @@ enum SystemProfilerAccessoryParser {
 
     /// `"0x004C"` or `"0x004C (Apple)"`, and nothing else counts as Apple.
     static func isApple(_ properties: [String: Any]) -> Bool {
-        guard let raw = string(properties[Key.vendorID]) else { return false }
+        hexValue(properties[Key.vendorID]) == appleVendorID
+    }
+
+    /// The `0x`-prefixed identifiers this output uses, and only those.
+    ///
+    /// Values arrive as strings, sometimes with a trailing note —
+    /// `"0x004C (Apple)"`. A form without the prefix is not guessed at: an
+    /// unparseable id reads as absent, which costs a classification and never
+    /// invents one.
+    static func hexValue(_ value: Any?) -> Int? {
+        guard let raw = string(value) else { return nil }
         let hex = raw.drop { $0 != "x" }.dropFirst().prefix { $0.isHexDigit }
-        guard !hex.isEmpty, let value = Int(hex, radix: 16) else { return false }
-        return value == appleVendorID
+        guard !hex.isEmpty else { return nil }
+        return Int(hex, radix: 16)
     }
 
     static func string(_ value: Any?) -> String? {

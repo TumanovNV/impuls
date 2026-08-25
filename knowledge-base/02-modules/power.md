@@ -2,7 +2,7 @@
 title: Power and Battery Module
 type: module
 status: production
-documentation_version: 1.6
+documentation_version: 1.7
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, module, battery, devices, iokit]
@@ -67,6 +67,36 @@ Generic kinds (`.headphones`, `.keyboard`, `.mouse`, `.trackpad`, `.accessory`) 
 `externalPower` остаётся `.unknown` для всех аксессуаров любого вендора: этот источник не сообщает charging state ни для кого. Новых источников, сканирования, сетевых запросов и изменения cadence нет — это тот же single `system_profiler` read.
 
 **Что осталось недоступным.** Bluetooth-устройство, для которого `SPBluetoothDataType` не публикует battery field, показать нельзя. Единственное место в системе, где такое значение встречается, — anonymous accessory power source в `pmset -g accps`; он идёт через `IOPSCopyPowerSourcesByType`/`kIOPSAccessoryType`, которых нет в public SDK headers, и не содержит ни имени, ни стабильной identity. Привязать этот процент к конкретному Bluetooth-устройству без догадки невозможно, поэтому Impuls этого не делает. См. `13-qa/behavioral-qa-matrix.md` PWR-13.
+
+### AppleDeviceKind: что реально может появиться (1.4.16, IMP-10 / Part D)
+
+Enum — словарь модели, а не обещание покрытия. Ни один case не удалён; ниже честное состояние на 1.4.16.
+
+| Kind | Производящий источник | Deterministic tests | Hardware evidence |
+| --- | --- | --- | --- |
+| `mac` | `LocalMacDeviceProvider` (public IOPowerSources) | да | PWR-01…04 (в 1.4.15 все `not-run`) |
+| `iPhone`, `iPad` | `MobileDeviceBatteryProvider` (usbmux/lockdown) | да | да — повторный owner QA, Stable с #106 |
+| `airPods`, `airPodsPro`, `airPodsMax` | `SystemProfilerAccessoryParser` (+ overlay) | да, включая captured-фикстуру реального вывода | частично: AirPods Pro наблюдались; component-topology (PWR-06) не проверялась |
+| `magicMouse`, `magicKeyboard`, `magicTrackpad` | `IORegistryAccessoryMapper`, `SystemProfilerAccessoryParser` (+ overlay) | да, включая product-ID fallback | vendor/product ID подтверждены на Mac mini (2026-08) |
+| `headphones`, `keyboard`, `mouse`, `trackpad`, `accessory` | `SystemProfilerAccessoryParser` (generic, из `device_minorType`) | да | `headphones` — да (#108/#110, сторонний headset, 80%); остальные generic — нет |
+| `unknown` | fallback любого источника | да | n/a — это отсутствие классификации, а не устройство |
+| `appleWatch`, `applePencil`, `visionPro`, `airTag`, `siriRemote` | **нет производящего источника** | нет | нет |
+
+Последняя строка — зарезервированный словарь. Эти значения не может создать ни один сегодняшний provider: Apple Watch и Vision Pro не публикуют заряд ни в одном из разрешённых локальных источников, Apple Pencil и AirTag не являются Bluetooth-аксессуарами с battery-полем в `SPBluetoothDataType`, Siri Remote не наблюдался. Оставлены намеренно: удаление ничего не улучшит, а вернуть их придётся при первом же источнике.
+
+### Классификация переименованных Apple-аксессуаров (1.4.16, IMP-10 / B1)
+
+`SystemProfilerAccessoryParser` определял kind Apple-устройства **только** по product name, а имя здесь — это JSON-ключ, то есть user-visible Bluetooth-имя, которое пользователь волен изменить. Переименованные Magic Mouse/Keyboard/Trackpad становились `.unknown`, хотя `system_profiler` в той же записи уже публиковал `device_productID`, который `AppleAccessoryNaming` умеет распознавать. `IORegistryAccessoryMapper` этот fallback имел всегда — асимметрия и была дефектом.
+
+Теперь порядок такой: имя первично; product ID используется **только** если имя ничего не дало. Fallback ограничен Apple Bluetooth vendor namespace (`0x004C`, что здесь и означает `isApple`), потому что тот же числовой ID в другом namespace значит другое — сторонний девайс до таблицы Apple не доходит никогда. Таблица не расширялась: те же три hardware-confirmed ID.
+
+Классификация вынесена в один общий метод, используемый обоими входными точками (с батареей и без). Kind входит в `AppleDeviceIdentity`, поэтому устройство обязано классифицироваться одинаково независимо от наличия показания — иначе один физический аксессуар получил бы две identity.
+
+Display name не меняется: пользовательское имя остаётся тем, что видит пользователь.
+
+### Cross-source dedup (1.4.16, IMP-10 / B3)
+
+`AccessoryCrossSourceDedupTests` проверяет **production** pipeline (`AppleAccessoryBatteryProvider` через `start(onUpdate:)`), а не отдельный dedup-хелпер: один физический Magic Mouse, видимый одновременно из IORegistry и `system_profiler`, даёт одну identity и одну карточку; registry имеет приоритет там, где уже дал battery; pmset overlay при этом не запускается вовсе. Отдельно зафиксировано, что переименование на стороне `system_profiler` не создаёт вторую карточку — это и есть причина, по которой B1 важен для dedup, а не только для иконки.
 
 ### pmset battery overlay для Bluetooth-аксессуаров (1.4.16, #108 follow-up)
 

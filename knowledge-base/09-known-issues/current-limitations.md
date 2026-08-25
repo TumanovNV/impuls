@@ -57,3 +57,13 @@ Version statistics opt-in и поэтому не отражает абсолют
 ## Manual QA dependency
 
 External displays/Sidecar, TCC dialogs, VoiceOver, real device batteries и некоторые appearance/hardware cases требуют physical/manual acceptance; automated tests не должны изображать их как hardware verification.
+
+## Address separator normalization в device identity (IMP-10 / B2)
+
+`DeviceIdentityResolver.identity(forRawIdentifier:kind:)` строит HMAC над `kind.rawValue` + `0x1F` + `rawIdentifier.trimmed.lowercased()`. **Separator normalization не выполняется** — только lowercasing. Формально это значит, что `AA:BB:…` и `AA-BB-…` для одного физического устройства дали бы разные identity и, следовательно, две карточки.
+
+**Статус: изменений не вносится, доказательств недостаточно.** Замер на реальном Mac (2026-08-25) показал, что все устройства из `system_profiler` используют один и тот же формат (`:`-separator, uppercase, длина 17) — включая AirPods. Расхождение существует только между live-выводом и одной старой captured-фикстурой в тестах (`-`-separator, lowercase), то есть внутри тестовых данных, а не между двумя production-источниками. Формат `DeviceAddress` из IORegistry проверить не удалось: подключённого Apple-аксессуара с батареей на этом Mac нет.
+
+Почему это не «просто нормализовать»: от `AppleDeviceIdentity.localPreferenceKey` (это и есть HMAC-hex) зависят порядок и скрытые устройства (`appleDevices.presentation.v1`), выбранное устройство Menu Bar, dedup-состояние low-battery уведомлений (`appleDevices.lowBatteryAlerts.v1`) и выбор устройства в Power/Settings. Любое изменение входа HMAC инвалидирует все эти ключи разом. Сырой идентификатор намеренно нигде не хранится, поэтому пересчитать старый ключ «на месте» нельзя — миграция возможна только ленивая, в момент, когда устройство снова появится и сырой адрес снова доступен.
+
+Пересматривать только при реальном доказательстве, что два production-источника отдают одно устройство в разных форматах. Проверяется за секунды при подключённом Magic Mouse/Keyboard/Trackpad.
