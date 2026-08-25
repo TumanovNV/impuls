@@ -2,7 +2,7 @@
 title: Behavioral QA Matrix
 type: qa-reference
 status: active
-documentation_version: 2.0
+documentation_version: 2.1
 app_version: 1.4.16
 last_reviewed: 2026-08-24
 tags: [impuls, qa, scenarios, hardware, permissions, release]
@@ -57,6 +57,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | PWR-11 | Repeated provider failures | automated | scheduler doubles cadence up to 600 s cap and resets after success |
 | PWR-12 | Low-battery delivery transaction at 20% / 10% | automated | a sufficiently fresh, connected, non-charging external-device reading creates at most one in-flight alert per threshold; rejected delivery does **not** persist fired-state and the next ordinary evaluation can retry without a new timer or tighter cadence; accepted delivery persists dedup state across engine restart; critical subsumes same-cycle warning; re-arm invalidates stale pending state and no raw device identifier is persisted. |
 | PWR-13 | Third-party Bluetooth accessory with a system-reported battery | mixed | a connected non-Apple accessory whose `SPBluetoothDataType` entry carries a valid battery level appears as one card under its real user-visible name, classified only from `device_minorType`, with no invented brand, model or charging state; a third-party device with no battery field produces no card rather than a fabricated 0%; Apple accessory naming and iPhone/iPad behaviour are unchanged; one physical device never yields two cards |
+| PWR-14 | Bluetooth accessory whose battery only `pmset` reports | mixed | a connected accessory with no `SPBluetoothDataType` battery field gains one — and only one — card carrying its real name, the system's own device class and the percentage macOS itself shows; charging comes from `Is Charging` or stays unknown; identity remains the address-derived one, and the accessory UUID is never read, stored, logged or shown; ambiguity of any kind (duplicate names on either side, conflicting class, missing name, malformed or unavailable output) yields no overlay rather than a guessed match; `pmset` runs only when something is actually missing a reading |
 
 ## Local data, migration and bounds
 

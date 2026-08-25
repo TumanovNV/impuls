@@ -48,9 +48,41 @@ final class SystemProfilerAccessorySource: DeviceBatterySource, @unchecked Senda
     }
 
     func read() async throws -> [AppleDeviceSnapshot] {
-        let now = clock.now
-        let data = try runner()
-        return try SystemProfilerAccessoryParser.devices(fromJSON: data, now: now, resolver: resolver)
+        try await inventory().devices
+    }
+
+    /// The devices with a battery, plus the connected ones without.
+    ///
+    /// One process run answers both questions, so asking for the second half
+    /// costs nothing extra.
+    ///
+    /// `async` and detached, not synchronous. Its only caller is a `@MainActor`
+    /// provider, so a synchronous version would spawn the subprocess **on the
+    /// main actor** and freeze the UI for as long as the tool took, up to the
+    /// deadline. A plain `Task { }` would not help: started from a main-actor
+    /// context in Swift 5 language mode it is not guaranteed to leave that
+    /// actor. `Task.detached` states the boundary instead of inferring it.
+    ///
+    /// The parse rides along on the far side deliberately: decoding the JSON is
+    /// the other half of the work, and hopping back to hand over raw bytes
+    /// would put it on the main actor instead. Everything crossing back is a
+    /// value type that is already `Sendable`.
+    func inventory() async throws -> (
+        devices: [AppleDeviceSnapshot],
+        batteryless: [SystemProfilerAccessoryParser.BatterylessDevice]
+    ) {
+        let runner = self.runner
+        let clock = self.clock
+        let resolver = self.resolver
+        return try await Task.detached(priority: .utility) {
+            let now = clock.now
+            let data = try runner()
+            return try SystemProfilerAccessoryParser.inventory(
+                fromJSON: data,
+                now: now,
+                resolver: resolver
+            )
+        }.value
     }
 
     // MARK: - The process

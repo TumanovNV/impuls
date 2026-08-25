@@ -140,6 +140,7 @@
         "Sources/Impuls/UI/*Power*.swift"
       ],
       "test_globs": [
+        "Tests/ImpulsTests/AccessorySourceIsolationTests.swift",
         "Tests/ImpulsTests/AppleDevicePowerModelTests.swift",
         "Tests/ImpulsTests/AppleDevicePresentationTests.swift",
         "Tests/ImpulsTests/DevicePowerCenterTests.swift",
@@ -147,6 +148,7 @@
         "Tests/ImpulsTests/LowBatteryAlertEngineTests.swift",
         "Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift",
         "Tests/ImpulsTests/MobileDeviceProtocolTests.swift",
+        "Tests/ImpulsTests/PowerAccessoryOverlayTests.swift",
         "Tests/ImpulsTests/PowerMonitorTests.swift",
         "Tests/ImpulsTests/ThirdPartyBluetoothBatteryTests.swift"
       ],
@@ -165,7 +167,8 @@
         "PWR-10",
         "PWR-11",
         "PWR-12",
-        "PWR-13"
+        "PWR-13",
+        "PWR-14"
       ]
     },
     {

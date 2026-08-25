@@ -28,11 +28,40 @@ enum SystemProfilerAccessoryParser {
         static let batteryCase = "device_batteryLevelCase"
     }
 
+    /// A connected Bluetooth device this output describes but reports no
+    /// battery for.
+    ///
+    /// It carries the identity `system_profiler` already established, so a
+    /// battery found elsewhere can be attached to *this* device rather than
+    /// becoming a device of its own. That is the whole point of the split:
+    /// `pmset` supplies a number, never an identity.
+    struct BatterylessDevice: Equatable, Sendable {
+        let identity: AppleDeviceIdentity
+        let kind: AppleDeviceKind
+        let displayName: String
+        let modelName: String?
+    }
+
     static func devices(
         fromJSON data: Data,
         now: Date,
         resolver: DeviceIdentityResolver = .shared
     ) throws -> [AppleDeviceSnapshot] {
+        try inventory(fromJSON: data, now: now, resolver: resolver).devices
+    }
+
+    /// Both halves of what this output describes: the devices that already have
+    /// a battery, and the connected ones that do not.
+    ///
+    /// The second half used to be discarded silently, which was correct while
+    /// no other battery source existed. It is kept now so an overlay can offer
+    /// a reading for a device that is genuinely connected, and so a device that
+    /// gets no reading still ends up dropped exactly as before.
+    static func inventory(
+        fromJSON data: Data,
+        now: Date,
+        resolver: DeviceIdentityResolver = .shared
+    ) throws -> (devices: [AppleDeviceSnapshot], batteryless: [BatterylessDevice]) {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let sections = root[Key.root] as? [[String: Any]] else {
             throw MobileDeviceError.malformedResponse("unexpected system_profiler schema")
@@ -40,6 +69,7 @@ enum SystemProfilerAccessoryParser {
 
         var devices: [AppleDeviceIdentity: AppleDeviceSnapshot] = [:]
         var order: [AppleDeviceIdentity] = []
+        var batteryless: [AppleDeviceIdentity: BatterylessDevice] = [:]
 
         for section in sections {
             // Only connected devices. A disconnected accessory has no battery
@@ -48,13 +78,22 @@ enum SystemProfilerAccessoryParser {
             let connected = section[Key.connected] as? [[String: Any]] ?? []
             for entry in connected {
                 for (name, value) in entry {
-                    guard let properties = value as? [String: Any],
-                          let device = device(
-                              named: name,
-                              properties: properties,
-                              now: now,
-                              resolver: resolver
-                          ) else { continue }
+                    guard let properties = value as? [String: Any] else { continue }
+                    guard let device = device(
+                        named: name,
+                        properties: properties,
+                        now: now,
+                        resolver: resolver
+                    ) else {
+                        if let candidate = batterylessDevice(
+                            named: name,
+                            properties: properties,
+                            resolver: resolver
+                        ) {
+                            batteryless[candidate.identity] = candidate
+                        }
+                        continue
+                    }
                     // The same accessory can appear under two controllers.
                     // Identity decides, not the name.
                     if devices[device.identity] == nil { order.append(device.identity) }
@@ -63,7 +102,36 @@ enum SystemProfilerAccessoryParser {
             }
         }
 
-        return order.compactMap { devices[$0] }
+        // A device that produced a reading is not also a candidate for one.
+        for identity in devices.keys { batteryless[identity] = nil }
+        return (order.compactMap { devices[$0] }, Array(batteryless.values))
+    }
+
+    /// The same device, minus the battery it does not have.
+    ///
+    /// Identity and classification are derived exactly as they are for a device
+    /// that does have one, so an overlay attaches to the same `AppleDeviceIdentity`
+    /// the rest of the module already uses.
+    static func batterylessDevice(
+        named name: String,
+        properties: [String: Any],
+        resolver: DeviceIdentityResolver
+    ) -> BatterylessDevice? {
+        guard let address = string(properties[Key.address]) else { return nil }
+        let isAppleDevice = isApple(properties)
+        let kind = isAppleDevice
+            ? AppleAccessoryNaming.kind(fromProductName: name)
+            : AppleAccessoryNaming.kind(fromBluetoothMinorType: string(properties[Key.minorType]))
+        guard let identity = resolver.identity(forRawIdentifier: address, kind: kind) else { return nil }
+        return BatterylessDevice(
+            identity: identity,
+            kind: kind,
+            displayName: AppleDeviceNormalizer.displayName(
+                name,
+                fallback: isAppleDevice ? "Apple device" : AppleDevicePresentation.kindTitle(kind)
+            ),
+            modelName: string(properties[Key.minorType])
+        )
     }
 
     /// One connected Bluetooth device, or nothing.
