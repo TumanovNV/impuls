@@ -154,6 +154,16 @@ presentation is capped at two appearances for the lifetime of that local state.
 Opening GitHub happens only after an explicit user action and Impuls does not
 query GitHub to determine whether a star was actually given.
 
+Settings also offers voluntary support of Impuls development through two fixed
+external pages: CloudTips at `https://pay.cloudtips.ru/p/e04ac53f` and Boosty at
+`https://boosty.to/tumanovnv/donate`. Impuls opens a page in the system default
+browser only after the user explicitly chooses that provider. Information the
+user enters on the provider page is processed by that provider under its own
+terms and privacy policy. Impuls does not receive card or payment credentials,
+the selected amount, payment success or failure, or provider account state. It
+stores no provider choice, payment state or entitlement, sends no payment
+telemetry, and does not change any feature after the browser handoff.
+
 ## Local data
 
 - notes and snippets are stored in `~/Library/Application Support/Impuls`;

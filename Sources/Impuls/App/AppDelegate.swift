@@ -202,6 +202,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // the automatic prompt has ended for good, and choosing it there is
             // not an answer to a question Impuls asked.
             onSupportProject: { ProjectSupportPromptService.openProjectPageInBrowser() },
+            // A separate typed, stateless browser hand-off. It does not touch
+            // the automatic project-support prompt or its persisted record.
+            onVoluntarySupport: { ProjectSupportPromptService.openVoluntarySupportPage($0) },
             onShowOnboarding: { [weak self] in self?.onboardingController?.showFullTour() }
         )
     }

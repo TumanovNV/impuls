@@ -644,6 +644,14 @@
 "If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "如果 Impuls 帮到了你，可以在 GitHub 上点个星来支持这个项目。如果还有可以改进的地方，也欢迎告诉我们。";
 "Support on GitHub" = "在 GitHub 上支持";
 "Share Feedback" = "提交反馈";
+"Support Impuls Development" = "支持 Impuls 开发";
+"Support is voluntary. You choose the amount on the external service. Impuls features do not depend on support." = "支持完全自愿。金额由你在外部服务中选择。是否支持不会影响 Impuls 的功能。";
+"Russia" = "俄罗斯";
+"Other Countries" = "其他国家";
+"CloudTips" = "CloudTips";
+"Boosty" = "Boosty";
+"Opens in Your Default Browser" = "将在默认浏览器中打开";
+"Could Not Open Support Page" = "无法打开支持页面";
 
 /* Cancellable file operations 1.4.16 */
 "Cancelling…" = "正在取消…";

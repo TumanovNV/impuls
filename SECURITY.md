@@ -51,6 +51,11 @@ include user data, credentials, or exploit payloads in public discussions.
   prompting is capped at two lifetime appearances for the local state; opening
   GitHub is an explicit browser action and Impuls does not query GitHub for star
   status;
+- voluntary development support is available only from Settings after an
+  explicit user choice. The system browser may receive only the exact approved
+  endpoints `https://pay.cloudtips.ru/p/e04ac53f` and
+  `https://boosty.to/tumanovnv/donate`; Impuls has no payment SDK, payment
+  `WKWebView`, callback, payment state or entitlement;
 - no private frameworks or process injection;
 - the Battery / Power module reads this Mac through public IOPowerSources plus
   a best-effort supplement from the public IORegistry. No SMC client, no helper,

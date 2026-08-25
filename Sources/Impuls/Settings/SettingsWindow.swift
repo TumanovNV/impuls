@@ -76,6 +76,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let onImport: () -> Void
     private let onFeedback: () -> Void
     private let onSupportProject: () -> Bool
+    private let onVoluntarySupport: (VoluntarySupportDestination) -> Bool
     private let onShowOnboarding: () -> Void
     private var window: NSWindow?
 
@@ -87,6 +88,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         onImport: @escaping () -> Void,
         onFeedback: @escaping () -> Void,
         onSupportProject: @escaping () -> Bool,
+        onVoluntarySupport: @escaping (VoluntarySupportDestination) -> Bool,
         onShowOnboarding: @escaping () -> Void
     ) {
         self.settings = settings
@@ -96,6 +98,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.onImport = onImport
         self.onFeedback = onFeedback
         self.onSupportProject = onSupportProject
+        self.onVoluntarySupport = onVoluntarySupport
         self.onShowOnboarding = onShowOnboarding
     }
 
@@ -117,6 +120,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             onImport: onImport,
             onFeedback: onFeedback,
             onSupportProject: onSupportProject,
+            onVoluntarySupport: onVoluntarySupport,
             onShowOnboarding: onShowOnboarding
         )
         let hosting = NSHostingController(rootView: view)
@@ -159,6 +163,7 @@ private struct SettingsView: View {
     let onImport: () -> Void
     let onFeedback: () -> Void
     let onSupportProject: () -> Bool
+    let onVoluntarySupport: (VoluntarySupportDestination) -> Bool
     let onShowOnboarding: () -> Void
 
     var body: some View {
@@ -206,7 +211,11 @@ private struct SettingsView: View {
                     onImport: onImport
                 )
             case .feedback:
-                SupportSettingsPane(onFeedback: onFeedback, onSupportProject: onSupportProject)
+                SupportSettingsPane(
+                    onFeedback: onFeedback,
+                    onSupportProject: onSupportProject,
+                    onVoluntarySupport: onVoluntarySupport
+                )
             }
         }
     }
@@ -1169,10 +1178,12 @@ private struct DataSettingsPane: View {
 private struct SupportSettingsPane: View {
     let onFeedback: () -> Void
     let onSupportProject: () -> Bool
+    let onVoluntarySupport: (VoluntarySupportDestination) -> Bool
 
-    /// The only failure this pane can report. Whether a star was actually given
-    /// is not knowable from here, and Impuls does not ask GitHub.
+    /// Browser-launch failures are local UI state. Whether a star or payment
+    /// happened is not knowable from here, and Impuls never asks a provider.
     @State private var couldNotOpenGitHub = false
+    @State private var couldNotOpenVoluntarySupport = false
 
     var body: some View {
         Form {
@@ -1186,6 +1197,33 @@ private struct SupportSettingsPane: View {
                 }
                 if couldNotOpenGitHub {
                     Label(localized("Could Not Open GitHub"), systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+
+                Divider()
+
+                Text(localized("Support Impuls Development"))
+                    .font(.headline)
+                Text(localized("Support is voluntary. You choose the amount on the external service. Impuls features do not depend on support."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                LabeledContent(localized("Russia")) {
+                    Button(localized("CloudTips")) {
+                        openVoluntarySupport(.cloudTips)
+                    }
+                }
+                LabeledContent(localized("Other Countries")) {
+                    Button(localized("Boosty")) {
+                        openVoluntarySupport(.boosty)
+                    }
+                }
+                Text(localized("Opens in Your Default Browser"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if couldNotOpenVoluntarySupport {
+                    Label(localized("Could Not Open Support Page"), systemImage: "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
@@ -1212,5 +1250,9 @@ private struct SupportSettingsPane: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private func openVoluntarySupport(_ destination: VoluntarySupportDestination) {
+        couldNotOpenVoluntarySupport = !onVoluntarySupport(destination)
     }
 }

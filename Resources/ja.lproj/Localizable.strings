@@ -644,6 +644,14 @@
 "If Impuls has been useful, you can support the project with a star on GitHub. If something could be better, we'd be glad to hear your feedback." = "Impuls がお役に立てているなら、GitHub のスターでプロジェクトを応援できます。改善できる点があれば、ぜひお聞かせください。";
 "Support on GitHub" = "GitHub で応援";
 "Share Feedback" = "フィードバックを送る";
+"Support Impuls Development" = "Impuls の開発を支援";
+"Support is voluntary. You choose the amount on the external service. Impuls features do not depend on support." = "支援は任意です。金額は外部サービスで選択します。支援の有無によって Impuls の機能が変わることはありません。";
+"Russia" = "ロシア";
+"Other Countries" = "その他の国";
+"CloudTips" = "CloudTips";
+"Boosty" = "Boosty";
+"Opens in Your Default Browser" = "デフォルトのブラウザで開きます";
+"Could Not Open Support Page" = "支援ページを開けませんでした";
 
 /* Cancellable file operations 1.4.16 */
 "Cancelling…" = "キャンセル中…";

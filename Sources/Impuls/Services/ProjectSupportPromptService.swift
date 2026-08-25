@@ -134,6 +134,24 @@ struct ProjectSupportPromptMoment: Equatable, Sendable {
     }
 }
 
+/// The complete set of voluntary-development-support pages Impuls may hand to
+/// the system browser. These are not project-page destinations and never feed
+/// the automatic prompt state machine.
+enum VoluntarySupportDestination: String, CaseIterable, Equatable, Sendable {
+    case cloudTips = "https://pay.cloudtips.ru/p/e04ac53f"
+    case boosty = "https://boosty.to/tumanovnv/donate"
+
+    var url: URL? { URL(string: rawValue) }
+
+    /// Exact-string comparison intentionally rejects every URL variation,
+    /// including credentials, ports, queries, fragments and lookalike hosts.
+    static func allows(_ url: URL) -> Bool {
+        allCases.contains { destination in
+            destination.rawValue == url.absoluteString
+        }
+    }
+}
+
 /// Decides — entirely on this Mac — whether Impuls has earned the right to ask
 /// once for a GitHub star or a piece of feedback, and makes sure it stops asking.
 ///
@@ -365,6 +383,23 @@ final class ProjectSupportPromptService {
             && url.password == nil
             && url.port == nil
             && url.fragment == nil
+    }
+
+    // MARK: - Voluntary support
+
+    /// Hands one typed, exact voluntary-support destination to the default
+    /// browser after an explicit Settings action.
+    ///
+    /// This path is deliberately static and stateless. It cannot observe a
+    /// payment, update the prompt record or persist a provider choice.
+    @discardableResult
+    static func openVoluntarySupportPage(
+        _ destination: VoluntarySupportDestination,
+        using open: (URL) -> Bool = { NSWorkspace.shared.open($0) }
+    ) -> Bool {
+        guard let url = destination.url,
+              VoluntarySupportDestination.allows(url) else { return false }
+        return open(url)
     }
 
     // MARK: - Persistence

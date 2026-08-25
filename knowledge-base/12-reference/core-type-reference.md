@@ -2,9 +2,9 @@
 title: Core Type Reference
 type: reference
 status: active
-documentation_version: 1.5
+documentation_version: 1.6
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-25
 tags: [impuls, reference, swift, ownership, ai]
 ---
 
@@ -396,7 +396,7 @@ Canonical docs: [Settings, Onboarding and Feedback](../01-architecture/settings-
 
 ### `ProjectSupportPromptService`
 
-**Role:** machine-local policy/state owner for the optional project-support prompt.
+**Role:** stateful machine-local policy/record owner for the optional automatic project-support prompt, plus stateless browser handoff functions whose policies remain separate.
 
 Owns:
 
@@ -405,11 +405,15 @@ Owns:
 - the `60 s` meaningful-use coalescing window;
 - the `60 day` snooze policy;
 - the maximum of two automatic appearances;
-- the exact allow-listed project URL and the local state transition after the browser accepts it.
+- the separate exact allow-listed GitHub project URL and the automatic-prompt state transition after the browser accepts it.
 
-The service stores counters/state, not usage history, and emits no telemetry. `NotchController` owns deliberate-use/idle signals; `AppDelegate` owns the cancellable quiet deferral and current-window/environment checks; `ProjectSupportPromptWindowController` owns presentation.
+The stateful service side stores counters/state, not usage history, and emits no telemetry. `NotchController` owns deliberate-use/idle signals; `AppDelegate` owns the cancellable quiet deferral and current-window/environment checks; `ProjectSupportPromptWindowController` owns presentation. Its separate `openVoluntarySupportPage` path is stateless: it validates a typed destination and attempts one default-browser open without reading or mutating the prompt record.
 
-**Must not:** decide presentation timing by itself, query GitHub, claim whether a star was given, or become a fourth Internet owner.
+**Must not:** decide presentation timing by itself, query GitHub or a support provider, claim whether a star or payment was completed, persist provider/payment/entitlement state, or become a fourth Internet owner.
+
+### `VoluntarySupportDestination`
+
+**Role:** immutable typed policy for exactly the approved CloudTips and Boosty endpoints used by the stateless voluntary-support handoff. It is not a prompt state, provider recommendation or payment model, and owns no persistence.
 
 Canonical docs: [Settings, Onboarding and Feedback](../01-architecture/settings-onboarding-feedback.md), [Schema & Migration Registry](schema-migration-registry.md), [Input & Resource Budget Registry](resource-budget-registry.md), [Privacy Boundaries](../06-security/privacy-boundaries.md).
 

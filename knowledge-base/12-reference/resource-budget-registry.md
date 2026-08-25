@@ -2,7 +2,7 @@
 title: Input & Resource Budget Registry
 type: reference
 status: active
-documentation_version: 1.9
+documentation_version: 2.0
 app_version: 1.4.16
 last_reviewed: 2026-08-25
 tags: [impuls, performance, limits, budgets, security, ai]
@@ -101,6 +101,8 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Self-relaunch teardown settle | `0.2 s` once the old PID disappears | one-shot helper margin before opening the exact current bundle; no daemon, Login Item or persistent timer |
 
 Reviewed for 1.4.16: `VersionTelemetryService.diagnostics()` added no new cadence, size or count budget — it is a synchronous read of already-persisted state with no polling interval of its own, so the "Version telemetry attempt"/"proposal" rows above are unchanged.
+
+Reviewed for IMP-33: the project-support prompt budgets remain exactly 30 calendar days, 10 active days and 20 meaningful uses, with 60 s meaningful-use coalescing, a 60-day snooze and a lifetime maximum of two automatic prompts. Voluntary support is not a new cadence or resource budget: one explicit user click causes one system-browser open attempt, with no retry, preflight, polling or background request.
 
 ## Relaunch lifecycle budget
 
