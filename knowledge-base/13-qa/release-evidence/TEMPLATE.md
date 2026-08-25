@@ -67,6 +67,13 @@ For enforced releases, `not-recorded` is invalid. `not-run` is allowed only as a
 | UI-03 | not-run | NONE | pending | Replace with real result or explain gap. |
 | UI-04 | not-run | NONE | pending | Replace with real result or explain gap. |
 | UI-05 | not-run | NONE | pending | Replace with real result or explain gap. |
+| SUP-01 | not-run | NONE | pending | Replace with real result or explain gap. |
+| SUP-02 | not-run | NONE | pending | Replace with real result or explain gap. |
+| SUP-03 | not-run | NONE | pending | Replace with real result or explain gap. |
+| SUP-04 | not-run | NONE | pending | Replace with real result or explain gap. |
+| SUP-05 | not-run | NONE | pending | Replace with real result or explain gap. |
+| SUP-06 | not-run | NONE | pending | Replace with real result or explain gap. |
+| SUP-07 | not-run | NONE | pending | Replace with real result or explain gap. |
 | REL-01 | not-run | NONE | pending | Replace with real result or explain gap. |
 | REL-04 | not-run | NONE | pending | Replace with real result or explain gap. |
 | REL-05 | not-run | NONE | pending | Replace with real result or explain gap. |
