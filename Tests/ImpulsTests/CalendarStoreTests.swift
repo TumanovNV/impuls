@@ -50,18 +50,41 @@ final class CalendarStoreTests: XCTestCase {
         }
     }
 
-    func testTeamsMeetupJoinAndOriginalQueryAreAccepted() throws {
+    func testLegacyTeamsMeetupJoinAndOriginalQueryAreAccepted() throws {
         let url = "https://teams.microsoft.com/l/meetup-join/synthetic-payload/0?context=synthetic#synthetic"
         XCTAssertTrue(MeetingLink.isAllowedMeetingURL(try XCTUnwrap(URL(string: url))))
         XCTAssertEqual(MeetingLink.firstKnownLink(in: "Join \(url)")?.absoluteString, url)
     }
 
-    func testTeamsRejectsOrdinaryEmptyAndLookalikeURLs() throws {
+    func testLegacyTeamsRejectsMissingSegmentsAndOrdinaryURLs() throws {
         for url in [
             "https://teams.microsoft.com/", "https://teams.microsoft.com/l/messages/synthetic",
             "https://teams.microsoft.com/l/channel/synthetic", "https://teams.microsoft.com/l/meetup-join/",
+            "https://teams.microsoft.com/l/meetup-join/synthetic",
             "https://teams.microsoft.com/launcher.html?url=https%3A%2F%2Fteams.microsoft.com%2Fl%2Fmeetup-join%2Fsynthetic",
-            "https://teams.microsoft.com.example.com/l/meetup-join/synthetic",
+        ] {
+            XCTAssertFalse(MeetingLink.isAllowedMeetingURL(try XCTUnwrap(URL(string: url))), url)
+        }
+    }
+
+    func testShortTeamsMeetingURLsAcceptNumericIDsAndPreserveOriginalURL() throws {
+        for url in [
+            "https://teams.microsoft.com/meet/123456?p=synthetic",
+            "https://teams.microsoft.com/meet/12345678901234567890?context=synthetic&p=synthetic#synthetic",
+        ] {
+            XCTAssertTrue(MeetingLink.isAllowedMeetingURL(try XCTUnwrap(URL(string: url))), url)
+            XCTAssertEqual(MeetingLink.firstKnownLink(in: "Join \(url)")?.absoluteString, url)
+        }
+    }
+
+    func testShortTeamsMeetingURLsRejectMalformedPathsAndPasscodes() throws {
+        for url in [
+            "https://teams.microsoft.com/meet/", "https://teams.microsoft.com/meet/abc?p=synthetic",
+            "https://teams.microsoft.com/meet/123456", "https://teams.microsoft.com/meet/123456?p=",
+            "https://teams.microsoft.com/meet/123456/extra?p=synthetic",
+            "https://teams.microsoft.com/meeting/123456?p=synthetic",
+            "https://fake.teams.microsoft.com/meet/123456?p=synthetic",
+            "https://teams.microsoft.com.example.com/meet/123456?p=synthetic",
         ] {
             XCTAssertFalse(MeetingLink.isAllowedMeetingURL(try XCTUnwrap(URL(string: url))), url)
         }

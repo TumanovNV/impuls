@@ -26,7 +26,7 @@ tags: [impuls, macos, tcc, permissions]
 
 `fullAccess` → allowed; `notDetermined` → not requested; denied/restricted/write-only are not treated as full read access.
 
-IMP-21 reviews this boundary: strict local meeting-link recognition runs only after the existing Calendar read access and does not alter EventKit fields, TCC state mapping or prompt ownership.
+IMP-21 reviews this boundary: both strict local Teams URL forms run only after the existing Calendar read access and do not alter EventKit fields, TCC state mapping or prompt ownership.
 
 ## Music Automation
 

@@ -47,7 +47,7 @@ IMP-21 fail-closed contracts:
 
 - Zoom: `zoom.us` или `*.zoom.us`, только `/j/<9–11 ASCII digits>`; query/fragment opaque и сохраняются.
 - Google Meet: exact `meet.google.com`, только один code `/abc-defg-hij` (ASCII letters, `3-4-3`); subdomains не принимаются.
-- Microsoft Teams: exact `teams.microsoft.com`, путь начинается `/l/meetup-join/` и содержит non-empty join path material; opaque path/query/fragment не decode и не rewrites.
+- Microsoft Teams: exact `teams.microsoft.com`, locally validates two strict formats: legacy `/l/meetup-join/<opaque>/<segment>` with both path values non-empty, or current `/meet/<numeric-id>?p=<non-empty>`; the meeting ID and opaque passcode are neither decoded, rewritten nor logged, and query/fragment remain unchanged.
 
 Legacy Webex, Whereby, Jitsi, Discord, Yandex Telemost и `teams.live.com` временно сохраняют прежний host-only compatibility contract. Их provider-specific hardening отложен: в IMP-21 их support не удаляется, не расширяется и не классифицируется как новый strict contract.
 

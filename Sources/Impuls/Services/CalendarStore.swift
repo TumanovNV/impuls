@@ -294,10 +294,40 @@ enum MeetingLink {
 
     private static func isTeamsURL(_ url: URL) -> Bool {
         let components = url.path.split(separator: "/", omittingEmptySubsequences: false)
-        return components.count >= 4
+        return isLegacyTeamsURL(components) || isShortTeamsURL(components, query: rawQuery(in: url))
+    }
+
+    private static func isLegacyTeamsURL(_ components: [Substring]) -> Bool {
+        return components.count == 5
             && components[0].isEmpty
             && components[1] == "l"
             && components[2] == "meetup-join"
             && !components[3].isEmpty
+            && !components[4].isEmpty
+    }
+
+    private static func isShortTeamsURL(_ components: [Substring], query: Substring?) -> Bool {
+        guard components.count == 3,
+              components[0].isEmpty,
+              components[1] == "meet",
+              !components[2].isEmpty,
+              components[2].utf8.allSatisfy({ $0 >= 48 && $0 <= 57 }) else { return false }
+        return hasNonEmptyTeamsPasscode(query)
+    }
+
+    private static func hasNonEmptyTeamsPasscode(_ query: Substring?) -> Bool {
+        guard let query else { return false }
+        return query.split(separator: "&", omittingEmptySubsequences: false).contains { item in
+            let pair = item.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            return pair.count == 2 && pair[0] == "p" && !pair[1].isEmpty
+        }
+    }
+
+    private static func rawQuery(in url: URL) -> Substring? {
+        let absoluteString = url.absoluteString
+        guard let queryStart = absoluteString.firstIndex(of: "?") else { return nil }
+        let valueStart = absoluteString.index(after: queryStart)
+        let fragmentStart = absoluteString[valueStart...].firstIndex(of: "#") ?? absoluteString.endIndex
+        return absoluteString[valueStart..<fragmentStart]
     }
 }

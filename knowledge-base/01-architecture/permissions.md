@@ -28,7 +28,7 @@ flowchart LR
 
 `CalendarStore.start()` только читает текущий TCC status. Prompt вызывается `requestAccess()` из UI. Entitlement `com.apple.security.personal-information.calendars` присутствует в bundle.
 
-IMP-21 изменяет только local recognition already-readable meeting URLs after access exists; он не читает новый EventKit field, не меняет entitlement и не добавляет permission action или prompt.
+IMP-21 изменяет только local recognition already-readable meeting URLs after access exists, including both strict Teams URL forms; он не читает новый EventKit field, не меняет entitlement и не добавляет permission action или prompt.
 
 ## Apple Music Automation
 
