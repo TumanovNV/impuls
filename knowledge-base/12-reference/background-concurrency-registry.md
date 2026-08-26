@@ -14,6 +14,8 @@ tags: [impuls, performance, concurrency, timers, background-work, ai]
 
 Spotify reuses the single selected-native-provider 1 s timer; it adds no timer, task, poller, or queue. `nativeNotInstalled` and target-app TCC handling are synchronous state outcomes and add no background work.
 
+Re-reviewed again after the Apple Music script rewrite, the `procNotFound` status mapping and the `seekPosition(forSeconds:)` split. All three are confined to generated script text, a pure status-to-state mapping and a pure conversion: no timer, task, queue, observer or actor boundary was added, removed or re-timed, and the Automation query keeps running off the main actor on the same shared serial queue. The earlier re-review below still stands.
+
 Re-reviewed after the Spotify script wire-format fix and the native fallback guard. Both are confined to the generated script text and to branch logic inside the existing refresh completion: cadence stays 1 s with 0.15 s tolerance, the AppleScript queue stays a single serial utility queue, and refresh coalescing (`refreshInFlight` / `refreshPending`, at most one queued follow-up) is unchanged. No timer, task, queue or observer was added or removed.
 
 This is the canonical registry of long-lived, periodic, delayed and off-main work in Impuls. It exists to keep a small menu-bar utility from gradually accumulating hidden timers, duplicated polling, unbounded tasks or main-thread I/O.

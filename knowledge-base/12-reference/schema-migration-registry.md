@@ -14,6 +14,8 @@ tags: [impuls, schemas, migrations, persistence, compatibility]
 
 No Spotify account, token, metadata, or Automation state is persisted by Impuls. Therefore IMP-11 creates no persisted schema, migration marker, backup field, or migration.
 
+Re-reviewed after the Automation status fix: the additional `appNotRunning` and `notInstalled` row states are runtime-only and never persisted, so they introduce no schema, marker or migration either.
+
 ## Purpose
 
 This is the compatibility registry for data that survives longer than one in-memory session or crosses a process/machine boundary.

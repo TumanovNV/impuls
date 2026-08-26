@@ -2,7 +2,7 @@
 title: Music Module
 type: module
 status: production
-documentation_version: 1.7
+documentation_version: 1.8
 app_version: 1.4.16
 last_reviewed: 2026-08-26
 tags: [impuls, module, music, webkit, automation]
@@ -115,14 +115,24 @@ Track/artwork/play state — runtime. Selected source — UserDefaults. Web sess
 
 ## Spotify native contract (IMP-11)
 
-Spotify native macOS app is queried only through its shipped Scripting Dictionary and public Apple Events. `PlayerBridge` queries the selected app only — no `allCases` scan and no “currently playing app wins” rule. If Spotify is not installed, `nativeNotInstalled` is shown, no Automation check/prompt occurs, and no dead Open action is offered.
+Spotify native macOS app is queried only through its shipped Scripting Dictionary and public Apple Events. `PlayerBridge` queries the selected app only — no `allCases` scan and no “currently playing app wins” rule. If Spotify is not installed, `nativeNotInstalled` is shown, no Automation check/prompt occurs, and no dead Open action is offered. Each native empty state is a whole sentence owned by its provider rather than one `%@` template — Russian inflects the predicate for the subject's gender (Apple Music feminine, Spotify masculine), so a shared template is necessarily wrong for one of them.
 
 The internal wire contract remains milliseconds. On observed Spotify 1.2.98.301, track duration arrives as milliseconds (`140046` means `140.046 s`), while player position arrives as seconds; the provider script converts position to wire milliseconds. There is no magnitude heuristic.
 
-Two properties of the generated script are load-bearing rather than stylistic, and both are asserted in `PlayerBridgeTests`:
+Two properties of the generated scripts are load-bearing rather than stylistic. They hold for **both** native providers — Apple Music and Spotify — and both are asserted in `PlayerBridgeTests`:
 
 - **Every number is coerced `as integer` before it reaches the wire** — `set trackDurationMilliseconds to (duration of currentSpotifyTrack) as integer` and `set positionMilliseconds to ((player position) * 1000) as integer`. AppleScript renders a `real` using the *user's* locale, so on a ru_RU system an uncoerced position serializes as `2,776499938965E+4`, which `Double(String)` rejects and the state is lost. Integers carry no decimal separator, so the wire is locale-independent by construction. Verified on ru_RU against Spotify 1.2.98.301: `paused␁Lush Life␁Zara Larsson␁So Good␁200646␁4544␁`.
-- **Script variables use explicit, spelled-out names** (`playerStateText`, `currentSpotifyTrack`, `trackDurationMilliseconds`, `positionMilliseconds`). Two-letter identifiers are not free: `st`, `nd`, `rd` and `th` are AppleScript's reserved ordinal-suffix tokens, and `set st to …` fails to compile with `-2741 Expected expression but found "st"`.
+- **Script variables use explicit, spelled-out names** (`playerStateText`, `currentSpotifyTrack` / `currentMusicTrack`, `trackDurationMilliseconds`, `positionMilliseconds`). Two-letter identifiers are not free: `st`, `nd`, `rd` and `th` are AppleScript's reserved ordinal-suffix tokens, and `set st to …` fails to compile with `-2741 Expected expression but found "st"`.
+
+  This was not hypothetical. Until the 1.4.16 audit the **Apple Music** script opened with `set st to player state as text`, so `NSAppleScript` returned nil with `-2741` on every call and the scripting read never worked. Apple Music still showed a track only because the `com.apple.Music.playerInfo` distributed notification fed `notificationFallback`; once that 8-second window lapsed the pane fell to `nativeUnreadable` with dead transport. Both scripts now use explicit identifiers.
+
+### Both scripts are compiled by the test suite
+
+`String.contains` cannot tell valid AppleScript from invalid AppleScript, and the negative assertion for this exact pattern had been written against the Spotify script — the one branch that never carried the bug. `PlayerBridgeTests` now compiles each generated script through `NSAppleScript.compileAndReturnError`.
+
+Compilation is safe to assert in a unit test: it resolves the target's terminology from the application bundle. It does not launch the target, send an Apple Event, require an Automation grant or touch playback — only `executeAndReturnError` would, and it is never called there. The Apple Music check is skipped when Apple Music is absent and the Spotify check when Spotify is absent, so CI never depends on a third-party app; a structural assertion that needs no installed app guards the reserved identifiers themselves.
+
+Apple Music duration and position both arrive as `real` **seconds** and are multiplied by 1000; Spotify duration already arrives in milliseconds and only its position is converted. Both wires are integer milliseconds, and the Swift parser divides by 1000.
 
 Spotify artwork is absent in 1.4.16 by construction: the provider script never asks for `artwork url` — it emits the artwork field as an empty string — and `PlayerBridge.artwork(for:)` returns `nil` for any state whose app is not `.music`. The pane falls back to the source glyph. There is no artwork network path and no new network owner.
 

@@ -71,6 +71,8 @@ IMP-11 расширил `NativeMusicBridging`/`LivePlayerBridge` до source-exp
 
 Перепроверено после исправления Spotify script wire format и native fallback guard: изменения касаются только текста генерируемого AppleScript и логики адаптации state внутри completion, поэтому TCC-путь, набор target apps, `prompt: false` для automatic checks и ownership prompt'а остаются прежними.
 
+Отдельно пересмотрено после исправления семантики статуса Automation. `AEDeterminePermissionToAutomateTarget` возвращает `procNotFound` для закрытого target app — это не вердикт TCC, но раньше он попадал в catch-all `restricted`. В результате пользователь, у которого Spotify просто не запущен, видел «Ограничено» без кнопки Allow и без пути восстановления. Теперь у этого случая есть собственное состояние, как и у неустановленного приложения, которое разрешается **до** обращения к TCC — для него Automation-запрос не выполняется вовсе. Ни одно из двух состояний не выдумывает вердикт, которого macOS не давала, и оба снимаются сами: `refresh()` на `.onAppear` и кнопка «Refresh Status» пересчитывают строку после запуска приложения. Ни entitlement, ни политика prompt ownership, ни независимость target apps при этом не изменились.
+
 ## Инварианты
 
 - update не создаёт новый prompt сам;

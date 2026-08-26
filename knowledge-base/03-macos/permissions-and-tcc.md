@@ -56,6 +56,8 @@ IMP-11: `NativeMusicBridging`/`LivePlayerBridge` передаёт явно вы�
 
 Перепроверено после исправления Spotify script wire format и native fallback guard: ни одно из этих изменений не добавляет Apple Events target, не меняет момент запроса TCC и не переводит automatic check в prompting режим.
 
+Статусы Automation теперь различают шесть ситуаций target app вместо четырёх: `allowed`, `denied`, `notRequested` и `restricted` — вердикты TCC; `appNotRunning` (`procNotFound`, приложение установлено, но закрыто) и `notInstalled` — не вердикты и никогда не должны выглядеть как policy restriction. `notInstalled` определяется до обращения к TCC, поэтому для отсутствующего приложения Automation-запрос не отправляется. Ни один из новых случаев не запускает приложение и не показывает prompt: оба разрешаются повторным `refresh()` после того, как пользователь сам откроет приложение.
+
 ## Entitlements
 
 
