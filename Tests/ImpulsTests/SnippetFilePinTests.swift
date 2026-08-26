@@ -342,6 +342,73 @@ final class SnippetFilePinTests: XCTestCase {
         XCTAssertEqual(store.items.first?.fileName, "kept.txt")
     }
 
+    /// The adversarial review's find: `replaceFile` wrote the new reference
+    /// without deduping, so pointing one pin at a file another pin already held
+    /// produced two rows with the same derived id — and `remove` deletes by id,
+    /// so deleting one silently deleted both.
+    func testReSelectingOntoAFileAnotherPinHoldsDoesNotProduceTwoRowsWithOneIdentity() throws {
+        let shared = try makeFile("shared.txt")
+        let other = try makeFile("other.txt")
+        let store = makeStore()
+
+        XCTAssertTrue(store.addFile(shared))
+        XCTAssertTrue(store.addFile(other))
+        let target = try XCTUnwrap(store.items.first { $0.fileName == "other.txt" })
+
+        XCTAssertTrue(store.replaceFile(target, with: shared))
+
+        let ids = store.items.map(\.id)
+        XCTAssertEqual(Set(ids).count, ids.count, "two rows must never share an identity")
+        XCTAssertEqual(store.items.count, 1, "the duplicate replaces the older entry")
+
+        // And the surviving row is still deletable without taking anything else.
+        store.remove(try XCTUnwrap(store.items.first))
+        XCTAssertTrue(store.items.isEmpty)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: shared.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: other.path))
+    }
+
+    /// `isRegularFileKey` reports on the link itself, so without resolving it
+    /// first a perfectly good symlink to a readable file was refused.
+    func testALiveSymlinkIsAcceptedAndADeadOneIsNot() throws {
+        let target = try makeFile("target.txt")
+        let live = directory.appendingPathComponent("live.link")
+        try FileManager.default.createSymbolicLink(at: live, withDestinationURL: target)
+        let dead = directory.appendingPathComponent("dead.link")
+        try FileManager.default.createSymbolicLink(
+            at: dead, withDestinationURL: directory.appendingPathComponent("nothing.txt")
+        )
+
+        XCTAssertTrue(SnippetFileResolver.isReadableRegularFile(live))
+        XCTAssertFalse(SnippetFileResolver.isReadableRegularFile(dead))
+
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(live), "a working symlink points at a real file")
+        XCTAssertFalse(store.addFile(dead))
+    }
+
+    /// A file package is a directory. It is out of scope, and it has to be
+    /// refused rather than half-pinned.
+    func testAFilePackageIsRejected() throws {
+        let package = directory.appendingPathComponent("Document.rtfd", isDirectory: true)
+        try FileManager.default.createDirectory(at: package, withIntermediateDirectories: true)
+        try "body".write(to: package.appendingPathComponent("TXT.rtf"), atomically: true, encoding: .utf8)
+
+        XCTAssertFalse(SnippetFileResolver.isReadableRegularFile(package))
+        let store = makeStore()
+        XCTAssertFalse(store.addFile(package))
+        XCTAssertTrue(store.items.isEmpty)
+    }
+
+    /// A zero-byte file is still a file. Nothing reads its contents, so there is
+    /// no reason to refuse it.
+    func testAZeroByteFileIsAcceptable() throws {
+        let empty = try makeFile("empty.txt", contents: "")
+        XCTAssertTrue(SnippetFileResolver.isReadableRegularFile(empty))
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(empty))
+    }
+
     // MARK: - Removal safety
 
     /// The safety regression that matters most: removing a pin removes a row,

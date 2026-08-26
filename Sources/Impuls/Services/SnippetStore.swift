@@ -268,7 +268,13 @@ final class SnippetStore: ObservableObject {
         reload()
         guard let index = items.firstIndex(where: { $0.id == snippet.id }) else { return false }
         let reference = SnippetFileReference(bookmark: SnippetFileResolver.makeBookmark(for: url))
-        items[index] = Snippet(label: items[index].label, text: url.path, file: reference)
+        let replacement = Snippet(label: items[index].label, text: url.path, file: reference)
+        items[index] = replacement
+        // Identity is derived from label and value, so re-pointing one pin at a
+        // file another pin already holds would produce two rows sharing an id —
+        // and `remove` deletes by id, so deleting one would delete both. The
+        // module's identity rule is that a duplicate replaces the older entry.
+        dropDuplicatesKeeping(index: index, id: replacement.id)
         persist()
         return true
     }
@@ -279,12 +285,24 @@ final class SnippetStore: ObservableObject {
     func updateFileReference(for snippet: Snippet, resolvedURL: URL, bookmark: Data) {
         guard let index = items.firstIndex(where: { $0.id == snippet.id }) else { return }
         guard items[index].isFile else { return }
-        items[index] = Snippet(
+        let refreshed = Snippet(
             label: items[index].label,
             text: resolvedURL.path,
             file: SnippetFileReference(bookmark: bookmark)
         )
+        items[index] = refreshed
+        // Following a rename can land on a path another pin already holds; the
+        // same identity rule applies as in `replaceFile`.
+        dropDuplicatesKeeping(index: index, id: refreshed.id)
         persist()
+    }
+
+    /// Keeps the entry at `index` and drops any other row that now shares its
+    /// identity, so an `Identifiable` list never holds two rows with one id.
+    private func dropDuplicatesKeeping(index: Int, id: String) {
+        items = items.enumerated().filter { offset, item in
+            item.id != id || offset == index
+        }.map(\.element)
     }
 
     /// Resolution for one pin. Lazy by construction: nothing calls this on a

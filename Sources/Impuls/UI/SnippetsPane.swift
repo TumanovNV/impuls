@@ -35,6 +35,15 @@ struct SnippetsPane: View {
 
     var body: some View {
         let filtered = snippets.filtered
+        return paneBody(filtered)
+            // On the pane rather than on the populated list: attached to the
+            // list it did not exist in the empty state — the one moment a new
+            // user is most likely to try dropping a file.
+            .onDrop(of: [.fileURL], isTargeted: nil, perform: receiveDrop)
+    }
+
+    @ViewBuilder
+    private func paneBody(_ filtered: [Snippet]) -> some View {
         VStack(spacing: Theme.Space.xs + 2) {
             if isAdding { editor } else { search }
             list(filtered)
@@ -225,6 +234,13 @@ struct SnippetsPane: View {
         panel.resolvesAliases = true
         panel.prompt = localized("Pin")
         panel.message = localized("Choose a file to pin.")
+        // Packages (.app, .rtfd, Pages documents) are directories. Letting the
+        // panel treat them as folders means the user navigates into one rather
+        // than selecting something that would then be silently refused.
+        panel.treatsFilePackagesAsDirectories = true
+        // The panel is non-activating, so a modal raised from it appears behind
+        // the frontmost app without focus unless Impuls activates first.
+        NSApp.activate(ignoringOtherApps: true)
         // Cancel leaves everything exactly as it was.
         guard panel.runModal() == .OK, let url = panel.url else { return }
         _ = snippets.addFile(url)
@@ -277,7 +293,6 @@ struct SnippetsPane: View {
                 .padding(.bottom, Theme.Space.hair)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onDrop(of: [.fileURL], isTargeted: nil, perform: receiveDrop)
         }
     }
 }
@@ -288,14 +303,16 @@ struct SnippetsPane: View {
 /// feature here.
 private struct SnippetRowClickModifier: ViewModifier {
     let isFile: Bool
-    let onTap: () -> Void
     let onClick: (Int) -> Void
 
     func body(content: Content) -> some View {
         if isFile {
             content.overlay(ClickCountCatcher(onClick: onClick))
         } else {
-            content.onTapGesture(perform: onTap)
+            // Nothing at all for a text row: its tap lives on the whole row,
+            // exactly where it always did. Adding a second gesture here would
+            // make which one fires a question rather than a fact.
+            content
         }
     }
 }
@@ -319,12 +336,26 @@ private struct ClickCountCatcher: NSViewRepresentable {
 
     final class CatcherView: NSView {
         var onClick: ((Int) -> Void)?
+        private var isDragging = false
+
+        /// The panel is non-activating and the app never becomes active, so
+        /// without this the first click on a row would be spent activating
+        /// Impuls instead of reaching the pin. `NotchRootView` and
+        /// `ShelfDragSource` override it for the same reason.
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
         override func mouseDown(with event: NSEvent) {
-            // Accepted so the matching mouseUp is delivered here.
+            isDragging = false
+        }
+
+        override func mouseDragged(with event: NSEvent) {
+            isDragging = true
         }
 
         override func mouseUp(with event: NSEvent) {
+            // A press, drag and release is not a click, and must not copy.
+            defer { isDragging = false }
+            guard !isDragging else { return }
             onClick?(event.clickCount)
         }
 
@@ -353,7 +384,7 @@ private struct SnippetRow: View {
     /// because a view inside a false branch is not in the hierarchy at all.
     private var showsControls: Bool { hovering || isFocused }
 
-    var body: some View {
+    private var rowContent: some View {
         HStack(spacing: Theme.Space.s) {
             Image(systemName: justCopied ? "checkmark" : item.symbol)
                 .font(Theme.Typo.captionStrong)
@@ -380,6 +411,17 @@ private struct SnippetRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: Theme.Space.xs)
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: Theme.Space.s) {
+            // The click catcher covers this group only. Overlaying the whole
+            // row put an opaque AppKit view on top of the delete button, so
+            // clicking the cross on a file row copied the file instead.
+            rowContent
+                .contentShape(Rectangle())
+                .modifier(SnippetRowClickModifier(isFile: item.isFile, onClick: handleClick))
             // Only under the pointer or under focus: a permanent row of crosses
             // would compete with the snippets themselves for a glance.
             if showsControls {
@@ -406,10 +448,12 @@ private struct SnippetRow: View {
         .focusable()
         .focused($isFocused)
         .onHover { hovering = $0 }
-        // A text snippet keeps the plain single tap it has always had. A file
-        // needs the click *count*, which SwiftUI's tap gesture does not report,
-        // so those rows go through a small AppKit bridge instead.
-        .modifier(SnippetRowClickModifier(isFile: item.isFile, onTap: copy, onClick: handleClick))
+        // A text snippet keeps the plain whole-row tap it has always had,
+        // padding included. A file row must not have one: a click landing in
+        // the padding would bypass the arbiter and copy immediately, which is
+        // the copy-then-open bug the arbiter exists to prevent. Its clicks come
+        // from the AppKit bridge over the content area instead.
+        .onTapGesture { if !item.isFile { copy() } }
         .onKeyPress(.return) {
             copy()
             return .handled
@@ -434,7 +478,27 @@ private struct SnippetRow: View {
         // Lazy availability: once per appearance, never on a timer.
         .task(id: item.id) {
             guard item.isFile else { return }
-            isMissing = !fileActions.isAvailable(item)
+            // Off the main actor deliberately. The bookmark branch is bounded
+            // by `withoutMounting`, but the path fallback ends in
+            // `fileExists`/`resourceValues`, and those block for the mount
+            // timeout on a mounted-but-unresponsive share. This check is
+            // automatic and runs for every visible pin, so it is exactly the
+            // work that must not sit on the main actor — the same reason
+            // `ShelfStore` moved its existence sweep off it.
+            let path = item.text
+            let bookmark = item.file?.bookmark
+            let resolution = await Task.detached(priority: .utility) {
+                SnippetFileResolver.resolve(path: path, bookmark: bookmark)
+            }.value
+            isMissing = resolution == .unavailable
+            // A rename resolves through the bookmark to a new path. Writing it
+            // back here is what makes the row show the file's current name
+            // instead of the one it was pinned under; without it the row stays
+            // stale until the user happens to click it. `refreshed` is nil once
+            // the reference is current, so this settles after one pass.
+            if case .resolved(let url, let refreshed) = resolution, let refreshed {
+                snippets.updateFileReference(for: item, resolvedURL: url, bookmark: refreshed)
+            }
         }
         .animation(Theme.motion(Theme.contentAnimation), value: showsControls)
         .animation(Theme.motion(Theme.contentAnimation), value: justCopied)
@@ -448,10 +512,15 @@ private struct SnippetRow: View {
     @ViewBuilder
     private var contextMenu: some View {
         if item.isFile {
-            Button(localized("Copy")) { runFile(fileActions.copy) }
-            Button(localized("Open")) { runFile(fileActions.open) }
-            Button(localized("Show in Finder")) { runFile(fileActions.reveal) }
-            Divider()
+            // A pin whose file is gone offers only the two commands that can
+            // still do something. The actions fail closed anyway, but showing
+            // three that cannot work is not an honest menu.
+            if !isMissing {
+                Button(localized("Copy")) { runFile(fileActions.copy) }
+                Button(localized("Open")) { runFile(fileActions.open) }
+                Button(localized("Show in Finder")) { runFile(fileActions.reveal) }
+                Divider()
+            }
             Button(localized("Choose File Again")) { chooseAgain() }
             Button(localized("Delete")) { snippets.remove(item) }
         } else {
@@ -490,6 +559,8 @@ private struct SnippetRow: View {
         panel.resolvesAliases = true
         panel.prompt = localized("Pin")
         panel.message = localized("Choose a file to pin.")
+        panel.treatsFilePackagesAsDirectories = true
+        NSApp.activate(ignoringOtherApps: true)
         guard panel.runModal() == .OK, let url = panel.url else { return }
         if snippets.replaceFile(item, with: url) { isMissing = false }
     }

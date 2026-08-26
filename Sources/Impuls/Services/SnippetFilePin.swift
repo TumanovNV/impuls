@@ -21,7 +21,7 @@ struct SnippetFileReference: Codable, Equatable, Sendable {
 }
 
 /// What resolving a pinned file produced.
-enum SnippetFileResolution: Equatable {
+enum SnippetFileResolution: Equatable, Sendable {
     /// The file is there. `refreshedBookmark` is non-nil only when the stored
     /// bookmark was stale or missing and a fresh one should be written back.
     case resolved(url: URL, refreshedBookmark: Data?)
@@ -80,17 +80,23 @@ enum SnippetFileResolver {
         return .resolved(url: url, refreshedBookmark: isStale ? makeBookmark(for: url) : nil)
     }
 
-    /// A pin points at one regular file. A directory, a symlink to nowhere, a
-    /// socket or a device is not something this feature claims to handle, and
-    /// saying so up front is better than half-working on it.
+    /// A pin points at one regular file. A directory, a file package, a dead
+    /// symlink, a socket or a device is not something this feature claims to
+    /// handle, and saying so up front is better than half-working on it.
+    ///
+    /// A *live* symlink is accepted: `isRegularFileKey` reports on the link
+    /// itself, so the target is what gets asked. Resolving first is what makes
+    /// a symlink into a real file behave like the file it points at, which is
+    /// what someone who pinned it meant.
     static func isReadableRegularFile(_ url: URL) -> Bool {
         guard url.isFileURL else { return false }
+        let target = url.resolvingSymlinksInPath()
         var isDirectory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) else {
+        guard FileManager.default.fileExists(atPath: target.path, isDirectory: &isDirectory) else {
             return false
         }
         guard !isDirectory.boolValue else { return false }
-        let values = try? url.resourceValues(forKeys: [.isRegularFileKey])
+        let values = try? target.resourceValues(forKeys: [.isRegularFileKey])
         return values?.isRegularFile ?? false
     }
 }

@@ -181,4 +181,24 @@ final class ImpulsActionsStoreTests: XCTestCase {
             )
         }
     }
+    /// A pinned file is deliberately absent from Actions search: an Actions row
+    /// carries a value, not the pin's Open / Reveal / re-select / unavailable
+    /// behaviour, and surfacing half of that under the same name is worse than
+    /// leaving the pin in its own pane.
+    func testAPinnedFileIsNotOfferedInActionsSearch() async {
+        await MainActor.run {
+            let store = ImpulsActionsStore()
+            let text = Snippet(label: "Office", text: "info@example.com")
+            let pin = Snippet(label: "Report", text: "/tmp/report.pdf", file: SnippetFileReference())
+
+            let results = store.results(clipboard: [], snippets: [text, pin], notes: [])
+
+            XCTAssertTrue(results.contains { $0.title == "Office" }, "a text snippet is still offered")
+            XCTAssertFalse(results.contains { $0.title == "Report" }, "a file pin must not appear")
+            XCTAssertFalse(
+                results.contains { $0.origin == .snippet(pin.id) },
+                "not under any title either"
+            )
+        }
+    }
 }

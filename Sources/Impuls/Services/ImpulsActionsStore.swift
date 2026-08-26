@@ -308,10 +308,12 @@ final class ImpulsActionsStore: ObservableObject {
         }
 
         // A pinned file (IMP-39) is deliberately absent from Actions search.
-        // Every result here carries a `.text` value, and copying a file pin has
-        // to put the *file* on the pasteboard, not its path — offering it here
-        // would hand back a path string under the same name. Until Actions can
-        // express a file value, the pin is reachable from its own pane only.
+        // Not because Actions cannot carry a file — `ImpulsActionValue.file`
+        // exists and clipboard file items already use it — but because a pin
+        // means more here than "a file": it also has Open, Reveal, re-select
+        // and an unavailable state, none of which an Actions row expresses.
+        // Surfacing half of that under the same name is worse than leaving the
+        // pin where its full behaviour lives. 1.4.16 keeps it in its own pane.
         let saved = snippets.filter { !$0.isFile }.map { snippet in
             let kind = ClipboardContentClassifier.kind(for: snippet.text)
             return ImpulsActionResult(

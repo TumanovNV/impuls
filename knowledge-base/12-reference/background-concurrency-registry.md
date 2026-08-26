@@ -26,7 +26,9 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 
 Pinning a local file adds **no** timer, poller, watcher, task loop or background worker. The only scheduled work is the one-shot click deferral in the row above, and it exists per click rather than per pin.
 
-File availability is resolved lazily — once when a row appears and again when the user acts on it — so a pin costs nothing while the Snippets tab is not on screen, and an unused pin costs nothing at all. Resolution itself is bounded rather than open-ended: `SnippetFileResolver` passes `[.withoutUI, .withoutMounting]`, so a bookmark pointing into an ejected volume answers "unavailable" immediately instead of trying to mount it and blocking the caller. That is what keeps this work safe on the main actor.
+File availability is resolved lazily — once when a row appears and again when the user acts on it — so a pin costs nothing while the Snippets tab is not on screen, and an unused pin costs nothing at all.
+
+The automatic per-row check runs **off the main actor**, in a detached utility task. `[.withoutUI, .withoutMounting]` bounds the bookmark branch, so an ejected volume answers "unavailable" immediately rather than being mounted — but that option does not cover the path fallback, which ends in `fileExists`/`resourceValues` and blocks for the mount timeout on a mounted-but-unresponsive share. Since this check is automatic and runs for every visible pin, it is exactly the work that must not sit on the main actor; `ShelfStore` moved its existence sweep off it for the same reason. Resolution driven by an explicit user action stays inline: it is one call, for one pin, that the user asked for.
 
 Ownership: `SnippetFileActions`, `ClickArbiter`, `SystemFilePasteboard` and `SystemWorkspace` are all `@MainActor`, matching `SnippetStore`. They add no new queue and no new isolation boundary — the pasteboard and workspace seams exist for testability, not for concurrency.
 
