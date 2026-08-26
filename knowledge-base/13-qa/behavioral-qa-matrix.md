@@ -35,6 +35,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | PERM-02 | Calendar never opened | manual-macos | no Calendar prompt |
 | PERM-03 | Calendar explicit access action | mixed | prompt occurs only from user action; granted state populates events |
 | PERM-04 | Calendar denied | mixed | useful denied state; app remains functional; no prompt loop |
+| CAL-01 | Calendar meeting-link recognition | automated | Deterministic tests establish the bounded local `location → notes → event URL` scan, strict fail-closed Zoom/Google Meet recognition, and both strict Teams forms: `/l/meetup-join/<opaque>/<segment>` and `/meet/<numeric-id>?p=<opaque>`. They also establish original-URL handoff semantics and legacy-provider compatibility. A reviewer may manually exercise Join only with synthetic invitations for both Teams formats; that optional browser/app handoff is not claimed as release evidence. |
 | PERM-05 | Apple Music automation not determined | manual-macos | read path does not silently prompt; explicit resolve action may prompt |
 | PERM-06 | Apple Music automation denied | mixed | explanatory access state and System Settings route; no crash/retry storm |
 | PERM-07 | External Apple devices disabled | mixed | no usbmuxd topology socket/read is started |

@@ -39,11 +39,21 @@ Launch/start никогда не prompt'ит. `start` и `refreshAccess` тол�
 
 ## Meeting links
 
-Scanning ограничен 32 KiB на field. Разрешены только HTTPS known provider hosts (Google Meet, Zoom, Teams, Webex, Whereby, Jitsi, Discord, Yandex Telemost). URL user/password/port запрещены.
+Scanning ограничен 32 KiB на каждом field и идёт в детерминированном порядке: `location`, затем `notes`, затем `event.url.absoluteString`; внутри field побеждает первая accepted URL в textual order. Для события остаётся один Join action, поэтому collection/deduplication не нужен.
+
+Все URL должны быть HTTPS без user/password и explicit port. Accepted URL не normalizes, не rewrites и не logs: original URL передаётся только по explicit Join в `NSWorkspace`/system browser or app. Calendar не делает network preflight, provider verification, scraping или redirects resolution.
+
+IMP-21 fail-closed contracts:
+
+- Zoom: `zoom.us` или `*.zoom.us`, только `/j/<9–11 ASCII digits>`; query/fragment opaque и сохраняются.
+- Google Meet: exact `meet.google.com`, только один code `/abc-defg-hij` (ASCII letters, `3-4-3`); subdomains не принимаются.
+- Microsoft Teams: exact `teams.microsoft.com`, locally validates two strict formats: legacy `/l/meetup-join/<opaque>/<segment>` with both path values non-empty, or current `/meet/<numeric-id>?p=<non-empty>`; the meeting ID and opaque passcode are neither decoded, rewritten nor logged, and query/fragment remain unchanged.
+
+Legacy Webex, Whereby, Jitsi, Discord, Yandex Telemost и `teams.live.com` временно сохраняют прежний host-only compatibility contract. Их provider-specific hardening отложен: в IMP-21 их support не удаляется, не расширяется и не классифицируется как новый strict contract.
 
 ## Persistence / network
 
-Calendar data не сохраняется product storage и не отправляется в сеть. Join открывает URL системным браузером/app.
+Calendar data не сохраняется product storage и не отправляется в сеть. Meeting URL, event title, location и notes не log'ятся. Join открывает original accepted URL системным браузером/app только по explicit action.
 
 ## Source map
 

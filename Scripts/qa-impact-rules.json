@@ -87,6 +87,7 @@
         "Tests/ImpulsTests/CalendarStoreTests.swift"
       ],
       "qa_ids": [
+        "CAL-01",
         "PERM-02",
         "PERM-03",
         "PERM-04",
