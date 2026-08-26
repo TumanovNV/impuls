@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 2.0
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
 
@@ -48,6 +48,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Accessory battery overlay | `pmset` stdout | 256 KiB | `PowerAccessoryBatterySource.maximumOutputBytes` — measured output for one accessory is a few kilobytes; the bound is far beyond any plausible accessory count and still bounded. stderr `8 KiB`, deadline `5 s`, same `BoundedProcess` contract as `system_profiler` |
 | Accessory battery overlay | parsed accessory records | 32 | `PowerAccessoryBatteryParser.maximumRecords` — a person owns a handful of accessories, not hundreds. Caps both the plist-document split and the readings kept, so malformed or hostile output cannot become unbounded work |
 | Accessory battery overlay | battery percentage | `Current Capacity` ≤ `Max Capacity`, `Max Capacity` > 0 | the maximum is read from the record rather than assumed to be 100, so a source that changes scale is rejected instead of silently rescaled. Out of range, non-numeric or missing reads as absent — never `0%` |
+| Local Mac power | Adapter Current display precision | `<1000 mA`: integer mA; `>=1000 mA`: at most 1 decimal A | `AdapterCurrentFormatter` preserves the positive integer mA source value and bounds presentation precision instead of inventing a more exact charging-rate claim. Formatting is local and adds no I/O, timer or cadence. |
 | File tools | digest read | 512 MiB | `GeneratedFileRecord` streaming SHA-256 cap |
 | File tools / vault | collision-suffix attempts | 1,000 | `uniqueOutputURL`, `ScreenshotVault`; falls back to a UUID |
 | Accessories | `system_profiler` stdout | 1 MiB | `SystemProfilerAccessorySource.maximumOutputBytes`; truncation is an error, never a partial parse |

@@ -59,6 +59,9 @@ struct PowerSnapshot: Equatable {
     let batteryCurrentMilliamps: Int?
     let batteryPowerWatts: Double?
     let adapterRatedPowerWatts: Double?
+    /// The integer mA value reported for the attached external adapter. This
+    /// is intentionally distinct from battery current and derived battery W.
+    let adapterCurrentMilliamps: Int?
     let temperatureCelsius: Double?
     let cycleCount: Int?
     let currentCapacity: Int?
@@ -79,6 +82,7 @@ struct PowerSnapshot: Equatable {
         batteryCurrentMilliamps: nil,
         batteryPowerWatts: nil,
         adapterRatedPowerWatts: nil,
+        adapterCurrentMilliamps: nil,
         temperatureCelsius: nil,
         cycleCount: nil,
         currentCapacity: nil,
@@ -111,6 +115,7 @@ struct PowerSourceReading: Equatable {
     var systemBatteryCondition: BatteryCondition?
     var cycleCount: Int?
     var adapterRatedPowerWatts: Double?
+    var adapterCurrentMilliamps: Int?
     var connectionType: ChargeConnectionType
 
     static let unavailableDesktop = PowerSourceReading(
@@ -131,6 +136,7 @@ struct PowerSourceReading: Equatable {
         systemBatteryCondition: nil,
         cycleCount: nil,
         adapterRatedPowerWatts: nil,
+        adapterCurrentMilliamps: nil,
         connectionType: .unknown
     )
 }
@@ -156,6 +162,7 @@ enum PowerNormalizer {
                 batteryCurrentMilliamps: nil,
                 batteryPowerWatts: nil,
                 adapterRatedPowerWatts: validatedAdapterPower(reading.adapterRatedPowerWatts),
+                adapterCurrentMilliamps: nil,
                 temperatureCelsius: nil,
                 cycleCount: nil,
                 currentCapacity: nil,
@@ -190,6 +197,7 @@ enum PowerNormalizer {
                 state: state
             ),
             adapterRatedPowerWatts: validatedAdapterPower(reading.adapterRatedPowerWatts),
+            adapterCurrentMilliamps: validatedAdapterCurrent(reading.adapterCurrentMilliamps),
             temperatureCelsius: validatedTemperature(reading.temperatureCelsius),
             cycleCount: validatedCycleCount(reading.cycleCount),
             currentCapacity: validatedCapacity(reading.currentCapacity),
@@ -302,6 +310,11 @@ enum PowerNormalizer {
 
     private static func validatedAdapterPower(_ value: Double?) -> Double? {
         guard let value, value.isFinite, value > 0, value <= 1_000 else { return nil }
+        return value
+    }
+
+    private static func validatedAdapterCurrent(_ value: Int?) -> Int? {
+        guard let value, value > 0 else { return nil }
         return value
     }
 }

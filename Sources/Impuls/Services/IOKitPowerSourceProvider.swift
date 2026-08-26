@@ -56,6 +56,7 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
         )
         let adapterDetails = externalAdapterDetails()
         let adapterPower = number(adapterDetails?[kIOPSPowerAdapterWattsKey])
+        let adapterCurrent = PowerAdapterDetails.currentMilliamps(from: adapterDetails)
         let registry = IOBatteryRegistrySupplement.reading()
 
         for source in sources {
@@ -91,6 +92,7 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
                 systemBatteryCondition: batteryCondition(description),
                 cycleCount: registry.cycleCount,
                 adapterRatedPowerWatts: adapterPower,
+                adapterCurrentMilliamps: adapterCurrent,
                 connectionType: ChargeConnectionDetector.currentConnection(
                     providingPowerSource: providing,
                     adapterDetails: adapterDetails
@@ -116,6 +118,7 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
             systemBatteryCondition: nil,
             cycleCount: nil,
             adapterRatedPowerWatts: adapterPower,
+            adapterCurrentMilliamps: adapterCurrent,
             connectionType: ChargeConnectionDetector.currentConnection(
                 providingPowerSource: providing,
                 adapterDetails: adapterDetails
@@ -190,6 +193,20 @@ final class IOKitPowerSourceProvider: PowerSourceObserving {
 
     private func boolean(_ value: Any?) -> Bool? {
         (value as? NSNumber)?.boolValue
+    }
+}
+
+/// Public adapter-detail dictionaries are sparse and system-owned. Treat a
+/// non-positive or non-integral current as absent rather than inventing a
+/// value or widening the existing IOKit read path.
+enum PowerAdapterDetails {
+    static func currentMilliamps(from adapterDetails: [String: Any]?) -> Int? {
+        guard let value = RegistryNumber.double(adapterDetails?[kIOPSPowerAdapterCurrentKey]),
+              let current = Int(exactly: value),
+              current > 0 else {
+            return nil
+        }
+        return current
     }
 }
 

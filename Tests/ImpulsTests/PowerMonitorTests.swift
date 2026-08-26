@@ -32,6 +32,48 @@ final class PowerMonitorTests: XCTestCase {
         XCTAssertEqual(snapshot.cycleCount, 41)
     }
 
+    func testAdapterCurrentRetainsPositiveMilliampsWithoutChangingOtherPowerMetrics() {
+        let snapshot = PowerNormalizer.snapshot(from: .portable(
+            charging: true,
+            voltage: 11_500,
+            amperage: 3_200,
+            adapterWatts: 70,
+            adapterCurrent: 3_250
+        ))
+
+        XCTAssertEqual(snapshot.adapterCurrentMilliamps, 3_250)
+        XCTAssertEqual(snapshot.adapterRatedPowerWatts, 70)
+        XCTAssertEqual(snapshot.batteryPowerWatts ?? 0, 36.8, accuracy: 0.01)
+    }
+
+    func testAdapterCurrentDictionaryRejectsMissingZeroNegativeAndMalformedValues() {
+        XCTAssertEqual(PowerAdapterDetails.currentMilliamps(from: [kIOPSPowerAdapterCurrentKey: 3_250]), 3_250)
+        XCTAssertNil(PowerAdapterDetails.currentMilliamps(from: nil))
+        XCTAssertNil(PowerAdapterDetails.currentMilliamps(from: [:]))
+        XCTAssertNil(PowerAdapterDetails.currentMilliamps(from: [kIOPSPowerAdapterCurrentKey: 0]))
+        XCTAssertNil(PowerAdapterDetails.currentMilliamps(from: [kIOPSPowerAdapterCurrentKey: -1]))
+        XCTAssertNil(PowerAdapterDetails.currentMilliamps(from: [kIOPSPowerAdapterCurrentKey: "3250"]))
+        XCTAssertNil(PowerAdapterDetails.currentMilliamps(from: [kIOPSPowerAdapterCurrentKey: true]))
+        XCTAssertNil(PowerAdapterDetails.currentMilliamps(from: [kIOPSPowerAdapterCurrentKey: 3_250.5]))
+        XCTAssertNil(PowerAdapterDetails.currentMilliamps(from: [kIOPSPowerAdapterCurrentKey: Double.infinity]))
+    }
+
+    func testAdapterCurrentParticipatesInSnapshotEqualityAndDesktopKeepsItUnavailable() {
+        let withoutCurrent = PowerNormalizer.snapshot(from: .portable(adapterCurrent: nil))
+        let withCurrent = PowerNormalizer.snapshot(from: .portable(adapterCurrent: 850))
+
+        XCTAssertNotEqual(withoutCurrent, withCurrent)
+        XCTAssertNil(PowerNormalizer.snapshot(from: .unavailableDesktop).adapterCurrentMilliamps)
+    }
+
+    func testAdapterCurrentFormatterUsesMilliampsAndLocaleAwareConservativeAmperes() {
+        XCTAssertEqual(AdapterCurrentFormatter.string(for: 850, locale: Locale(identifier: "en_US")), "850 mA")
+        XCTAssertEqual(AdapterCurrentFormatter.string(for: 3_250, locale: Locale(identifier: "en_US")), "3.2 A")
+        XCTAssertEqual(AdapterCurrentFormatter.string(for: 3_250, locale: Locale(identifier: "de_DE")), "3,2 A")
+        XCTAssertNil(AdapterCurrentFormatter.string(for: nil))
+        XCTAssertNil(AdapterCurrentFormatter.string(for: 0))
+    }
+
     func testChargingTimeCalculatingDoesNotBecomeNegativeMinutes() {
         let snapshot = PowerNormalizer.snapshot(from: .portable(
             providing: .ac,
@@ -241,7 +283,8 @@ private extension PowerSourceReading {
         amperage: Int? = nil,
         temperature: Double? = nil,
         cycles: Int? = nil,
-        adapterWatts: Double? = nil
+        adapterWatts: Double? = nil,
+        adapterCurrent: Int? = nil
     ) -> PowerSourceReading {
         PowerSourceReading(
             providingPowerSource: providing,
@@ -261,6 +304,7 @@ private extension PowerSourceReading {
             systemBatteryCondition: nil,
             cycleCount: cycles,
             adapterRatedPowerWatts: adapterWatts,
+            adapterCurrentMilliamps: adapterCurrent,
             connectionType: .unknown
         )
     }

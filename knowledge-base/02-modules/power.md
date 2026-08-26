@@ -37,6 +37,12 @@ flowchart TD
 
 `PowerMonitor` остаётся отдельным established path. `LocalMacDeviceProvider` адаптирует его в unified device model. Не переписывать local power path ради external devices.
 
+### Adapter Current (IMP-22)
+
+Optional `Adapter Current` — это только положительное целое значение mA из публичного `IOPSCopyExternalPowerAdapterDetails()` / `kIOPSPowerAdapterCurrentKey`. Оно читается из уже полученного adapter-details dictionary в существующем snapshot path: нет второго IOKit read, нового provider, timer, polling, observer, subprocess или retry. Отсутствующий dictionary/key, zero, negative, wrong type или failed conversion остаются `nil`; desktop/no-battery path также не показывает метрику.
+
+Это **adapter current reported by macOS**, не charging current, battery charging current, live charging power, wall draw, adapter output power или available adapter capacity. Source-of-truth остаётся integer mA; UI показывает `<1000` как integer mA, `>=1000` как locale-aware A максимум с одним decimal. Никакой wattage из него не вычисляется. Rated adapter watts (`kIOPSPowerAdapterWattsKey`) и existing battery-side derived W остаются отдельными, неизменными метриками. `kIOPSPowerAdapterSourceKey` не используется: public contract не задаёт mapping к MagSafe/USB-C. Adapter serial/ID/family/revision не читаются, не хранятся и не логируются; новая метрика local-only, без persistence, telemetry или network.
+
 ## External device privacy boundary
 
 Module switch и external-device switch различны. External providers стартуют только когда Power module enabled **и** пользователь включил `Show Connected Apple Devices`. Production `MobileDeviceBatteryProvider.featureEnabled` default = true; hidden product gate отсутствует. iPhone/iPad support имеет статус Stable с 1.4.16 после повторного owner hardware QA. Сам transport по-прежнему использует undocumented Apple protocol и потому остаётся изолированным implementation boundary; Stable здесь означает подтверждённое пользовательское поведение, а не превращение протокола в public API.

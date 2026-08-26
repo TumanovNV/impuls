@@ -382,6 +382,7 @@
 "Into Battery" = "充入电池";
 "Power Usage" = "功耗";
 "Power Adapter" = "电源适配器";
+"Adapter Current" = "适配器电流";
 "Connection" = "连接方式";
 "MagSafe" = "MagSafe";
 "USB-C" = "USB-C";

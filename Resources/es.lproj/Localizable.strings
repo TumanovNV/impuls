@@ -383,6 +383,7 @@
 "Into Battery" = "Hacia la batería";
 "Power Usage" = "Consumo";
 "Power Adapter" = "Adaptador de corriente";
+"Adapter Current" = "Corriente del adaptador";
 "Connection" = "Conexión";
 "MagSafe" = "MagSafe";
 "USB-C" = "USB-C";
