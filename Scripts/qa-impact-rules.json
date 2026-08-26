@@ -188,6 +188,7 @@
         "Sources/Impuls/Services/Clipboard*.swift",
         "Sources/Impuls/Services/NoteStore.swift",
         "Sources/Impuls/Services/SnippetStore.swift",
+        "Sources/Impuls/Services/SnippetFile*.swift",
         "Sources/Impuls/Services/ShelfStore.swift",
         "Sources/Impuls/Services/StorageEnvironment.swift"
       ],
@@ -199,6 +200,7 @@
         "Tests/ImpulsTests/ClipboardHistoryPersistenceTests.swift",
         "Tests/ImpulsTests/ClipboardStoreTests.swift",
         "Tests/ImpulsTests/SettingsStoreTests.swift",
+      "Tests/ImpulsTests/SnippetFilePinTests.swift",
         "Tests/ImpulsTests/StorageIsolationTests.swift"
       ],
       "qa_ids": [
@@ -215,6 +217,7 @@
         "DATA-11",
         "DATA-12",
         "DATA-13",
+      "DATA-14",
         "REL-05"
       ]
     },

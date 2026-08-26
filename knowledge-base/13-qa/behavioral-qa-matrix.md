@@ -78,6 +78,7 @@ The rows below describe the contract to verify. They deliberately separate **ver
 | DATA-11 | Oversized clipboard text/image | automated | payload rejected within documented bounds |
 | DATA-12 | Backup import target is not a regular file | automated | a FIFO, directory, device or socket — including behind a symlink — is refused before any read, with a localized unsupported-file-type error; the descriptor actually opened is what is checked |
 | DATA-13 | Backup import/export filesystem work leaves the main actor | automated | reading, decoding, encoding and writing a backup all run off the main actor, so a slow or unresponsive volume cannot freeze the panel; the file format, `.atomic` replace-or-nothing write semantics and the existing error alerts are unchanged |
+| DATA-14 | Local file pinned in Snippets (IMP-39) | mixed | **PENDING manual QA.** Automated: reference round-trip and pre-IMP-39 decode, rename followed and stale bookmark refreshed in place, missing file resolves unavailable and Copy/Open/Reveal fail closed, re-select edits the same row without duplicating, a directory is rejected, and removing a pin leaves the file on disk. Needs a real Mac: single click copies the file so ⌘V in Finder pastes the *file*, double click opens it once with no copy, drag-and-drop, Reveal in Finder, and an external volume unmount/remount. Product owner records the manual result. |
 
 ## Actions and translation
 

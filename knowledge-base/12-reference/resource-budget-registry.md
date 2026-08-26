@@ -38,6 +38,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Notes | items | 5,000 | `NoteStore.maximumItems` |
 | Snippets | file | 10 MiB | `SnippetStore.maximumFileBytes` |
 | Snippets | items | 5,000 | `SnippetStore.maximumItems` |
+| Snippets | files per drop | 20 | `SnippetsPane.maximumFilesPerDrop` |
 | Snippets | query | 256 chars | `SnippetStore.maximumQueryCharacters` |
 | Snippets | searchable text per field | 16,384 chars | `SnippetStore.maximumSearchCharacters` |
 | Backup | encoded/import file | 10 MiB | `ImpulsBackupDocument.maximumEncodedBytes`. **1.4.16:** unchanged as a number, but its scope is now stated: a byte budget bounds how *much* is read, never how *long* a read waits, and it is consulted only after a read returns. `BoundedFileReader` therefore also refuses anything that is not a regular file, so a FIFO, device or socket cannot wait on a peer that never arrives. Slow *regular* files remain bounded only by the filesystem — see the `BackupService` row in the background/concurrency registry |

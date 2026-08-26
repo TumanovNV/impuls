@@ -16,6 +16,10 @@ No Spotify account, token, metadata, or Automation state is persisted by Impuls.
 
 Re-reviewed after the Automation status fix: the additional `appNotRunning` and `notInstalled` row states are runtime-only and never persisted, so they introduce no schema, marker or migration either.
 
+## IMP-39 review
+
+`snippets.json` gains one optional key, `file`, on entries that pin a local file. It is additive and absent from everything written before 1.4.16, so an existing file decodes unchanged and a file of text snippets still encodes byte-for-byte as before. There is no schema version to bump, no migration marker, no destructive rewrite and no backup field: `BackupService` already carries `[Snippet]`, so a pin travels with it and an older backup imports as it always did.
+
 ## Purpose
 
 This is the compatibility registry for data that survives longer than one in-memory session or crosses a process/machine boundary.
