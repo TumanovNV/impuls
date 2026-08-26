@@ -14,7 +14,9 @@ tags: [impuls, performance, limits, budgets, security, ai]
 
 No new size, count, or polling budget was introduced: native cadence remains the shared 1 s timer. Spotify artwork is not downloaded by Impuls, so no artwork-download budget exists.
 
-Re-reviewed again after the Apple Music script rewrite, the `procNotFound` status mapping and the `seekPosition(forSeconds:)` split. Coercing the Apple Music numbers `as integer` bounds that wire exactly as Spotify's already was; the seek guard keeps its existing `Int(exactly:)` bound, only relocated so it can be proven without sending an Apple Event. No size, count, retention or polling budget changed. The earlier re-review below still stands.
+Re-reviewed again after `isActionableAccessIssue` was split out: a pure predicate over an existing enum, allocating nothing and reading no input, so no size, count, retention or polling budget is touched.
+
+Re-reviewed after the Apple Music script rewrite, the `procNotFound` status mapping and the `seekPosition(forSeconds:)` split. Coercing the Apple Music numbers `as integer` bounds that wire exactly as Spotify's already was; the seek guard keeps its existing `Int(exactly:)` bound, only relocated so it can be proven without sending an Apple Event. No size, count, retention or polling budget changed. The earlier re-review below still stands.
 
 Re-reviewed after the Spotify script wire-format fix and the native fallback guard. Coercing the two script numbers `as integer` bounds the wire more tightly than before — a rendered integer cannot carry an exponent — and the fallback guard only adds a comparison. Neither changes a size, count, retention or polling budget.
 

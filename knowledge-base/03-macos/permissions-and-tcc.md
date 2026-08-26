@@ -58,6 +58,8 @@ IMP-11: `NativeMusicBridging`/`LivePlayerBridge` передаёт явно вы�
 
 Статусы Automation теперь различают шесть ситуаций target app вместо четырёх: `allowed`, `denied`, `notRequested` и `restricted` — вердикты TCC; `appNotRunning` (`procNotFound`, приложение установлено, но закрыто) и `notInstalled` — не вердикты и никогда не должны выглядеть как policy restriction. `notInstalled` определяется до обращения к TCC, поэтому для отсутствующего приложения Automation-запрос не отправляется. Ни один из новых случаев не запускает приложение и не показывает prompt: оба разрешаются повторным `refresh()` после того, как пользователь сам откроет приложение.
 
+Важное следствие для UI: `undeterminedAppNotRunning` никогда не показывается как permissions-проблема. Media pane рендерит любой `PlayerAccessIssue` как «Allow Automation access to read …» с Open Settings, поэтому закрытое приложение, попавшее в гонку между `isRunning` и асинхронным TCC-запросом, отфильтровывается предикатом `isActionableAccessIssue`. Обратная сторона честно фиксируется здесь же: пока приложение закрыто, строка не может показать `Denied` — macOS не даёт вердикта до запуска приложения.
+
 ## Entitlements
 
 
