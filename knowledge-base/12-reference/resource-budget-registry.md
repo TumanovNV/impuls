@@ -34,7 +34,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Backup | notes / snippets | 5,000 each | backup decoder guard |
 | Calendar | fetched meetings | 250 | `CalendarStore.maximumMeetings` |
 | Calendar | fetch horizon | 7 days | `CalendarStore.horizon` |
-| Calendar | meeting-link text scan | 32,768 chars | `MeetingLink.maximumScannedCharacters` |
+| Calendar | meeting-link text scan | 32,768 chars | `MeetingLink.maximumScannedCharacters`; IMP-21 preserves this per-field bound while tightening only local URL recognition |
 | Calendar | displayed event title | 240 chars | bounded title conversion |
 | Translate | input | 20,000 chars | `Translator.maximumInputCharacters`; reviewed for 1.4.16 (#99) language-pack reliability audit — unchanged, no new size/count/cadence/timeout budget introduced (readiness re-scans stay lifecycle-driven, not a new interval) |
 | Apple Music | artwork bytes | 16 MiB | `PlayerBridge.maximumArtworkBytes` |

@@ -4,7 +4,7 @@ type: platform
 status: active
 documentation_version: 1.2
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-26
 tags: [impuls, macos, tcc, permissions]
 ---
 
@@ -25,6 +25,8 @@ tags: [impuls, macos, tcc, permissions]
 ## Calendar states
 
 `fullAccess` → allowed; `notDetermined` → not requested; denied/restricted/write-only are not treated as full read access.
+
+IMP-21 reviews this boundary: strict local meeting-link recognition runs only after the existing Calendar read access and does not alter EventKit fields, TCC state mapping or prompt ownership.
 
 ## Music Automation
 

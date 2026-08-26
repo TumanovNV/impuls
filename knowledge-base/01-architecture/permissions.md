@@ -4,7 +4,7 @@ type: architecture
 status: active
 documentation_version: 1.4
 app_version: 1.4.16
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-26
 tags: [impuls, permissions, tcc, architecture]
 ---
 
@@ -27,6 +27,8 @@ flowchart LR
 ## Calendar
 
 `CalendarStore.start()` только читает текущий TCC status. Prompt вызывается `requestAccess()` из UI. Entitlement `com.apple.security.personal-information.calendars` присутствует в bundle.
+
+IMP-21 изменяет только local recognition already-readable meeting URLs after access exists; он не читает новый EventKit field, не меняет entitlement и не добавляет permission action или prompt.
 
 ## Apple Music Automation
 

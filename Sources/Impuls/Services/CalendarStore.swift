@@ -211,7 +211,7 @@ final class CalendarStore: ObservableObject {
 /// Google Meet in the notes, Zoom often in the location, Teams in both.
 enum MeetingLink {
     static let maximumScannedCharacters = 32 * 1_024
-    private static let hosts = [
+    private static let providerHosts = [
         "meet.google.com": "Google Meet",
         "zoom.us": "Zoom",
         "teams.microsoft.com": "Teams",
@@ -250,11 +250,54 @@ enum MeetingLink {
               url.port == nil,
               url.user == nil,
               url.password == nil else { return false }
-        return hosts.keys.contains { host == $0 || host.hasSuffix(".\($0)") }
+
+        switch host {
+        case "meet.google.com":
+            return isGoogleMeetURL(url)
+        case "teams.microsoft.com":
+            return isTeamsURL(url)
+        default:
+            if host == "zoom.us" || host.hasSuffix(".zoom.us") {
+                return isZoomURL(url)
+            }
+            // These providers deliberately retain their pre-IMP-21 host-only
+            // compatibility contract. Their path semantics need separate
+            // product review before a future tightening can be fail-closed.
+            return providerHosts.keys.contains { providerHost in
+                providerHost != "meet.google.com"
+                    && providerHost != "zoom.us"
+                    && providerHost != "teams.microsoft.com"
+                    && (host == providerHost || host.hasSuffix(".\(providerHost)"))
+            }
+        }
     }
 
     static func provider(for url: URL) -> String? {
         guard isAllowedMeetingURL(url), let host = url.host?.lowercased() else { return nil }
-        return hosts.first { host == $0.key || host.hasSuffix(".\($0.key)") }?.value
+        return providerHosts.first { host == $0.key || host.hasSuffix(".\($0.key)") }?.value
+    }
+
+    private static func isZoomURL(_ url: URL) -> Bool {
+        let components = url.path.split(separator: "/", omittingEmptySubsequences: false)
+        guard components.count == 3, components[0].isEmpty, components[1] == "j" else { return false }
+        let meetingID = components[2].utf8
+        return (9...11).contains(meetingID.count) && meetingID.allSatisfy { $0 >= 48 && $0 <= 57 }
+    }
+
+    private static func isGoogleMeetURL(_ url: URL) -> Bool {
+        let bytes = Array(url.path.utf8)
+        guard bytes.count == 13, bytes[0] == 47, bytes[4] == 45, bytes[9] == 45 else { return false }
+        return [1...3, 5...8, 10...12].allSatisfy { range in
+            bytes[range].allSatisfy { ($0 >= 65 && $0 <= 90) || ($0 >= 97 && $0 <= 122) }
+        }
+    }
+
+    private static func isTeamsURL(_ url: URL) -> Bool {
+        let components = url.path.split(separator: "/", omittingEmptySubsequences: false)
+        return components.count >= 4
+            && components[0].isEmpty
+            && components[1] == "l"
+            && components[2] == "meetup-join"
+            && !components[3].isEmpty
     }
 }
