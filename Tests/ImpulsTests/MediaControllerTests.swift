@@ -252,6 +252,37 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertNil(controller.track, "a Spotify track must not surface under Apple Music")
     }
 
+    /// The other half of the guard above: tightening it must not disable the
+    /// feature it guards. Apple Music's scripting fetch can come back empty
+    /// while the app is running, and a recent state is meant to be replayed
+    /// rather than blanking the pane. Without this, a future simplification of
+    /// the fallback condition would pass every existing test.
+    func testAppleMusicStillReplaysItsOwnRecentStateWhenAFetchComesBackEmpty() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: appleMusicState(title: "Apple Track"), accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+        XCTAssertEqual(controller.track?.title, "Apple Track")
+
+        // Two empty results, because one is absorbed by the single-shot
+        // empty-refresh retry, which preserves the track without consulting
+        // the fallback at all. Only the second one distinguishes a replayed
+        // fallback from a track that merely has not been cleared yet.
+        for _ in 0..<2 {
+            controller.retry()
+            bridge.completeOldestPending(with: PlayerScanResult(
+                state: nil, accessIssue: nil, hasRunningPlayer: true, readFailed: false
+            ))
+        }
+
+        XCTAssertEqual(controller.track?.title, "Apple Track", "a recent Apple Music state must still be replayed")
+    }
+
     func testSpotifyNotInstalledIsTruthfulAndDoesNotNeedATCCResult() {
         let bridge = FakeNativeMusicBridging()
         let (defaults, suite) = freshDefaults()
