@@ -1055,8 +1055,8 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
         <p class="pan-hint" data-i="pan2">横向滑动图片以查看完整面板</p>
         <div class="module-copy">
           <h3 data-i="mod.media.t">音乐</h3>
-          <p data-i="mod.media.d">音乐来源需要明确选择。Apple Music 通过脚本接口原生读取；Yandex Music、VK Music 和 YouTube Music 会在系统 WebKit 窗口中打开各自的官方网站。</p>
-          <p class="module-note" data-i="mod.media.n">只选择音乐来源不会产生网络连接。只有点击“打开网页播放器”后才会开始联网。面板不会只显示“没有播放内容”，还会说明原因：应用未打开、当前没有曲目，或需要权限。</p>
+          <p data-i="mod.media.d">音乐来源需要明确选择。Apple Music 和 Spotify 通过各自应用的脚本接口原生读取；Yandex Music、VK Music 和 YouTube Music 会在系统 WebKit 窗口中打开各自的官方网站。</p>
+          <p class="module-note" data-i="mod.media.n">原生来源不需要账号和登录，也不会增加网络连接。只选择音乐来源同样不会产生网络连接。只有点击“打开网页播放器”后才会开始联网。面板不会只显示“没有播放内容”，还会说明原因：应用未安装、未打开、当前没有曲目，或需要权限。</p>
         </div>
       </article>
 
@@ -1220,7 +1220,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
       <details><summary data-i="f.q4">为什么首次启动时 macOS 会提示风险？</summary><div class="a" data-i="f.a4">当前构建使用 ad hoc 签名，还没有经过 Apple 公证；要完成公证需要 Developer ID。首次启动时，请前往“系统设置”→“隐私与安全性”→“仍要打开”。之后 Impuls 会通过签名通道更新，并在解压前验证签名。</div></details>
       <details><summary data-i="f.q5">为什么有些电池数据没有显示？</summary><div class="a" data-i="f.a5">Impuls 只显示 macOS 为这台 Mac 实际提供的值。温度、循环次数、满充容量和连接器类型并不是所有机型都能提供。与其编造数据，面板会把它保留为未知状态，这比一个看似合理但错误的零更有价值。</div></details>
       <details><summary data-i="f.q6">Impuls 如何发现我的 iPhone 或 iPad？</summary><div class="a" data-i="f.a6">利用设备已经授予这台 Mac 的信任关系：通过 USB，或 Finder 的 Wi-Fi 同步。不会创建新的配对，不会扫描本地网络，也不会直接连接设备。设备发现默认关闭，iPhone/iPad 支持会标记为 Beta。</div></details>
-      <details><summary data-i="f.q7">Impuls 会请求哪些权限？</summary><div class="a" data-i="f.a7">日历权限用于显示接下来的日程，Apple Music 自动化权限用于读取当前曲目。两者都由 macOS 标准权限对话框请求，而且只有对应模块需要。其他功能不依赖这些权限。</div></details>
+      <details><summary data-i="f.q7">Impuls 会请求哪些权限？</summary><div class="a" data-i="f.a7">日历权限用于显示接下来的日程，Apple Music 和 Spotify 的自动化权限用于读取当前曲目并控制播放。macOS 按应用分别授予自动化权限，因此 Apple Music 和 Spotify 相互独立；对于未安装的应用不会发出任何请求。两者都由 macOS 标准权限对话框请求，而且只有对应模块需要。其他功能不依赖这些权限。</div></details>
       <details><summary data-i="f.q8">可以把设置迁移到另一台 Mac 吗？</summary><div class="a" data-i="f.a8">可以。设置、常用文本和笔记可以导出为本地 JSON 文件，再在另一台 Mac 上导入。剪贴板历史会有意排除在备份之外。</div></details>
       <details data-site-fact="languages"><summary data-i="f.q9">Impuls 支持哪些语言？</summary><div class="a" data-i="f.a9">界面支持俄语、英语、德语、法语、西班牙语、简体中文和日语。Impuls 可以跟随 macOS 的语言，也可以在设置中单独选择。</div></details>
     </div>
@@ -1334,8 +1334,8 @@ var EN = {
 "mod.tr.d":"The macOS translator inside the panel. The language is chosen in each column's heading, and the direction is read from the script of the text you typed.",
 "mod.tr.n":"Every language the system translator knows is available. When a language pack is missing or a pair is impossible, the menu says so in advance — that option is greyed out rather than hidden.",
 "mod.media.t":"Music",
-"mod.media.d":"The source is chosen explicitly. Apple Music is read natively through its scripting interface; Yandex Music, VK Music and YouTube Music open their own official sites in a system WebKit window.",
-"mod.media.n":"Choosing a source makes no request — the connection appears only after Open Web Player. Instead of a blanket “nothing is playing”, the panel names the reason: the application is not open, no track is running, or permission is needed.",
+"mod.media.d":"The source is chosen explicitly. Apple Music and Spotify are read natively through each application's own scripting interface; Yandex Music, VK Music and YouTube Music open their own official sites in a system WebKit window.",
+"mod.media.n":"The native sources need no account and no sign-in, and add no network connection. Choosing a source makes no request either — the connection appears only after Open Web Player. Instead of a blanket “nothing is playing”, the panel names the reason: the application is not installed, not open, no track is running, or permission is needed.",
 
 "d.eyebrow":"Power","d.h2":"Power","d.stand":"The charge of your Mac and everything attached to it.",
 "d.lead":"Mac, AirPods, iPhone and iPad in one tab, without a separate utility. Impuls shows what the system reports and nothing more: a value it cannot read stays unavailable rather than turning into a zero or a guess.",
@@ -1393,7 +1393,7 @@ var EN = {
 "f.q6":"How does Impuls see my iPhone and iPad?",
 "f.a6":"Through the trust the device has already given this Mac: over USB, or through Finder Wi-Fi sync. No pairing is created, no local network is scanned, and there is no direct connection to the device. Discovery is off by default, and iPhone and iPad support is marked Beta.",
 "f.q7":"What permissions does it ask for?",
-"f.a7":"Calendar, to show upcoming meetings, and Automation for Apple Music, to read the track title. Both are requested by the standard macOS dialog and are needed only by those modules. Everything else works without them.",
+"f.a7":"Calendar, to show upcoming meetings, and Automation for Apple Music and Spotify, to read the current track and control playback. macOS grants Automation per application, so Apple Music and Spotify are allowed independently, and nothing is requested for an application that is not installed. All of it is requested by the standard macOS dialog and is needed only by those modules. Everything else works without them.",
 "f.q8":"Can I move my setup to another Mac?",
 "f.a8":"Yes. Settings, snippets and notes export to a local JSON file and import back. Clipboard history is deliberately not part of a backup.",
 

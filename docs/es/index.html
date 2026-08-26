@@ -1055,8 +1055,8 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
         <p class="pan-hint" data-i="pan2">Desliza la imagen para ver todo el panel</p>
         <div class="module-copy">
           <h3 data-i="mod.media.t">Música</h3>
-          <p data-i="mod.media.d">La fuente se elige de forma explícita. Apple Music se lee de forma nativa mediante la interfaz de scripting; Yandex Music, VK Music y YouTube Music abren sus sitios oficiales en una ventana WebKit del sistema.</p>
-          <p class="module-note" data-i="mod.media.n">Elegir una fuente todavía no crea ninguna conexión. El acceso a la red empieza solo después de «Abrir reproductor web». En lugar de limitarse a decir que no se reproduce nada, el panel explica el motivo: app cerrada, ningún tema activo o permiso necesario.</p>
+          <p data-i="mod.media.d">La fuente se elige de forma explícita. Apple Music y Spotify se leen de forma nativa mediante la interfaz de scripting de cada una de esas apps; Yandex Music, VK Music y YouTube Music abren sus sitios oficiales en una ventana WebKit del sistema.</p>
+          <p class="module-note" data-i="mod.media.n">Las fuentes nativas no necesitan cuenta ni inicio de sesión y no añaden ninguna conexión de red. Elegir una fuente tampoco crea ninguna conexión. El acceso a la red empieza solo después de «Abrir reproductor web». En lugar de limitarse a decir que no se reproduce nada, el panel explica el motivo: app no instalada, cerrada, ningún tema activo o permiso necesario.</p>
         </div>
       </article>
 
@@ -1220,7 +1220,7 @@ footer{padding-block:var(--s7);border-top:1px solid var(--line);color:var(--fain
       <details><summary data-i="f.q4">¿Por qué macOS muestra una advertencia en el primer inicio?</summary><div class="a" data-i="f.a4">La compilación está firmada ad hoc y todavía no está notarizada por Apple; para ello hace falta un Developer ID. En el primer inicio, ve a Ajustes del Sistema → Privacidad y seguridad → Abrir igualmente. Después, Impuls se actualiza mediante un canal firmado y verifica la firma antes de extraer la actualización.</div></details>
       <details><summary data-i="f.q5">¿Por qué faltan algunos valores de batería?</summary><div class="a" data-i="f.a5">Impuls solo muestra lo que macOS publica para ese Mac. La temperatura, los ciclos, la capacidad completa y el tipo de conector no están disponibles en todas las máquinas. En lugar de inventar un valor, el panel lo deja como desconocido; es más útil que un cero convincente pero falso.</div></details>
       <details><summary data-i="f.q6">¿Cómo detecta Impuls mi iPhone o iPad?</summary><div class="a" data-i="f.a6">Mediante la relación de confianza que el dispositivo ya ha concedido a este Mac: por USB o mediante la sincronización Wi-Fi de Finder. No se crea un nuevo emparejamiento, no se escanea la red local y no hay conexión directa con el dispositivo. La detección está desactivada por defecto y la compatibilidad con iPhone y iPad está marcada como Beta.</div></details>
-      <details><summary data-i="f.q7">¿Qué permisos solicita Impuls?</summary><div class="a" data-i="f.a7">Calendario, para mostrar las próximas reuniones, y Automatización para Apple Music, para leer el título que se está reproduciendo. Ambos se solicitan mediante el diálogo estándar de macOS y solo los necesitan los módulos correspondientes. Todo lo demás funciona sin ellos.</div></details>
+      <details><summary data-i="f.q7">¿Qué permisos solicita Impuls?</summary><div class="a" data-i="f.a7">Calendario, para mostrar las próximas reuniones, y Automatización para Apple Music y Spotify, para leer el tema actual y controlar la reproducción. macOS concede la Automatización por app, así que Apple Music y Spotify se autorizan de forma independiente, y no se solicita nada para una app que no está instalada. Todo ello se solicita mediante el diálogo estándar de macOS y solo lo necesitan los módulos correspondientes. Todo lo demás funciona sin ellos.</div></details>
       <details><summary data-i="f.q8">¿Puedo trasladar mis ajustes a otro Mac?</summary><div class="a" data-i="f.a8">Sí. Los ajustes, los textos reutilizables y las notas se pueden exportar a un archivo JSON local e importar de nuevo. El historial del portapapeles se excluye intencionadamente de la copia de seguridad.</div></details>
       <details data-site-fact="languages"><summary data-i="f.q9">¿Qué idiomas admite Impuls?</summary><div class="a" data-i="f.a9">La interfaz está disponible en ruso, inglés, alemán, francés, español, chino simplificado y japonés. Impuls puede seguir el idioma de macOS o usar el que elijas en los ajustes.</div></details>
     </div>
@@ -1334,8 +1334,8 @@ var EN = {
 "mod.tr.d":"The macOS translator inside the panel. The language is chosen in each column's heading, and the direction is read from the script of the text you typed.",
 "mod.tr.n":"Every language the system translator knows is available. When a language pack is missing or a pair is impossible, the menu says so in advance — that option is greyed out rather than hidden.",
 "mod.media.t":"Music",
-"mod.media.d":"The source is chosen explicitly. Apple Music is read natively through its scripting interface; Yandex Music, VK Music and YouTube Music open their own official sites in a system WebKit window.",
-"mod.media.n":"Choosing a source makes no request — the connection appears only after Open Web Player. Instead of a blanket “nothing is playing”, the panel names the reason: the application is not open, no track is running, or permission is needed.",
+"mod.media.d":"The source is chosen explicitly. Apple Music and Spotify are read natively through each application's own scripting interface; Yandex Music, VK Music and YouTube Music open their own official sites in a system WebKit window.",
+"mod.media.n":"The native sources need no account and no sign-in, and add no network connection. Choosing a source makes no request either — the connection appears only after Open Web Player. Instead of a blanket “nothing is playing”, the panel names the reason: the application is not installed, not open, no track is running, or permission is needed.",
 
 "d.eyebrow":"Power","d.h2":"Power","d.stand":"The charge of your Mac and everything attached to it.",
 "d.lead":"Mac, AirPods, iPhone and iPad in one tab, without a separate utility. Impuls shows what the system reports and nothing more: a value it cannot read stays unavailable rather than turning into a zero or a guess.",
@@ -1393,7 +1393,7 @@ var EN = {
 "f.q6":"How does Impuls see my iPhone and iPad?",
 "f.a6":"Through the trust the device has already given this Mac: over USB, or through Finder Wi-Fi sync. No pairing is created, no local network is scanned, and there is no direct connection to the device. Discovery is off by default, and iPhone and iPad support is marked Beta.",
 "f.q7":"What permissions does it ask for?",
-"f.a7":"Calendar, to show upcoming meetings, and Automation for Apple Music, to read the track title. Both are requested by the standard macOS dialog and are needed only by those modules. Everything else works without them.",
+"f.a7":"Calendar, to show upcoming meetings, and Automation for Apple Music and Spotify, to read the current track and control playback. macOS grants Automation per application, so Apple Music and Spotify are allowed independently, and nothing is requested for an application that is not installed. All of it is requested by the standard macOS dialog and is needed only by those modules. Everything else works without them.",
 "f.q8":"Can I move my setup to another Mac?",
 "f.a8":"Yes. Settings, snippets and notes export to a local JSON file and import back. Clipboard history is deliberately not part of a backup.",
 
