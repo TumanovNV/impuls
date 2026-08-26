@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import XCTest
 @testable import ImpulsCore
@@ -107,17 +108,27 @@ final class PlayerBridgeTests: XCTestCase {
     /// *compile* error (`-2741`), because `st`, `nd`, `rd` and `th` are
     /// AppleScript's reserved ordinal-suffix tokens (`1st word of …`).
     ///
-    /// Compilation is safe to assert in a unit test: `compileAndReturnError`
-    /// resolves the target's terminology from its application bundle. It does
-    /// not launch the app, does not send an Apple Event, does not need an
-    /// Automation grant, and does not touch playback. Only `executeAndReturnError`
-    /// would do any of that, and it is deliberately never called here.
+    /// Compilation is safe to assert here, but for a narrower reason than
+    /// "compiling is harmless". `compileAndReturnError` has to obtain the
+    /// target's terminology: for a bundle that ships an `.sdef` it reads it
+    /// from disk, but for an `aete`-only target it **launches the application**
+    /// to ask — `com.apple.TextEdit` starts up on compile alone. Both native
+    /// providers declare `OSAScriptingDefinition`, so neither is launched, no
+    /// Apple Event is sent, no Automation grant is needed and playback is
+    /// untouched. `assertCompiles` asserts that precondition rather than
+    /// trusting it, so a future provider without an `.sdef` fails the test
+    /// instead of silently opening the user's app.
+    ///
+    /// `executeAndReturnError` is what would read state, and it is never called
+    /// here.
     private func assertCompiles(
         _ source: String,
         _ label: String,
+        bundleID: String,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
+        assertTerminologyComesFromDisk(bundleID, label, file: file, line: line)
         guard let script = NSAppleScript(source: source) else {
             return XCTFail("\(label): NSAppleScript could not be constructed", file: file, line: line)
         }
@@ -133,9 +144,34 @@ final class PlayerBridgeTests: XCTestCase {
         )
     }
 
+    /// Compiling may only read terminology from disk. A target without an
+    /// `.sdef` would be launched by the compile itself, which a unit test must
+    /// never do to the user's applications.
+    private func assertTerminologyComesFromDisk(
+        _ bundleID: String,
+        _ label: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID),
+              let bundle = Bundle(url: url) else {
+            return XCTFail("\(label): \(bundleID) could not be located", file: file, line: line)
+        }
+        XCTAssertNotNil(
+            bundle.object(forInfoDictionaryKey: "OSAScriptingDefinition"),
+            "\(label): \(bundleID) ships no .sdef, so compiling it would launch the app",
+            file: file,
+            line: line
+        )
+    }
+
     func testAppleMusicStateScriptCompiles() throws {
         try XCTSkipUnless(PlayerApp.music.isInstalled, "Apple Music is not installed on this machine")
-        assertCompiles(PlayerBridge.stateScript(for: .music), "Apple Music state script")
+        assertCompiles(
+            PlayerBridge.stateScript(for: .music),
+            "Apple Music state script",
+            bundleID: PlayerApp.music.bundleID
+        )
     }
 
     /// Spotify is a third-party app, so CI runners do not have it. The check is
@@ -143,7 +179,11 @@ final class PlayerBridgeTests: XCTestCase {
     /// where this one earns its keep.
     func testSpotifyStateScriptCompiles() throws {
         try XCTSkipUnless(PlayerApp.spotify.isInstalled, "Spotify is not installed on this machine")
-        assertCompiles(PlayerBridge.stateScript(for: .spotify), "Spotify state script")
+        assertCompiles(
+            PlayerBridge.stateScript(for: .spotify),
+            "Spotify state script",
+            bundleID: PlayerApp.spotify.bundleID
+        )
     }
 
     /// The structural half of the guard: it needs no installed app, so it runs
@@ -158,6 +198,22 @@ final class PlayerBridgeTests: XCTestCase {
                     "\(app.displayName) script binds `\(reserved)`, which AppleScript reserves as an ordinal suffix"
                 )
             }
+        }
+    }
+
+    /// A closed app is not a permissions problem. The pane renders any access
+    /// issue as "Allow Automation access to read …" with an Open Settings
+    /// button, so letting `undeterminedAppNotRunning` through would put a
+    /// permissions dialog in front of a user who merely quit the player.
+    func testAnAppThatQuitMidQueryIsNotReportedAsAPermissionsProblem() {
+        XCTAssertFalse(PlayerBridge.isActionableAccessIssue(.undeterminedAppNotRunning))
+        XCTAssertFalse(PlayerBridge.isActionableAccessIssue(.allowed))
+
+        for actionable in [AutomationAuthorization.denied, .notDetermined, .restricted] {
+            XCTAssertTrue(
+                PlayerBridge.isActionableAccessIssue(actionable),
+                "\(actionable) is a real verdict the user can act on"
+            )
         }
     }
 

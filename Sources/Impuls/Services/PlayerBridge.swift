@@ -166,10 +166,28 @@ enum PlayerBridge {
         return .restricted
     }
 
+    /// Whether a non-`allowed` answer is a permissions problem the user can act
+    /// on, or merely the app having quit between the `isRunning` guard and the
+    /// query returning.
+    ///
+    /// `undeterminedAppNotRunning` is the second case. Surfacing it as an access
+    /// issue puts "Allow Automation access to read Spotify" and an Open Settings
+    /// button in front of someone who only closed Spotify — the same false
+    /// permissions framing the row states were split up to remove.
+    static func isActionableAccessIssue(_ authorization: AutomationAuthorization) -> Bool {
+        switch authorization {
+        case .allowed, .undeterminedAppNotRunning: return false
+        case .denied, .notDetermined, .restricted: return true
+        }
+    }
+
     private static func state(of app: PlayerApp, completion: @escaping (StateQueryResult) -> Void) {
         guard app.isRunning else { return completion(.noState) }
         automationAuthorization(for: app, prompt: false) { authorization in
             guard authorization == .allowed else {
+                // The next refresh short-circuits on `isRunning` and reports the
+                // app being closed truthfully, so nothing is lost by waiting.
+                guard isActionableAccessIssue(authorization) else { return completion(.noState) }
                 return completion(.accessIssue(PlayerAccessIssue(app: app, authorization: authorization)))
             }
 

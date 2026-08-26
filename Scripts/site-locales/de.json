@@ -88,7 +88,7 @@
     "mod.tr.n": "Alle Sprachen des Systemübersetzers stehen zur Verfügung. Fehlt ein Sprachpaket oder ist ein Sprachpaar nicht möglich, zeigt das Menü das vorher an – die Option wird ausgegraut statt versteckt.",
     "mod.media.t": "Musik",
     "mod.media.d": "Die Quelle wird ausdrücklich gewählt. Apple Music und Spotify werden nativ über die Scripting-Schnittstelle der jeweiligen App gelesen; Yandex Music, VK Music und YouTube Music öffnen ihre offiziellen Seiten in einem systemeigenen WebKit-Fenster.",
-    "mod.media.n": "Die nativen Quellen brauchen weder Konto noch Anmeldung und stellen keine zusätzliche Netzwerkverbindung her. Auch das Auswählen einer Quelle stellt noch keine Verbindung her. Erst nach „Web-Player öffnen“ entsteht ein Netzwerkzugriff. Statt pauschal „nichts wird abgespielt“ nennt das Panel den Grund: App nicht installiert, nicht geöffnet, kein Titel aktiv oder Berechtigung erforderlich.",
+    "mod.media.n": "Für die nativen Quellen verlangt Impuls selbst weder Konto noch Anmeldung und stellt keine zusätzliche Netzwerkverbindung her. Auch das Auswählen einer Quelle stellt noch keine Verbindung her. Erst nach „Web-Player öffnen“ entsteht ein Netzwerkzugriff. Statt pauschal „nichts wird abgespielt“ nennt das Panel den Grund: App nicht installiert, nicht geöffnet, kein Titel aktiv oder Berechtigung erforderlich.",
     "d.eyebrow": "Energie",
     "d.h2": "Energie",
     "d.stand": "Der Ladestand Ihres Mac und der verbundenen Geräte.",

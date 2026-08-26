@@ -103,6 +103,7 @@ class NativeProviderCopyTests(unittest.TestCase):
         the pane to `localized("%@ is open…", name)` then fails the localization
         gate outright, because the key no longer exists in any table."""
         tables = CHECKER.collect_tables()
+        self.assertTrue(tables, "no Localizable.strings tables were found")
         for name, keys in tables.items():
             for template in self.RETIRED_TEMPLATES:
                 self.assertNotIn(

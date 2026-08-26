@@ -87,7 +87,7 @@
     "mod.tr.n": "Toutes les langues du traducteur système sont disponibles. Si un pack de langue manque ou qu’une paire n’est pas prise en charge, le menu vous le montre à l’avance : l’option est grisée plutôt que masquée.",
     "mod.media.t": "Musique",
     "mod.media.d": "La source est choisie explicitement. Apple Music et Spotify sont lus nativement via l’interface de script de chacune de ces apps ; Yandex Music, VK Music et YouTube Music ouvrent leurs sites officiels dans une fenêtre WebKit système.",
-    "mod.media.n": "Les sources natives ne demandent ni compte ni connexion et n’ajoutent aucun accès réseau. Choisir une source ne crée pas non plus de connexion. L’accès réseau ne commence qu’après « Ouvrir le lecteur web ». Au lieu d’afficher simplement « rien n’est lu », le panneau indique la raison : app non installée, non ouverte, aucun titre actif ou autorisation requise.",
+    "mod.media.n": "Pour les sources natives, Impuls ne demande lui-même ni compte ni connexion et n’ajoute aucun accès réseau. Choisir une source ne crée pas non plus de connexion. L’accès réseau ne commence qu’après « Ouvrir le lecteur web ». Au lieu d’afficher simplement « rien n’est lu », le panneau indique la raison : app non installée, non ouverte, aucun titre actif ou autorisation requise.",
     "d.h2": "Énergie",
     "d.stand": "La charge de votre Mac et des appareils connectés.",
     "d.lead": "Mac, AirPods, iPhone et iPad dans un seul onglet – sans utilitaire supplémentaire. Impuls affiche uniquement ce que le système fournit réellement. Une valeur que macOS ne publie pas reste inconnue au lieu de devenir zéro ou une estimation.",
