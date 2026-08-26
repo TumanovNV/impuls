@@ -15,7 +15,7 @@ tags: [impuls, macos, tcc, permissions]
 | Capability | macOS mechanism | Prompt owner | Auto-prompt allowed? |
 | --- | --- | --- | --- |
 | Calendar | EventKit / TCC | Calendar UI | No |
-| Apple Music control | Apple Events Automation / TCC | Music UI | No |
+| Apple Music / Spotify control | Apple Events Automation / TCC per target app | Music UI | No |
 | Low battery notifications | UserNotifications | explicit setting/action | No |
 | iPhone/iPad trust | Apple device trust/pairing | device/macOS relationship | Impuls must not trigger pairing blindly |
 | Files selected/dropped | normal user-selected filesystem access | user action | N/A |
@@ -30,7 +30,7 @@ IMP-21 reviews this boundary: both strict local Teams URL forms run only after t
 
 ## Music Automation
 
-Status check is non-prompting. If not determined, user action may request Automation. If denied, UI opens the Automation pane in System Settings.
+Status check is non-prompting. If not determined, user action may request Automation. If denied, UI opens the Automation pane in System Settings. Apple Music and Spotify have independent target-app TCC states; an absent Spotify app is unavailable without a prompt.
 
 ## Notifications
 
@@ -52,7 +52,13 @@ Without stable Developer ID identity, macOS may treat replaced builds in ways th
 
 TCC-контракт не менялся. Правка в `PlayerBridge` касалась только безопасного преобразования позиции воспроизведения; ни один вызов, вызывающий системный запрос, не добавлен и не перемещён.
 
-1.4.16: `NativeMusicBridging`/`LivePlayerBridge` — тестовая DI-обёртка вокруг тех же статических вызовов `PlayerBridge`, не системный вызов сам по себе. `automationAuthorization(prompt:completion:)` форвардит один-в-один в существующий `PlayerBridge.automationAuthorization(for: .music, prompt:completion:)`; TCC-путь и prompt-политика идентичны.
+IMP-11: `NativeMusicBridging`/`LivePlayerBridge` передаёт явно выбранный `PlayerApp` в `automationAuthorization(for: app, prompt:)`: Apple Music использует `.music`, Spotify — `.spotify`. TCC status и denial остаются независимыми per target application; автоматические проверки используют `prompt: false`, а prompt доступен только после явного user action. Отсутствующий Spotify unavailable без prompt.
+
+Перепроверено после исправления Spotify script wire format и native fallback guard: ни одно из этих изменений не добавляет Apple Events target, не меняет момент запроса TCC и не переводит automatic check в prompting режим.
+
+Статусы Automation теперь различают шесть ситуаций target app вместо четырёх: `allowed`, `denied`, `notRequested` и `restricted` — вердикты TCC; `appNotRunning` (`procNotFound`, приложение установлено, но закрыто) и `notInstalled` — не вердикты и никогда не должны выглядеть как policy restriction. `notInstalled` определяется до обращения к TCC, поэтому для отсутствующего приложения Automation-запрос не отправляется. Ни один из новых случаев не запускает приложение и не показывает prompt: оба разрешаются повторным `refresh()` после того, как пользователь сам откроет приложение.
+
+Важное следствие для UI: `undeterminedAppNotRunning` никогда не показывается как permissions-проблема. Media pane рендерит любой `PlayerAccessIssue` как «Allow Automation access to read …» с Open Settings, поэтому закрытое приложение, попавшее в гонку между `isRunning` и асинхронным TCC-запросом, отфильтровывается предикатом `isActionableAccessIssue`. Обратная сторона честно фиксируется здесь же: пока приложение закрыто, строка не может показать `Denied` — macOS не даёт вердикта до запуска приложения.
 
 ## Entitlements
 

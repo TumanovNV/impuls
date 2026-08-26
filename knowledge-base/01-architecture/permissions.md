@@ -19,7 +19,7 @@ flowchart LR
     U[User action] --> EX[In-app explanation]
     EX --> R{Permission needed?}
     R -->|Calendar| EK[EventKit full access request]
-    R -->|Apple Music| AE[Apple Events Automation request]
+    R -->|Apple Music or Spotify| AE[Apple Events Automation request per target]
     R -->|Low battery alerts| UN[User Notifications authorization]
     R -->|Already denied| SYS[Open System Settings]
 ```
@@ -30,9 +30,9 @@ flowchart LR
 
 IMP-21 изменяет только local recognition already-readable meeting URLs after access exists, including both strict Teams URL forms; он не читает новый EventKit field, не меняет entitlement и не добавляет permission action или prompt.
 
-## Apple Music Automation
+## Native music Automation
 
-Metadata/control использует public Apple Events/scripting path через `PlayerBridge`. `AEDeterminePermissionToAutomateTarget` используется без prompt для status check и с prompt только после user action. Entitlement `com.apple.security.automation.apple-events` присутствует в bundle.
+Apple Music и Spotify metadata/control используют public Apple Events/scripting path через `PlayerBridge`. `AEDeterminePermissionToAutomateTarget` используется без prompt для status check и с prompt только после user action, отдельно для каждого target bundle ID. `PermissionCenter` не сводит allowed Apple Music и denied Spotify к одному состоянию. Entitlement `com.apple.security.automation.apple-events` присутствует в bundle.
 
 ## Notifications
 
@@ -61,13 +61,19 @@ iPhone/iPad trust — не macOS TCC permission. Provider проверяет exi
 
 ## PermissionCenter
 
-`PermissionCenter` агрегирует отображаемые states Calendar, Music Automation и Notifications и умеет открыть соответствующие System Settings. Он не является владельцем бизнес-логики модулей. Notification `.notDetermined` отображается как `Not Requested`; `requestNotifications()` существует только для явного UI action.
+`PermissionCenter` агрегирует отображаемые states Calendar, Apple Music Automation, Spotify Automation и Notifications и умеет открыть соответствующие System Settings. Apple Music и Spotify остаются отдельными target-app states: allowed одного приложения не меняет denied/not-requested другого. Он не является владельцем бизнес-логики модулей. Notification `.notDetermined` отображается как `Not Requested`; `requestNotifications()` существует только для явного UI action.
 
 ## Изменения 1.4.12-hardening
 
 Контракт разрешений не менялся. `PlayerBridge` правился только в части преобразования позиции воспроизведения перед подстановкой в AppleScript: значение приходит из плеера и раньше конвертировалось через `Int(_:)`, что является trap вне диапазона `Int`. `AEDeterminePermissionToAutomateTarget` с `prompt: false` на всех автоматических путях и `prompt: true` только из Settings остались как были.
 
-1.4.16 добавил `NativeMusicBridging`/`LivePlayerBridge` — тонкую обёртку над теми же статическими вызовами `PlayerBridge`, введённую только ради deterministic unit-тестов `MediaController`. `LivePlayerBridge.automationAuthorization(prompt:completion:)` вызывает тот же `PlayerBridge.automationAuthorization(for: .music, prompt:completion:)` с теми же аргументами; ни prompt-политика, ни entitlement, ни путь запроса не изменились.
+IMP-11 расширил `NativeMusicBridging`/`LivePlayerBridge` до source-explicit native path: Apple Music передаёт `.music`, Spotify — `.spotify`, и `automationAuthorization(for: app, prompt:)` проверяет/запрашивает TCC отдельно для выбранного target app. Automatic paths сохраняют `prompt: false`; `prompt: true` возможен только после явного user action. Отсутствующий Spotify отображается unavailable без TCC prompt. Entitlement и политика prompt ownership не изменились.
+
+Перепроверено после исправления Spotify script wire format и native fallback guard: изменения касаются только текста генерируемого AppleScript и логики адаптации state внутри completion, поэтому TCC-путь, набор target apps, `prompt: false` для automatic checks и ownership prompt'а остаются прежними.
+
+Отдельно пересмотрено после исправления семантики статуса Automation. `AEDeterminePermissionToAutomateTarget` возвращает `procNotFound` для закрытого target app — это не вердикт TCC, но раньше он попадал в catch-all `restricted`. В результате пользователь, у которого Spotify просто не запущен, видел «Ограничено» без кнопки Allow и без пути восстановления. Теперь у этого случая есть собственное состояние, как и у неустановленного приложения, которое разрешается **до** обращения к TCC — для него Automation-запрос не выполняется вовсе. Ни одно из двух состояний не выдумывает вердикт, которого macOS не давала, и оба снимаются сами: `refresh()` на `.onAppear` и кнопка «Refresh Status» пересчитывают строку после запуска приложения. Ни entitlement, ни политика prompt ownership, ни независимость target apps при этом не изменились.
+
+То же правило действует и в самой панели, а не только в Settings. `state(of:)` проверяет `isRunning` синхронно, а TCC запрашивает асинхронно; если приложение успело закрыться между этими шагами, ответ `procNotFound` больше не превращается в `PlayerAccessIssue`. Иначе пользователь, который просто закрыл Spotify, получал «Allow Automation access to read Spotify» с кнопкой Open Settings — ту же ложную permissions-рамку. Решение вынесено в чистый предикат `PlayerBridge.isActionableAccessIssue`, поэтому зафиксировано тестом; следующий refresh коротко замыкается на `isRunning` и сообщает честное состояние.
 
 ## Инварианты
 

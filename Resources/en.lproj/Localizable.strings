@@ -36,14 +36,24 @@
 "Open Web Player" = "Open Web Player";
 "Show Web Player" = "Show Web Player";
 "Open Apple Music" = "Open Apple Music";
+"Open Spotify" = "Open Spotify";
 "Open Apple Music and start a track." = "Open Apple Music and start a track.";
+"Open Spotify and start a track." = "Open Spotify and start a track.";
 "Apple Music is open, but no track is playing." = "Apple Music is open, but no track is playing.";
+"Spotify is open, but no track is playing." = "Spotify is open, but no track is playing.";
+"Apple Music is not installed." = "Apple Music is not installed.";
+"Spotify is not installed." = "Spotify is not installed.";
 "Apple Music is playing, but its track data could not be read." = "Apple Music is playing, but its track data could not be read.";
+"Spotify is playing, but its track data could not be read." = "Spotify is playing, but its track data could not be read.";
 "Open the selected web player to sign in and choose music." = "Open the selected web player to sign in and choose music.";
 "Connecting to the selected web player…" = "Connecting to the selected web player…";
 "Choose a track in %@." = "Choose a track in %@.";
 "%@ could not be loaded." = "%@ could not be loaded.";
 "%@ could not be loaded: %@" = "%@ could not be loaded: %@";
+"Apple Music Automation" = "Apple Music Automation";
+"Reads track information and controls Apple Music. Web players do not need this permission." = "Reads track information and controls Apple Music. Web players do not need this permission.";
+"Spotify Automation" = "Spotify Automation";
+"Reads track information and controls Spotify. Web players do not need this permission." = "Reads track information and controls Spotify. Web players do not need this permission.";
 
 /* Snippets */
 "Add a snippet" = "Add a snippet";
@@ -169,6 +179,8 @@
 "Denied" = "Denied";
 "Not Requested" = "Not Requested";
 "Restricted" = "Restricted";
+"Not Running" = "Not Running";
+"Not Installed" = "Not Installed";
 "Shows upcoming meetings inside the Calendar module." = "Shows upcoming meetings inside the Calendar module.";
 "Music Automation" = "Music Automation";
 "Reads track information and controls the Apple Music app. Web players do not need this permission." = "Reads track information and controls the Apple Music app. Web players do not need this permission.";

@@ -63,7 +63,7 @@ struct MediaPane: View {
                     .font(Theme.Typo.captionSemibold)
             }
             .buttonStyle(NotchButtonStyle(size: 24))
-            .help(media.selectedSource.isWeb ? localized("Open Web Player") : localized("Open Apple Music"))
+            .help(media.selectedSource.isWeb ? localized("Open Web Player") : nativeApp.openActionTitle)
         }
         .frame(height: 24)
     }
@@ -278,9 +278,11 @@ struct MediaPane: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                 HStack(spacing: 7) {
-                    Button(primaryEmptyActionTitle, action: primaryEmptyAction)
-                        .buttonStyle(.borderedProminent)
-                    if media.emptyReason == .appleMusicUnreadable {
+                    if media.emptyReason != .nativeNotInstalled {
+                        Button(primaryEmptyActionTitle, action: primaryEmptyAction)
+                            .buttonStyle(.borderedProminent)
+                    }
+                    if media.emptyReason == .nativeUnreadable {
                         Button(localized("Open Settings"), action: media.openAutomationSettings)
                             .buttonStyle(.bordered)
                     }
@@ -291,14 +293,21 @@ struct MediaPane: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Every `native…` empty reason is produced only for a source that has a
+    /// native player — `MediaController` picks the web reasons for web sources —
+    /// so this resolves for exactly the cases that read it.
+    private var nativeApp: PlayerApp { media.selectedSource.nativePlayerApp ?? .music }
+
     private var emptyMessage: String {
         switch media.emptyReason {
-        case .appleMusicNotRunning:
-            return localized("Open Apple Music and start a track.")
-        case .appleMusicIdle:
-            return localized("Apple Music is open, but no track is playing.")
-        case .appleMusicUnreadable:
-            return localized("Apple Music is playing, but its track data could not be read.")
+        case .nativeNotInstalled:
+            return nativeApp.notInstalledMessage
+        case .nativeNotRunning:
+            return nativeApp.notRunningMessage
+        case .nativeIdle:
+            return nativeApp.idleMessage
+        case .nativeUnreadable:
+            return nativeApp.unreadableMessage
         case .webPlayerNotOpen:
             return localized("Open the selected web player to sign in and choose music.")
         case .webPlayerLoading:
@@ -315,9 +324,11 @@ struct MediaPane: View {
 
     private var primaryEmptyActionTitle: String {
         switch media.emptyReason {
-        case .appleMusicNotRunning, .appleMusicIdle:
-            return localized("Open Apple Music")
-        case .appleMusicUnreadable:
+        case .nativeNotInstalled:
+            return ""
+        case .nativeNotRunning, .nativeIdle:
+            return nativeApp.openActionTitle
+        case .nativeUnreadable:
             return localized("Try Again")
         case .webPlayerNotOpen:
             return localized("Open Web Player")
@@ -330,9 +341,11 @@ struct MediaPane: View {
 
     private func primaryEmptyAction() {
         switch media.emptyReason {
-        case .appleMusicUnreadable, .webPlayerFailed:
+        case .nativeUnreadable, .webPlayerFailed:
             media.retry()
-        case .appleMusicNotRunning, .appleMusicIdle, .webPlayerNotOpen, .webPlayerLoading, .webPlayerIdle:
+        case .nativeNotInstalled:
+            break
+        case .nativeNotRunning, .nativeIdle, .webPlayerNotOpen, .webPlayerLoading, .webPlayerIdle:
             media.openSelectedSource()
         }
     }

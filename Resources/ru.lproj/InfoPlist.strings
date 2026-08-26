@@ -4,7 +4,7 @@
    `en.lproj/InfoPlist.strings`, macOS начинает выбирать таблицу по языку, и
    русский вариант должен быть такой же таблицей, а не значением по умолчанию. */
 
-"NSAppleEventsUsageDescription" = "Impuls читает название текущего трека и управляет воспроизведением в приложении Apple Music.";
+"NSAppleEventsUsageDescription" = "Impuls читает информацию о текущем треке и управляет воспроизведением в поддерживаемых музыкальных приложениях, таких как Apple Music и Spotify.";
 "NSCalendarsFullAccessUsageDescription" = "Impuls показывает ближайшие встречи и кнопку подключения к ним.";
 "NSCalendarsUsageDescription" = "Impuls показывает ближайшие встречи и кнопку подключения к ним.";
 "CFBundleDisplayName" = "Impuls";

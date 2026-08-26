@@ -4,11 +4,21 @@ type: reference
 status: active
 documentation_version: 2.4
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 tags: [impuls, performance, concurrency, timers, background-work, ai]
 ---
 
 # Background Work & Concurrency Registry
+
+## IMP-11 review
+
+Spotify reuses the single selected-native-provider 1 s timer; it adds no timer, task, poller, or queue. `nativeNotInstalled` and target-app TCC handling are synchronous state outcomes and add no background work.
+
+Re-reviewed again after `isActionableAccessIssue` was split out: it is a pure predicate evaluated inside the existing Automation completion, so it adds no timer, task, queue or wakeup — if anything it ends one refresh earlier by returning `noState` instead of building an access issue.
+
+Re-reviewed after the Apple Music script rewrite, the `procNotFound` status mapping and the `seekPosition(forSeconds:)` split. All three are confined to generated script text, a pure status-to-state mapping and a pure conversion: no timer, task, queue, observer or actor boundary was added, removed or re-timed, and the Automation query keeps running off the main actor on the same shared serial queue. The earlier re-review below still stands.
+
+Re-reviewed after the Spotify script wire-format fix and the native fallback guard. Both are confined to the generated script text and to branch logic inside the existing refresh completion: cadence stays 1 s with 0.15 s tolerance, the AppleScript queue stays a single serial utility queue, and refresh coalescing (`refreshInFlight` / `refreshPending`, at most one queued follow-up) is unchanged. No timer, task, queue or observer was added or removed.
 
 This is the canonical registry of long-lived, periodic, delayed and off-main work in Impuls. It exists to keep a small menu-bar utility from gradually accumulating hidden timers, duplicated polling, unbounded tasks or main-thread I/O.
 
@@ -31,7 +41,7 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 | `ClipboardStore` | Pasteboard `changeCount` polling | `0.5 s`, tolerance `0.2 s`; payload is read only after the counter changes | `@MainActor`; normal tick is one integer read | `stop()` invalidates timer and flushes optional persistence |
 | `ClipboardStore` | Delayed image availability retry | `0.5 s`, maximum 12 attempts for the same pasteboard generation | main queue delayed callback; generation protected by pasteboard `changeCount` | stops on generation change, successful image, fallback or attempt cap |
 | `MediaController` | Playback-position ticker | `0.25 s`, tolerance `0.05 s`; only while playing and panel active | `@MainActor`; presentation-only arithmetic | invalidated when inactive, paused/empty or `stop()` |
-| `MediaController` | Native Apple Music refresh | `1 s`, tolerance `0.15 s`; only active Apple Music pane | `@MainActor` coordinator; actual Apple Event work is delegated to `PlayerBridge` utility queue | invalidated when inactive/source changes/stop; in-flight refreshes coalesced with one pending flag; **1.4.16**: a monotonic `stateGeneration` captured before each fetch is compared on completion, so a fetch that started before a newer state was already adopted (e.g. by the distributed-notification path) is discarded instead of reverting the UI — cadence and coalescing are otherwise unchanged |
+| `MediaController` | Native music refresh | `1 s`, tolerance `0.15 s`; only active selected Apple Music or Spotify pane | `@MainActor` coordinator; actual Apple Event work is delegated to `PlayerBridge` utility queue | one shared timer, invalidated when inactive/source changes/stop; in-flight refreshes coalesced with one pending flag; each fetch names the selected app, so no running-app scan or cross-adoption is possible; Apple Music notification fallback remains Apple-only |
 | `PlayerBridge` | Apple Events / metadata / artwork work | event or refresh driven, no repeating timer | serial utility queue `io.tumanov.impuls.applescript`; callback returns to main | queue serializes work; permission prompt is explicit user action only |
 | `CalendarStore` | Visible countdown tick | `30 s`, tolerance `5 s`; active pane only | `@MainActor` | `stopTimer()` when pane closes; EventKit change observer handles closed-state changes. Reviewed for IMP-21: local meeting-link path validation, including both Teams forms, adds neither timer, task, queue nor network work. |
 | `PowerMonitor` | Local Mac fast power refresh | `2 s`, tolerance `0.5 s`; only while Power is enabled and pane active | `@MainActor`; provider snapshot is bounded/local | timer stops when folded/disabled; IOKit observer remains the event path while enabled |

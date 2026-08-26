@@ -8,15 +8,15 @@ import XCTest
 /// a newer state has already landed.
 @MainActor
 private final class FakeNativeMusicBridging: NativeMusicBridging {
-    private(set) var pendingCurrentState: [(PlayerScanResult) -> Void] = []
+    private(set) var pendingCurrentState: [(PlayerApp, (PlayerScanResult) -> Void)] = []
     private(set) var playPauseCallCount = 0
     private(set) var nextCallCount = 0
     private(set) var previousCallCount = 0
     private(set) var seeks: [TimeInterval] = []
     var automationAuthorizationResult: AutomationAuthorization = .allowed
 
-    func currentState(completion: @escaping (PlayerScanResult) -> Void) {
-        pendingCurrentState.append(completion)
+    func currentState(for app: PlayerApp, completion: @escaping (PlayerScanResult) -> Void) {
+        pendingCurrentState.append((app, completion))
     }
 
     /// Completes the oldest still-pending fetch, matching the order real
@@ -27,19 +27,21 @@ private final class FakeNativeMusicBridging: NativeMusicBridging {
             XCTFail("no pending currentState fetch to complete")
             return
         }
-        pendingCurrentState.removeFirst()(result)
+        pendingCurrentState.removeFirst().1(result)
     }
 
-    func playPause() { playPauseCallCount += 1 }
-    func next() { nextCallCount += 1 }
-    func previous() { previousCallCount += 1 }
-    func seek(to seconds: TimeInterval) { seeks.append(seconds) }
+    private(set) var requestedApps: [PlayerApp] = []
+    func playPause(on app: PlayerApp) { requestedApps.append(app); playPauseCallCount += 1 }
+    func next(on app: PlayerApp) { requestedApps.append(app); nextCallCount += 1 }
+    func previous(on app: PlayerApp) { requestedApps.append(app); previousCallCount += 1 }
+    func seek(on app: PlayerApp, to seconds: TimeInterval) { requestedApps.append(app); seeks.append(seconds) }
 
     func artwork(for state: PlayerState, completion: @escaping (NSImage?) -> Void) {
         completion(nil)
     }
 
-    func automationAuthorization(prompt: Bool, completion: @escaping (AutomationAuthorization) -> Void) {
+    func automationAuthorization(for app: PlayerApp, prompt: Bool, completion: @escaping (AutomationAuthorization) -> Void) {
+        requestedApps.append(app)
         completion(automationAuthorizationResult)
     }
 }
@@ -177,6 +179,151 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertEqual(controller.capabilities, MediaCapabilities(
             canPlayPause: true, canNext: true, canPrevious: true, canSeek: true
         ))
+    }
+
+    func testSelectedNativeSourceOnlyRequestsAndAdoptsItsOwnApp() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        XCTAssertEqual(bridge.pendingCurrentState.map(\.0), [.music])
+        controller.selectSource(.spotify)
+
+        // A fake returning an Apple Music result to the Spotify request models
+        // exactly the cross-adoption regression the explicit app argument forbids.
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: appleMusicState(title: "Apple Track"), accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+        XCTAssertEqual(bridge.pendingCurrentState.map(\.0), [.spotify])
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: appleMusicState(title: "Wrong App"), accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+        XCTAssertNil(controller.track)
+        XCTAssertEqual(controller.emptyReason, .nativeUnreadable)
+    }
+
+    func testSpotifyStateDoesNotAdoptAfterSwitchingBackToAppleMusic() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        controller.selectSource(.spotify)
+        controller.selectSource(.appleMusic)
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: PlayerState(app: .spotify, isPlaying: true, title: "Spotify Track", artist: "", album: "", duration: 10, position: 1, positionIsKnown: true, artworkURL: nil),
+            accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+        XCTAssertNil(controller.track)
+    }
+
+    /// A Spotify state cached as the notification fallback must never be
+    /// adopted under Apple Music. The fallback exists only for the Apple Music
+    /// distributed-notification path, so before `.spotify` existed the
+    /// consuming `app == .music` check was sufficient on its own. With a second
+    /// native app the stored state's own app has to be checked too, otherwise
+    /// switching sources inside the 8-second window shows the Spotify track
+    /// under the Apple Music label and routes transport to the wrong player.
+    func testAppleMusicNeverAdoptsACachedSpotifyStateAsItsFallback() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.spotify.rawValue, forKey: MediaController.selectedSourceKey)
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        // Spotify reports a real track, which is what populates the fallback.
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: PlayerState(app: .spotify, isPlaying: true, title: "Spotify Track", artist: "Artist", album: "Album", duration: 200, position: 1, positionIsKnown: true, artworkURL: nil),
+            accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+        XCTAssertEqual(controller.track?.title, "Spotify Track")
+
+        controller.selectSource(.appleMusic)
+        // Apple Music is running but has nothing current — the exact shape that
+        // reaches for the fallback.
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: nil, accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+
+        XCTAssertNil(controller.track, "a Spotify track must not surface under Apple Music")
+    }
+
+    /// The other half of the guard above: tightening it must not disable the
+    /// feature it guards. Apple Music's scripting fetch can come back empty
+    /// while the app is running, and a recent state is meant to be replayed
+    /// rather than blanking the pane. Without this, a future simplification of
+    /// the fallback condition would pass every existing test.
+    func testAppleMusicStillReplaysItsOwnRecentStateWhenAFetchComesBackEmpty() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: appleMusicState(title: "Apple Track"), accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+        XCTAssertEqual(controller.track?.title, "Apple Track")
+
+        // Two empty results, because one is absorbed by the single-shot
+        // empty-refresh retry, which preserves the track without consulting
+        // the fallback at all. Only the second one distinguishes a replayed
+        // fallback from a track that merely has not been cleared yet.
+        for _ in 0..<2 {
+            controller.retry()
+            bridge.completeOldestPending(with: PlayerScanResult(
+                state: nil, accessIssue: nil, hasRunningPlayer: true, readFailed: false
+            ))
+        }
+
+        XCTAssertEqual(controller.track?.title, "Apple Track", "a recent Apple Music state must still be replayed")
+    }
+
+    /// The module's central safety claim is that transport reaches the player
+    /// the user selected, never the other one that merely happens to be
+    /// running. `FakeNativeMusicBridging` has recorded the target app of every
+    /// transport call since IMP-11, but nothing asserted on it, so the claim
+    /// itself was uncovered.
+    func testTransportIsRoutedToTheSelectedAppAndNeverTheOtherOne() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.spotify.rawValue, forKey: MediaController.selectedSourceKey)
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: PlayerState(app: .spotify, isPlaying: true, title: "Spotify Track", artist: "A", album: "B", duration: 200, position: 1, positionIsKnown: true, artworkURL: nil),
+            accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+
+        controller.togglePlayPause()
+        controller.next()
+        controller.previous()
+        controller.seek(to: 42)
+
+        XCTAssertEqual(bridge.requestedApps, [.spotify, .spotify, .spotify, .spotify],
+                       "every transport call must target the selected app")
+        XCTAssertFalse(bridge.requestedApps.contains(.music), "Apple Music must never receive Spotify's transport")
+    }
+
+    func testSpotifyNotInstalledIsTruthfulAndDoesNotNeedATCCResult() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.spotify.rawValue, forKey: MediaController.selectedSourceKey)
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: nil, accessIssue: nil, isInstalled: false, hasRunningPlayer: false, readFailed: false
+        ))
+        XCTAssertEqual(controller.emptyReason, .nativeNotInstalled)
+        XCTAssertNil(controller.accessIssue)
     }
 
     func testWebCapabilitiesMirrorExactlyWhatThePageReported() throws {

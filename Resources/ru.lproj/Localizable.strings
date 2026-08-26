@@ -35,14 +35,24 @@
 "Open Web Player" = "Открыть веб-плеер";
 "Show Web Player" = "Показать веб-плеер";
 "Open Apple Music" = "Открыть Apple Music";
+"Open Spotify" = "Открыть Spotify";
 "Open Apple Music and start a track." = "Откройте Apple Music и включите трек.";
+"Open Spotify and start a track." = "Откройте Spotify и включите трек.";
 "Apple Music is open, but no track is playing." = "Apple Music открыта, но воспроизведение не запущено.";
+"Spotify is open, but no track is playing." = "Spotify открыт, но воспроизведение не запущено.";
+"Apple Music is not installed." = "Apple Music не установлена.";
+"Spotify is not installed." = "Spotify не установлен.";
 "Apple Music is playing, but its track data could not be read." = "Музыка играет, но Apple Music не передала данные трека.";
+"Spotify is playing, but its track data could not be read." = "Музыка играет, но Spotify не передал данные трека.";
 "Open the selected web player to sign in and choose music." = "Откройте выбранный веб-плеер, войдите в аккаунт и выберите музыку.";
 "Connecting to the selected web player…" = "Подключаем выбранный веб-плеер…";
 "Choose a track in %@." = "Выберите трек в %@.";
 "%@ could not be loaded." = "Не удалось загрузить %@.";
 "%@ could not be loaded: %@" = "Не удалось загрузить %@: %@";
+"Apple Music Automation" = "Автоматизация Apple Music";
+"Reads track information and controls Apple Music. Web players do not need this permission." = "Читает информацию о треке и управляет Apple Music. Веб-плеерам это разрешение не нужно.";
+"Spotify Automation" = "Автоматизация Spotify";
+"Reads track information and controls Spotify. Web players do not need this permission." = "Читает информацию о треке и управляет Spotify. Веб-плеерам это разрешение не нужно.";
 
 /* Заготовки */
 "Add a snippet" = "Добавить заготовку";
@@ -168,6 +178,8 @@
 "Denied" = "Запрещено";
 "Not Requested" = "Не запрашивалось";
 "Restricted" = "Ограничено";
+"Not Running" = "Не запущено";
+"Not Installed" = "Не установлено";
 "Shows upcoming meetings inside the Calendar module." = "Показывает ближайшие встречи в модуле «Календарь».";
 "Music Automation" = "Автоматизация музыки";
 "Reads track information and controls the Apple Music app. Web players do not need this permission." = "Читает данные трека и управляет приложением Apple Music. Веб-плеерам это разрешение не требуется.";

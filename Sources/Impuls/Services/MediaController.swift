@@ -1,7 +1,7 @@
 import AppKit
 
 /// What a source currently supports, reported honestly rather than assumed.
-/// Apple Music's native transport is reliable enough to be `true` whenever a
+/// A native provider's transport is reliable enough to be `true` whenever a
 /// track is loaded; a web source reports exactly what its own page's
 /// transport route lookup found (see `WebMusicState`). Every field defaults
 /// to `false` — an unproven capability is not offered — and `clear(reason:)`
@@ -13,7 +13,7 @@ struct MediaCapabilities: Equatable {
     var canSeek = false
 }
 
-/// Coordinates one explicitly selected music source. Apple Music and web
+/// Coordinates one explicitly selected music source. Native apps and web
 /// players have separate adapters and permissions; no process-scanning winner
 /// is guessed when several services happen to be open at once.
 @MainActor
@@ -26,9 +26,10 @@ final class MediaController: ObservableObject {
     }
 
     enum EmptyReason: Equatable {
-        case appleMusicNotRunning
-        case appleMusicIdle
-        case appleMusicUnreadable
+        case nativeNotInstalled
+        case nativeNotRunning
+        case nativeIdle
+        case nativeUnreadable
         case webPlayerNotOpen
         case webPlayerLoading
         case webPlayerIdle
@@ -79,7 +80,7 @@ final class MediaController: ObservableObject {
     /// before a newer notification landed compares its captured generation
     /// against this when it returns; a mismatch means the track it describes
     /// is no longer the one on screen, and its answer is stale rather than a
-    /// correction. See `refreshFromAppleMusic()`.
+    /// correction. See `refreshFromNativeProvider()`.
     private(set) var stateGeneration = 0
 
     init(
@@ -98,7 +99,7 @@ final class MediaController: ObservableObject {
         }
         let source = stored ?? .appleMusic
         selectedSource = source
-        emptyReason = source.isWeb ? .webPlayerNotOpen : .appleMusicNotRunning
+        emptyReason = source.isWeb ? .webPlayerNotOpen : .nativeNotRunning
     }
 
     func start() {
@@ -117,10 +118,10 @@ final class MediaController: ObservableObject {
                     self.notificationFallback = (state, Date())
                     self.adopt(state)
                 }
-                self.refreshFromAppleMusic()
+                self.refreshFromNativeProvider()
             }
         })
-        if selectedSource == .appleMusic { refreshFromAppleMusic() }
+        if selectedSource.nativePlayerApp != nil { refreshFromNativeProvider() }
     }
 
     func stop() {
@@ -147,8 +148,8 @@ final class MediaController: ObservableObject {
         updateNativeRefreshTimer()
         guard active else { return }
         tick()
-        if selectedSource == .appleMusic {
-            refreshFromAppleMusic()
+        if selectedSource.nativePlayerApp != nil {
+            refreshFromNativeProvider()
         } else {
             webPlayer?.requestSnapshot()
         }
@@ -161,11 +162,11 @@ final class MediaController: ObservableObject {
         }
         selectedSource = source
         defaults.set(source.rawValue, forKey: Self.selectedSourceKey)
-        clear(reason: source.isWeb ? .webPlayerNotOpen : .appleMusicNotRunning)
+        clear(reason: source.isWeb ? .webPlayerNotOpen : .nativeNotRunning)
         updateNativeRefreshTimer()
 
-        if source == .appleMusic {
-            refreshFromAppleMusic()
+        if source.nativePlayerApp != nil {
+            refreshFromNativeProvider()
         } else if let player = webPlayer, player.source == source {
             emptyReason = .webPlayerIdle
             if let state = player.currentState { adopt(state, source: source) }
@@ -176,19 +177,19 @@ final class MediaController: ObservableObject {
     /// The only entry point that opens a web service. Source selection itself
     /// remains local and does not create a web view or perform a request.
     func openSelectedSource() {
-        if selectedSource == .appleMusic {
+        if let app = selectedSource.nativePlayerApp {
             guard let appURL = NSWorkspace.shared.urlForApplication(
-                withBundleIdentifier: PlayerApp.music.bundleID
+                withBundleIdentifier: app.bundleID
             ) else {
-                clear(reason: .appleMusicNotRunning)
+                clear(reason: .nativeNotInstalled)
                 return
             }
             let configuration = NSWorkspace.OpenConfiguration()
             configuration.activates = true
             NSWorkspace.shared.openApplication(at: appURL, configuration: configuration) { [weak self] _, error in
-                if let error { NSLog("Impuls: cannot open Apple Music: \(error.localizedDescription)") }
+                if let error { NSLog("Impuls: cannot open \(app.displayName): \(error.localizedDescription)") }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    self?.refreshFromAppleMusic()
+                    self?.refreshFromNativeProvider()
                 }
             }
             return
@@ -202,8 +203,8 @@ final class MediaController: ObservableObject {
     }
 
     func retry() {
-        if selectedSource == .appleMusic {
-            refreshFromAppleMusic()
+        if selectedSource.nativePlayerApp != nil {
+            refreshFromNativeProvider()
         } else if emptyReason == .webPlayerFailed {
             // A failed load leaves the window on the local error page, so the
             // retry has to start the provider page again, not reload that.
@@ -219,8 +220,8 @@ final class MediaController: ObservableObject {
         guard track != nil, capabilities.canPlayPause else { return }
         isPlaying.toggle()
         setAnchor(position)
-        if selectedSource == .appleMusic {
-            nativeBridge.playPause()
+        if let app = selectedSource.nativePlayerApp {
+            nativeBridge.playPause(on: app)
         } else {
             webPlayer?.command(.playPause)
         }
@@ -228,8 +229,8 @@ final class MediaController: ObservableObject {
 
     func next() {
         guard capabilities.canNext else { return }
-        if selectedSource == .appleMusic {
-            nativeBridge.next()
+        if let app = selectedSource.nativePlayerApp {
+            nativeBridge.next(on: app)
         } else {
             webPlayer?.command(.next)
         }
@@ -237,8 +238,8 @@ final class MediaController: ObservableObject {
 
     func previous() {
         guard capabilities.canPrevious else { return }
-        if selectedSource == .appleMusic {
-            nativeBridge.previous()
+        if let app = selectedSource.nativePlayerApp {
+            nativeBridge.previous(on: app)
         } else {
             webPlayer?.command(.previous)
         }
@@ -249,8 +250,8 @@ final class MediaController: ObservableObject {
         let clamped = min(max(0, seconds), duration)
         setAnchor(clamped)
         pendingSeek = (clamped, Date())
-        if selectedSource == .appleMusic {
-            nativeBridge.seek(to: clamped)
+        if let app = selectedSource.nativePlayerApp {
+            nativeBridge.seek(on: app, to: clamped)
         } else {
             webPlayer?.seek(to: clamped)
         }
@@ -259,8 +260,8 @@ final class MediaController: ObservableObject {
     func resolveAutomationAccess() {
         guard let issue = accessIssue else { return }
         if issue.authorization == .notDetermined {
-            nativeBridge.automationAuthorization(prompt: true) { [weak self] _ in
-                self?.refreshFromAppleMusic()
+            nativeBridge.automationAuthorization(for: issue.app, prompt: true) { [weak self] _ in
+                self?.refreshFromNativeProvider()
             }
         } else {
             openAutomationSettings()
@@ -274,30 +275,35 @@ final class MediaController: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    // MARK: - Apple Music
+    // MARK: - Native providers
 
-    private func refreshFromAppleMusic() {
-        guard isStarted, selectedSource == .appleMusic else { return }
+    private func refreshFromNativeProvider() {
+        guard isStarted, let app = selectedSource.nativePlayerApp else { return }
         if refreshInFlight {
             refreshPending = true
             return
         }
         refreshInFlight = true
         let requestedGeneration = stateGeneration
-        nativeBridge.currentState { [weak self] result in
+        nativeBridge.currentState(for: app) { [weak self] result in
             guard let self else { return }
             self.refreshInFlight = false
-            guard self.isStarted, self.selectedSource == .appleMusic else {
+            guard self.isStarted else {
                 self.refreshPending = false
+                return
+            }
+            guard self.selectedSource.nativePlayerApp == app else {
+                self.refreshPending = false
+                self.refreshFromNativeProvider()
                 return
             }
             let shouldRefreshAgain = self.refreshPending
             self.refreshPending = false
             defer {
-                if shouldRefreshAgain { self.refreshFromAppleMusic() }
+                if shouldRefreshAgain { self.refreshFromNativeProvider() }
             }
 
-            if let state = result.state {
+            if let state = result.state, state.app == app {
                 self.notificationFallback = (state, Date())
                 self.consecutiveEmptyRefreshes = 0
                 self.accessIssue = nil
@@ -312,7 +318,13 @@ final class MediaController: ObservableObject {
                 return
             }
 
-            if let fallback = self.notificationFallback,
+            // The fallback is fed by every native fetch, so it can hold a
+            // Spotify state. `app == .music` only says which player is being
+            // refreshed now — the cached state's own app has to match too, or
+            // a source switch inside the window adopts the other player's
+            // track and routes transport to the wrong app.
+            if app == .music, let fallback = self.notificationFallback,
+               fallback.state.app == app,
                Date().timeIntervalSince(fallback.receivedAt) < 8,
                result.hasRunningPlayer {
                 self.adopt(fallback.state)
@@ -325,28 +337,29 @@ final class MediaController: ObservableObject {
                self.consecutiveEmptyRefreshes == 0 {
                 self.consecutiveEmptyRefreshes = 1
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-                    self?.refreshFromAppleMusic()
+                    self?.refreshFromNativeProvider()
                 }
                 return
             }
 
             self.consecutiveEmptyRefreshes = 0
             self.accessIssue = result.accessIssue
-            self.clear(reason: result.readFailed ? .appleMusicUnreadable : (
-                result.hasRunningPlayer ? .appleMusicIdle : .appleMusicNotRunning
-            ), preservingAccessIssue: true)
+            self.clear(reason: !result.isInstalled ? .nativeNotInstalled : (result.readFailed || result.state != nil ? .nativeUnreadable : (
+                result.hasRunningPlayer ? .nativeIdle : .nativeNotRunning
+            ))
+            , preservingAccessIssue: true)
         }
     }
 
     private func updateNativeRefreshTimer() {
-        guard isActive, selectedSource == .appleMusic else {
+        guard isActive, selectedSource.nativePlayerApp != nil else {
             nativeRefreshTimer?.invalidate()
             nativeRefreshTimer = nil
             return
         }
         guard nativeRefreshTimer == nil else { return }
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.refreshFromAppleMusic() }
+            MainActor.assumeIsolated { self?.refreshFromNativeProvider() }
         }
         timer.tolerance = 0.15
         RunLoop.main.add(timer, forMode: .common)
@@ -406,7 +419,7 @@ final class MediaController: ObservableObject {
         stateGeneration += 1
         let oldKey = track?.key
         accessIssue = nil
-        emptyReason = .appleMusicIdle
+        emptyReason = .nativeIdle
         track = Track(
             title: state.title,
             artist: state.artist,

@@ -4,11 +4,15 @@ type: release
 status: active
 documentation_version: 1.1
 app_version: 1.4.14
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-26
 tags: [impuls, updates, sparkle, security]
 ---
 
 # Update System
+
+## IMP-11 review
+
+Reviewed the `bundle.sh` change: it broadens only the localized Apple Events usage description. Sparkle version/feed/signature handling, consent, and update flags are unchanged.
 
 ## Контракт
 

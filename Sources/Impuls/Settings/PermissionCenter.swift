@@ -9,6 +9,14 @@ final class PermissionCenter: ObservableObject {
         case denied
         case notRequested
         case restricted
+        /// The target application is not on this Mac, so there is no TCC state
+        /// to report and nothing to request.
+        case notInstalled
+        /// The application is installed but closed, so macOS cannot answer what
+        /// the Automation state is. Distinct from `restricted`, which claims a
+        /// policy block the user cannot lift; this one clears by itself as soon
+        /// as the application is opened.
+        case appNotRunning
 
         var title: String {
             switch self {
@@ -16,12 +24,15 @@ final class PermissionCenter: ObservableObject {
             case .denied: return localized("Denied")
             case .notRequested: return localized("Not Requested")
             case .restricted: return localized("Restricted")
+            case .notInstalled: return localized("Not Installed")
+            case .appNotRunning: return localized("Not Running")
             }
         }
     }
 
     @Published private(set) var calendar: State = .notRequested
-    @Published private(set) var musicAutomation: State = .notRequested
+    @Published private(set) var appleMusicAutomation: State = .notRequested
+    @Published private(set) var spotifyAutomation: State = .notRequested
     @Published private(set) var notifications: State = .notRequested
 
     private let eventStore = EKEventStore()
@@ -34,7 +45,8 @@ final class PermissionCenter: ObservableObject {
         case .notDetermined: calendar = .notRequested
         @unknown default: calendar = .restricted
         }
-        refreshMusicAutomation()
+        refreshAutomation(for: .music)
+        refreshAutomation(for: .spotify)
 
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             Task { @MainActor in
@@ -56,9 +68,10 @@ final class PermissionCenter: ObservableObject {
         }
     }
 
-    func requestMusicAutomation() {
-        PlayerBridge.automationAuthorization(for: .music, prompt: true) { [weak self] _ in
-            self?.refreshMusicAutomation()
+    func requestAutomation(for app: PlayerApp) {
+        guard app.isInstalled else { return }
+        PlayerBridge.automationAuthorization(for: app, prompt: true) { [weak self] _ in
+            self?.refreshAutomation(for: app)
         }
     }
 
@@ -97,19 +110,46 @@ final class PermissionCenter: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    private func refreshMusicAutomation() {
-        guard PlayerApp.music.isInstalled else {
-            musicAutomation = .restricted
+    private func refreshAutomation(for app: PlayerApp) {
+        // Resolved before TCC is consulted at all, so an app that is simply not
+        // on this Mac can never be reported as a policy restriction — and no
+        // Automation query is made for it.
+        guard app.isInstalled else {
+            setAutomation(Self.missingAppState, for: app)
             return
         }
-        PlayerBridge.automationAuthorization(for: .music, prompt: false) { [weak self] authorization in
+        PlayerBridge.automationAuthorization(for: app, prompt: false) { [weak self] authorization in
             guard let self else { return }
-            switch authorization {
-            case .allowed: self.musicAutomation = .allowed
-            case .denied: self.musicAutomation = .denied
-            case .notDetermined: self.musicAutomation = .notRequested
-            case .restricted: self.musicAutomation = .restricted
-            }
+            self.updateAutomation(authorization, for: app)
+        }
+    }
+
+    /// The row state for a target application that is not installed. No TCC
+    /// query is made for it, so it has no authorization to map.
+    static let missingAppState: State = .notInstalled
+
+    /// Pure so every row state can be proven without invoking Automation,
+    /// installing an app or depending on what happens to be running.
+    static func automationState(for authorization: AutomationAuthorization) -> State {
+        switch authorization {
+        case .allowed: return .allowed
+        case .denied: return .denied
+        case .notDetermined: return .notRequested
+        case .restricted: return .restricted
+        case .undeterminedAppNotRunning: return .appNotRunning
+        }
+    }
+
+    /// Kept separate from the TCC query so tests can prove target-app state
+    /// isolation without invoking Automation or depending on an installed app.
+    func updateAutomation(_ authorization: AutomationAuthorization, for app: PlayerApp) {
+        setAutomation(Self.automationState(for: authorization), for: app)
+    }
+
+    private func setAutomation(_ state: State, for app: PlayerApp) {
+        switch app {
+        case .music: appleMusicAutomation = state
+        case .spotify: spotifyAutomation = state
         }
     }
 }

@@ -2,9 +2,9 @@
 title: Music Module
 type: module
 status: production
-documentation_version: 1.5
+documentation_version: 1.8
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 tags: [impuls, module, music, webkit, automation]
 ---
 
@@ -45,16 +45,16 @@ WebKit's content process может умереть — краш или system re
 
 Управление **явно выбранным** источником музыки без угадывания «какой из запущенных плееров главный», с честным Now Playing state — источник не выдаёт непроверенную возможность за доступную.
 
-Поддерживаются Apple Music, Яндекс Музыка, VK Музыка и YouTube Music. Каталог источников в 1.4.16 не расширился: см. «Provider compatibility audit (1.4.16)» ниже — расширение возможно только для источника, реально прошедшего весь gate из этого раздела, а не просто присутствующего в market-share таблице.
+Поддерживаются native Apple Music и Spotify, а также Яндекс Музыка, VK Музыка и YouTube Music как web providers. Spotify — только native macOS app через его поставляемый Scripting Dictionary; Spotify WEB embedding по-прежнему не поддерживается.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
     UI[MediaPane] --> MC[MediaController]
-    MC -->|Apple Music| NB["NativeMusicBridging (LivePlayerBridge)"]
+    MC -->|Selected Apple Music or Spotify| NB["NativeMusicBridging (LivePlayerBridge)"]
     NB --> PB[PlayerBridge]
-    PB --> AE[Apple Events / Music app]
+    PB --> AE[Apple Events / selected app]
     MC -->|Explicit Open Web Player| WMP["WebMusicPlaying (WebMusicPlayer)"]
     WMP --> MS[Selected provider site]
     WMP --> BR[Bounded Media Session bridge]
@@ -62,7 +62,7 @@ flowchart TD
     CAT[MusicProviderCatalog] -.region-relevant subset.-> UI
 ```
 
-`NativeMusicBridging` and `WebMusicPlaying` are the two DI seams `MediaController` was given in 1.4.16 so its state machine — source switch, track switch, stale-result suppression, capability propagation, lifecycle — has deterministic unit coverage (`MediaControllerTests.swift`) instead of requiring a real Music app, Automation permission, or WebKit/network. Production always resolves to `LivePlayerBridge` and a real `WebMusicPlayer()`; nothing about the runtime behavior changed.
+`NativeMusicBridging` and `WebMusicPlaying` are DI seams for deterministic `MediaControllerTests`. Production resolves to `LivePlayerBridge` and a real `WebMusicPlayer()`: IMP-11 changed runtime behavior by adding Spotify as a selected native provider through its shipped Scripting Dictionary, while keeping Spotify web embedding unsupported.
 
 ## Source selection
 
@@ -80,15 +80,15 @@ Product-priority подмножества на 1.4.16 (все источники
 | Материковый Китай (`CN` — не HK/MO/TW) | только Apple Music (YouTube Music там недоступен, поэтому не продвигается) |
 | Всё остальное, включая неизвестный/неопознанный регион | Apple Music, YouTube Music |
 
-## Apple Music
+## Native music apps
 
-`PlayerBridge` получает state через scripting interface/public Automation path и distributed player notifications, за `NativeMusicBridging` (production: `LivePlayerBridge`). Active pane имеет bounded 1 s native refresh; duplicate refreshes coalesced.
+`PlayerBridge` получает state только от явно выбранного `PlayerApp` через scripting interface/public Automation path, за `NativeMusicBridging` (production: `LivePlayerBridge`). Active pane имеет bounded 1 s native refresh; duplicate refreshes coalesced. Поэтому одновременно запущенный Apple Music не может подменить Spotify state и наоборот. Изоляция держится на двух проверках, а не на одной: fetch адаптируется только если `state.app` совпадает с запрошенным app, и Apple Music notification fallback replay дополнительно требует `fallback.state.app == app` — сам fallback пишется любым native fetch, поэтому без этой проверки кэшированный Spotify state мог быть показан под Apple Music при переключении source внутри 8 s окна. Apple Music distributed notification остаётся Apple-Music-only fallback; для Spotify notification не предполагается.
 
-Permission: Apple Events Automation. Status check не prompt'ит; пользователь сам инициирует request.
+Permission: Apple Events Automation per target app. Status check не prompt'ит; пользователь сам инициирует request. Apple Music и Spotify отображаются и разрешаются независимо; отсутствие Spotify — safe unavailable state без prompt.
 
 ### Stale-refresh guard (1.4.16 fix)
 
-До этого исправления возможна была гонка: scripting-refresh для трека A ещё in-flight, когда distributed notification для более нового трека B синхронно адаптируется через `adopt(_:)`; когда fetch трека A наконец возвращался, он безусловно перезаписывал уже актуальный трек B на короткое время, до следующего self-correcting refresh. `MediaController` теперь ведёт monotonic `stateGeneration`, инкрементируемый в каждом `adopt(...)`; `refreshFromAppleMusic()` захватывает generation перед запросом и отбрасывает завершение fetch, если generation успел сдвинуться. Тест: `MediaControllerTests.testLateAppleMusicFetchForAnOldTrackDoesNotOverwriteANewerAdoptedTrack`.
+До этого исправления возможна была гонка: scripting-refresh для трека A ещё in-flight, когда distributed notification для более нового трека B синхронно адаптируется через `adopt(_:)`; когда fetch трека A наконец возвращался, он безусловно перезаписывал уже актуальный трек B на короткое время, до следующего self-correcting refresh. `MediaController` ведёт monotonic `stateGeneration`; `refreshFromNativeProvider()` захватывает generation перед запросом и отбрасывает завершение fetch, если generation успел сдвинуться. Apple Music notification fallback остаётся Apple-only; Spotify получает state только из своего явно выбранного scripting path.
 
 ## Capabilities (1.4.16)
 
@@ -111,13 +111,36 @@ Main-frame navigation ограничена provider allow-list; sign-in hosts в
 
 ## State / persistence
 
-Track/artwork/play state — runtime. Selected source — UserDefaults. Web session/cache управляются WebKit по своей конфигурации; module не превращает metadata в product telemetry. Capabilities и regional recommendation order — тоже чисто runtime/local, ничего нового не персистится и не логируется.
+Track/artwork/play state — runtime. Selected source — UserDefaults. Web session/cache управляются WebKit по своей конфигурации; module не превращает metadata в product telemetry. Spotify metadata и Automation/TCC state не персистятся Impuls: TCC принадлежит macOS. Capabilities и regional recommendation order — тоже чисто runtime/local, ничего нового не персистится и не логируется.
+
+## Spotify native contract (IMP-11)
+
+Spotify native macOS app is queried only through its shipped Scripting Dictionary and public Apple Events. `PlayerBridge` queries the selected app only — no `allCases` scan and no “currently playing app wins” rule. If Spotify is not installed, `nativeNotInstalled` is shown, no Automation check/prompt occurs, and no dead Open action is offered. Each native empty state is a whole sentence owned by its provider rather than one `%@` template — Russian inflects the predicate for the subject's gender (Apple Music feminine, Spotify masculine), so a shared template is necessarily wrong for one of them.
+
+The internal wire contract remains milliseconds. On observed Spotify 1.2.98.301, track duration arrives as milliseconds (`140046` means `140.046 s`), while player position arrives as seconds; the provider script converts position to wire milliseconds. There is no magnitude heuristic.
+
+Two properties of the generated scripts are load-bearing rather than stylistic. They hold for **both** native providers — Apple Music and Spotify — and both are asserted in `PlayerBridgeTests`:
+
+- **Every number is coerced `as integer` before it reaches the wire** — `set trackDurationMilliseconds to (duration of currentSpotifyTrack) as integer` and `set positionMilliseconds to ((player position) * 1000) as integer`. AppleScript renders a `real` using the *user's* locale, so on a ru_RU system an uncoerced position serializes as `2,776499938965E+4`, which `Double(String)` rejects and the state is lost. Integers carry no decimal separator, so the wire is locale-independent by construction. Verified on ru_RU against Spotify 1.2.98.301: `paused␁Lush Life␁Zara Larsson␁So Good␁200646␁4544␁`.
+- **Script variables use explicit, spelled-out names** (`playerStateText`, `currentSpotifyTrack` / `currentMusicTrack`, `trackDurationMilliseconds`, `positionMilliseconds`). Two-letter identifiers are not free: `st`, `nd`, `rd` and `th` are AppleScript's reserved ordinal-suffix tokens, and `set st to …` fails to compile with `-2741 Expected expression but found "st"`.
+
+  This was not hypothetical. Until the 1.4.16 audit the **Apple Music** script opened with `set st to player state as text`, so `NSAppleScript` returned nil with `-2741` on every call and the scripting read never worked. Apple Music still showed a track only because the `com.apple.Music.playerInfo` distributed notification fed `notificationFallback`; once that 8-second window lapsed the pane fell to `nativeUnreadable` with dead transport. Both scripts now use explicit identifiers.
+
+### Both scripts are compiled by the test suite
+
+`String.contains` cannot tell valid AppleScript from invalid AppleScript, and the negative assertion for this exact pattern had been written against the Spotify script — the one branch that never carried the bug. `PlayerBridgeTests` now compiles each generated script through `NSAppleScript.compileAndReturnError`.
+
+Compilation is safe to assert here, but for a narrower reason than "compiling is harmless". `compileAndReturnError` must obtain the target's terminology: for a bundle that declares `OSAScriptingDefinition` it reads the `.sdef` from disk, but for an `aete`-only target it **launches the application** to ask — `com.apple.TextEdit` starts up on compile alone. Both native providers ship an `.sdef`, so neither is launched, no Apple Event is sent, no Automation grant is needed and playback is untouched. The test asserts that precondition rather than assuming it, so a future provider without an `.sdef` fails instead of silently opening the user's app. `executeAndReturnError` is what would read state, and it is never called there. The Apple Music check is skipped when Apple Music is absent and the Spotify check when Spotify is absent, so CI never depends on a third-party app; a structural assertion that needs no installed app guards the reserved identifiers themselves.
+
+Apple Music duration and position both arrive as `real` **seconds** and are multiplied by 1000; Spotify duration already arrives in milliseconds and only its position is converted. Both wires are integer milliseconds, and the Swift parser divides by 1000.
+
+Spotify artwork is absent in 1.4.16 by construction: the provider script never asks for `artwork url` — it emits the artwork field as an empty string — and `PlayerBridge.artwork(for:)` returns `nil` for any state whose app is not `.music`. The pane falls back to the source glyph. There is no artwork network path and no new network owner.
 
 ## Provider compatibility audit (1.4.16)
 
 Issue #95 запросил desk-research аудит кандидатов, а не задачу «добавить максимум сервисов». Ни один кандидат не прошёл весь gate (реальный вход, реальное воспроизведение без неподдерживаемого DRM, метаданные через стабильный публичный surface / Media Session, а не через fragile DOM-scraping, контролы без хрупкого DOM-clicking, никакого архитектурного rewrite `WebMusicPlayer`) на уровне, достаточном для honest GREEN без учётной записи/региона/подписки, которых у аудита не было — поэтому 1.4.16 сознательно не добавляет новых источников:
 
-- **Spotify** — remains unsupported. Technical reason unchanged and re-verified: Spotify Web Playback requires Widevine-decrypted audio, which WKWebView does not implement on macOS, so an embedded Spotify tab can authenticate but not produce sound. This is a limitation of the current WebKit-based web-player architecture, not a permanent claim about Spotify — no private framework, injection, Accessibility-scraping, or Widevine-redistribution workaround was considered acceptable, so none was attempted.
+- **Spotify WEB** — remains unsupported: Spotify Web Playback requires Widevine-decrypted audio, which WKWebView does not implement on macOS. This does not apply to the supported native Spotify macOS app path: it uses only the app-shipped Scripting Dictionary and public Apple Events/TCC. The scripting interface is not assumed to be permanent; if a future Spotify release lacks it, Impuls fails gracefully. No private framework, injection, Accessibility-scraping or Widevine workaround is used.
 - **Zvuk, Amazon Music, Deezer** — YELLOW/UNKNOWN: plausible web-player candidates in principle, but without a live account/subscription in-session they could not be proven to clear the full gate (real sign-in, real audio, non-fragile metadata). Deferred rather than shipped on a guess.
 - **LINE MUSIC, QQ Music, NetEase Cloud Music, KuGou Music, Kuwo Music** — UNKNOWN: region/account-gated services the audit had no way to verify live; deferred rather than silently promoted to GREEN.
 

@@ -10,6 +10,16 @@ tags: [impuls, performance, limits, budgets, security, ai]
 
 # Input & Resource Budget Registry
 
+## IMP-11 review
+
+No new size, count, or polling budget was introduced: native cadence remains the shared 1 s timer. Spotify artwork is not downloaded by Impuls, so no artwork-download budget exists.
+
+Re-reviewed again after `isActionableAccessIssue` was split out: a pure predicate over an existing enum, allocating nothing and reading no input, so no size, count, retention or polling budget is touched.
+
+Re-reviewed after the Apple Music script rewrite, the `procNotFound` status mapping and the `seekPosition(forSeconds:)` split. Coercing the Apple Music numbers `as integer` bounds that wire exactly as Spotify's already was; the seek guard keeps its existing `Int(exactly:)` bound, only relocated so it can be proven without sending an Apple Event. No size, count, retention or polling budget changed. The earlier re-review below still stands.
+
+Re-reviewed after the Spotify script wire-format fix and the native fallback guard. Coercing the two script numbers `as integer` bounds the wire more tightly than before — a rendered integer cannot carry an exponent — and the fallback guard only adds a comparison. Neither changes a size, count, retention or polling budget.
+
 This document centralizes the limits that keep Impuls responsive and resistant to accidental or hostile oversized input. Exact constants remain in code; this registry is the review surface that explains which budgets are architectural rather than incidental.
 
 ## Content and storage budgets
@@ -73,7 +83,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Pointer sampling | warm 60 Hz / idle 8 Hz | one sampler for all displays; stationary pointer cools after 3 s |
 | Clipboard `changeCount` | 0.5 s, tolerance 0.2 s | payload is not materialized unless counter moves |
 | Playback position | 0.25 s, tolerance 0.05 s | visible + playing only |
-| Native Apple Music state | 1 s, tolerance 0.15 s | visible Apple Music pane only |
+| Native music state (Apple Music / Spotify) | 1 s, tolerance 0.15 s | visible selected native-app pane only; one shared timer |
 | Calendar countdown | 30 s, tolerance 5 s | visible pane only |
 | Local Mac power | 2 s, tolerance 0.5 s | visible Power pane only |
 | Apple accessory provider | 10 s active / 600 s idle | IOKit events may trigger immediate reads |

@@ -230,12 +230,15 @@ final class MusicSourceTests: XCTestCase {
         #endif
     }
 
-    /// Spotify's web player decrypts through Widevine, which WebKit does not
-    /// implement, so it must not be offered as a source at all.
-    func testSpotifyIsNotOffered() {
+    func testSpotifyIsANativeSourceNotAWebSource() {
+        XCTAssertEqual(MusicSource.spotify.displayName, "Spotify")
+        XCTAssertFalse(MusicSource.spotify.isWeb)
+        XCTAssertEqual(MusicSource.spotify.nativePlayerApp, .spotify)
+        XCTAssertEqual(PlayerApp.spotify.bundleID, "com.spotify.client")
+        XCTAssertTrue(MusicProviderCatalog.allServices.contains(.spotify))
         XCTAssertNil(MusicSource(rawValue: "spotifyWeb"))
         XCTAssertEqual(MusicSource.allCases.map(\.rawValue),
-                       ["appleMusic", "yandexMusic", "vkMusic", "youtubeMusic"])
+                       ["appleMusic", "spotify", "yandexMusic", "vkMusic", "youtubeMusic"])
     }
 
     /// The Safari token is what the providers sniff for. Without it the pages
@@ -275,7 +278,7 @@ final class MusicSourceTests: XCTestCase {
         defaults.set("spotifyWeb", forKey: MediaController.selectedSourceKey)
         let controller = MediaController(defaults: defaults)
         XCTAssertEqual(controller.selectedSource, .appleMusic)
-        XCTAssertEqual(controller.emptyReason, .appleMusicNotRunning)
+        XCTAssertEqual(controller.emptyReason, .nativeNotRunning)
     }
 
     // MARK: - The web player's background work has an owner
@@ -356,15 +359,53 @@ final class MusicSourceTests: XCTestCase {
         XCTAssertEqual(formatTime(3_600), "60:00")
     }
 
+    /// Native empty-state copy is one whole sentence per provider, never a
+    /// shared `%@` template: Russian inflects the predicate for the subject's
+    /// gender, so a single template is wrong for one of the two products
+    /// whichever ending it picks.
+    func testNativeEmptyStateCopyIsProviderSpecific() {
+        let pairs: [(String, String)] = [
+            (PlayerApp.music.notInstalledMessage, PlayerApp.spotify.notInstalledMessage),
+            (PlayerApp.music.notRunningMessage, PlayerApp.spotify.notRunningMessage),
+            (PlayerApp.music.idleMessage, PlayerApp.spotify.idleMessage),
+            (PlayerApp.music.unreadableMessage, PlayerApp.spotify.unreadableMessage),
+            (PlayerApp.music.openActionTitle, PlayerApp.spotify.openActionTitle),
+        ]
+
+        for (music, spotify) in pairs {
+            XCTAssertNotEqual(music, spotify, "each provider needs its own sentence")
+            XCTAssertFalse(music.isEmpty)
+            XCTAssertFalse(spotify.isEmpty)
+            XCTAssertFalse(music.contains("%@"), "an unfilled placeholder reached the user")
+            XCTAssertFalse(spotify.contains("%@"), "an unfilled placeholder reached the user")
+            XCTAssertTrue(music.contains("Apple Music"), "the Apple Music copy must name Apple Music")
+            XCTAssertTrue(spotify.contains("Spotify"), "the Spotify copy must name Spotify")
+        }
+    }
+
     /// The same value reaches AppleScript as a spliced-in integer. The guard has
     /// to hold before the conversion, not after.
+    ///
+    /// This drives the pure conversion, never `seek(_:to:)`. The previous form
+    /// called `seek` directly and rested on a comment claiming "Apple Music is
+    /// not running under test" — which is false on any developer Mac with Music
+    /// open. There `command` clears its `isRunning` guard and sends a real
+    /// Apple Event, moving the developer's own playback to 4:01, and the
+    /// resulting `NSAppleScript` call on a background queue aborts the whole
+    /// test process. A unit test must not drive the user's music player.
     func testSeekingToAnUnrepresentablePositionIsDroppedRatherThanConverted() {
-        // Apple Music is not running under test, so `command` is a no-op; what
-        // is being proven is that the conversion in front of it cannot trap.
-        PlayerBridge.seek(.music, to: .infinity)
-        PlayerBridge.seek(.music, to: .nan)
-        PlayerBridge.seek(.music, to: 1e30)
-        PlayerBridge.seek(.music, to: -1)
-        PlayerBridge.seek(.music, to: 241)
+        for rejected in [TimeInterval.infinity, -.infinity, .nan, 1e30, .greatestFiniteMagnitude, -1] {
+            XCTAssertNil(
+                PlayerBridge.seekPosition(forSeconds: rejected),
+                "a position the app did not compute must be dropped, not converted"
+            )
+        }
+
+        XCTAssertEqual(PlayerBridge.seekPosition(forSeconds: 0), 0)
+        XCTAssertEqual(PlayerBridge.seekPosition(forSeconds: 241), 241)
+        XCTAssertEqual(
+            PlayerBridge.seekPosition(forSeconds: 241.9), 241,
+            "a fractional second truncates rather than rounding past the end of the track"
+        )
     }
 }

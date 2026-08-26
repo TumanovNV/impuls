@@ -36,14 +36,24 @@
 "Open Web Player" = "Web-Player öffnen";
 "Show Web Player" = "Web-Player zeigen";
 "Open Apple Music" = "Apple Music öffnen";
+"Open Spotify" = "Spotify öffnen";
 "Open Apple Music and start a track." = "Öffne Apple Music und starte einen Titel.";
+"Open Spotify and start a track." = "Öffne Spotify und starte einen Titel.";
 "Apple Music is open, but no track is playing." = "Apple Music ist geöffnet, es läuft aber kein Titel.";
+"Spotify is open, but no track is playing." = "Spotify ist geöffnet, es läuft aber kein Titel.";
+"Apple Music is not installed." = "Apple Music ist nicht installiert.";
+"Spotify is not installed." = "Spotify ist nicht installiert.";
 "Apple Music is playing, but its track data could not be read." = "Apple Music spielt, die Titeldaten konnten aber nicht gelesen werden.";
+"Spotify is playing, but its track data could not be read." = "Spotify spielt, die Titeldaten konnten aber nicht gelesen werden.";
 "Open the selected web player to sign in and choose music." = "Öffne den gewählten Web-Player, um dich anzumelden und Musik auszuwählen.";
 "Connecting to the selected web player…" = "Verbindung zum gewählten Web-Player …";
 "Choose a track in %@." = "Wähle einen Titel in %@.";
 "%@ could not be loaded." = "%@ konnte nicht geladen werden.";
 "%@ could not be loaded: %@" = "%@ konnte nicht geladen werden: %@";
+"Apple Music Automation" = "Apple-Music-Automatisierung";
+"Reads track information and controls Apple Music. Web players do not need this permission." = "Liest Titelinformationen und steuert Apple Music. Web-Player benötigen diese Berechtigung nicht.";
+"Spotify Automation" = "Spotify-Automatisierung";
+"Reads track information and controls Spotify. Web players do not need this permission." = "Liest Titelinformationen und steuert Spotify. Web-Player benötigen diese Berechtigung nicht.";
 
 /* Snippets */
 "Add a snippet" = "Textbaustein hinzufügen";
@@ -169,6 +179,8 @@
 "Denied" = "Verweigert";
 "Not Requested" = "Nicht angefragt";
 "Restricted" = "Eingeschränkt";
+"Not Running" = "Nicht geöffnet";
+"Not Installed" = "Nicht installiert";
 "Shows upcoming meetings inside the Calendar module." = "Zeigt bevorstehende Termine im Kalendermodul.";
 "Music Automation" = "Musik-Automation";
 "Reads track information and controls the Apple Music app. Web players do not need this permission." = "Liest Titelinformationen und steuert die Apple-Music-App. Web-Player benötigen diese Berechtigung nicht.";

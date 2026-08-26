@@ -35,14 +35,24 @@
 "Open Web Player" = "打开网页播放器";
 "Show Web Player" = "显示网页播放器";
 "Open Apple Music" = "打开 Apple Music";
+"Open Spotify" = "打开 Spotify";
 "Open Apple Music and start a track." = "请打开 Apple Music 并播放一首曲目。";
+"Open Spotify and start a track." = "请打开 Spotify 并播放一首曲目。";
 "Apple Music is open, but no track is playing." = "Apple Music 已打开，但没有曲目在播放。";
+"Spotify is open, but no track is playing." = "Spotify 已打开，但没有曲目在播放。";
+"Apple Music is not installed." = "Apple Music 未安装。";
+"Spotify is not installed." = "Spotify 未安装。";
 "Apple Music is playing, but its track data could not be read." = "Apple Music 正在播放，但无法读取其曲目信息。";
+"Spotify is playing, but its track data could not be read." = "Spotify 正在播放，但无法读取其曲目信息。";
 "Open the selected web player to sign in and choose music." = "请打开所选的网页播放器以登录并选择音乐。";
 "Connecting to the selected web player…" = "正在连接所选的网页播放器…";
 "Choose a track in %@." = "请在 %@ 中选择一首曲目。";
 "%@ could not be loaded." = "无法加载 %@。";
 "%@ could not be loaded: %@" = "无法加载 %@：%@";
+"Apple Music Automation" = "Apple Music 自动化";
+"Reads track information and controls Apple Music. Web players do not need this permission." = "读取曲目信息并控制 Apple Music。网页播放器不需要此权限。";
+"Spotify Automation" = "Spotify 自动化";
+"Reads track information and controls Spotify. Web players do not need this permission." = "读取曲目信息并控制 Spotify。网页播放器不需要此权限。";
 
 /* Snippets */
 "Add a snippet" = "添加文本片段";
@@ -168,6 +178,8 @@
 "Denied" = "已拒绝";
 "Not Requested" = "未请求";
 "Restricted" = "受限";
+"Not Running" = "未运行";
+"Not Installed" = "未安装";
 "Shows upcoming meetings inside the Calendar module." = "在日历模块中显示即将到来的会议。";
 "Music Automation" = "音乐自动化";
 "Reads track information and controls the Apple Music app. Web players do not need this permission." = "读取曲目信息并控制 Apple Music 应用。网页播放器不需要此权限。";

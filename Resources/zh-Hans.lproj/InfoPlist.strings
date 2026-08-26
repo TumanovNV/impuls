@@ -1,7 +1,7 @@
 /* Impuls — 系统权限对话框，简体中文。当存在对应的 `.lproj/InfoPlist.strings`
    时，macOS 会优先使用其中的值。 */
 
-"NSAppleEventsUsageDescription" = "Impuls 会读取当前曲目的名称，并控制 Apple Music 应用中的播放。";
+"NSAppleEventsUsageDescription" = "Impuls 会读取当前曲目信息，并控制 Apple Music 和 Spotify 等受支持音乐应用中的播放。";
 "NSCalendarsFullAccessUsageDescription" = "Impuls 会显示你即将到来的会议，以及一个加入会议的按钮。";
 "NSCalendarsUsageDescription" = "Impuls 会显示你即将到来的会议，以及一个加入会议的按钮。";
 "CFBundleDisplayName" = "Impuls";

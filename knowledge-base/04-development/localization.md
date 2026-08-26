@@ -3,12 +3,16 @@ title: Localization
 type: development
 status: active
 documentation_version: 1.2
-app_version: 1.4.15
-last_reviewed: 2026-08-23
+app_version: 1.4.16
+last_reviewed: 2026-08-26
 tags: [impuls, localization, russian, english, german, french, spanish, chinese, japanese]
 ---
 
 # Localization
+
+## IMP-11 review
+
+The shipped app-language set remains exactly seven. `NSAppleEventsUsageDescription` now truthfully covers supported native music apps, and Spotify/native-not-installed strings exist in every one of the seven `Localizable.strings` tables; `CFBundleLocalizations` is unchanged.
 
 ## Current baseline: three separate localization contracts
 

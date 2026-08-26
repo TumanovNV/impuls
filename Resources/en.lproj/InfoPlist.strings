@@ -5,7 +5,7 @@
    from the matching `.lproj/InfoPlist.strings` when one exists, so this file is
    what an English user now reads. */
 
-"NSAppleEventsUsageDescription" = "Impuls reads the current track name and controls playback in the Apple Music app.";
+"NSAppleEventsUsageDescription" = "Impuls reads current-track information and controls playback in supported music apps such as Apple Music and Spotify.";
 "NSCalendarsFullAccessUsageDescription" = "Impuls shows your upcoming meetings and a button to join them.";
 "NSCalendarsUsageDescription" = "Impuls shows your upcoming meetings and a button to join them.";
 "CFBundleDisplayName" = "Impuls";
