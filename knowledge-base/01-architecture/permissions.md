@@ -19,7 +19,7 @@ flowchart LR
     U[User action] --> EX[In-app explanation]
     EX --> R{Permission needed?}
     R -->|Calendar| EK[EventKit full access request]
-    R -->|Apple Music| AE[Apple Events Automation request]
+    R -->|Apple Music or Spotify| AE[Apple Events Automation request per target]
     R -->|Low battery alerts| UN[User Notifications authorization]
     R -->|Already denied| SYS[Open System Settings]
 ```
@@ -30,9 +30,9 @@ flowchart LR
 
 IMP-21 изменяет только local recognition already-readable meeting URLs after access exists, including both strict Teams URL forms; он не читает новый EventKit field, не меняет entitlement и не добавляет permission action или prompt.
 
-## Apple Music Automation
+## Native music Automation
 
-Metadata/control использует public Apple Events/scripting path через `PlayerBridge`. `AEDeterminePermissionToAutomateTarget` используется без prompt для status check и с prompt только после user action. Entitlement `com.apple.security.automation.apple-events` присутствует в bundle.
+Apple Music и Spotify metadata/control используют public Apple Events/scripting path через `PlayerBridge`. `AEDeterminePermissionToAutomateTarget` используется без prompt для status check и с prompt только после user action, отдельно для каждого target bundle ID. `PermissionCenter` не сводит allowed Apple Music и denied Spotify к одному состоянию. Entitlement `com.apple.security.automation.apple-events` присутствует в bundle.
 
 ## Notifications
 

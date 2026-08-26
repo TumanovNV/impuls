@@ -67,6 +67,35 @@ final class PlayerBridgeTests: XCTestCase {
         XCTAssertNil(PlayerBridge.parse(raw, app: .music))
     }
 
+    func testParsesSpotifyStateWithProviderSpecificMilliseconds() throws {
+        let raw = ["playing", "Djurens vaggvisa", "Humlan Djojj", "Somna med Humlan Djojj", "140046", "24694", ""].joined(separator: "\u{1}")
+        let state = try XCTUnwrap(PlayerBridge.parse(raw, app: .spotify))
+        XCTAssertTrue(state.isPlaying)
+        XCTAssertEqual(state.duration, 140.046, accuracy: 0.0001)
+        XCTAssertEqual(state.position, 24.694, accuracy: 0.0001)
+    }
+
+    func testSpotifyPausedStateAndMalformedNumbersAreSafe() throws {
+        let raw = ["paused", "Track", "Artist", "Album", "140046", "24694", ""].joined(separator: "\u{1}")
+        XCTAssertFalse(try XCTUnwrap(PlayerBridge.parse(raw, app: .spotify)).isPlaying)
+        for value in ["-1", "nan", "inf"] {
+            XCTAssertNil(PlayerBridge.parse(["playing", "Track", "Artist", "Album", value, "0", ""].joined(separator: "\u{1}"), app: .spotify))
+        }
+    }
+
+    func testSpotifyScriptAndTransportUseOnlyDeclaredCommands() {
+        let script = PlayerBridge.stateScript(for: .spotify)
+        XCTAssertTrue(script.contains("tell application id \"com.spotify.client\""))
+        XCTAssertTrue(script.contains("duration of t"))
+        XCTAssertTrue(script.contains("(player position) * 1000"))
+        XCTAssertFalse(script.contains("track ID"))
+        XCTAssertFalse(script.contains("play count"))
+        XCTAssertEqual(PlayerBridge.transportCommand(.playPause, on: .spotify), "playpause")
+        XCTAssertEqual(PlayerBridge.transportCommand(.next, on: .spotify), "next track")
+        XCTAssertEqual(PlayerBridge.transportCommand(.previous, on: .spotify), "previous track")
+        XCTAssertEqual(PlayerBridge.transportCommand(.previous, on: .music), "back track")
+    }
+
     func testMapsAutomationAuthorizationStatuses() {
         XCTAssertEqual(PlayerBridge.automationAuthorization(for: noErr), .allowed)
         XCTAssertEqual(

@@ -21,7 +21,8 @@ final class PermissionCenter: ObservableObject {
     }
 
     @Published private(set) var calendar: State = .notRequested
-    @Published private(set) var musicAutomation: State = .notRequested
+    @Published private(set) var appleMusicAutomation: State = .notRequested
+    @Published private(set) var spotifyAutomation: State = .notRequested
     @Published private(set) var notifications: State = .notRequested
 
     private let eventStore = EKEventStore()
@@ -34,7 +35,8 @@ final class PermissionCenter: ObservableObject {
         case .notDetermined: calendar = .notRequested
         @unknown default: calendar = .restricted
         }
-        refreshMusicAutomation()
+        refreshAutomation(for: .music)
+        refreshAutomation(for: .spotify)
 
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             Task { @MainActor in
@@ -56,9 +58,10 @@ final class PermissionCenter: ObservableObject {
         }
     }
 
-    func requestMusicAutomation() {
-        PlayerBridge.automationAuthorization(for: .music, prompt: true) { [weak self] _ in
-            self?.refreshMusicAutomation()
+    func requestAutomation(for app: PlayerApp) {
+        guard app.isInstalled else { return }
+        PlayerBridge.automationAuthorization(for: app, prompt: true) { [weak self] _ in
+            self?.refreshAutomation(for: app)
         }
     }
 
@@ -97,19 +100,27 @@ final class PermissionCenter: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    private func refreshMusicAutomation() {
-        guard PlayerApp.music.isInstalled else {
-            musicAutomation = .restricted
+    private func refreshAutomation(for app: PlayerApp) {
+        guard app.isInstalled else {
+            setAutomation(.restricted, for: app)
             return
         }
-        PlayerBridge.automationAuthorization(for: .music, prompt: false) { [weak self] authorization in
+        PlayerBridge.automationAuthorization(for: app, prompt: false) { [weak self] authorization in
             guard let self else { return }
-            switch authorization {
-            case .allowed: self.musicAutomation = .allowed
-            case .denied: self.musicAutomation = .denied
-            case .notDetermined: self.musicAutomation = .notRequested
-            case .restricted: self.musicAutomation = .restricted
+            let state: State = switch authorization {
+            case .allowed: .allowed
+            case .denied: .denied
+            case .notDetermined: .notRequested
+            case .restricted: .restricted
             }
+            self.setAutomation(state, for: app)
+        }
+    }
+
+    private func setAutomation(_ state: State, for app: PlayerApp) {
+        switch app {
+        case .music: appleMusicAutomation = state
+        case .spotify: spotifyAutomation = state
         }
     }
 }

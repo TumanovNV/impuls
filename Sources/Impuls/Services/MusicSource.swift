@@ -10,6 +10,7 @@ import Foundation
 /// worse than not shipping it.
 enum MusicSource: String, CaseIterable, Identifiable {
     case appleMusic
+    case spotify
     case yandexMusic
     case vkMusic
     case youtubeMusic
@@ -19,6 +20,7 @@ enum MusicSource: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .appleMusic: return "Apple Music"
+        case .spotify: return "Spotify"
         case .yandexMusic: return "Яндекс Музыка"
         case .vkMusic: return "VK Музыка"
         case .youtubeMusic: return "YouTube Music"
@@ -28,6 +30,7 @@ enum MusicSource: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .appleMusic: return "music.note"
+        case .spotify: return "music.note"
         case .yandexMusic: return "waveform"
         case .vkMusic: return "person.2.wave.2"
         case .youtubeMusic: return "play.rectangle.fill"
@@ -36,9 +39,19 @@ enum MusicSource: String, CaseIterable, Identifiable {
 
     var isWeb: Bool { webHomeURL != nil }
 
+    /// Native providers are addressed only through their own declared public
+    /// scripting interface. A web provider deliberately has no PlayerApp.
+    var nativePlayerApp: PlayerApp? {
+        switch self {
+        case .appleMusic: return .music
+        case .spotify: return .spotify
+        case .yandexMusic, .vkMusic, .youtubeMusic: return nil
+        }
+    }
+
     var webHomeURL: URL? {
         switch self {
-        case .appleMusic: return nil
+        case .appleMusic, .spotify: return nil
         case .yandexMusic: return URL(string: "https://music.yandex.ru/home")
         case .vkMusic: return URL(string: "https://vk.com/audio")
         case .youtubeMusic: return URL(string: "https://music.youtube.com/")
@@ -79,7 +92,7 @@ enum MusicSource: String, CaseIterable, Identifiable {
 
     private var allowedHostSuffixes: [String] {
         switch self {
-        case .appleMusic:
+        case .appleMusic, .spotify:
             return []
         case .yandexMusic:
             // music.yandex.* is the service; passport.yandex.* and ya.ru carry

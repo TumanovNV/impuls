@@ -15,7 +15,7 @@ tags: [impuls, macos, tcc, permissions]
 | Capability | macOS mechanism | Prompt owner | Auto-prompt allowed? |
 | --- | --- | --- | --- |
 | Calendar | EventKit / TCC | Calendar UI | No |
-| Apple Music control | Apple Events Automation / TCC | Music UI | No |
+| Apple Music / Spotify control | Apple Events Automation / TCC per target app | Music UI | No |
 | Low battery notifications | UserNotifications | explicit setting/action | No |
 | iPhone/iPad trust | Apple device trust/pairing | device/macOS relationship | Impuls must not trigger pairing blindly |
 | Files selected/dropped | normal user-selected filesystem access | user action | N/A |
@@ -30,7 +30,7 @@ IMP-21 reviews this boundary: both strict local Teams URL forms run only after t
 
 ## Music Automation
 
-Status check is non-prompting. If not determined, user action may request Automation. If denied, UI opens the Automation pane in System Settings.
+Status check is non-prompting. If not determined, user action may request Automation. If denied, UI opens the Automation pane in System Settings. Apple Music and Spotify have independent target-app TCC states; an absent Spotify app is unavailable without a prompt.
 
 ## Notifications
 

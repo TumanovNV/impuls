@@ -1,7 +1,7 @@
 /* Impuls — diálogos de permisos del sistema, español. macOS prefiere el valor
    del archivo `.lproj/InfoPlist.strings` correspondiente cuando existe. */
 
-"NSAppleEventsUsageDescription" = "Impuls lee el nombre de la pista actual y controla la reproducción en la app Apple Music.";
+"NSAppleEventsUsageDescription" = "Impuls lee la información de la pista actual y controla la reproducción en apps de música compatibles, como Apple Music y Spotify.";
 "NSCalendarsFullAccessUsageDescription" = "Impuls muestra tus próximas reuniones y un botón para unirte a ellas.";
 "NSCalendarsUsageDescription" = "Impuls muestra tus próximas reuniones y un botón para unirte a ellas.";
 "CFBundleDisplayName" = "Impuls";

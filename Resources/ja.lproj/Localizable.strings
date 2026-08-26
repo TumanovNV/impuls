@@ -35,6 +35,10 @@
 "Open Web Player" = "Webプレーヤーを開く";
 "Show Web Player" = "Webプレーヤーを表示";
 "Open Apple Music" = "Apple Musicを開く";
+"Open %@" = "%@を開く";
+"Open %@ and start a track." = "%@を開いて曲を再生してください。";
+"%@ is open, but no track is playing." = "%@は開いていますが、再生中の曲はありません。";
+"%@ is playing, but its track data could not be read." = "%@は再生中ですが、曲の情報を読み取れませんでした。";
 "Open Apple Music and start a track." = "Apple Musicを開いて曲を再生してください。";
 "Apple Music is open, but no track is playing." = "Apple Musicは開いていますが、再生中の曲はありません。";
 "Apple Music is playing, but its track data could not be read." = "Apple Musicは再生中ですが、曲の情報を読み取れませんでした。";
@@ -43,6 +47,10 @@
 "Choose a track in %@." = "%@で曲を選んでください。";
 "%@ could not be loaded." = "%@を読み込めませんでした。";
 "%@ could not be loaded: %@" = "%@を読み込めませんでした: %@";
+"Apple Music Automation" = "Apple Musicの自動操作";
+"Reads track information and controls Apple Music. Web players do not need this permission." = "曲情報を読み取り、Apple Musicを操作します。Webプレーヤーにはこの許可は不要です。";
+"Spotify Automation" = "Spotifyの自動操作";
+"Reads track information and controls Spotify. Web players do not need this permission." = "曲情報を読み取り、Spotifyを操作します。Webプレーヤーにはこの許可は不要です。";
 
 /* Snippets */
 "Add a snippet" = "スニペットを追加";

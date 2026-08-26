@@ -35,6 +35,10 @@
 "Open Web Player" = "打开网页播放器";
 "Show Web Player" = "显示网页播放器";
 "Open Apple Music" = "打开 Apple Music";
+"Open %@" = "打开 %@";
+"Open %@ and start a track." = "请打开 %@ 并播放一首曲目。";
+"%@ is open, but no track is playing." = "%@ 已打开，但没有曲目在播放。";
+"%@ is playing, but its track data could not be read." = "%@ 正在播放，但无法读取其曲目信息。";
 "Open Apple Music and start a track." = "请打开 Apple Music 并播放一首曲目。";
 "Apple Music is open, but no track is playing." = "Apple Music 已打开，但没有曲目在播放。";
 "Apple Music is playing, but its track data could not be read." = "Apple Music 正在播放，但无法读取其曲目信息。";
@@ -43,6 +47,10 @@
 "Choose a track in %@." = "请在 %@ 中选择一首曲目。";
 "%@ could not be loaded." = "无法加载 %@。";
 "%@ could not be loaded: %@" = "无法加载 %@：%@";
+"Apple Music Automation" = "Apple Music 自动化";
+"Reads track information and controls Apple Music. Web players do not need this permission." = "读取曲目信息并控制 Apple Music。网页播放器不需要此权限。";
+"Spotify Automation" = "Spotify 自动化";
+"Reads track information and controls Spotify. Web players do not need this permission." = "读取曲目信息并控制 Spotify。网页播放器不需要此权限。";
 
 /* Snippets */
 "Add a snippet" = "添加文本片段";

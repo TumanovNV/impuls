@@ -230,12 +230,15 @@ final class MusicSourceTests: XCTestCase {
         #endif
     }
 
-    /// Spotify's web player decrypts through Widevine, which WebKit does not
-    /// implement, so it must not be offered as a source at all.
-    func testSpotifyIsNotOffered() {
+    func testSpotifyIsANativeSourceNotAWebSource() {
+        XCTAssertEqual(MusicSource.spotify.displayName, "Spotify")
+        XCTAssertFalse(MusicSource.spotify.isWeb)
+        XCTAssertEqual(MusicSource.spotify.nativePlayerApp, .spotify)
+        XCTAssertEqual(PlayerApp.spotify.bundleID, "com.spotify.client")
+        XCTAssertTrue(MusicProviderCatalog.allServices.contains(.spotify))
         XCTAssertNil(MusicSource(rawValue: "spotifyWeb"))
         XCTAssertEqual(MusicSource.allCases.map(\.rawValue),
-                       ["appleMusic", "yandexMusic", "vkMusic", "youtubeMusic"])
+                       ["appleMusic", "spotify", "yandexMusic", "vkMusic", "youtubeMusic"])
     }
 
     /// The Safari token is what the providers sniff for. Without it the pages
@@ -275,7 +278,7 @@ final class MusicSourceTests: XCTestCase {
         defaults.set("spotifyWeb", forKey: MediaController.selectedSourceKey)
         let controller = MediaController(defaults: defaults)
         XCTAssertEqual(controller.selectedSource, .appleMusic)
-        XCTAssertEqual(controller.emptyReason, .appleMusicNotRunning)
+        XCTAssertEqual(controller.emptyReason, .nativeNotRunning)
     }
 
     // MARK: - The web player's background work has an owner

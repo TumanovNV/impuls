@@ -969,12 +969,23 @@ private struct PermissionSettingsPane: View {
                     )
 
                     permissionRow(
-                        title: localized("Music Automation"),
-                        detail: localized("Reads track information and controls the Apple Music app. Web players do not need this permission."),
+                        title: localized("Apple Music Automation"),
+                        detail: localized("Reads track information and controls Apple Music. Web players do not need this permission."),
                         symbol: "music.note",
-                        state: permissions.musicAutomation,
-                        primaryTitle: permissions.musicAutomation == .notRequested ? localized("Allow") : nil,
-                        primaryAction: permissions.requestMusicAutomation,
+                        state: permissions.appleMusicAutomation,
+                        primaryTitle: permissions.appleMusicAutomation == .notRequested ? localized("Allow") : nil,
+                        primaryAction: { permissions.requestAutomation(for: .music) },
+                        settingsAction: permissions.openAutomationSettings,
+                        alwaysShowSettings: true
+                    )
+
+                    permissionRow(
+                        title: localized("Spotify Automation"),
+                        detail: localized("Reads track information and controls Spotify. Web players do not need this permission."),
+                        symbol: "music.note",
+                        state: permissions.spotifyAutomation,
+                        primaryTitle: permissions.spotifyAutomation == .notRequested ? localized("Allow") : nil,
+                        primaryAction: { permissions.requestAutomation(for: .spotify) },
                         settingsAction: permissions.openAutomationSettings,
                         alwaysShowSettings: true
                     )

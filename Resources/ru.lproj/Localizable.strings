@@ -35,6 +35,10 @@
 "Open Web Player" = "Открыть веб-плеер";
 "Show Web Player" = "Показать веб-плеер";
 "Open Apple Music" = "Открыть Apple Music";
+"Open %@" = "Открыть %@";
+"Open %@ and start a track." = "Откройте %@ и включите трек.";
+"%@ is open, but no track is playing." = "%@ открыто, но воспроизведение не запущено.";
+"%@ is playing, but its track data could not be read." = "%@ воспроизводит музыку, но данные трека не удалось прочитать.";
 "Open Apple Music and start a track." = "Откройте Apple Music и включите трек.";
 "Apple Music is open, but no track is playing." = "Apple Music открыта, но воспроизведение не запущено.";
 "Apple Music is playing, but its track data could not be read." = "Музыка играет, но Apple Music не передала данные трека.";
@@ -43,6 +47,10 @@
 "Choose a track in %@." = "Выберите трек в %@.";
 "%@ could not be loaded." = "Не удалось загрузить %@.";
 "%@ could not be loaded: %@" = "Не удалось загрузить %@: %@";
+"Apple Music Automation" = "Автоматизация Apple Music";
+"Reads track information and controls Apple Music. Web players do not need this permission." = "Читает информацию о треке и управляет Apple Music. Веб-плеерам это разрешение не нужно.";
+"Spotify Automation" = "Автоматизация Spotify";
+"Reads track information and controls Spotify. Web players do not need this permission." = "Читает информацию о треке и управляет Spotify. Веб-плеерам это разрешение не нужно.";
 
 /* Заготовки */
 "Add a snippet" = "Добавить заготовку";

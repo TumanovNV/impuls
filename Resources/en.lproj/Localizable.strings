@@ -36,6 +36,10 @@
 "Open Web Player" = "Open Web Player";
 "Show Web Player" = "Show Web Player";
 "Open Apple Music" = "Open Apple Music";
+"Open %@" = "Open %@";
+"Open %@ and start a track." = "Open %@ and start a track.";
+"%@ is open, but no track is playing." = "%@ is open, but no track is playing.";
+"%@ is playing, but its track data could not be read." = "%@ is playing, but its track data could not be read.";
 "Open Apple Music and start a track." = "Open Apple Music and start a track.";
 "Apple Music is open, but no track is playing." = "Apple Music is open, but no track is playing.";
 "Apple Music is playing, but its track data could not be read." = "Apple Music is playing, but its track data could not be read.";
@@ -44,6 +48,10 @@
 "Choose a track in %@." = "Choose a track in %@.";
 "%@ could not be loaded." = "%@ could not be loaded.";
 "%@ could not be loaded: %@" = "%@ could not be loaded: %@";
+"Apple Music Automation" = "Apple Music Automation";
+"Reads track information and controls Apple Music. Web players do not need this permission." = "Reads track information and controls Apple Music. Web players do not need this permission.";
+"Spotify Automation" = "Spotify Automation";
+"Reads track information and controls Spotify. Web players do not need this permission." = "Reads track information and controls Spotify. Web players do not need this permission.";
 
 /* Snippets */
 "Add a snippet" = "Add a snippet";

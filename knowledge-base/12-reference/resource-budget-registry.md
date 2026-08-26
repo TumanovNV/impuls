@@ -73,7 +73,7 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Pointer sampling | warm 60 Hz / idle 8 Hz | one sampler for all displays; stationary pointer cools after 3 s |
 | Clipboard `changeCount` | 0.5 s, tolerance 0.2 s | payload is not materialized unless counter moves |
 | Playback position | 0.25 s, tolerance 0.05 s | visible + playing only |
-| Native Apple Music state | 1 s, tolerance 0.15 s | visible Apple Music pane only |
+| Native music state (Apple Music / Spotify) | 1 s, tolerance 0.15 s | visible selected native-app pane only; one shared timer |
 | Calendar countdown | 30 s, tolerance 5 s | visible pane only |
 | Local Mac power | 2 s, tolerance 0.5 s | visible Power pane only |
 | Apple accessory provider | 10 s active / 600 s idle | IOKit events may trigger immediate reads |

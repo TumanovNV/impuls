@@ -45,16 +45,16 @@ WebKit's content process может умереть — краш или system re
 
 Управление **явно выбранным** источником музыки без угадывания «какой из запущенных плееров главный», с честным Now Playing state — источник не выдаёт непроверенную возможность за доступную.
 
-Поддерживаются Apple Music, Яндекс Музыка, VK Музыка и YouTube Music. Каталог источников в 1.4.16 не расширился: см. «Provider compatibility audit (1.4.16)» ниже — расширение возможно только для источника, реально прошедшего весь gate из этого раздела, а не просто присутствующего в market-share таблице.
+Поддерживаются native Apple Music и Spotify, а также Яндекс Музыка, VK Музыка и YouTube Music как web providers. Spotify — только native macOS app через его поставляемый Scripting Dictionary; Spotify WEB embedding по-прежнему не поддерживается.
 
 ## Architecture
 
 ```mermaid
 flowchart TD
     UI[MediaPane] --> MC[MediaController]
-    MC -->|Apple Music| NB["NativeMusicBridging (LivePlayerBridge)"]
+    MC -->|Selected Apple Music or Spotify| NB["NativeMusicBridging (LivePlayerBridge)"]
     NB --> PB[PlayerBridge]
-    PB --> AE[Apple Events / Music app]
+    PB --> AE[Apple Events / selected app]
     MC -->|Explicit Open Web Player| WMP["WebMusicPlaying (WebMusicPlayer)"]
     WMP --> MS[Selected provider site]
     WMP --> BR[Bounded Media Session bridge]
@@ -80,11 +80,11 @@ Product-priority подмножества на 1.4.16 (все источники
 | Материковый Китай (`CN` — не HK/MO/TW) | только Apple Music (YouTube Music там недоступен, поэтому не продвигается) |
 | Всё остальное, включая неизвестный/неопознанный регион | Apple Music, YouTube Music |
 
-## Apple Music
+## Native music apps
 
-`PlayerBridge` получает state через scripting interface/public Automation path и distributed player notifications, за `NativeMusicBridging` (production: `LivePlayerBridge`). Active pane имеет bounded 1 s native refresh; duplicate refreshes coalesced.
+`PlayerBridge` получает state только от явно выбранного `PlayerApp` через scripting interface/public Automation path, за `NativeMusicBridging` (production: `LivePlayerBridge`). Active pane имеет bounded 1 s native refresh; duplicate refreshes coalesced. Поэтому одновременно запущенный Apple Music не может подменить Spotify state и наоборот. Apple Music distributed notification остаётся Apple-Music-only fallback; для Spotify notification не предполагается.
 
-Permission: Apple Events Automation. Status check не prompt'ит; пользователь сам инициирует request.
+Permission: Apple Events Automation per target app. Status check не prompt'ит; пользователь сам инициирует request. Apple Music и Spotify отображаются и разрешаются независимо; отсутствие Spotify — safe unavailable state без prompt.
 
 ### Stale-refresh guard (1.4.16 fix)
 
@@ -117,7 +117,7 @@ Track/artwork/play state — runtime. Selected source — UserDefaults. Web sess
 
 Issue #95 запросил desk-research аудит кандидатов, а не задачу «добавить максимум сервисов». Ни один кандидат не прошёл весь gate (реальный вход, реальное воспроизведение без неподдерживаемого DRM, метаданные через стабильный публичный surface / Media Session, а не через fragile DOM-scraping, контролы без хрупкого DOM-clicking, никакого архитектурного rewrite `WebMusicPlayer`) на уровне, достаточном для honest GREEN без учётной записи/региона/подписки, которых у аудита не было — поэтому 1.4.16 сознательно не добавляет новых источников:
 
-- **Spotify** — remains unsupported. Technical reason unchanged and re-verified: Spotify Web Playback requires Widevine-decrypted audio, which WKWebView does not implement on macOS, so an embedded Spotify tab can authenticate but not produce sound. This is a limitation of the current WebKit-based web-player architecture, not a permanent claim about Spotify — no private framework, injection, Accessibility-scraping, or Widevine-redistribution workaround was considered acceptable, so none was attempted.
+- **Spotify WEB** — remains unsupported: Spotify Web Playback requires Widevine-decrypted audio, which WKWebView does not implement on macOS. This does not apply to the supported native Spotify macOS app path: it uses only the app-shipped Scripting Dictionary and public Apple Events/TCC. The scripting interface is not assumed to be permanent; if a future Spotify release lacks it, Impuls fails gracefully. No private framework, injection, Accessibility-scraping or Widevine workaround is used.
 - **Zvuk, Amazon Music, Deezer** — YELLOW/UNKNOWN: plausible web-player candidates in principle, but without a live account/subscription in-session they could not be proven to clear the full gate (real sign-in, real audio, non-fragile metadata). Deferred rather than shipped on a guess.
 - **LINE MUSIC, QQ Music, NetEase Cloud Music, KuGou Music, Kuwo Music** — UNKNOWN: region/account-gated services the audit had no way to verify live; deferred rather than silently promoted to GREEN.
 

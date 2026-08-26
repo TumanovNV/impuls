@@ -2,7 +2,8 @@ import AppKit
 import ApplicationServices
 import ImageIO
 
-/// Public-API bridge dedicated to the native Apple Music application.
+/// Public-API bridge for native music applications with shipped scripting
+/// dictionaries. Spotify is never embedded or contacted by Impuls.
 ///
 /// State is read through the application's scripting interface. Distributed
 /// player notifications provide a second metadata path, which matters when a
@@ -10,18 +11,26 @@ import ImageIO
 /// playing. No private Now Playing framework is linked or loaded.
 enum PlayerApp: String, CaseIterable, Hashable {
     case music
+    case spotify
 
     var bundleID: String {
-        "com.apple.Music"
+        switch self {
+        case .music: "com.apple.Music"
+        case .spotify: "com.spotify.client"
+        }
     }
 
     var displayName: String {
-        "Apple Music"
+        switch self {
+        case .music: "Apple Music"
+        case .spotify: "Spotify"
+        }
     }
 
-    /// Distributed notification the player posts on every state change.
-    var changeNotification: Notification.Name {
-        Notification.Name("com.apple.Music.playerInfo")
+    /// Only Apple Music publishes the public distributed notification used as
+    /// a fallback. Spotify is refreshed through its scripting dictionary.
+    var changeNotification: Notification.Name? {
+        self == .music ? Notification.Name("com.apple.Music.playerInfo") : nil
     }
 
     var isRunning: Bool {
@@ -66,40 +75,40 @@ struct PlayerState {
     var key: String { "\(app.rawValue)|\(title)|\(artist)|\(album)" }
 }
 
-/// What `MediaController` needs from the native Apple Music path. `PlayerBridge`
+/// What `MediaController` needs from the selected native-provider path. `PlayerBridge`
 /// stays a plain namespace of static AppleScript calls; this seam exists only
 /// so a test can drive `MediaController`'s state machine — source switch,
 /// track switch, stale-result suppression — without a real Music app or
 /// Automation permission.
 @MainActor
 protocol NativeMusicBridging {
-    func currentState(completion: @escaping (PlayerScanResult) -> Void)
-    func playPause()
-    func next()
-    func previous()
-    func seek(to seconds: TimeInterval)
+    func currentState(for app: PlayerApp, completion: @escaping (PlayerScanResult) -> Void)
+    func playPause(on app: PlayerApp)
+    func next(on app: PlayerApp)
+    func previous(on app: PlayerApp)
+    func seek(on app: PlayerApp, to seconds: TimeInterval)
     func artwork(for state: PlayerState, completion: @escaping (NSImage?) -> Void)
-    func automationAuthorization(prompt: Bool, completion: @escaping (AutomationAuthorization) -> Void)
+    func automationAuthorization(for app: PlayerApp, prompt: Bool, completion: @escaping (AutomationAuthorization) -> Void)
 }
 
 /// The production adapter: every call forwards straight to `PlayerBridge`,
-/// pinned to `.music` since that is the only `PlayerApp` today.
+/// with the explicitly selected app; it never scans for a different player.
 struct LivePlayerBridge: NativeMusicBridging {
-    func currentState(completion: @escaping (PlayerScanResult) -> Void) {
-        PlayerBridge.currentState(completion: completion)
+    func currentState(for app: PlayerApp, completion: @escaping (PlayerScanResult) -> Void) {
+        PlayerBridge.currentState(for: app, completion: completion)
     }
 
-    func playPause() { PlayerBridge.playPause(.music) }
-    func next() { PlayerBridge.next(.music) }
-    func previous() { PlayerBridge.previous(.music) }
-    func seek(to seconds: TimeInterval) { PlayerBridge.seek(.music, to: seconds) }
+    func playPause(on app: PlayerApp) { PlayerBridge.playPause(app) }
+    func next(on app: PlayerApp) { PlayerBridge.next(app) }
+    func previous(on app: PlayerApp) { PlayerBridge.previous(app) }
+    func seek(on app: PlayerApp, to seconds: TimeInterval) { PlayerBridge.seek(app, to: seconds) }
 
     func artwork(for state: PlayerState, completion: @escaping (NSImage?) -> Void) {
         PlayerBridge.artwork(for: state, completion: completion)
     }
 
-    func automationAuthorization(prompt: Bool, completion: @escaping (AutomationAuthorization) -> Void) {
-        PlayerBridge.automationAuthorization(for: .music, prompt: prompt, completion: completion)
+    func automationAuthorization(for app: PlayerApp, prompt: Bool, completion: @escaping (AutomationAuthorization) -> Void) {
+        PlayerBridge.automationAuthorization(for: app, prompt: prompt, completion: completion)
     }
 }
 
@@ -209,10 +218,10 @@ enum PlayerBridge {
         )
     }
 
-    /// Never launches Music. The pane has a separate explicit action for that.
-    static func currentState(completion: @escaping (PlayerScanResult) -> Void) {
-        let candidates = PlayerApp.allCases.filter(\.isRunning)
-        guard !candidates.isEmpty else {
+    /// Never launches an app. The caller selects the one app it is allowed to
+    /// query, so a running Spotify process cannot win over Apple Music (or vice versa).
+    static func currentState(for app: PlayerApp, completion: @escaping (PlayerScanResult) -> Void) {
+        guard app.isRunning else {
             return completion(PlayerScanResult(
                 state: nil,
                 accessIssue: nil,
@@ -221,41 +230,40 @@ enum PlayerBridge {
             ))
         }
 
-        var results: [PlayerState] = []
-        var accessIssues: [PlayerAccessIssue] = []
-        var readFailed = false
-        let group = DispatchGroup()
-        for app in candidates {
-            group.enter()
-            state(of: app) { result in
-                switch result {
-                case .state(let state): results.append(state)
-                case .accessIssue(let issue): accessIssues.append(issue)
-                case .noState: break
-                case .readFailed: readFailed = true
-                }
-                group.leave()
-            }
-        }
-        group.notify(queue: .main) {
-            let state = results.first(where: \.isPlaying) ?? results.first
-            let issue = state == nil
-                ? accessIssues.first(where: { $0.authorization == .denied }) ?? accessIssues.first
-                : nil
+        state(of: app) { result in
+            switch result {
+            case .state(let state):
+                completion(PlayerScanResult(state: state, accessIssue: nil, hasRunningPlayer: true, readFailed: false))
+            case .accessIssue(let issue):
+                completion(PlayerScanResult(state: nil, accessIssue: issue, hasRunningPlayer: true, readFailed: false))
+            case .noState:
+                completion(PlayerScanResult(state: nil, accessIssue: nil, hasRunningPlayer: true, readFailed: false))
+            case .readFailed:
             completion(PlayerScanResult(
-                state: state,
-                accessIssue: issue,
+                state: nil,
+                accessIssue: nil,
                 hasRunningPlayer: true,
-                readFailed: readFailed
+                readFailed: true
             ))
+            }
         }
     }
 
     // MARK: - Transport
 
-    static func playPause(_ app: PlayerApp) { command("playpause", on: app) }
-    static func next(_ app: PlayerApp) { command("next track", on: app) }
-    static func previous(_ app: PlayerApp) { command("back track", on: app) }
+    enum TransportCommand { case playPause, next, previous }
+
+    static func transportCommand(_ command: TransportCommand, on app: PlayerApp) -> String {
+        switch command {
+        case .playPause: return "playpause"
+        case .next: return "next track"
+        case .previous: return app == .spotify ? "previous track" : "back track"
+        }
+    }
+
+    static func playPause(_ app: PlayerApp) { command(transportCommand(.playPause, on: app), on: app) }
+    static func next(_ app: PlayerApp) { command(transportCommand(.next, on: app), on: app) }
+    static func previous(_ app: PlayerApp) { command(transportCommand(.previous, on: app), on: app) }
 
     /// The position is clamped against a duration the app did not compute — for
     /// the web player it is whatever the provider's page reported. `Int(_:)` is
@@ -279,7 +287,8 @@ enum PlayerBridge {
 
     // MARK: - Artwork
 
-    static func artwork(for _: PlayerState, completion: @escaping (NSImage?) -> Void) {
+    static func artwork(for state: PlayerState, completion: @escaping (NSImage?) -> Void) {
+        guard state.app == .music else { return completion(nil) }
         runScript("""
         tell application id "com.apple.Music"
             if (count of artworks of current track) is 0 then return missing value
@@ -315,8 +324,31 @@ enum PlayerBridge {
 
     // MARK: - Scripts
 
-    private static func stateScript(for _: PlayerApp) -> String {
+    static func stateScript(for app: PlayerApp) -> String {
         let sep = "set sep to character id 1"
+        if app == .spotify {
+            return """
+            \(sep)
+            tell application id "com.spotify.client"
+                set st to player state as text
+                if st is "stopped" then return ""
+                set t to current track
+                set trackName to ""
+                set trackArtist to ""
+                set trackAlbum to ""
+                set trackDuration to 0
+                set positionMilliseconds to 0
+                try
+                    set trackName to name of t as text
+                    set trackArtist to artist of t as text
+                    set trackAlbum to album of t as text
+                    set trackDuration to duration of t
+                    set positionMilliseconds to round ((player position) * 1000)
+                end try
+                return st & sep & trackName & sep & trackArtist & sep & trackAlbum & sep & trackDuration & sep & positionMilliseconds & sep & ""
+            end tell
+            """
+        }
         return """
         \(sep)
         tell application id "com.apple.Music"
@@ -350,15 +382,18 @@ enum PlayerBridge {
 
     static func parse(_ raw: String, app: PlayerApp) -> PlayerState? {
         let parts = raw.components(separatedBy: "\u{1}")
-        guard parts.count >= 6, !parts[1].isEmpty else { return nil }
+        guard parts.count >= 6,
+              !parts[1].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let durationMilliseconds = Double(parts[4]), durationMilliseconds.isFinite, durationMilliseconds >= 0,
+              let positionMilliseconds = Double(parts[5]), positionMilliseconds.isFinite, positionMilliseconds >= 0 else { return nil }
         return PlayerState(
             app: app,
             isPlaying: parts[0].lowercased() == "playing",
             title: parts[1],
             artist: parts[2],
             album: parts[3],
-            duration: (Double(parts[4]) ?? 0) / 1000,
-            position: (Double(parts[5]) ?? 0) / 1000,
+            duration: durationMilliseconds / 1000,
+            position: positionMilliseconds / 1000,
             positionIsKnown: true,
             artworkURL: parts.count > 6 ? URL(string: parts[6]) : nil
         )
