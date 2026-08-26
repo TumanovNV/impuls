@@ -382,6 +382,7 @@
 "Into Battery" = "В батарею";
 "Power Usage" = "Потребление";
 "Power Adapter" = "Адаптер";
+"Adapter Current" = "Ток адаптера";
 "Connection" = "Подключение";
 "MagSafe" = "MagSafe";
 "USB-C" = "USB-C";

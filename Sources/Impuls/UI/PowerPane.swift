@@ -819,6 +819,9 @@ struct PowerPane: View {
         if snapshot.adapterRatedPowerWatts != nil {
             items.append(MetricItem(value: adapterValue, title: localized("Power Adapter")))
         }
+        if let adapterCurrentValue {
+            items.append(MetricItem(value: adapterCurrentValue, title: localized("Adapter Current")))
+        }
         if snapshot.temperatureCelsius != nil {
             items.append(MetricItem(value: temperatureValue, title: localized("Temperature")))
         }
@@ -907,6 +910,10 @@ struct PowerPane: View {
 
     private var adapterValue: String { formattedWatts(snapshot.adapterRatedPowerWatts) }
 
+    private var adapterCurrentValue: String? {
+        AdapterCurrentFormatter.string(for: snapshot.adapterCurrentMilliamps)
+    }
+
     private var temperatureValue: String {
         guard let temperature = snapshot.temperatureCelsius else { return "—" }
         let rounded = temperature.rounded()
@@ -959,6 +966,21 @@ struct PowerPane: View {
             return String(format: localized("%.0f W"), watts)
         }
         return String(format: localized("%.1f W"), watts)
+    }
+}
+
+enum AdapterCurrentFormatter {
+    static func string(for milliamps: Int?, locale: Locale = .current) -> String? {
+        guard let milliamps, milliamps > 0 else { return nil }
+        guard milliamps >= 1_000 else { return "\(milliamps) mA" }
+
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 1
+        guard let amperes = formatter.string(from: NSNumber(value: Double(milliamps) / 1_000)) else { return nil }
+        return "\(amperes) A"
     }
 }
 

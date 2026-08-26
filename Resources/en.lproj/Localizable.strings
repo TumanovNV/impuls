@@ -383,6 +383,7 @@
 "Into Battery" = "Into Battery";
 "Power Usage" = "Power Usage";
 "Power Adapter" = "Power Adapter";
+"Adapter Current" = "Adapter Current";
 "Connection" = "Connection";
 "MagSafe" = "MagSafe";
 "USB-C" = "USB-C";

@@ -382,6 +382,7 @@
 "Into Battery" = "バッテリーへ";
 "Power Usage" = "消費電力";
 "Power Adapter" = "電源アダプタ";
+"Adapter Current" = "電源アダプタの電流";
 "Connection" = "接続";
 "MagSafe" = "MagSafe";
 "USB-C" = "USB-C";
