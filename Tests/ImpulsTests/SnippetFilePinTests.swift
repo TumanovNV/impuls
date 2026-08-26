@@ -287,7 +287,6 @@ final class SnippetFilePinTests: XCTestCase {
         XCTAssertFalse(actions.copy(pin))
         XCTAssertFalse(actions.open(pin))
         XCTAssertFalse(actions.reveal(pin))
-        XCTAssertFalse(actions.isAvailable(pin))
 
         XCTAssertTrue(pasteboard.written.isEmpty)
         XCTAssertTrue(workspace.opened.isEmpty)
@@ -427,6 +426,71 @@ final class SnippetFilePinTests: XCTestCase {
             "removing a pin must never delete, trash or move the user's file"
         )
         XCTAssertEqual(try String(contentsOf: url, encoding: .utf8), "do not delete me")
+    }
+
+    /// A bookmark carries the volume name, the volume UUID and the inode, and
+    /// a backup is portable by definition. It has to be dropped on the way out
+    /// — the path is the part that can meaningfully transfer.
+    func testABackupCarriesThePathButNeverTheBookmark() throws {
+        let url = try makeFile("exported.txt")
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(url))
+        let pin = try XCTUnwrap(store.items.first)
+        XCTAssertNotNil(pin.file?.bookmark, "the live pin does have one")
+
+        let document = ImpulsBackupDocument(
+            settings: ImpulsSettingsSnapshot(
+                hotKey: .optionShiftSpace,
+                activationMode: .hoverAndShortcut,
+                openDelay: .balanced,
+                panelSize: .compact,
+                selectedDisplayID: nil,
+                modules: [],
+                saveClipboardImages: false,
+                persistClipboardHistory: false,
+                clipboardRetention: .sevenDays,
+                excludedClipboardBundleIdentifiers: []
+            ),
+            snippets: store.items,
+            notes: []
+        )
+
+        let exported = try XCTUnwrap(document.snippets.first)
+        XCTAssertTrue(exported.isFile, "it is still a file pin")
+        XCTAssertEqual(exported.text, url.path, "the readable path travels")
+        XCTAssertNil(exported.file?.bookmark, "the machine-local blob does not")
+
+        // And nothing of it survives in the encoded bytes either.
+        let encoded = try JSONEncoder().encode(document)
+        let text = try XCTUnwrap(String(data: encoded, encoding: .utf8))
+        XCTAssertFalse(text.contains("bookmark"), "no bookmark key reaches the file")
+
+        // The live store is untouched by having been exported.
+        XCTAssertNotNil(store.items.first?.file?.bookmark)
+    }
+
+    /// The rename write-back path had no assertions at all: it is what keeps a
+    /// moved file working on the next launch, and it applies the same identity
+    /// rule as re-select.
+    func testTheRenameWriteBackUpdatesInPlaceAndCannotDuplicateAnIdentity() throws {
+        let first = try makeFile("one.txt")
+        let second = try makeFile("two.txt")
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(first))
+        XCTAssertTrue(store.addFile(second))
+
+        let target = try XCTUnwrap(store.items.first { $0.fileName == "one.txt" })
+        let index = try XCTUnwrap(store.items.firstIndex { $0.id == target.id })
+        let bookmark = try XCTUnwrap(SnippetFileResolver.makeBookmark(for: first))
+
+        // Point it at a path another pin already holds — the collision case.
+        store.updateFileReference(for: target, resolvedURL: second, bookmark: bookmark)
+
+        let ids = store.items.map(\.id)
+        XCTAssertEqual(Set(ids).count, ids.count, "no two rows may share an identity")
+        XCTAssertEqual(store.items.count, 1)
+        XCTAssertEqual(store.items[0].fileName, "two.txt")
+        XCTAssertEqual(index, 1, "the row that was rewritten was the second one")
     }
 
     // MARK: - Persistence across a relaunch

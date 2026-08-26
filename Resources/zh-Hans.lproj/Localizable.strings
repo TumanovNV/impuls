@@ -514,6 +514,7 @@
 "snippets" = "个文本片段";
 "notes" = "条备忘录";
 "Copies to the clipboard" = "拷贝到剪贴板";
+"Copies the file to the clipboard" = "将文件复制到剪贴板";
 "Opens the file" = "打开该文件";
 "Select" = "选择";
 "Drop files here to put them on the shelf" = "将文件拖放到这里以放上文件架";

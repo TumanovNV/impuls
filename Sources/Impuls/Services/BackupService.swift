@@ -24,7 +24,13 @@ struct ImpulsBackupDocument: Codable, Equatable {
         self.createdAt = createdAt
         self.appVersion = appVersion
         self.settings = settings
-        self.snippets = snippets
+        // Bookmarks never leave this Mac. They are machine-and-volume specific
+        // (volume name, volume UUID, inode), so they would be useless on the
+        // machine that imports this file and are more than a path's worth of
+        // information to carry there. Stripping in the initialiser rather than
+        // at a call site means no export path can bypass it. The pin survives
+        // as its path, which is the part that can meaningfully transfer.
+        self.snippets = snippets.map(\.strippingFileBookmark)
         self.notes = notes
     }
 

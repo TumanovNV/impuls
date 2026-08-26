@@ -514,6 +514,7 @@
 "snippets" = "個のスニペット";
 "notes" = "件のメモ";
 "Copies to the clipboard" = "クリップボードにコピーします";
+"Copies the file to the clipboard" = "ファイルをクリップボードにコピーします";
 "Opens the file" = "ファイルを開きます";
 "Select" = "選択";
 "Drop files here to put them on the shelf" = "ここにファイルをドロップするとシェルフに入ります";

@@ -285,7 +285,10 @@ struct SnippetsPane: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: Theme.Space.xs - 1) {
+                // Lazy on purpose since IMP-39: a non-lazy stack materialises
+                // every row, so every pin would probe the filesystem the moment
+                // the tab opened rather than only the ones on screen.
+                LazyVStack(spacing: Theme.Space.xs - 1) {
                     ForEach(filtered) { item in
                         SnippetRow(item: item, snippets: snippets, fileActions: fileActions)
                     }
@@ -460,8 +463,12 @@ private struct SnippetRow: View {
         }
         .contextMenu { contextMenu }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(item.displayLabel.isEmpty ? item.preview : "\(item.displayLabel), \(item.preview)")
-        .accessibilityHint(localized("Copies to the clipboard"))
+        // A file row is announced by the name it shows, not by the whole stored
+        // path — `preview` is up to 240 characters of it.
+        .accessibilityLabel(accessibilityDescription)
+        .accessibilityHint(item.isFile
+            ? localized("Copies the file to the clipboard")
+            : localized("Copies to the clipboard"))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { copy() }
         .accessibilityAction(named: localized("Delete")) { snippets.remove(item) }
@@ -485,11 +492,13 @@ private struct SnippetRow: View {
             // automatic and runs for every visible pin, so it is exactly the
             // work that must not sit on the main actor — the same reason
             // `ShelfStore` moved its existence sweep off it.
-            let path = item.text
-            let bookmark = item.file?.bookmark
-            let resolution = await Task.detached(priority: .utility) {
-                SnippetFileResolver.resolve(path: path, bookmark: bookmark)
-            }.value
+            let resolution = await SnippetFileResolver.resolveOffMainActor(
+                path: item.text,
+                bookmark: item.file?.bookmark
+            )
+            // `.task` is cancelled when the row goes away; honour it rather
+            // than writing state back into a row that no longer exists.
+            guard !Task.isCancelled else { return }
             isMissing = resolution == .unavailable
             // A rename resolves through the bookmark to a new path. Writing it
             // back here is what makes the row show the file's current name
@@ -502,6 +511,11 @@ private struct SnippetRow: View {
         }
         .animation(Theme.motion(Theme.contentAnimation), value: showsControls)
         .animation(Theme.motion(Theme.contentAnimation), value: justCopied)
+    }
+
+    private var accessibilityDescription: String {
+        let value = item.isFile ? item.fileName : item.preview
+        return item.displayLabel.isEmpty ? value : "\(item.displayLabel), \(value)"
     }
 
     private var valueColor: Color {

@@ -39,8 +39,16 @@ struct Snippet: Identifiable, Codable, Equatable {
     /// True when this pin points at a file rather than carrying text.
     var isFile: Bool { file != nil }
 
-    /// The path the file was last known at. Empty for a text snippet.
-    var filePath: String { isFile ? text : "" }
+    /// The same pin with its bookmark dropped, keeping the readable path.
+    ///
+    /// A bookmark is machine-and-volume specific — it carries the volume name,
+    /// the volume UUID and the inode — so it is both useless on another Mac and
+    /// more than a path's worth of information to hand over. A backup is
+    /// portable by definition, so it takes the path and leaves the blob behind.
+    var strippingFileBookmark: Snippet {
+        guard isFile else { return self }
+        return Snippet(label: label, text: text, file: SnippetFileReference())
+    }
 
     /// What the row shows for a file: the name, not the whole path.
     var fileName: String { URL(fileURLWithPath: text).lastPathComponent }

@@ -18,7 +18,7 @@ Re-reviewed after the Automation status fix: the additional `appNotRunning` and 
 
 ## IMP-39 review
 
-`snippets.json` gains one optional key, `file`, on entries that pin a local file. It is additive and absent from everything written before 1.4.16, so an existing file decodes unchanged and a file of text snippets still encodes byte-for-byte as before. There is no schema version to bump, no migration marker, no destructive rewrite and no backup field: `BackupService` already carries `[Snippet]`, so a pin travels with it and an older backup imports as it always did.
+`snippets.json` gains one optional key, `file`, on entries that pin a local file. It is additive and absent from everything written before 1.4.16, so an existing file decodes unchanged and a file of text snippets still encodes byte-for-byte as before. There is no schema version to bump, no migration marker, no destructive rewrite and no backup field: `BackupService` already carries `[Snippet]`, so a pin travels with it — minus its bookmark, which `ImpulsBackupDocument.init` strips because it is machine-and-volume specific (see privacy boundaries) — and an older backup imports as it always did.
 
 Downgrade is the direction worth stating explicitly. `ImpulsBackupDocument.currentSchemaVersion` stays `2`, so a 1.4.16 backup — or a 1.4.16 `snippets.json` — read by an older build drops the unknown `file` key and the pin degrades to a text snippet whose text is an absolute path. That is lossy but not destructive: nothing is deleted, the entry stays readable, and re-reading it on 1.4.16 does not restore the bookmark. Bumping the schema to refuse the file outright would cost the user their whole backup to protect one field, which is the worse trade.
 

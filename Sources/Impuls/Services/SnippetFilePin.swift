@@ -53,6 +53,27 @@ enum SnippetFileResolver {
         try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 
+    /// One serial queue for every automatic availability probe.
+    ///
+    /// Not the shared cooperative pool, and deliberately: the path fallback can
+    /// block for a mount timeout, and a detached task per row would put N of
+    /// those stalls into the pool that `FileTools`, translation and telemetry
+    /// also run on. Here a stalled mount occupies exactly this one queue, which
+    /// is what "background work has an owner" means.
+    private static let probeQueue = DispatchQueue(
+        label: "io.tumanov.impuls.snippets.file-probe",
+        qos: .utility
+    )
+
+    /// The automatic form of `resolve`, off the main actor and serialized.
+    static func resolveOffMainActor(path: String, bookmark: Data?) async -> SnippetFileResolution {
+        await withCheckedContinuation { continuation in
+            probeQueue.async {
+                continuation.resume(returning: resolve(path: path, bookmark: bookmark))
+            }
+        }
+    }
+
     static func resolve(path: String, bookmark: Data?) -> SnippetFileResolution {
         if let bookmark, let resolved = resolveBookmark(bookmark) {
             return resolved

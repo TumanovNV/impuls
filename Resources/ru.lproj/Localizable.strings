@@ -514,6 +514,7 @@
 "snippets" = "заготовок";
 "notes" = "заметок";
 "Copies to the clipboard" = "Копирует в буфер обмена";
+"Copies the file to the clipboard" = "Копирует файл в буфер обмена";
 "Opens the file" = "Открывает файл";
 "Select" = "Выбрать";
 "Drop files here to put them on the shelf" = "Перетащите файлы сюда, чтобы положить их на полку";

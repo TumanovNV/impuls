@@ -515,6 +515,7 @@
 "snippets" = "fragmentos";
 "notes" = "notas";
 "Copies to the clipboard" = "Copia al portapapeles";
+"Copies the file to the clipboard" = "Copia el archivo al portapapeles";
 "Opens the file" = "Abre el archivo";
 "Select" = "Seleccionar";
 "Drop files here to put them on the shelf" = "Suelta archivos aquí para ponerlos en el estante";

@@ -102,13 +102,6 @@ final class SnippetFileActions {
         perform(snippet) { workspace.revealInFinder($0) }
     }
 
-    /// Resolution alone, for the row that needs to know whether to draw itself
-    /// as available. Performs no action and no write-back.
-    func isAvailable(_ snippet: Snippet) -> Bool {
-        if case .resolved = resolve(snippet) { return true }
-        return false
-    }
-
     private func perform(_ snippet: Snippet, _ action: (URL) -> Void) -> Bool {
         guard snippet.isFile else { return false }
         guard case .resolved(let url, let refreshed) = resolve(snippet) else { return false }
