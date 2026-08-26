@@ -4,10 +4,9 @@ import Foundation
 /// kept separate from web playback so Impuls never guesses which of several
 /// simultaneously running players the user intended to control.
 ///
-/// Spotify is intentionally absent. Its web player decrypts audio through
-/// Widevine, which WebKit does not implement, so an embedded Spotify tab can
-/// authenticate but never play. Shipping a source that cannot produce sound is
-/// worse than not shipping it.
+/// Spotify web embedding remains unsupported because its web player needs
+/// Widevine, which WebKit does not implement. The native Spotify macOS source
+/// is supported separately through Spotify's shipped scripting interface.
 enum MusicSource: String, CaseIterable, Identifiable {
     case appleMusic
     case spotify

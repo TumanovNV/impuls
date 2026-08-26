@@ -36,6 +36,7 @@
 "Show Web Player" = "Webプレーヤーを表示";
 "Open Apple Music" = "Apple Musicを開く";
 "Open %@" = "%@を開く";
+"%@ is not installed." = "%@はインストールされていません。";
 "Open %@ and start a track." = "%@を開いて曲を再生してください。";
 "%@ is open, but no track is playing." = "%@は開いていますが、再生中の曲はありません。";
 "%@ is playing, but its track data could not be read." = "%@は再生中ですが、曲の情報を読み取れませんでした。";

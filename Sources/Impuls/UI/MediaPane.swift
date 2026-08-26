@@ -278,8 +278,10 @@ struct MediaPane: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                 HStack(spacing: 7) {
-                    Button(primaryEmptyActionTitle, action: primaryEmptyAction)
-                        .buttonStyle(.borderedProminent)
+                    if media.emptyReason != .nativeNotInstalled {
+                        Button(primaryEmptyActionTitle, action: primaryEmptyAction)
+                            .buttonStyle(.borderedProminent)
+                    }
                     if media.emptyReason == .nativeUnreadable {
                         Button(localized("Open Settings"), action: media.openAutomationSettings)
                             .buttonStyle(.bordered)
@@ -293,6 +295,8 @@ struct MediaPane: View {
 
     private var emptyMessage: String {
         switch media.emptyReason {
+        case .nativeNotInstalled:
+            return localized("%@ is not installed.", media.sourceName)
         case .nativeNotRunning:
             return localized("Open %@ and start a track.", media.sourceName)
         case .nativeIdle:
@@ -315,6 +319,8 @@ struct MediaPane: View {
 
     private var primaryEmptyActionTitle: String {
         switch media.emptyReason {
+        case .nativeNotInstalled:
+            return ""
         case .nativeNotRunning, .nativeIdle:
             return localized("Open %@", media.sourceName)
         case .nativeUnreadable:
@@ -332,6 +338,8 @@ struct MediaPane: View {
         switch media.emptyReason {
         case .nativeUnreadable, .webPlayerFailed:
             media.retry()
+        case .nativeNotInstalled:
+            break
         case .nativeNotRunning, .nativeIdle, .webPlayerNotOpen, .webPlayerLoading, .webPlayerIdle:
             media.openSelectedSource()
         }

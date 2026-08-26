@@ -26,6 +26,7 @@ final class MediaController: ObservableObject {
     }
 
     enum EmptyReason: Equatable {
+        case nativeNotInstalled
         case nativeNotRunning
         case nativeIdle
         case nativeUnreadable
@@ -180,7 +181,7 @@ final class MediaController: ObservableObject {
             guard let appURL = NSWorkspace.shared.urlForApplication(
                 withBundleIdentifier: app.bundleID
             ) else {
-                clear(reason: .nativeNotRunning)
+                clear(reason: .nativeNotInstalled)
                 return
             }
             let configuration = NSWorkspace.OpenConfiguration()
@@ -337,9 +338,10 @@ final class MediaController: ObservableObject {
 
             self.consecutiveEmptyRefreshes = 0
             self.accessIssue = result.accessIssue
-            self.clear(reason: result.readFailed || result.state != nil ? .nativeUnreadable : (
+            self.clear(reason: !result.isInstalled ? .nativeNotInstalled : (result.readFailed || result.state != nil ? .nativeUnreadable : (
                 result.hasRunningPlayer ? .nativeIdle : .nativeNotRunning
-            ), preservingAccessIssue: true)
+            ))
+            , preservingAccessIssue: true)
         }
     }
 

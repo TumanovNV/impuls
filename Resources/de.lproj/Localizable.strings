@@ -37,6 +37,7 @@
 "Show Web Player" = "Web-Player zeigen";
 "Open Apple Music" = "Apple Music öffnen";
 "Open %@" = "%@ öffnen";
+"%@ is not installed." = "%@ ist nicht installiert.";
 "Open %@ and start a track." = "Öffne %@ und starte einen Titel.";
 "%@ is open, but no track is playing." = "%@ ist geöffnet, es läuft aber kein Titel.";
 "%@ is playing, but its track data could not be read." = "%@ spielt, die Titeldaten konnten aber nicht gelesen werden.";

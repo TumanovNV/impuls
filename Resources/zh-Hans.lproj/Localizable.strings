@@ -36,6 +36,7 @@
 "Show Web Player" = "显示网页播放器";
 "Open Apple Music" = "打开 Apple Music";
 "Open %@" = "打开 %@";
+"%@ is not installed." = "%@ 未安装。";
 "Open %@ and start a track." = "请打开 %@ 并播放一首曲目。";
 "%@ is open, but no track is playing." = "%@ 已打开，但没有曲目在播放。";
 "%@ is playing, but its track data could not be read." = "%@ 正在播放，但无法读取其曲目信息。";

@@ -220,6 +220,21 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertNil(controller.track)
     }
 
+    func testSpotifyNotInstalledIsTruthfulAndDoesNotNeedATCCResult() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.spotify.rawValue, forKey: MediaController.selectedSourceKey)
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: nil, accessIssue: nil, isInstalled: false, hasRunningPlayer: false, readFailed: false
+        ))
+        XCTAssertEqual(controller.emptyReason, .nativeNotInstalled)
+        XCTAssertNil(controller.accessIssue)
+    }
+
     func testWebCapabilitiesMirrorExactlyWhatThePageReported() throws {
         let bridge = FakeNativeMusicBridging()
         let (defaults, suite) = freshDefaults()

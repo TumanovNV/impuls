@@ -36,6 +36,7 @@
 "Show Web Player" = "Показать веб-плеер";
 "Open Apple Music" = "Открыть Apple Music";
 "Open %@" = "Открыть %@";
+"%@ is not installed." = "%@ не установлено.";
 "Open %@ and start a track." = "Откройте %@ и включите трек.";
 "%@ is open, but no track is playing." = "%@ открыто, но воспроизведение не запущено.";
 "%@ is playing, but its track data could not be read." = "%@ воспроизводит музыку, но данные трека не удалось прочитать.";

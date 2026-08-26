@@ -57,6 +57,7 @@ struct PlayerAccessIssue: Equatable {
 struct PlayerScanResult {
     var state: PlayerState?
     var accessIssue: PlayerAccessIssue?
+    var isInstalled = true
     var hasRunningPlayer: Bool
     var readFailed: Bool
 }
@@ -221,10 +222,15 @@ enum PlayerBridge {
     /// Never launches an app. The caller selects the one app it is allowed to
     /// query, so a running Spotify process cannot win over Apple Music (or vice versa).
     static func currentState(for app: PlayerApp, completion: @escaping (PlayerScanResult) -> Void) {
+        guard app.isInstalled else {
+            return completion(PlayerScanResult(
+                state: nil, accessIssue: nil, isInstalled: false, hasRunningPlayer: false, readFailed: false
+            ))
+        }
         guard app.isRunning else {
             return completion(PlayerScanResult(
                 state: nil,
-                accessIssue: nil,
+                accessIssue: nil, isInstalled: true,
                 hasRunningPlayer: false,
                 readFailed: false
             ))

@@ -107,14 +107,20 @@ final class PermissionCenter: ObservableObject {
         }
         PlayerBridge.automationAuthorization(for: app, prompt: false) { [weak self] authorization in
             guard let self else { return }
-            let state: State = switch authorization {
+            self.updateAutomation(authorization, for: app)
+        }
+    }
+
+    /// Kept separate from the TCC query so tests can prove target-app state
+    /// isolation without invoking Automation or depending on an installed app.
+    func updateAutomation(_ authorization: AutomationAuthorization, for app: PlayerApp) {
+        let state: State = switch authorization {
             case .allowed: .allowed
             case .denied: .denied
             case .notDetermined: .notRequested
             case .restricted: .restricted
-            }
-            self.setAutomation(state, for: app)
         }
+        setAutomation(state, for: app)
     }
 
     private func setAutomation(_ state: State, for app: PlayerApp) {
