@@ -4,11 +4,15 @@ type: reference
 status: active
 documentation_version: 2.4
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 tags: [impuls, performance, concurrency, timers, background-work, ai]
 ---
 
 # Background Work & Concurrency Registry
+
+## IMP-11 review
+
+Spotify reuses the single selected-native-provider 1 s timer; it adds no timer, task, poller, or queue. `nativeNotInstalled` and target-app TCC handling are synchronous state outcomes and add no background work.
 
 This is the canonical registry of long-lived, periodic, delayed and off-main work in Impuls. It exists to keep a small menu-bar utility from gradually accumulating hidden timers, duplicated polling, unbounded tasks or main-thread I/O.
 

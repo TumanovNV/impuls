@@ -10,6 +10,10 @@ tags: [impuls, performance, limits, budgets, security, ai]
 
 # Input & Resource Budget Registry
 
+## IMP-11 review
+
+No new size, count, or polling budget was introduced: native cadence remains the shared 1 s timer. Spotify artwork is not downloaded by Impuls, so no artwork-download budget exists.
+
 This document centralizes the limits that keep Impuls responsive and resistant to accidental or hostile oversized input. Exact constants remain in code; this registry is the review surface that explains which budgets are architectural rather than incidental.
 
 ## Content and storage budgets

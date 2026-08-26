@@ -4,11 +4,15 @@ type: architecture
 status: active
 documentation_version: 1.7
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 tags: [impuls, networking, security]
 ---
 
 # Networking Architecture
+
+## IMP-11 review
+
+Reviewed after the `bundle.sh` usage-description update: the three Impuls network owners remain unchanged. Native Spotify uses local Apple Events, not an Internet request; a Spotify `i.scdn.co` artwork URL is not fetched by Impuls.
 
 ## Три владельца сети
 

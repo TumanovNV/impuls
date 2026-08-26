@@ -52,7 +52,7 @@ Without stable Developer ID identity, macOS may treat replaced builds in ways th
 
 TCC-контракт не менялся. Правка в `PlayerBridge` касалась только безопасного преобразования позиции воспроизведения; ни один вызов, вызывающий системный запрос, не добавлен и не перемещён.
 
-1.4.16: `NativeMusicBridging`/`LivePlayerBridge` — тестовая DI-обёртка вокруг тех же статических вызовов `PlayerBridge`, не системный вызов сам по себе. `automationAuthorization(prompt:completion:)` форвардит один-в-один в существующий `PlayerBridge.automationAuthorization(for: .music, prompt:completion:)`; TCC-путь и prompt-политика идентичны.
+IMP-11: `NativeMusicBridging`/`LivePlayerBridge` передаёт явно выбранный `PlayerApp` в `automationAuthorization(for: app, prompt:)`: Apple Music использует `.music`, Spotify — `.spotify`. TCC status и denial остаются независимыми per target application; автоматические проверки используют `prompt: false`, а prompt доступен только после явного user action. Отсутствующий Spotify unavailable без prompt.
 
 ## Entitlements
 

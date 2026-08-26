@@ -4,11 +4,15 @@ type: platform
 status: active
 documentation_version: 1.3
 app_version: 1.4.14
-last_reviewed: 2026-08-21
+last_reviewed: 2026-08-26
 tags: [impuls, macos, signing, gatekeeper, distribution]
 ---
 
 # Signing and Distribution
+
+## IMP-11 review
+
+Reviewed the bundle assembly change: signing identity/path and entitlements are unchanged. The Apple Events entitlement already existed; only its localized usage-description wording was broadened, with no new signing boundary.
 
 ## Два режима сборки
 

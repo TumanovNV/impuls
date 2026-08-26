@@ -4,11 +4,15 @@ type: reference
 status: active
 documentation_version: 2.1
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 tags: [impuls, schemas, migrations, persistence, compatibility]
 ---
 
 # Schema & Migration Registry
+
+## IMP-11 review
+
+No Spotify account, token, metadata, or Automation state is persisted by Impuls. Therefore IMP-11 creates no persisted schema, migration marker, backup field, or migration.
 
 ## Purpose
 

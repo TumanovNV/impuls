@@ -2,9 +2,9 @@
 title: Music Module
 type: module
 status: production
-documentation_version: 1.5
+documentation_version: 1.6
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 tags: [impuls, module, music, webkit, automation]
 ---
 
@@ -62,7 +62,7 @@ flowchart TD
     CAT[MusicProviderCatalog] -.region-relevant subset.-> UI
 ```
 
-`NativeMusicBridging` and `WebMusicPlaying` are the two DI seams `MediaController` was given in 1.4.16 so its state machine — source switch, track switch, stale-result suppression, capability propagation, lifecycle — has deterministic unit coverage (`MediaControllerTests.swift`) instead of requiring a real Music app, Automation permission, or WebKit/network. Production always resolves to `LivePlayerBridge` and a real `WebMusicPlayer()`; nothing about the runtime behavior changed.
+`NativeMusicBridging` and `WebMusicPlaying` are DI seams for deterministic `MediaControllerTests`. Production resolves to `LivePlayerBridge` and a real `WebMusicPlayer()`: IMP-11 changed runtime behavior by adding Spotify as a selected native provider through its shipped Scripting Dictionary, while keeping Spotify web embedding unsupported.
 
 ## Source selection
 
@@ -88,7 +88,7 @@ Permission: Apple Events Automation per target app. Status check не prompt'и�
 
 ### Stale-refresh guard (1.4.16 fix)
 
-До этого исправления возможна была гонка: scripting-refresh для трека A ещё in-flight, когда distributed notification для более нового трека B синхронно адаптируется через `adopt(_:)`; когда fetch трека A наконец возвращался, он безусловно перезаписывал уже актуальный трек B на короткое время, до следующего self-correcting refresh. `MediaController` теперь ведёт monotonic `stateGeneration`, инкрементируемый в каждом `adopt(...)`; `refreshFromAppleMusic()` захватывает generation перед запросом и отбрасывает завершение fetch, если generation успел сдвинуться. Тест: `MediaControllerTests.testLateAppleMusicFetchForAnOldTrackDoesNotOverwriteANewerAdoptedTrack`.
+До этого исправления возможна была гонка: scripting-refresh для трека A ещё in-flight, когда distributed notification для более нового трека B синхронно адаптируется через `adopt(_:)`; когда fetch трека A наконец возвращался, он безусловно перезаписывал уже актуальный трек B на короткое время, до следующего self-correcting refresh. `MediaController` ведёт monotonic `stateGeneration`; `refreshFromNativeProvider()` захватывает generation перед запросом и отбрасывает завершение fetch, если generation успел сдвинуться. Apple Music notification fallback остаётся Apple-only; Spotify получает state только из своего явно выбранного scripting path.
 
 ## Capabilities (1.4.16)
 
@@ -111,7 +111,13 @@ Main-frame navigation ограничена provider allow-list; sign-in hosts в
 
 ## State / persistence
 
-Track/artwork/play state — runtime. Selected source — UserDefaults. Web session/cache управляются WebKit по своей конфигурации; module не превращает metadata в product telemetry. Capabilities и regional recommendation order — тоже чисто runtime/local, ничего нового не персистится и не логируется.
+Track/artwork/play state — runtime. Selected source — UserDefaults. Web session/cache управляются WebKit по своей конфигурации; module не превращает metadata в product telemetry. Spotify metadata и Automation/TCC state не персистятся Impuls: TCC принадлежит macOS. Capabilities и regional recommendation order — тоже чисто runtime/local, ничего нового не персистится и не логируется.
+
+## Spotify native contract (IMP-11)
+
+Spotify native macOS app is queried only through its shipped Scripting Dictionary and public Apple Events. `PlayerBridge` queries the selected app only — no `allCases` scan and no “currently playing app wins” rule. If Spotify is not installed, `nativeNotInstalled` is shown, no Automation check/prompt occurs, and no dead Open action is offered.
+
+The internal wire contract remains milliseconds. On observed Spotify 1.2.98.301, track duration arrives as milliseconds (`140046` means `140.046 s`), while player position arrives as seconds; the provider script converts position to wire milliseconds. There is no magnitude heuristic. Spotify may expose an artwork URL in runtime state, but Impuls does not fetch it in 1.4.16; there is no new artwork network path or network owner.
 
 ## Provider compatibility audit (1.4.16)
 

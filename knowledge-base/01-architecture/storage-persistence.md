@@ -4,11 +4,15 @@ type: architecture
 status: active
 documentation_version: 1.9
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-26
 tags: [impuls, storage, persistence, privacy]
 ---
 
 # Storage and Persistence
+
+## IMP-11 review
+
+Reviewed against `Sources/Impuls/Settings`: IMP-11 creates no UserDefaults key or backup/schema change. The selected music-source key is unchanged; Spotify metadata is runtime-only, and Automation/TCC status belongs to macOS rather than Impuls persistence.
 
 ## Карта данных
 

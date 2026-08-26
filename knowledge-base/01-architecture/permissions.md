@@ -61,13 +61,13 @@ iPhone/iPad trust — не macOS TCC permission. Provider проверяет exi
 
 ## PermissionCenter
 
-`PermissionCenter` агрегирует отображаемые states Calendar, Music Automation и Notifications и умеет открыть соответствующие System Settings. Он не является владельцем бизнес-логики модулей. Notification `.notDetermined` отображается как `Not Requested`; `requestNotifications()` существует только для явного UI action.
+`PermissionCenter` агрегирует отображаемые states Calendar, Apple Music Automation, Spotify Automation и Notifications и умеет открыть соответствующие System Settings. Apple Music и Spotify остаются отдельными target-app states: allowed одного приложения не меняет denied/not-requested другого. Он не является владельцем бизнес-логики модулей. Notification `.notDetermined` отображается как `Not Requested`; `requestNotifications()` существует только для явного UI action.
 
 ## Изменения 1.4.12-hardening
 
 Контракт разрешений не менялся. `PlayerBridge` правился только в части преобразования позиции воспроизведения перед подстановкой в AppleScript: значение приходит из плеера и раньше конвертировалось через `Int(_:)`, что является trap вне диапазона `Int`. `AEDeterminePermissionToAutomateTarget` с `prompt: false` на всех автоматических путях и `prompt: true` только из Settings остались как были.
 
-1.4.16 добавил `NativeMusicBridging`/`LivePlayerBridge` — тонкую обёртку над теми же статическими вызовами `PlayerBridge`, введённую только ради deterministic unit-тестов `MediaController`. `LivePlayerBridge.automationAuthorization(prompt:completion:)` вызывает тот же `PlayerBridge.automationAuthorization(for: .music, prompt:completion:)` с теми же аргументами; ни prompt-политика, ни entitlement, ни путь запроса не изменились.
+IMP-11 расширил `NativeMusicBridging`/`LivePlayerBridge` до source-explicit native path: Apple Music передаёт `.music`, Spotify — `.spotify`, и `automationAuthorization(for: app, prompt:)` проверяет/запрашивает TCC отдельно для выбранного target app. Automatic paths сохраняют `prompt: false`; `prompt: true` возможен только после явного user action. Отсутствующий Spotify отображается unavailable без TCC prompt. Entitlement и политика prompt ownership не изменились.
 
 ## Инварианты
 
