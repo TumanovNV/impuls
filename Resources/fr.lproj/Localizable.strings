@@ -57,6 +57,11 @@
 
 /* Snippets */
 "Add a snippet" = "Ajouter un fragment";
+"Click to copy the file, double-click to open it." = "Un clic copie le fichier, un double-clic l’ouvre.";
+"Choose File Again" = "Choisir à nouveau le fichier";
+"File Unavailable" = "Fichier indisponible";
+"Choose a file to pin." = "Choisissez un fichier à épingler.";
+"Pin a file" = "Épingler un fichier";
 "Name" = "Nom";
 "Text" = "Texte";
 "Delete" = "Supprimer";

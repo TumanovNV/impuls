@@ -56,6 +56,11 @@
 
 /* Заготовки */
 "Add a snippet" = "Добавить заготовку";
+"Click to copy the file, double-click to open it." = "Клик копирует файл, двойной клик открывает его.";
+"Choose File Again" = "Выбрать файл заново";
+"File Unavailable" = "Файл недоступен";
+"Choose a file to pin." = "Выберите файл для закрепления.";
+"Pin a file" = "Закрепить файл";
 "Name" = "Название";
 "Text" = "Текст";
 "Delete" = "Удалить";

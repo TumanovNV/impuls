@@ -1,4 +1,6 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SnippetsPane: View {
     @ObservedObject var snippets: SnippetStore
@@ -13,6 +15,23 @@ struct SnippetsPane: View {
     @State private var isAdding = false
     @State private var draftLabel = ""
     @State private var draftText = ""
+
+    /// Rebuilt per render on purpose: it holds no state of its own, only the
+    /// two system seams and closures onto the store.
+    private var fileActions: SnippetFileActions {
+        SnippetFileActions(
+            pasteboard: SystemFilePasteboard(),
+            workspace: SystemWorkspace(),
+            resolve: { [snippets] snippet in snippets.resolveFile(snippet) },
+            onRefreshedReference: { [snippets] snippet, url, bookmark in
+                snippets.updateFileReference(for: snippet, resolvedURL: url, bookmark: bookmark)
+            }
+        )
+    }
+
+    /// One drop is one gesture, not an import. The cap keeps a stray drag of a
+    /// whole folder's worth of files from turning into hundreds of rows.
+    private static let maximumFilesPerDrop = 20
 
     var body: some View {
         let filtered = snippets.filtered
@@ -63,6 +82,16 @@ struct SnippetsPane: View {
             }
             .buttonStyle(.plain)
             .help(localized("Add a snippet"))
+            // A second small button rather than a menu on `+`: turning the
+            // existing button into a menu would put an extra click in front of
+            // the flow people already use, to make room for the rarer one.
+            Button { chooseFile() } label: {
+                Image(systemName: "doc.badge.plus")
+                    .font(Theme.Typo.labelSemibold)
+                    .foregroundStyle(Theme.secondary)
+            }
+            .buttonStyle(.plain)
+            .help(localized("Pin a file"))
         }
         .padding(.horizontal, Theme.Space.s)
         .frame(height: Theme.Size.input)
@@ -184,6 +213,44 @@ struct SnippetsPane: View {
         focused = .text
     }
 
+    // MARK: - Files
+
+    /// The standard picker. It selects a file; it does not open one, and it
+    /// asks for no permission Impuls does not already have.
+    private func chooseFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.resolvesAliases = true
+        panel.prompt = localized("Pin")
+        panel.message = localized("Choose a file to pin.")
+        // Cancel leaves everything exactly as it was.
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        _ = snippets.addFile(url)
+    }
+
+    /// Accepts local files only. A remote URL, a plain string or a provider
+    /// that fails to load is ignored rather than becoming an empty row: nothing
+    /// is written unless a real file resolved.
+    private func receiveDrop(_ providers: [NSItemProvider]) -> Bool {
+        let candidates = providers
+            .filter { $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier) }
+            .prefix(Self.maximumFilesPerDrop)
+        guard !candidates.isEmpty else { return false }
+        for provider in candidates {
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url else { return }
+                Task { @MainActor in
+                    // `addFile` re-checks that this is a readable regular file,
+                    // so a dropped folder or dead alias adds nothing.
+                    _ = snippets.addFile(url)
+                }
+            }
+        }
+        return true
+    }
+
     // MARK: - List
 
     @ViewBuilder
@@ -204,12 +271,65 @@ struct SnippetsPane: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: Theme.Space.xs - 1) {
                     ForEach(filtered) { item in
-                        SnippetRow(item: item, snippets: snippets)
+                        SnippetRow(item: item, snippets: snippets, fileActions: fileActions)
                     }
                 }
                 .padding(.bottom, Theme.Space.hair)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onDrop(of: [.fileURL], isTargeted: nil, perform: receiveDrop)
+        }
+    }
+}
+
+/// Gives a file row AppKit's click count without changing how a text row
+/// behaves. SwiftUI's tap gesture reports that a tap happened, not whether it
+/// was the first or the second of a double, and the difference is the whole
+/// feature here.
+private struct SnippetRowClickModifier: ViewModifier {
+    let isFile: Bool
+    let onTap: () -> Void
+    let onClick: (Int) -> Void
+
+    func body(content: Content) -> some View {
+        if isFile {
+            content.overlay(ClickCountCatcher(onClick: onClick))
+        } else {
+            content.onTapGesture(perform: onTap)
+        }
+    }
+}
+
+/// A transparent view that reports `NSEvent.clickCount` on mouse up.
+///
+/// Right-click is deliberately not handled, so it falls through to the
+/// SwiftUI `.contextMenu` on the row underneath.
+private struct ClickCountCatcher: NSViewRepresentable {
+    let onClick: (Int) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = CatcherView()
+        view.onClick = onClick
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        (nsView as? CatcherView)?.onClick = onClick
+    }
+
+    final class CatcherView: NSView {
+        var onClick: ((Int) -> Void)?
+
+        override func mouseDown(with event: NSEvent) {
+            // Accepted so the matching mouseUp is delivered here.
+        }
+
+        override func mouseUp(with event: NSEvent) {
+            onClick?(event.clickCount)
+        }
+
+        override func rightMouseDown(with event: NSEvent) {
+            super.rightMouseDown(with: event)
         }
     }
 }
@@ -217,8 +337,15 @@ struct SnippetsPane: View {
 private struct SnippetRow: View {
     let item: Snippet
     @ObservedObject var snippets: SnippetStore
+    let fileActions: SnippetFileActions
     @State private var hovering = false
     @State private var justCopied = false
+    /// One arbiter per row, so two rows clicked in quick succession do not
+    /// cancel each other's pending single click.
+    @State private var arbiter = ClickArbiter()
+    /// Resolved lazily — on appear and after an action that found the file
+    /// gone. Nothing polls it.
+    @State private var isMissing = false
     @FocusState private var isFocused: Bool
 
     /// Revealed by focus as well as by hover. Behind `if hovering` alone the
@@ -239,11 +366,19 @@ private struct SnippetRow: View {
                     .lineLimit(1)
                     .layoutPriority(1)
             }
-            Text(item.preview)
+            // A file shows its name, not the whole path: the path is what is
+            // stored and searched, but a row is read at a glance.
+            Text(item.isFile ? item.fileName : item.preview)
                 .font(Theme.Typo.label)
-                .foregroundStyle(item.displayLabel.isEmpty ? Theme.primary : Theme.secondary)
+                .foregroundStyle(valueColor)
                 .lineLimit(1)
                 .truncationMode(.middle)
+            if isMissing {
+                Text(localized("File Unavailable"))
+                    .font(Theme.Typo.caption)
+                    .foregroundStyle(Theme.tertiary)
+                    .lineLimit(1)
+            }
             Spacer(minLength: Theme.Space.xs)
             // Only under the pointer or under focus: a permanent row of crosses
             // would compete with the snippets themselves for a glance.
@@ -271,22 +406,102 @@ private struct SnippetRow: View {
         .focusable()
         .focused($isFocused)
         .onHover { hovering = $0 }
-        .onTapGesture { copy() }
+        // A text snippet keeps the plain single tap it has always had. A file
+        // needs the click *count*, which SwiftUI's tap gesture does not report,
+        // so those rows go through a small AppKit bridge instead.
+        .modifier(SnippetRowClickModifier(isFile: item.isFile, onTap: copy, onClick: handleClick))
         .onKeyPress(.return) {
             copy()
             return .handled
         }
+        .contextMenu { contextMenu }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(item.displayLabel.isEmpty ? item.preview : "\(item.displayLabel), \(item.preview)")
         .accessibilityHint(localized("Copies to the clipboard"))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { copy() }
         .accessibilityAction(named: localized("Delete")) { snippets.remove(item) }
+        // Double-click is a pointer gesture. Everything it does is reachable
+        // without one.
+        .accessibilityActions {
+            if item.isFile {
+                Button(localized("Open")) { runFile(fileActions.open) }
+                Button(localized("Show in Finder")) { runFile(fileActions.reveal) }
+                Button(localized("Choose File Again")) { chooseAgain() }
+            }
+        }
+        .help(item.isFile ? localized("Click to copy the file, double-click to open it.") : "")
+        // Lazy availability: once per appearance, never on a timer.
+        .task(id: item.id) {
+            guard item.isFile else { return }
+            isMissing = !fileActions.isAvailable(item)
+        }
         .animation(Theme.motion(Theme.contentAnimation), value: showsControls)
         .animation(Theme.motion(Theme.contentAnimation), value: justCopied)
     }
 
+    private var valueColor: Color {
+        if isMissing { return Theme.tertiary }
+        return item.displayLabel.isEmpty ? Theme.primary : Theme.secondary
+    }
+
+    @ViewBuilder
+    private var contextMenu: some View {
+        if item.isFile {
+            Button(localized("Copy")) { runFile(fileActions.copy) }
+            Button(localized("Open")) { runFile(fileActions.open) }
+            Button(localized("Show in Finder")) { runFile(fileActions.reveal) }
+            Divider()
+            Button(localized("Choose File Again")) { chooseAgain() }
+            Button(localized("Delete")) { snippets.remove(item) }
+        } else {
+            Button(localized("Copy")) { copy() }
+            Button(localized("Delete")) { snippets.remove(item) }
+        }
+    }
+
+    /// The whole single-versus-double decision for a file row.
+    private func handleClick(count: Int) {
+        arbiter.click(
+            count: count,
+            single: { runFile(fileActions.copy, markCopied: true) },
+            double: { runFile(fileActions.open) }
+        )
+    }
+
+    /// Every file action goes through here so "the file is gone" is handled in
+    /// one place: the action reports that it did nothing, and the row says so
+    /// instead of pretending it worked.
+    private func runFile(_ action: (Snippet) -> Bool, markCopied: Bool = false) {
+        let acted = action(item)
+        isMissing = !acted
+        guard acted else { return }
+        if markCopied {
+            justCopied = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { justCopied = false }
+        }
+    }
+
+    private func chooseAgain() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.resolvesAliases = true
+        panel.prompt = localized("Pin")
+        panel.message = localized("Choose a file to pin.")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        if snippets.replaceFile(item, with: url) { isMissing = false }
+    }
+
     private func copy() {
+        // A file row never reaches here through the pointer, but Return and the
+        // accessibility action both land on it.
+        if item.isFile {
+            runFile(fileActions.copy, markCopied: true)
+            snippets.query = ""
+            return
+        }
         snippets.copy(item)
         justCopied = true
         // Emptying the search lets go of the panel: nothing is being typed

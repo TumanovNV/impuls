@@ -9,21 +9,41 @@ struct Snippet: Identifiable, Codable, Equatable {
     /// usually enough for an address or a phone number.
     let label: String
     let text: String
+    /// Present only on a pinned file (IMP-39). `nil` is an ordinary text
+    /// snippet, which is what every entry written before 1.4.16 decodes as —
+    /// the key is absent from those files and absent from what they encode
+    /// back, so an existing `snippets.json` round-trips unchanged.
+    ///
+    /// For a file pin the readable path lives in `text`, so the file stays
+    /// hand-editable and the value stays searchable; this holds only the
+    /// opaque bookmark.
+    let file: SnippetFileReference?
 
-    private enum CodingKeys: String, CodingKey { case label, text }
+    private enum CodingKeys: String, CodingKey { case label, text, file }
 
-    init(label: String = "", text: String) {
+    init(label: String = "", text: String, file: SnippetFileReference? = nil) {
         self.id = Self.makeIdentifier(label: label, text: text)
         self.label = label
         self.text = text
+        self.file = file
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let label = try container.decodeIfPresent(String.self, forKey: .label) ?? ""
         let text = try container.decode(String.self, forKey: .text)
-        self.init(label: label, text: text)
+        let file = try container.decodeIfPresent(SnippetFileReference.self, forKey: .file)
+        self.init(label: label, text: text, file: file)
     }
+
+    /// True when this pin points at a file rather than carrying text.
+    var isFile: Bool { file != nil }
+
+    /// The path the file was last known at. Empty for a text snippet.
+    var filePath: String { isFile ? text : "" }
+
+    /// What the row shows for a file: the name, not the whole path.
+    var fileName: String { URL(fileURLWithPath: text).lastPathComponent }
 
     var displayLabel: String {
         BoundedText.firstLine(label, maximumCharacters: 160)
@@ -35,6 +55,9 @@ struct Snippet: Identifiable, Codable, Equatable {
 
     /// Guessed from the value, so a row is recognisable before it is read.
     var symbol: String {
+        // A pinned file is named by its type rather than guessed at from the
+        // path, reusing the classifier the clipboard already uses.
+        if isFile { return ClipboardContentClassifier.kind(for: URL(fileURLWithPath: text)).symbol }
         let value = BoundedText.firstLine(text, maximumCharacters: 512)
         if value.contains("@"), !value.contains(" ") { return "at" }
         if value.hasPrefix("http://") || value.hasPrefix("https://") { return "link" }
@@ -50,6 +73,9 @@ struct Snippet: Identifiable, Codable, Equatable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         if !label.isEmpty { try container.encode(label, forKey: .label) }
         try container.encode(text, forKey: .text)
+        // Written only for a file pin, so a file of text snippets encodes
+        // byte-for-byte as it did before 1.4.16.
+        if let file { try container.encode(file, forKey: .file) }
     }
 
     private static func makeIdentifier(label: String, text: String) -> String {
@@ -208,6 +234,72 @@ final class SnippetStore: ObservableObject {
         persist()
     }
 
+    /// Pins a local file (IMP-39).
+    ///
+    /// Nothing is read from the file — not its bytes, not a preview. Only its
+    /// path and a bookmark are kept, and the file itself stays exactly where
+    /// the user put it. Rejects anything that is not a readable regular file,
+    /// so a directory or a dead symlink never becomes a half-working pin.
+    @discardableResult
+    func addFile(_ url: URL, label: String = "") -> Bool {
+        guard SnippetFileResolver.isReadableRegularFile(url) else { return false }
+        let reference = SnippetFileReference(bookmark: SnippetFileResolver.makeBookmark(for: url))
+        let snippet = Snippet(
+            label: label.trimmingCharacters(in: .whitespacesAndNewlines),
+            text: url.path,
+            file: reference
+        )
+        reload()
+        items.removeAll { $0.id == snippet.id }
+        items.insert(snippet, at: 0)
+        persist()
+        return true
+    }
+
+    /// "Choose File Again" for a pin whose file has gone.
+    ///
+    /// Replaces the reference on the *existing* row rather than adding a second
+    /// one, and keeps its position in the list: re-pointing a pin is editing it,
+    /// not creating a new one. Returns false when the row is gone or the chosen
+    /// file is not usable, in which case nothing is written.
+    @discardableResult
+    func replaceFile(_ snippet: Snippet, with url: URL) -> Bool {
+        guard snippet.isFile, SnippetFileResolver.isReadableRegularFile(url) else { return false }
+        reload()
+        guard let index = items.firstIndex(where: { $0.id == snippet.id }) else { return false }
+        let reference = SnippetFileReference(bookmark: SnippetFileResolver.makeBookmark(for: url))
+        items[index] = Snippet(label: items[index].label, text: url.path, file: reference)
+        persist()
+        return true
+    }
+
+    /// Writes back a reference that resolution had to refresh — a file that was
+    /// renamed or moved. In place and without reordering: the user did not ask
+    /// for anything to change, so nothing visible should.
+    func updateFileReference(for snippet: Snippet, resolvedURL: URL, bookmark: Data) {
+        guard let index = items.firstIndex(where: { $0.id == snippet.id }) else { return }
+        guard items[index].isFile else { return }
+        items[index] = Snippet(
+            label: items[index].label,
+            text: resolvedURL.path,
+            file: SnippetFileReference(bookmark: bookmark)
+        )
+        persist()
+    }
+
+    /// Resolution for one pin. Lazy by construction: nothing calls this on a
+    /// timer, so a pin costs nothing until it is shown or used.
+    func resolveFile(_ snippet: Snippet) -> SnippetFileResolution {
+        guard let file = snippet.file else { return .unavailable }
+        return SnippetFileResolver.resolve(path: snippet.text, bookmark: file.bookmark)
+    }
+
+    /// Removes the row and nothing else.
+    ///
+    /// For a file pin this deletes the *reference*. The file on disk is never
+    /// touched: there is no `FileManager.removeItem`, no trash call and no move
+    /// anywhere on this path, and a test asserts the fixture still exists after
+    /// the pin is gone.
     func remove(_ snippet: Snippet) {
         items.removeAll { $0.id == snippet.id }
         persist()

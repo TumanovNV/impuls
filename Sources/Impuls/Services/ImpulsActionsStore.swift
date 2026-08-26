@@ -307,7 +307,12 @@ final class ImpulsActionsStore: ObservableObject {
             )
         }
 
-        let saved = snippets.map { snippet in
+        // A pinned file (IMP-39) is deliberately absent from Actions search.
+        // Every result here carries a `.text` value, and copying a file pin has
+        // to put the *file* on the pasteboard, not its path — offering it here
+        // would hand back a path string under the same name. Until Actions can
+        // express a file value, the pin is reachable from its own pane only.
+        let saved = snippets.filter { !$0.isFile }.map { snippet in
             let kind = ClipboardContentClassifier.kind(for: snippet.text)
             return ImpulsActionResult(
                 origin: .snippet(snippet.id),

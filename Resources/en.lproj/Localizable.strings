@@ -57,6 +57,11 @@
 
 /* Snippets */
 "Add a snippet" = "Add a snippet";
+"Click to copy the file, double-click to open it." = "Click to copy the file, double-click to open it.";
+"Choose File Again" = "Choose File Again";
+"File Unavailable" = "File Unavailable";
+"Choose a file to pin." = "Choose a file to pin.";
+"Pin a file" = "Pin a file";
 "Name" = "Name";
 "Text" = "Text";
 "Delete" = "Delete";
