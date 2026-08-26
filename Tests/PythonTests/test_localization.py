@@ -59,5 +59,81 @@ class LocalizationCheckTests(unittest.TestCase):
         self.assertEqual('say "hi"', CHECKER.unescape(r"say \"hi\""))
 
 
+class NativeProviderCopyTests(unittest.TestCase):
+    """Native empty-state copy has to stay one whole sentence per provider.
+
+    IMP-11 replaced the Apple-Music-specific wording with a single `%@`
+    template shared by Apple Music and Spotify. Russian inflects the predicate
+    for the subject's gender, so one template cannot be right for both: the
+    shipped result was "Apple Music открыто" (previously the correct
+    "Apple Music открыта") and "Spotify не установлено" instead of
+    "не установлен". `check-localization.py` verifies that used keys exist; it
+    cannot see grammar, so this is the structural guard that keeps the
+    provider-specific keys in place.
+    """
+
+    FAMILIES = [
+        ("Apple Music is not installed.", "Spotify is not installed."),
+        ("Open Apple Music and start a track.", "Open Spotify and start a track."),
+        ("Apple Music is open, but no track is playing.",
+         "Spotify is open, but no track is playing."),
+        ("Apple Music is playing, but its track data could not be read.",
+         "Spotify is playing, but its track data could not be read."),
+        ("Open Apple Music", "Open Spotify"),
+    ]
+
+    RETIRED_TEMPLATES = [
+        "Open %@",
+        "%@ is not installed.",
+        "Open %@ and start a track.",
+        "%@ is open, but no track is playing.",
+        "%@ is playing, but its track data could not be read.",
+    ]
+
+    def test_each_native_provider_owns_its_whole_sentence_in_every_table(self):
+        tables = CHECKER.collect_tables()
+        self.assertTrue(tables)
+        for name, keys in tables.items():
+            for apple_key, spotify_key in self.FAMILIES:
+                self.assertIn(apple_key, keys, f"{name} lost the Apple Music wording")
+                self.assertIn(spotify_key, keys, f"{name} lost the Spotify wording")
+
+    def test_the_shared_placeholder_templates_are_gone(self):
+        """Deleting the keys is what makes the regression unshippable: reverting
+        the pane to `localized("%@ is open…", name)` then fails the localization
+        gate outright, because the key no longer exists in any table."""
+        tables = CHECKER.collect_tables()
+        for name, keys in tables.items():
+            for template in self.RETIRED_TEMPLATES:
+                self.assertNotIn(
+                    template, keys,
+                    f"{name} still carries the shared template {template!r}")
+
+    def test_russian_agrees_with_each_product_name(self):
+        """The exact regression, pinned. Apple Music is feminine in Russian and
+        Spotify is masculine, so the two sentences cannot share an ending."""
+        table = self._russian()
+        self.assertEqual(
+            "Apple Music открыта, но воспроизведение не запущено.",
+            table["Apple Music is open, but no track is playing."])
+        self.assertEqual(
+            "Spotify открыт, но воспроизведение не запущено.",
+            table["Spotify is open, but no track is playing."])
+        self.assertEqual("Apple Music не установлена.", table["Apple Music is not installed."])
+        self.assertEqual("Spotify не установлен.", table["Spotify is not installed."])
+
+    def _russian(self):
+        path = ROOT / "Resources" / "ru.lproj" / "Localizable.strings"
+        pairs = {}
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line.startswith('"') or " = " not in line:
+                continue
+            key, _, value = line.partition(" = ")
+            pairs[CHECKER.unescape(key.strip()[1:-1])] = CHECKER.unescape(
+                value.strip().rstrip(";")[1:-1])
+        return pairs
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -63,7 +63,7 @@ struct MediaPane: View {
                     .font(Theme.Typo.captionSemibold)
             }
             .buttonStyle(NotchButtonStyle(size: 24))
-            .help(media.selectedSource.isWeb ? localized("Open Web Player") : localized("Open %@", media.sourceName))
+            .help(media.selectedSource.isWeb ? localized("Open Web Player") : nativeApp.openActionTitle)
         }
         .frame(height: 24)
     }
@@ -293,16 +293,21 @@ struct MediaPane: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Every `native…` empty reason is produced only for a source that has a
+    /// native player — `MediaController` picks the web reasons for web sources —
+    /// so this resolves for exactly the cases that read it.
+    private var nativeApp: PlayerApp { media.selectedSource.nativePlayerApp ?? .music }
+
     private var emptyMessage: String {
         switch media.emptyReason {
         case .nativeNotInstalled:
-            return localized("%@ is not installed.", media.sourceName)
+            return nativeApp.notInstalledMessage
         case .nativeNotRunning:
-            return localized("Open %@ and start a track.", media.sourceName)
+            return nativeApp.notRunningMessage
         case .nativeIdle:
-            return localized("%@ is open, but no track is playing.", media.sourceName)
+            return nativeApp.idleMessage
         case .nativeUnreadable:
-            return localized("%@ is playing, but its track data could not be read.", media.sourceName)
+            return nativeApp.unreadableMessage
         case .webPlayerNotOpen:
             return localized("Open the selected web player to sign in and choose music.")
         case .webPlayerLoading:
@@ -322,7 +327,7 @@ struct MediaPane: View {
         case .nativeNotInstalled:
             return ""
         case .nativeNotRunning, .nativeIdle:
-            return localized("Open %@", media.sourceName)
+            return nativeApp.openActionTitle
         case .nativeUnreadable:
             return localized("Try Again")
         case .webPlayerNotOpen:

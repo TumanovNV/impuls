@@ -114,3 +114,54 @@ enum MusicSource: String, CaseIterable, Identifiable {
         }
     }
 }
+
+/// Whole-sentence empty-state copy, per native provider.
+///
+/// These deliberately are not one `%@` template filled with the product name.
+/// Russian inflects the predicate for the subject's gender — Apple Music is
+/// feminine ("Apple Music открыта", "не установлена") while Spotify is
+/// masculine ("Spotify открыт", "не установлен") — so a single shared string is
+/// wrong for one of them whichever form it picks. Genericising these four
+/// messages in IMP-11 is what produced "Apple Music открыто" and "Spotify не
+/// установлено". Giving every provider its own key hands each translation the
+/// whole sentence, which is the only form that can be correct in all seven
+/// languages at once.
+///
+/// Each key stays a string literal at the `localized` call site, so
+/// `check-localization.py` can still see it and prove it exists in every table.
+extension PlayerApp {
+    var notInstalledMessage: String {
+        switch self {
+        case .music: return localized("Apple Music is not installed.")
+        case .spotify: return localized("Spotify is not installed.")
+        }
+    }
+
+    var notRunningMessage: String {
+        switch self {
+        case .music: return localized("Open Apple Music and start a track.")
+        case .spotify: return localized("Open Spotify and start a track.")
+        }
+    }
+
+    var idleMessage: String {
+        switch self {
+        case .music: return localized("Apple Music is open, but no track is playing.")
+        case .spotify: return localized("Spotify is open, but no track is playing.")
+        }
+    }
+
+    var unreadableMessage: String {
+        switch self {
+        case .music: return localized("Apple Music is playing, but its track data could not be read.")
+        case .spotify: return localized("Spotify is playing, but its track data could not be read.")
+        }
+    }
+
+    var openActionTitle: String {
+        switch self {
+        case .music: return localized("Open Apple Music")
+        case .spotify: return localized("Open Spotify")
+        }
+    }
+}
