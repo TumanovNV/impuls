@@ -283,6 +283,34 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertEqual(controller.track?.title, "Apple Track", "a recent Apple Music state must still be replayed")
     }
 
+    /// The module's central safety claim is that transport reaches the player
+    /// the user selected, never the other one that merely happens to be
+    /// running. `FakeNativeMusicBridging` has recorded the target app of every
+    /// transport call since IMP-11, but nothing asserted on it, so the claim
+    /// itself was uncovered.
+    func testTransportIsRoutedToTheSelectedAppAndNeverTheOtherOne() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.spotify.rawValue, forKey: MediaController.selectedSourceKey)
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: PlayerState(app: .spotify, isPlaying: true, title: "Spotify Track", artist: "A", album: "B", duration: 200, position: 1, positionIsKnown: true, artworkURL: nil),
+            accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+
+        controller.togglePlayPause()
+        controller.next()
+        controller.previous()
+        controller.seek(to: 42)
+
+        XCTAssertEqual(bridge.requestedApps, [.spotify, .spotify, .spotify, .spotify],
+                       "every transport call must target the selected app")
+        XCTAssertFalse(bridge.requestedApps.contains(.music), "Apple Music must never receive Spotify's transport")
+    }
+
     func testSpotifyNotInstalledIsTruthfulAndDoesNotNeedATCCResult() {
         let bridge = FakeNativeMusicBridging()
         let (defaults, suite) = freshDefaults()
