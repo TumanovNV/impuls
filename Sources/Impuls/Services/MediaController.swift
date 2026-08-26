@@ -318,7 +318,13 @@ final class MediaController: ObservableObject {
                 return
             }
 
+            // The fallback is fed by every native fetch, so it can hold a
+            // Spotify state. `app == .music` only says which player is being
+            // refreshed now — the cached state's own app has to match too, or
+            // a source switch inside the window adopts the other player's
+            // track and routes transport to the wrong app.
             if app == .music, let fallback = self.notificationFallback,
+               fallback.state.app == app,
                Date().timeIntervalSince(fallback.receivedAt) < 8,
                result.hasRunningPlayer {
                 self.adopt(fallback.state)

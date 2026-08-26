@@ -220,6 +220,38 @@ final class MediaControllerTests: XCTestCase {
         XCTAssertNil(controller.track)
     }
 
+    /// A Spotify state cached as the notification fallback must never be
+    /// adopted under Apple Music. The fallback exists only for the Apple Music
+    /// distributed-notification path, so before `.spotify` existed the
+    /// consuming `app == .music` check was sufficient on its own. With a second
+    /// native app the stored state's own app has to be checked too, otherwise
+    /// switching sources inside the 8-second window shows the Spotify track
+    /// under the Apple Music label and routes transport to the wrong player.
+    func testAppleMusicNeverAdoptsACachedSpotifyStateAsItsFallback() {
+        let bridge = FakeNativeMusicBridging()
+        let (defaults, suite) = freshDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(MusicSource.spotify.rawValue, forKey: MediaController.selectedSourceKey)
+        let controller = MediaController(defaults: defaults, nativeBridge: bridge)
+
+        controller.start()
+        // Spotify reports a real track, which is what populates the fallback.
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: PlayerState(app: .spotify, isPlaying: true, title: "Spotify Track", artist: "Artist", album: "Album", duration: 200, position: 1, positionIsKnown: true, artworkURL: nil),
+            accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+        XCTAssertEqual(controller.track?.title, "Spotify Track")
+
+        controller.selectSource(.appleMusic)
+        // Apple Music is running but has nothing current — the exact shape that
+        // reaches for the fallback.
+        bridge.completeOldestPending(with: PlayerScanResult(
+            state: nil, accessIssue: nil, hasRunningPlayer: true, readFailed: false
+        ))
+
+        XCTAssertNil(controller.track, "a Spotify track must not surface under Apple Music")
+    }
+
     func testSpotifyNotInstalledIsTruthfulAndDoesNotNeedATCCResult() {
         let bridge = FakeNativeMusicBridging()
         let (defaults, suite) = freshDefaults()
