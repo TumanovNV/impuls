@@ -22,6 +22,14 @@ Re-reviewed after the Spotify script wire-format fix and the native fallback gua
 
 This is the canonical registry of long-lived, periodic, delayed and off-main work in Impuls. It exists to keep a small menu-bar utility from gradually accumulating hidden timers, duplicated polling, unbounded tasks or main-thread I/O.
 
+## IMP-39 review
+
+Pinning a local file adds **no** timer, poller, watcher, task loop or background worker. The only scheduled work is the one-shot click deferral in the row above, and it exists per click rather than per pin.
+
+File availability is resolved lazily — once when a row appears and again when the user acts on it — so a pin costs nothing while the Snippets tab is not on screen, and an unused pin costs nothing at all. Resolution itself is bounded rather than open-ended: `SnippetFileResolver` passes `[.withoutUI, .withoutMounting]`, so a bookmark pointing into an ejected volume answers "unavailable" immediately instead of trying to mount it and blocking the caller. That is what keeps this work safe on the main actor.
+
+Ownership: `SnippetFileActions`, `ClickArbiter`, `SystemFilePasteboard` and `SystemWorkspace` are all `@MainActor`, matching `SnippetStore`. They add no new queue and no new isolation boundary — the pasteboard and workspace seams exist for testability, not for concurrency.
+
 ## Global rules
 
 1. **Presentation must not multiply work.** A second display or Menu Bar surface reuses shared services; it does not create another store, timer, provider or network client.
@@ -77,6 +85,7 @@ This is the canonical registry of long-lived, periodic, delayed and off-main wor
 | `FileToolsCoordinator` | File batches and status auto-clear | user-initiated; status clears after `3 s` | `Task.detached(.userInitiated)` per item via `DetachedFileToolsWorkRunner`, `autoreleasepool` per item | status writes guarded by `statusGeneration`. **1.4.16 (#101):** one operation at a time — `beginOperation` takes a single slot and an `operationGeneration` guards every main-actor write a completing operation makes, so a superseded result cannot reach status, Shelf or Undo. Cancellation is **cooperative and explicit**: `Task.detached` inherits none, and the ImageIO/Vision work is synchronous, so a `FileToolsCancellation` flag is read at documented boundaries — between batch items, and between PDF pages. An item already in flight is allowed to finish rather than being abandoned mid-write; the remaining items never start. No timer, no polling, no extra concurrency: the batch stays sequential. The operation deliberately **survives** panel close — it is owned by the coordinator, which lives for the process — and is stopped only by the user's explicit Cancel |
 | `NotchContentView` | Rail hover dwell | `150 ms` before a hover switches module | SwiftUI `.task(id:)` | id change cancels; hover is an affordance and must not become selection |
 | Panes (`Actions`, `Clipboard`, `Notes`, `Snippets`, `Translate`) | "Copied" toast clear | `1.1 s` per pane | main queue delayed callback | value comparison discards a stale clear; no repeating work |
+| `ClickArbiter` (Snippets file pins) | deferred single-click action | one-shot per click, `NSEvent.doubleClickInterval` | main queue delayed callback | not a timer and not repeating: one callback per click, and a generation counter makes a superseded one a no-op, which is how a second click cancels the first. The interval is the system setting, not a constant. Nothing is scheduled for a text row. |
 
 The 1.4.16 voluntary-support wiring does not add a runtime-registry owner. `AppDelegate`'s `onVoluntarySupport` callback is synchronous composition only: one typed destination is passed to the stateless browser opener after a click. It creates no `DispatchWorkItem`, `Task`, timer, poller or retry and performs no background request or preflight. The existing `projectSupportPromptWork` `+8 s` automatic-prompt contract above is unchanged.
 

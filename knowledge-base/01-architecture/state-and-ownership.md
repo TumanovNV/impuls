@@ -10,6 +10,12 @@ tags: [impuls, architecture, state, ownership]
 
 # State and Ownership
 
+## IMP-39 review
+
+Pinned files stay inside the Snippets ownership story rather than starting a new one. `SnippetStore` remains the single owner of the list and of `snippets.json`; the file pin adds one optional field to `Snippet`, not a second store.
+
+`SnippetFileActions` and `ClickArbiter` are `@MainActor` view-facing helpers with no state of their own beyond the arbiter's click generation — they hold closures onto the store rather than a copy of anything. The two system seams (`FilePasteboardWriting`, `FileOpening`) exist so tests can assert on intent without writing to the real pasteboard or launching Finder; production passes the AppKit implementations explicitly, since neither initialiser carries a default.
+
 ## Главная модель
 
 ИМПУЛЬС разделяет **shared application state** и **per-display / auxiliary presentation state**.
