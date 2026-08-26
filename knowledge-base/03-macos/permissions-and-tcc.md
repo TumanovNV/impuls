@@ -54,6 +54,8 @@ TCC-контракт не менялся. Правка в `PlayerBridge` кас�
 
 IMP-11: `NativeMusicBridging`/`LivePlayerBridge` передаёт явно выбранный `PlayerApp` в `automationAuthorization(for: app, prompt:)`: Apple Music использует `.music`, Spotify — `.spotify`. TCC status и denial остаются независимыми per target application; автоматические проверки используют `prompt: false`, а prompt доступен только после явного user action. Отсутствующий Spotify unavailable без prompt.
 
+Перепроверено после исправления Spotify script wire format и native fallback guard: ни одно из этих изменений не добавляет Apple Events target, не меняет момент запроса TCC и не переводит automatic check в prompting режим.
+
 ## Entitlements
 
 

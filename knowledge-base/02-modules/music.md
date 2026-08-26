@@ -2,7 +2,7 @@
 title: Music Module
 type: module
 status: production
-documentation_version: 1.6
+documentation_version: 1.7
 app_version: 1.4.16
 last_reviewed: 2026-08-26
 tags: [impuls, module, music, webkit, automation]
@@ -82,7 +82,7 @@ Product-priority подмножества на 1.4.16 (все источники
 
 ## Native music apps
 
-`PlayerBridge` получает state только от явно выбранного `PlayerApp` через scripting interface/public Automation path, за `NativeMusicBridging` (production: `LivePlayerBridge`). Active pane имеет bounded 1 s native refresh; duplicate refreshes coalesced. Поэтому одновременно запущенный Apple Music не может подменить Spotify state и наоборот. Apple Music distributed notification остаётся Apple-Music-only fallback; для Spotify notification не предполагается.
+`PlayerBridge` получает state только от явно выбранного `PlayerApp` через scripting interface/public Automation path, за `NativeMusicBridging` (production: `LivePlayerBridge`). Active pane имеет bounded 1 s native refresh; duplicate refreshes coalesced. Поэтому одновременно запущенный Apple Music не может подменить Spotify state и наоборот. Изоляция держится на двух проверках, а не на одной: fetch адаптируется только если `state.app` совпадает с запрошенным app, и Apple Music notification fallback replay дополнительно требует `fallback.state.app == app` — сам fallback пишется любым native fetch, поэтому без этой проверки кэшированный Spotify state мог быть показан под Apple Music при переключении source внутри 8 s окна. Apple Music distributed notification остаётся Apple-Music-only fallback; для Spotify notification не предполагается.
 
 Permission: Apple Events Automation per target app. Status check не prompt'ит; пользователь сам инициирует request. Apple Music и Spotify отображаются и разрешаются независимо; отсутствие Spotify — safe unavailable state без prompt.
 
@@ -117,7 +117,14 @@ Track/artwork/play state — runtime. Selected source — UserDefaults. Web sess
 
 Spotify native macOS app is queried only through its shipped Scripting Dictionary and public Apple Events. `PlayerBridge` queries the selected app only — no `allCases` scan and no “currently playing app wins” rule. If Spotify is not installed, `nativeNotInstalled` is shown, no Automation check/prompt occurs, and no dead Open action is offered.
 
-The internal wire contract remains milliseconds. On observed Spotify 1.2.98.301, track duration arrives as milliseconds (`140046` means `140.046 s`), while player position arrives as seconds; the provider script converts position to wire milliseconds. There is no magnitude heuristic. Spotify may expose an artwork URL in runtime state, but Impuls does not fetch it in 1.4.16; there is no new artwork network path or network owner.
+The internal wire contract remains milliseconds. On observed Spotify 1.2.98.301, track duration arrives as milliseconds (`140046` means `140.046 s`), while player position arrives as seconds; the provider script converts position to wire milliseconds. There is no magnitude heuristic.
+
+Two properties of the generated script are load-bearing rather than stylistic, and both are asserted in `PlayerBridgeTests`:
+
+- **Every number is coerced `as integer` before it reaches the wire** — `set trackDurationMilliseconds to (duration of currentSpotifyTrack) as integer` and `set positionMilliseconds to ((player position) * 1000) as integer`. AppleScript renders a `real` using the *user's* locale, so on a ru_RU system an uncoerced position serializes as `2,776499938965E+4`, which `Double(String)` rejects and the state is lost. Integers carry no decimal separator, so the wire is locale-independent by construction. Verified on ru_RU against Spotify 1.2.98.301: `paused␁Lush Life␁Zara Larsson␁So Good␁200646␁4544␁`.
+- **Script variables use explicit, spelled-out names** (`playerStateText`, `currentSpotifyTrack`, `trackDurationMilliseconds`, `positionMilliseconds`). Two-letter identifiers are not free: `st`, `nd`, `rd` and `th` are AppleScript's reserved ordinal-suffix tokens, and `set st to …` fails to compile with `-2741 Expected expression but found "st"`.
+
+Spotify artwork is absent in 1.4.16 by construction: the provider script never asks for `artwork url` — it emits the artwork field as an empty string — and `PlayerBridge.artwork(for:)` returns `nil` for any state whose app is not `.music`. The pane falls back to the source glyph. There is no artwork network path and no new network owner.
 
 ## Provider compatibility audit (1.4.16)
 

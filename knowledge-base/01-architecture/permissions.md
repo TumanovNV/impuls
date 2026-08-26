@@ -69,6 +69,8 @@ iPhone/iPad trust — не macOS TCC permission. Provider проверяет exi
 
 IMP-11 расширил `NativeMusicBridging`/`LivePlayerBridge` до source-explicit native path: Apple Music передаёт `.music`, Spotify — `.spotify`, и `automationAuthorization(for: app, prompt:)` проверяет/запрашивает TCC отдельно для выбранного target app. Automatic paths сохраняют `prompt: false`; `prompt: true` возможен только после явного user action. Отсутствующий Spotify отображается unavailable без TCC prompt. Entitlement и политика prompt ownership не изменились.
 
+Перепроверено после исправления Spotify script wire format и native fallback guard: изменения касаются только текста генерируемого AppleScript и логики адаптации state внутри completion, поэтому TCC-путь, набор target apps, `prompt: false` для automatic checks и ownership prompt'а остаются прежними.
+
 ## Инварианты
 
 - update не создаёт новый prompt сам;
