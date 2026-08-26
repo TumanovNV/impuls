@@ -100,6 +100,67 @@ final class PlayerBridgeTests: XCTestCase {
         XCTAssertEqual(PlayerBridge.transportCommand(.previous, on: .music), "back track")
     }
 
+    // MARK: - The scripts have to be valid AppleScript, not merely well-spelled
+
+    /// `String.contains` cannot tell a valid script from an invalid one. The
+    /// defect this guards against — `set st to player state as text` — is a
+    /// *compile* error (`-2741`), because `st`, `nd`, `rd` and `th` are
+    /// AppleScript's reserved ordinal-suffix tokens (`1st word of …`).
+    ///
+    /// Compilation is safe to assert in a unit test: `compileAndReturnError`
+    /// resolves the target's terminology from its application bundle. It does
+    /// not launch the app, does not send an Apple Event, does not need an
+    /// Automation grant, and does not touch playback. Only `executeAndReturnError`
+    /// would do any of that, and it is deliberately never called here.
+    private func assertCompiles(
+        _ source: String,
+        _ label: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        guard let script = NSAppleScript(source: source) else {
+            return XCTFail("\(label): NSAppleScript could not be constructed", file: file, line: line)
+        }
+        var error: NSDictionary?
+        let compiled = script.compileAndReturnError(&error)
+        let number = error?[NSAppleScript.errorNumber] as? Int
+        let message = error?[NSAppleScript.errorMessage] as? String
+        XCTAssertTrue(
+            compiled,
+            "\(label) does not compile: \(number.map(String.init) ?? "?") \(message ?? "")",
+            file: file,
+            line: line
+        )
+    }
+
+    func testAppleMusicStateScriptCompiles() throws {
+        try XCTSkipUnless(PlayerApp.music.isInstalled, "Apple Music is not installed on this machine")
+        assertCompiles(PlayerBridge.stateScript(for: .music), "Apple Music state script")
+    }
+
+    /// Spotify is a third-party app, so CI runners do not have it. The check is
+    /// skipped rather than failed there — a real Mac with Spotify installed is
+    /// where this one earns its keep.
+    func testSpotifyStateScriptCompiles() throws {
+        try XCTSkipUnless(PlayerApp.spotify.isInstalled, "Spotify is not installed on this machine")
+        assertCompiles(PlayerBridge.stateScript(for: .spotify), "Spotify state script")
+    }
+
+    /// The structural half of the guard: it needs no installed app, so it runs
+    /// everywhere the compile checks may skip, and it fails on the identifier
+    /// itself rather than on a downstream symptom.
+    func testNoStateScriptBindsAReservedOrdinalIdentifier() {
+        for app in PlayerApp.allCases {
+            let script = PlayerBridge.stateScript(for: app)
+            for reserved in ["st", "nd", "rd", "th"] {
+                XCTAssertFalse(
+                    script.contains("set \(reserved) to"),
+                    "\(app.displayName) script binds `\(reserved)`, which AppleScript reserves as an ordinal suffix"
+                )
+            }
+        }
+    }
+
     func testMapsAutomationAuthorizationStatuses() {
         XCTAssertEqual(PlayerBridge.automationAuthorization(for: noErr), .allowed)
         XCTAssertEqual(
@@ -111,5 +172,16 @@ final class PlayerBridgeTests: XCTestCase {
             .denied
         )
         XCTAssertEqual(PlayerBridge.automationAuthorization(for: OSStatus(-1)), .restricted)
+
+        // `procNotFound` is what a closed target answers. It is not a TCC
+        // verdict, so it must not be reported as one — least of all as
+        // `restricted`, which claims a policy block the user cannot lift.
+        XCTAssertEqual(
+            PlayerBridge.automationAuthorization(for: OSStatus(procNotFound)),
+            .undeterminedAppNotRunning
+        )
+        XCTAssertNotEqual(PlayerBridge.automationAuthorization(for: OSStatus(procNotFound)), .restricted)
+        XCTAssertNotEqual(PlayerBridge.automationAuthorization(for: OSStatus(procNotFound)), .allowed)
+        XCTAssertNotEqual(PlayerBridge.automationAuthorization(for: OSStatus(procNotFound)), .denied)
     }
 }

@@ -47,6 +47,17 @@ enum AutomationAuthorization: Equatable {
     case denied
     case notDetermined
     case restricted
+
+    /// Not a TCC verdict. `AEDeterminePermissionToAutomateTarget` answers
+    /// `procNotFound` when the target application is not running, because there
+    /// is no process to resolve the descriptor against — it says nothing about
+    /// whether Automation is allowed, denied or still unasked.
+    ///
+    /// It has to be its own case: folding it into `restricted` reports a user
+    /// whose Spotify is merely closed as permanently blocked by policy, and
+    /// `restricted` offers no way back. Folding it into `allowed` or `denied`
+    /// would invent a verdict macOS did not give.
+    case undeterminedAppNotRunning
 }
 
 struct PlayerAccessIssue: Equatable {
@@ -149,6 +160,9 @@ enum PlayerBridge {
         if status == noErr { return .allowed }
         if status == OSStatus(errAEEventNotPermitted) { return .denied }
         if status == OSStatus(errAEEventWouldRequireUserConsent) { return .notDetermined }
+        // A closed target answers `procNotFound`, which the catch-all below
+        // would otherwise report as a policy restriction the user cannot undo.
+        if status == OSStatus(procNotFound) { return .undeterminedAppNotRunning }
         return .restricted
     }
 
@@ -276,9 +290,21 @@ enum PlayerBridge {
     /// a trap outside `Int`'s range, and it is the value that ends up spliced
     /// into an AppleScript source string, so a non-finite or oversized seek is
     /// dropped rather than converted.
-    static func seek(_ app: PlayerApp, to seconds: TimeInterval) {
+    /// Split out from `seek` so the conversion can be proven without sending an
+    /// Apple Event. Calling `seek` itself in a test is not a no-op on a real
+    /// Mac: if the player happens to be running, it moves the developer's own
+    /// playback position.
+    ///
+    /// `nil` means "do not seek" rather than a clamped value: a position the
+    /// app did not compute is not one it may guess at.
+    static func seekPosition(forSeconds seconds: TimeInterval) -> Int? {
         guard seconds.isFinite, seconds >= 0,
-              let position = Int(exactly: seconds.rounded(.down)) else { return }
+              let position = Int(exactly: seconds.rounded(.down)) else { return nil }
+        return position
+    }
+
+    static func seek(_ app: PlayerApp, to seconds: TimeInterval) {
+        guard let position = seekPosition(forSeconds: seconds) else { return }
         command("set player position to \(position)", on: app)
     }
 
@@ -358,30 +384,30 @@ enum PlayerBridge {
         return """
         \(sep)
         tell application id "com.apple.Music"
-            set st to player state as text
-            if st is "stopped" then return ""
-            set t to current track
-            set trackName to ""
-            set trackArtist to ""
-            set trackAlbum to ""
-            set trackDuration to 0
-            set pos to 0
+            set playerStateText to (player state as text)
+            if playerStateText is "stopped" then return ""
+            set currentMusicTrack to current track
+            set trackNameText to ""
+            set trackArtistText to ""
+            set trackAlbumText to ""
+            set trackDurationMilliseconds to 0
+            set positionMilliseconds to 0
             try
-                set trackName to name of t as text
+                set trackNameText to (name of currentMusicTrack as text)
             end try
             try
-                set trackArtist to artist of t as text
+                set trackArtistText to (artist of currentMusicTrack as text)
             end try
             try
-                set trackAlbum to album of t as text
+                set trackAlbumText to (album of currentMusicTrack as text)
             end try
             try
-                set trackDuration to (round ((duration of t) * 1000))
+                set trackDurationMilliseconds to ((duration of currentMusicTrack) * 1000) as integer
             end try
             try
-                set pos to (round ((player position) * 1000))
+                set positionMilliseconds to ((player position) * 1000) as integer
             end try
-            return st & sep & trackName & sep & trackArtist & sep & trackAlbum & sep & trackDuration & sep & pos & sep & ""
+            return playerStateText & sep & trackNameText & sep & trackArtistText & sep & trackAlbumText & sep & trackDurationMilliseconds & sep & positionMilliseconds & sep & ""
         end tell
         """
     }
