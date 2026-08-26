@@ -245,12 +245,12 @@ enum PlayerBridge {
             case .noState:
                 completion(PlayerScanResult(state: nil, accessIssue: nil, hasRunningPlayer: true, readFailed: false))
             case .readFailed:
-            completion(PlayerScanResult(
-                state: nil,
-                accessIssue: nil,
-                hasRunningPlayer: true,
-                readFailed: true
-            ))
+                completion(PlayerScanResult(
+                    state: nil,
+                    accessIssue: nil,
+                    hasRunningPlayer: true,
+                    readFailed: true
+                ))
             }
         }
     }
@@ -336,22 +336,22 @@ enum PlayerBridge {
             return """
             \(sep)
             tell application id "com.spotify.client"
-                set st to player state as text
-                if st is "stopped" then return ""
-                set t to current track
-                set trackName to ""
-                set trackArtist to ""
-                set trackAlbum to ""
-                set trackDuration to 0
+                set playerStateText to (player state as text)
+                if playerStateText is "stopped" then return ""
+                set currentSpotifyTrack to current track
+                set trackNameText to ""
+                set trackArtistText to ""
+                set trackAlbumText to ""
+                set trackDurationMilliseconds to 0
                 set positionMilliseconds to 0
                 try
-                    set trackName to name of t as text
-                    set trackArtist to artist of t as text
-                    set trackAlbum to album of t as text
-                    set trackDuration to duration of t
-                    set positionMilliseconds to round ((player position) * 1000)
+                    set trackNameText to (name of currentSpotifyTrack as text)
+                    set trackArtistText to (artist of currentSpotifyTrack as text)
+                    set trackAlbumText to (album of currentSpotifyTrack as text)
+                    set trackDurationMilliseconds to (duration of currentSpotifyTrack) as integer
+                    set positionMilliseconds to ((player position) * 1000) as integer
                 end try
-                return st & sep & trackName & sep & trackArtist & sep & trackAlbum & sep & trackDuration & sep & positionMilliseconds & sep & ""
+                return playerStateText & sep & trackNameText & sep & trackArtistText & sep & trackAlbumText & sep & trackDurationMilliseconds & sep & positionMilliseconds & sep & ""
             end tell
             """
         }
