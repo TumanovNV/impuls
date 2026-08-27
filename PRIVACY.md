@@ -186,6 +186,11 @@ telemetry, and does not change any feature after the browser handoff.
   exclusions are processed locally; excluded applications are stored only as
   bundle identifiers in settings;
 - concealed password-manager entries are excluded;
+- a snippet may pin a local file. Impuls stores the readable path and an optional
+  local bookmark that lets the pin survive a rename or a move; the file's contents
+  are never read or stored, and deleting the pin leaves the file on disk. The
+  bookmark identifies a volume and an inode on this Mac, so it is excluded from a
+  portable backup, which carries the path alone;
 - an exported backup is a user-selected local JSON file containing settings,
   snippets, and notes; Impuls never uploads it;
 - Impuls Actions searches the live clipboard, snippet, and note stores locally;
@@ -200,9 +205,12 @@ telemetry, and does not change any feature after the browser handoff.
   `/usr/sbin/system_profiler` call for Bluetooth accessory information. That
   call is made directly, with a fixed argument list and no shell, and its output
   is read, parsed and discarded on this Mac;
-- an experimental, separately gated provider can read the battery of an iPhone
-  or iPad already trusted by this Mac, over USB or the device-sync route macOS
-  exposes when the user enables **Show this iPhone when on Wi-Fi** in Finder.
+- a separately gated provider can read the battery of an iPhone or iPad already
+  trusted by this Mac, over USB or the device-sync route macOS exposes when the
+  user enables **Show this iPhone when on Wi-Fi** in Finder. Its user-facing
+  status is stable after repeated hardware QA; the transport it relies on is an
+  undocumented Apple protocol rather than a public API, so it stays an isolated
+  implementation boundary and no particular model or iOS version is guaranteed.
   Impuls does not enable or change that macOS setting. It talks only to the local
   `/var/run/usbmuxd` UNIX socket: it performs no LAN scan, resolves no Bonjour
   service and opens no direct TCP connection. For a paired iPhone, macOS may
@@ -236,13 +244,22 @@ telemetry, and does not change any feature after the browser handoff.
 
 - Calendar access is requested only from the Calendar module or Settings;
 - Apple Events Automation is requested only after the user asks Impuls to read
-  or control the installed Apple Music application;
+  or control the supported native music application it has explicitly selected —
+  Apple Music or Spotify. macOS grants Automation per target application, so the
+  two are authorised independently, a status check never prompts on its own, and
+  nothing is requested for an application that is not installed;
 - web music uses the selected provider's official site and does not require
   Apple Events Automation or Accessibility access;
 - notification permission is requested only after the user explicitly enables
   low-battery alerts in Apple Devices Settings. If macOS denies access, device
   monitoring continues without alerts and Impuls does not repeatedly request
-  authorization.
+  authorization;
+- Stay Awake needs no permission and no entitlement. It holds a public
+  `IOPMAssertionCreateWithName` power assertion for the Impuls process only: it
+  changes no Energy Saver or system setting, is not restored across a launch, and
+  creates no network path and no telemetry. The assertion name is visible in
+  `pmset -g assertions` and names the application and the feature only — no path,
+  identifier or task content.
 
 Notes and snippets are not encrypted by Impuls. FileVault is recommended for
 protection at rest. Secrets, passwords, recovery codes, and private keys should

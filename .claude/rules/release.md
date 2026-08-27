@@ -30,7 +30,7 @@ The release notes describe user-facing changes. Release QA evidence records the 
 
 ## What release.yml does
 
-Two jobs. `release` (`contents: read`) requires every Apple secret up front, builds the app **once**, signs it with the Developer ID, notarizes and staples it, packages the DMG with `Scripts/dmg.sh --no-build`, signs the DMG with the same Developer ID (`hdiutil create` leaves it unsigned and Apple rejects unsigned submissions), notarizes and staples that too, builds the update ZIP from the same stapled bundle, then generates and verifies `appcast.xml` with Sparkle's EdDSA key. `publish` (`contents: write`, no Apple credentials) downloads those artifacts, re-checks their SHA-256 and creates or updates the GitHub Release.
+Two jobs. `release` (`contents: read`) requires every Apple secret up front, builds the app **once**, signs it with the Developer ID, notarizes and staples it, packages the DMG with `Scripts/dmg.sh --no-build`, signs the DMG with the same Developer ID (`hdiutil create` leaves it unsigned, and the chosen production distribution design requires the distributed DMG to be signed, notarized and stapled), notarizes and staples that too, builds the update ZIP from the same stapled bundle, then generates and verifies `appcast.xml` with Sparkle's EdDSA key. `publish` (`contents: write`, no Apple credentials) downloads those artifacts, re-checks their SHA-256 and creates or updates the GitHub Release.
 
 The push trigger watches `Scripts/version` only. Editing `release.yml` no longer re-publishes the current version — that used to be a live foot-gun.
 

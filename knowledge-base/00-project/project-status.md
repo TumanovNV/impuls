@@ -4,7 +4,7 @@ type: status
 status: active
 documentation_version: 1.4
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-27
 tags: [impuls, status, current]
 ---
 
@@ -21,6 +21,24 @@ Release `1.4.15` packages the merged localization wave (PR #75) and local-first 
 Tag `v1.4.15` was created by the normal `release.yml` production flow from main commit `2318589a9cf950f0c156b62ea868c53c75b6311e`. That workflow builds and verifies the application, DMG, ZIP and signed Sparkle appcast before its final GitHub Release publication step. Developer ID signing and Apple notarization are not claimed unless separately verified from the actual distribution environment; the Sparkle signature remains the independent update-trust boundary.
 
 Release `1.4.14` is now the previous production baseline. It contained the Power Center redesign, Apple-accessory detection fixes, branding refresh, version-aware What's New fix and version-statistics follow-up.
+
+## Current development: the 1.4.16 candidate
+
+`Scripts/version` still reads `1.4.15`, and 1.4.15 remains the current production release. Nothing below changes that.
+
+The 1.4.16 candidate is **feature-frozen in `main`**. Functional and manual feature QA for its product work is complete: native Spotify through the app's shipped Scripting Dictionary, local file pins in Snippets, Stay Awake in Power Center, and the iPhone/iPad provider moving from Beta to a Stable user-facing status after repeated owner hardware QA — a presentation change that leaves the undocumented usbmuxd/lockdown transport exactly as isolated as before.
+
+The repository-side Developer ID and notarization contour was prepared in PR #133: a fail-closed release path, an ephemeral signing keychain, notarization and stapling for both the application and the disk image, and a publication job that cannot run unless the candidate passed. That is pipeline readiness, not distribution evidence — no artifact has been signed with a real certificate or notarized by Apple yet.
+
+What remains before 1.4.16 can ship, in order:
+
+1. active Apple Developer credentials and a Developer ID Application certificate;
+2. a credentialed signed/notarized release candidate produced by the manual dispatch path;
+3. IMP-14 and the real-Mac Gatekeeper/TCC smoke on that candidate;
+4. release notes and version-specific Release QA Evidence recording the real result;
+5. the version bump and the normal release mechanics.
+
+Until step 2 produces a real artifact, no document may describe a 1.4.16 build as signed, notarized or hardware-verified.
 
 ## Current product surface
 
