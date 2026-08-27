@@ -65,7 +65,10 @@
       "name": "Snippets",
       "canonical_doc": "knowledge-base/02-modules/snippets.md",
       "core_sources": [
-        "Sources/Impuls/Services/SnippetStore.swift"
+        "Sources/Impuls/Services/SnippetStore.swift",
+        "Sources/Impuls/Services/SnippetFilePin.swift",
+        "Sources/Impuls/Services/SnippetFileActions.swift",
+        "Sources/Impuls/UI/SnippetsPane.swift"
       ]
     },
     {

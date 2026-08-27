@@ -58,6 +58,8 @@ Version statistics remain off until their own opt-in. The client may attempt the
 
 Version statistics use a random installation UUID stored device-only in Keychain. The collector stores an HMAC digest of that installation value, not the raw UUID.
 
+Pinned-file references (IMP-39) sit on the same portable-backup boundary. A pin keeps a readable path plus an opaque `URL` bookmark, and the bookmark is not equivalent to the path: it carries the volume name, the **volume UUID** and the inode. It therefore stays on the machine that made it — `ImpulsBackupDocument` strips `file.bookmark` in its initialiser, so a portable backup carries only the path, and the blob cannot reach another machine through an export the user shares. Nothing about a pin — path, filename, bookmark or contents — is logged, sent to version statistics or attached to feedback; the file itself is never read.
+
 Apple-device presentation identity is a different boundary: raw hardware identifiers exist only long enough to derive an HMAC-backed local `AppleDeviceIdentity` using a per-Mac device-only Keychain secret. The derived preference key is deliberately local-only and excluded from portable backup/feedback. Raw hardware identifiers do not become installation IDs and the two identity spaces are never joined.
 
 Project-support counters/state are a third unrelated local state space. They contain no installation UUID or hardware identity and are never joined to the telemetry pseudonym.

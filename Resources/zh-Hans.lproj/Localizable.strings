@@ -56,6 +56,11 @@
 
 /* Snippets */
 "Add a snippet" = "添加文本片段";
+"Click to copy the file, double-click to open it." = "单击复制文件，双击打开文件。";
+"Choose File Again" = "重新选择文件";
+"File Unavailable" = "文件不可用";
+"Choose a file to pin." = "请选择要钉住的文件。";
+"Pin a file" = "钉住文件";
 "Name" = "名称";
 "Text" = "文本";
 "Delete" = "删除";
@@ -509,6 +514,7 @@
 "snippets" = "个文本片段";
 "notes" = "条备忘录";
 "Copies to the clipboard" = "拷贝到剪贴板";
+"Copies the file to the clipboard" = "将文件复制到剪贴板";
 "Opens the file" = "打开该文件";
 "Select" = "选择";
 "Drop files here to put them on the shelf" = "将文件拖放到这里以放上文件架";

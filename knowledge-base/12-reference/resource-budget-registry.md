@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 2.0
 app_version: 1.4.16
-last_reviewed: 2026-08-26
+last_reviewed: 2026-08-27
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
 
@@ -38,6 +38,8 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Notes | items | 5,000 | `NoteStore.maximumItems` |
 | Snippets | file | 10 MiB | `SnippetStore.maximumFileBytes` |
 | Snippets | items | 5,000 | `SnippetStore.maximumItems` |
+| Snippets | files per drop | 20 | `SnippetsPane.maximumFilesPerDrop` |
+| Snippets | bookmark per file pin | ~1.1 KiB (~1.5 KiB as base64) | `URL.bookmarkData`; observed on APFS |
 | Snippets | query | 256 chars | `SnippetStore.maximumQueryCharacters` |
 | Snippets | searchable text per field | 16,384 chars | `SnippetStore.maximumSearchCharacters` |
 | Backup | encoded/import file | 10 MiB | `ImpulsBackupDocument.maximumEncodedBytes`. **1.4.16:** unchanged as a number, but its scope is now stated: a byte budget bounds how *much* is read, never how *long* a read waits, and it is consulted only after a read returns. `BoundedFileReader` therefore also refuses anything that is not a regular file, so a FIFO, device or socket cannot wait on a peer that never arrives. Slow *regular* files remain bounded only by the filesystem — see the `BackupService` row in the background/concurrency registry |
@@ -75,6 +77,20 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 | Web music | page diagnostic line | 512 chars | forwarded to `NSLog`; page-controlled text |
 | Web music | capability flags (`canNext`/`canPrevious`/`canPlayPause`/`canSeek`) | fixed 4 booleans, `?? false` when absent | `WebMusicState.decode`; reviewed for 1.4.16 — no new size/count budget, an unproven capability defaults to unavailable rather than needing a bound |
 | Feedback | summary / details / prefilled URL | 120 / 4,000 / 7,000 chars | `FeedbackService`; an over-long body is copied instead of prefilled |
+
+### IMP-39 review
+
+The drop cap is unchanged and no existing budget moved. Two things are worth recording rather than leaving implied.
+
+**Probe depth is bounded by two guards, not by user behaviour.** Only rows the `LazyVStack` has materialised probe at all, and a row skips a reference it has already resolved — without the second guard, scrolling a long list back and forth would re-materialise rows repeatedly and pile an undrainable backlog onto the serial probe queue. Neither is a numeric budget, which is why they are recorded here as prose rather than a row: the bound is "once per row per reference", not a count.
+
+There are now **two** serial resolve queues rather than one — speculative probes and user-initiated resolves are separated so a click is never behind another row's probe — but neither carries a numeric budget: each is serial, so the in-flight count is one apiece, and a click for a reference already being probed joins that resolution instead of queueing a second.
+
+Since the pointer-latency fix the second guard is the resolved-URL cache itself: `SnippetFilePinInteraction` holds one entry keyed by the reference it resolved, so "already probed" and "already resolved" are the same fact rather than two that could drift apart. The cache is one URL per materialised row and is discarded with the row, so it adds no retained budget worth a number.
+
+**Resolution is bounded in space, not in time.** `[.withoutUI, .withoutMounting]` bounds the *bookmark* branch, but the path fallback ends in `fileExists`/`resourceValues`, which have no timeout and block for the mount timeout on a mounted-but-unresponsive share. The automatic per-row check is therefore run off the main actor **on one serial queue**, so a stalled mount occupies that queue rather than N threads of the shared cooperative pool, and the list is lazy so only visible rows probe at all. See the concurrency registry.
+
+**A file pin is not the same size as a text snippet.** Its bookmark is ~1.1 KiB, ~1.5 KiB once base64-encoded into `snippets.json`, so a pin costs roughly twenty times an ordinary snippet. The 5,000-item and 10 MiB file budgets are unchanged, but a store made mostly of pins reaches the byte budget long before the item budget — 5,000 pins would be ≈7.5 MB of bookmarks alone. The same arithmetic applies to `ImpulsBackupDocument.maximumEncodedBytes`; backups drop the bookmark (see storage-persistence), which keeps an export close to the cost of the paths alone.
 
 ## Cadence and wake-up budgets
 

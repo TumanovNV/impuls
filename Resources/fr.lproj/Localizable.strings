@@ -57,6 +57,11 @@
 
 /* Snippets */
 "Add a snippet" = "Ajouter un fragment";
+"Click to copy the file, double-click to open it." = "Un clic copie le fichier, un double-clic l’ouvre.";
+"Choose File Again" = "Choisir à nouveau le fichier";
+"File Unavailable" = "Fichier indisponible";
+"Choose a file to pin." = "Choisissez un fichier à épingler.";
+"Pin a file" = "Épingler un fichier";
 "Name" = "Nom";
 "Text" = "Texte";
 "Delete" = "Supprimer";
@@ -510,6 +515,7 @@
 "snippets" = "fragments";
 "notes" = "notes";
 "Copies to the clipboard" = "Copie dans le presse-papiers";
+"Copies the file to the clipboard" = "Copie le fichier dans le presse-papiers";
 "Opens the file" = "Ouvre le fichier";
 "Select" = "Sélectionner";
 "Drop files here to put them on the shelf" = "Déposez des fichiers ici pour les placer sur l'étagère";
