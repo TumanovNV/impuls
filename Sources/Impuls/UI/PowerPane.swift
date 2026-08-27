@@ -4,16 +4,39 @@ struct PowerPane: View {
     @ObservedObject var power: PowerMonitor
     @ObservedObject var devices: DevicePowerCenter
     @ObservedObject var settings: SettingsStore
+    /// Observed here rather than reached through the view model, for the same
+    /// reason the panes with a text field observe their own stores: the mode
+    /// changes from inside this pane, and the shared model only forwards while
+    /// the panel is open.
+    @ObservedObject var stayAwake: StayAwakeService
     @State private var selectedDeviceKey = AppleDeviceIdentity.localMac.localPreferenceKey
     @FocusState private var focusedDeviceKey: String?
     @State private var hoveredDeviceKey: String?
 
+    /// Every Power layout gets the same Stay Awake strip at its foot. Putting
+    /// it here rather than inside each branch means the battery, desktop and
+    /// device-navigator layouts keep their own geometry unchanged and the
+    /// control sits in one predictable place.
     var body: some View {
-        if settings.showsExternalAppleDevices {
-            multiDeviceCenter
-        } else {
-            localPower
+        VStack(spacing: Theme.Space.xs) {
+            Group {
+                if settings.showsExternalAppleDevices {
+                    multiDeviceCenter
+                } else {
+                    localPower
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            PowerStayAwakeBar(stayAwake: stayAwake, isOnBattery: isOnBattery)
         }
+    }
+
+    /// Battery hardware discharging right now. A desktop Mac has no internal
+    /// battery, so this is never true there and the strip's caution never
+    /// appears on one.
+    private var isOnBattery: Bool {
+        snapshot.deviceKind == .portable && snapshot.powerSource == .battery
     }
 
     @ViewBuilder

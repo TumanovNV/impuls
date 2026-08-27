@@ -695,3 +695,19 @@
 
 /* Web player process termination 1.4.16 */
 "The web player stopped unexpectedly. Reload to continue." = "The web player stopped unexpectedly. Reload to continue.";
+
+/* Stay Awake 1.4.16 */
+"Stay Awake" = "Stay Awake";
+"30 Minutes" = "30 Minutes";
+"2 Hours" = "2 Hours";
+"Until Turned Off" = "Until Turned Off";
+"Turn Off" = "Turn Off";
+"Duration" = "Duration";
+"Keep Display Awake" = "Keep Display Awake";
+"Keeps this Mac from going to sleep" = "Keeps this Mac from going to sleep";
+"Also keeps the screen from turning off" = "Also keeps the screen from turning off";
+"Your Mac will stay awake" = "Your Mac will stay awake";
+"Remaining %@" = "Remaining %@";
+"On battery this uses more power" = "On battery this uses more power";
+"Could not turn on Stay Awake." = "Could not turn on Stay Awake.";
+"Could not keep the display awake." = "Could not keep the display awake.";

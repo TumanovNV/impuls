@@ -695,3 +695,19 @@
 
 /* Web player process termination 1.4.16 */
 "The web player stopped unexpectedly. Reload to continue." = "Le lecteur web s’est arrêté de façon inattendue. Rechargez pour continuer.";
+
+/* Rester éveillé 1.4.16 */
+"Stay Awake" = "Rester éveillé";
+"30 Minutes" = "30 minutes";
+"2 Hours" = "2 heures";
+"Until Turned Off" = "Jusqu'à désactivation";
+"Turn Off" = "Désactiver";
+"Duration" = "Durée";
+"Keep Display Awake" = "Garder l'écran allumé";
+"Keeps this Mac from going to sleep" = "Empêche ce Mac de se mettre en veille";
+"Also keeps the screen from turning off" = "Empêche aussi l'écran de s'éteindre";
+"Your Mac will stay awake" = "Votre Mac restera éveillé";
+"Remaining %@" = "Restant %@";
+"On battery this uses more power" = "Sur batterie, la consommation augmente";
+"Could not turn on Stay Awake." = "Impossible d'activer Rester éveillé.";
+"Could not keep the display awake." = "Impossible de garder l'écran allumé.";

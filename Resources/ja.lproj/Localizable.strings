@@ -694,3 +694,19 @@
 
 /* Web player process termination 1.4.16 */
 "The web player stopped unexpectedly. Reload to continue." = "Webプレーヤーが予期せず停止しました。再読み込みしてください。";
+
+/* スリープ防止 1.4.16 */
+"Stay Awake" = "スリープ防止";
+"30 Minutes" = "30分";
+"2 Hours" = "2時間";
+"Until Turned Off" = "オフにするまで";
+"Turn Off" = "オフにする";
+"Duration" = "継続時間";
+"Keep Display Awake" = "ディスプレイもオンのまま";
+"Keeps this Mac from going to sleep" = "このMacがスリープしないようにします";
+"Also keeps the screen from turning off" = "画面が消えないようにもします";
+"Your Mac will stay awake" = "Macはスリープしません";
+"Remaining %@" = "残り%@";
+"On battery this uses more power" = "バッテリー駆動では消費が増えます";
+"Could not turn on Stay Awake." = "スリープ防止をオンにできませんでした。";
+"Could not keep the display awake." = "ディスプレイをオンのままにできませんでした。";

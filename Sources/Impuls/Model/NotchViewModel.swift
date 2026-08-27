@@ -99,6 +99,12 @@ final class NotchViewModel: ObservableObject {
     /// the local Mac still comes from `PowerMonitor`, and the centre adds the
     /// devices around it once the user asks for them.
     let devices: DevicePowerCenter
+    /// The manual Stay Awake mode. It lives here, with the other shared
+    /// services, rather than in the pane that shows it: the mode has to survive
+    /// the Power pane closing and the panel folding, and an assertion whose
+    /// lifetime was a SwiftUI row's would end the moment the person looked at
+    /// another module.
+    let stayAwake: StayAwakeService
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -114,7 +120,16 @@ final class NotchViewModel: ObservableObject {
     /// this object without mentioning storage and quietly acquire the user's
     /// real notes — which is exactly how that happened once. Requiring the
     /// argument turns the privacy boundary into something the compiler checks.
-    init(settings: SettingsStore, storage: StorageEnvironment) {
+    /// `stayAwake` has a `nil` default rather than being constructed inline so
+    /// the wiring below — the module switch and `stop()` — can be exercised
+    /// against a fake power-assertion backend. Construction of the real one is
+    /// inert, but a test that needed to turn the mode on would otherwise take a
+    /// genuine system assertion and keep the machine running the suite awake.
+    init(
+        settings: SettingsStore,
+        storage: StorageEnvironment,
+        stayAwake: StayAwakeService? = nil
+    ) {
         self.settings = settings
         self.actions = ImpulsActionsStore()
         // The same defaults the settings live in, so one Impuls writes to one
@@ -135,6 +150,15 @@ final class NotchViewModel: ObservableObject {
         let power = PowerMonitor()
         self.power = power
         self.devices = DevicePowerCenter(monitor: power, lowBatteryAlerts: settings.lowBatteryAlerts)
+        // The real IOKit driver is named here and nowhere else in the app.
+        // `WakeLeaseRegistry` has no default driver, so this is the single
+        // place that decides a physical power assertion may be created.
+        // Constructed here rather than as a default argument: the service is
+        // main-actor isolated, and a default argument is evaluated outside the
+        // initialiser's isolation.
+        self.stayAwake = stayAwake ?? StayAwakeService(
+            leases: WakeLeaseRegistry(driver: IOKitPowerAssertionDriver())
+        )
 
         self.clipboard.isApplicationExcluded = { [weak settings] bundleIdentifier in
             settings?.excludedClipboardBundleIdentifiers.contains(bundleIdentifier) ?? false
@@ -205,6 +229,13 @@ final class NotchViewModel: ObservableObject {
                 let enabled = preferences.compactMap { $0.isEnabled ? $0.tab : nil }
                 self.power.setEnabled(enabled.contains(.power))
                 self.devices.setEnabled(enabled.contains(.power))
+                // Power Center is the only place Stay Awake can be turned off,
+                // so disabling the module has to end the mode rather than leave
+                // a lease running with no control attached to it. `turnOff()`
+                // and not `shutdown()`: this is an ordinary transition, not the
+                // process going away, and it must release this mode's lease and
+                // nothing else.
+                if !enabled.contains(.power) { self.stayAwake.turnOff() }
                 if !enabled.contains(self.tab), let first = enabled.first {
                     self.tab = first
                 }
@@ -427,6 +458,11 @@ final class NotchViewModel: ObservableObject {
         calendar.stop()
         power.stop()
         devices.stop()
+        // Explicit release on the way out. macOS would reap our assertions when
+        // the process dies anyway, but relying on that would mean the normal
+        // path had no cleanup of its own — and this is also the only stop that
+        // cancels a pending expiry.
+        stayAwake.shutdown()
         // Whatever was typed makes it to disk even when quitting mid-thought.
         notes.flushSynchronously()
         // Snippets write from their own queue now, so a snippet added moments

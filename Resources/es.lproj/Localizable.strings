@@ -695,3 +695,19 @@
 
 /* Web player process termination 1.4.16 */
 "The web player stopped unexpectedly. Reload to continue." = "El reproductor web se detuvo inesperadamente. Vuelve a cargar para continuar.";
+
+/* Mantener activo 1.4.16 */
+"Stay Awake" = "Mantener activo";
+"30 Minutes" = "30 minutos";
+"2 Hours" = "2 horas";
+"Until Turned Off" = "Hasta desactivarlo";
+"Turn Off" = "Desactivar";
+"Duration" = "Duración";
+"Keep Display Awake" = "Mantener la pantalla encendida";
+"Keeps this Mac from going to sleep" = "Evita que este Mac entre en reposo";
+"Also keeps the screen from turning off" = "También evita que la pantalla se apague";
+"Your Mac will stay awake" = "Tu Mac permanecerá activo";
+"Remaining %@" = "Restante %@";
+"On battery this uses more power" = "Con batería el consumo es mayor";
+"Could not turn on Stay Awake." = "No se pudo activar Mantener activo.";
+"Could not keep the display awake." = "No se pudo mantener la pantalla encendida.";

@@ -310,7 +310,7 @@ private struct ExpandedPanelContent: View {
         case .notes:
             NotesPane(notes: vm.notes, wantsKeyboard: $vm.wantsKeyboard)
         case .power:
-            PowerPane(power: vm.power, devices: vm.devices, settings: vm.settings)
+            PowerPane(power: vm.power, devices: vm.devices, settings: vm.settings, stayAwake: vm.stayAwake)
         }
     }
 }
