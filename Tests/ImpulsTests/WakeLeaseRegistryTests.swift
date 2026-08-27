@@ -254,7 +254,13 @@ final class WakeLeaseRegistryTests: XCTestCase {
         try registry.acquire([.systemIdleSleep, .displayIdleSleep])
 
         XCTAssertEqual(driver.names, [PowerAssertionName.stayAwake])
-        XCTAssertEqual(PowerAssertionName.stayAwake, "Impuls — Stay Awake")
+        XCTAssertEqual(PowerAssertionName.stayAwake, "Impuls: Stay Awake")
+        // ASCII only: `pmset` writes MacRoman, so a non-ASCII character in the
+        // name reaches a UTF-8 terminal mangled and stops being greppable.
+        XCTAssertTrue(
+            PowerAssertionName.stayAwake.allSatisfy(\.isASCII),
+            "the assertion name has to survive pmset's own output encoding"
+        )
     }
 
     func testRequirementsMapToThePublicIOKitAssertionTypes() {

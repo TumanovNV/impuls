@@ -124,6 +124,12 @@ final class IOKitPowerAssertionDriver: PowerAssertionDriving {
 /// Not localized, on purpose. It is a diagnostic identifier that somebody
 /// grepping `pmset` output has to be able to match, and a name that changes
 /// with the interface language would make that impossible.
+///
+/// ASCII only, for the same reason, and this is not a style preference:
+/// `/usr/bin/pmset` writes its output in MacRoman rather than UTF-8, so an em
+/// dash here arrives in a UTF-8 terminal as a lone `0xD1` byte and the name a
+/// person copied out of the source no longer matches the line on their screen.
+/// Verified on macOS 26 against a live assertion.
 enum PowerAssertionName {
-    static let stayAwake = "Impuls — Stay Awake"
+    static let stayAwake = "Impuls: Stay Awake"
 }
