@@ -2,9 +2,9 @@
 title: Power and Battery Module
 type: module
 status: production
-documentation_version: 1.7
+documentation_version: 1.8
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-27
 tags: [impuls, module, battery, devices, iokit]
 ---
 
@@ -27,6 +27,9 @@ flowchart TD
     DPC --> MERGE[DeviceSnapshotMerger]
     MERGE --> UI[PowerPane / Settings / Menu Bar]
     MERGE --> ALERT[LowBatteryAlertService]
+    UI --> SAW[StayAwakeService]
+    SAW --> LEASE[WakeLeaseRegistry]
+    LEASE --> DRV[IOKitPowerAssertionDriver]
 ```
 
 ## Power Center presentation (1.4.14)
@@ -42,6 +45,41 @@ flowchart TD
 Optional `Adapter Current` — это только положительное целое значение mA из публичного `IOPSCopyExternalPowerAdapterDetails()` / `kIOPSPowerAdapterCurrentKey`. Оно читается из уже полученного adapter-details dictionary в существующем snapshot path: нет второго IOKit read, нового provider, timer, polling, observer, subprocess или retry. Отсутствующий dictionary/key, zero, negative, wrong type или failed conversion остаются `nil`; desktop/no-battery path также не показывает метрику.
 
 Это **adapter current reported by macOS**, не charging current, battery charging current, live charging power, wall draw, adapter output power или available adapter capacity. Source-of-truth остаётся integer mA; UI показывает `<1000` как integer mA, `>=1000` как locale-aware A максимум с одним decimal. Никакой wattage из него не вычисляется. Rated adapter watts (`kIOPSPowerAdapterWattsKey`) и existing battery-side derived W остаются отдельными, неизменными метриками. `kIOPSPowerAdapterSourceKey` не используется: public contract не задаёт mapping к MagSafe/USB-C. Adapter serial/ID/family/revision не читаются, не хранятся и не логируются; новая метрика local-only, без persistence, telemetry или network.
+
+## Stay Awake (1.4.16, IMP-40)
+
+**Что это.** Явный пользовательский режим в Power Center: пока он включён, Mac не уходит в user-idle system sleep. Отдельная explicit опция «Не выключать экран» добавляет к тому же lease требование по дисплею. Она **выключена при каждом включении режима** и недоступна, пока режим выключен: состояния «экран удерживается, а Stay Awake выключен» не существует.
+
+**Как реализовано.** Только публичные IOKit power-management assertions:
+
+| Требование | Assertion type | Что даёт |
+| --- | --- | --- |
+| `WakeRequirement.systemIdleSleep` | `kIOPMAssertPreventUserIdleSystemSleep` (`"PreventUserIdleSystemSleep"`) | нет idle system sleep; экран при этом может гаснуть |
+| `WakeRequirement.displayIdleSleep` | `kIOPMAssertPreventUserIdleDisplaySleep` (`"PreventUserIdleDisplaySleep"`) | экран не гаснет по бездействию |
+
+Создание — `IOPMAssertionCreateWithName`, освобождение — `IOPMAssertionRelease`, `IOReturn` проверяется в обе стороны. Deprecated спеллинги того же заголовка (`kIOPMAssertionTypeNoIdleSleep`, `kIOPMAssertionTypeNoDisplaySleep`, `kIOPMAssertionTypePreventSystemSleep`) не используются намеренно. Никаких private symbols, никакого entitlement и никакого permission prompt: `IOPMAssertionCreateWithName` их не требует, поэтому у фичи нет authorization path.
+
+**Чего здесь нет.** Ни `/usr/bin/caffeinate` как дочернего процесса, ни `pmset` в production, ни `Process()`, ни shell. Assertion принадлежит процессу — это ровно то, что берёт сам `caffeinate`, — поэтому дочерним процессом управлять нечем. Системные настройки пользователя (Energy Saver / Battery / Display sleep) **не изменяются**: после release система возвращается к своим собственным настройкам. `pmset -g assertions` остаётся исключительно read-only инструментом ручного QA.
+
+**Lease/token ownership.** `WakeLeaseRegistry` выдаёт `WakeLeaseToken` и владеет физическими assertions. Сколько бы lease ни просили `systemIdleSleep`, существует ровно **один** physical system assertion; то же независимо для display. `release(token)` действует только на свой token, поэтому один владелец не может отменить чужое требование, а release неизвестного или уже освобождённого token — no-op. Токен создаётся только реестром (`fileprivate init`), так что подделать его из другого файла нельзя.
+
+В 1.4.16 владелец **ровно один** — ручной режим. Реестр всё равно реестр, а не флаг, потому что правило владения — сложная часть, и переписывать под него выросших вокруг флага вызывающих дороже. Никакого второго владельца, никакого background lease и никакого скрытого держателя не добавлено, и speculative AI-код сюда не заводится.
+
+**Transactional reconciliation.** `reconcile` сначала создаёт всё недостающее и только потом освобождает лишнее и коммитит таблицу lease. Отсюда три свойства: неудачное создание нового требования не стоит уже работающего assertion; частичное создание откатывается до броска ошибки, поэтому orphan не остаётся; состояние сервиса и состояние системы не могут разойтись, потому что таблица пишется после «да» от системы. Неудачный release не фатален и не повторяется: handle в любом случае выбрасывается, иначе он был бы освобождён второй раз.
+
+**Честное состояние при отказе.** Если assertion создать не удалось, `isActive` остаётся `false` — UI никогда не утверждает, что Mac удерживается, когда это не так. Сообщение bounded и локальное; `IOReturn` — диагностика для разработчика, а не текст для человека.
+
+**Timed modes.** 30 минут / 1 час / 2 часа / до выключения. Дедлайн — монотонный `ContinuousClock`, чтобы ручной перевод системных часов не превращал 30 минут в 5 или в 4 часа. Repeating timer не нужен: assertion удерживает Mac сам. Существует максимум **один** отложенный one-shot; смена длительности, выключение и shutdown его отменяют, а generation-счётчик гасит уже поставленный в очередь callback, поэтому старый дедлайн не может выключить более новый режим. Часы, а не планировщик, решают, истёк ли срок: слишком раннее пробуждение перевзводит остаток вместо преждевременного выключения.
+
+**Lifecycle.** Сервис живёт в `NotchViewModel` рядом с остальными общими сервисами, а не во view: свернувшаяся панель и закрытый Power Center режим не выключают. Выключают его четыре вещи — человек, выбранный дедлайн, отключение модуля Power (единственная поверхность управления исчезает, значит скрытого lease не остаётся) и `NotchViewModel.stop()` из `applicationWillTerminate`. Normal termination освобождает явно; abnormal process death (crash/kill) закрывает macOS, потому что assertion принадлежит процессу — это backstop, а не замена явной очистке. `shutdown()` идемпотентен.
+
+**Никакого cross-launch restore.** Ничего не персистится: нет ключа в `UserDefaults`, из которого можно было бы восстановиться, поэтому запуск всегда даёт выключенный режим. Это energy/safety контракт, а не забытая фича.
+
+**Battery caution.** Нейтральная строка при работе от батареи, без модалок и без блокировки. Показывается независимо от того, включён ли режим: одна и та же фраза отвечает и на «во что это обойдётся» до включения, и на «во что обходится» во время работы, а при выключенном режиме эта колонка всё равно пуста. Читает уже публикуемый `PowerMonitor.snapshot` — второго источника питания и нового polling нет. Desktop Mac её не показывает, потому что у него нет внутренней батареи.
+
+**Telemetry.** Ничего не собирается: ни активации, ни длительности, ни timestamps, ни состояние батареи, ни display-preference. Фича local-only, нового network owner нет. Имя assertion (`Impuls: Stay Awake`) видно в `pmset -g assertions` и держится по тем же правилам, что и лог-строка: приложение и функция, без путей, идентификаторов и содержимого задачи. Не локализуется — иначе его нельзя было бы сопоставить в выводе инструмента, — и **только ASCII**: `pmset` печатает вывод в MacRoman, поэтому em dash доходит до UTF-8 терминала одиночным байтом `0xD1`, и скопированное из исходника имя перестаёт совпадать с тем, что человек видит на экране (проверено на живом assertion, macOS 26).
+
+**Test seam.** `WakeLeaseRegistry` не имеет default driver — реальный `IOKitPowerAssertionDriver` называется ровно в одном месте приложения, в `NotchViewModel`. Тест, забывший передать fake, не компилируется; тест, который назвал бы реальный driver намеренно, падает на сканере в `StayAwakeServiceTests`. Конструирование самого driver'а инертно (assertion создаётся только при `acquire`), поэтому существующие тесты, строящие `NotchViewModel`, безопасны, а те, которым нужно включить режим, передают сервис на fake-бэкенде.
 
 ## External device privacy boundary
 
@@ -198,7 +236,8 @@ Raw UDID/serial/Bluetooth/pairing material не выходит в UI/logs/backup
 - `AppleDeviceIdentity.swift`
 - `DeviceSnapshotMerger.swift`, `DeviceRefreshScheduler.swift`
 - `LowBatteryAlertEngine.swift`, `LowBatteryAlertService.swift`
-- `PowerPane.swift`
+- `PowerPane.swift`, `PowerStayAwakeBar.swift`
+- `PowerAssertionDriver.swift`, `WakeLeaseRegistry.swift`, `StayAwakeService.swift`
 
 ## Инварианты
 
@@ -212,7 +251,10 @@ Raw UDID/serial/Bluetooth/pairing material не выходит в UI/logs/backup
 - failed Notification Center delivery never becomes persisted fired-state;
 - retry uses the existing provider lifecycle rather than a new background loop;
 - a locked-but-trusted device keeps its last-known reading rather than being dropped;
-- a topology/wake refresh discards an in-flight read instead of letting it publish after the device set has changed.
+- a topology/wake refresh discards an in-flight read instead of letting it publish after the device set has changed;
+- wake assertions are held per lease: one physical assertion per requirement, released only when its last lease goes, and never released on another owner's behalf;
+- a power assertion is never claimed in the interface before the system granted it;
+- Stay Awake is never restored across a launch, never persisted, and never held without a control that can end it.
 
 ## Связано
 

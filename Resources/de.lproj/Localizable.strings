@@ -695,3 +695,19 @@
 
 /* Web player process termination 1.4.16 */
 "The web player stopped unexpectedly. Reload to continue." = "Der Web-Player wurde unerwartet beendet. Neu laden, um fortzufahren.";
+
+/* Wachhalten 1.4.16 */
+"Stay Awake" = "Wachhalten";
+"30 Minutes" = "30 Minuten";
+"2 Hours" = "2 Stunden";
+"Until Turned Off" = "Bis zum Ausschalten";
+"Turn Off" = "Ausschalten";
+"Duration" = "Dauer";
+"Keep Display Awake" = "Display anlassen";
+"Keeps this Mac from going to sleep" = "Verhindert, dass dieser Mac in den Ruhezustand geht";
+"Also keeps the screen from turning off" = "Verhindert außerdem, dass sich der Bildschirm ausschaltet";
+"Your Mac will stay awake" = "Dein Mac bleibt wach";
+"Remaining %@" = "Verbleibend %@";
+"On battery this uses more power" = "Im Akkubetrieb steigt der Verbrauch";
+"Could not turn on Stay Awake." = "Wachhalten konnte nicht aktiviert werden.";
+"Could not keep the display awake." = "Das Display konnte nicht angelassen werden.";

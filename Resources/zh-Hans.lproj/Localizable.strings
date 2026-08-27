@@ -694,3 +694,19 @@
 
 /* Web player process termination 1.4.16 */
 "The web player stopped unexpectedly. Reload to continue." = "网页播放器意外停止。请重新载入以继续。";
+
+/* 保持唤醒 1.4.16 */
+"Stay Awake" = "保持唤醒";
+"30 Minutes" = "30 分钟";
+"2 Hours" = "2 小时";
+"Until Turned Off" = "直到关闭";
+"Turn Off" = "关闭";
+"Duration" = "时长";
+"Keep Display Awake" = "保持屏幕常亮";
+"Keeps this Mac from going to sleep" = "防止这台 Mac 进入睡眠";
+"Also keeps the screen from turning off" = "同时防止屏幕关闭";
+"Your Mac will stay awake" = "Mac 将保持唤醒";
+"Remaining %@" = "剩余 %@";
+"On battery this uses more power" = "使用电池时耗电更快";
+"Could not turn on Stay Awake." = "无法开启保持唤醒。";
+"Could not keep the display awake." = "无法保持屏幕常亮。";

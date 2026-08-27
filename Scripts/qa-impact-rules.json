@@ -141,6 +141,8 @@
         "Sources/Impuls/Services/IORegistry*.swift",
         "Sources/Impuls/Services/RegistryNumber.swift",
         "Sources/Impuls/Services/SystemProfilerAccessory*.swift",
+        "Sources/Impuls/Services/StayAwake*.swift",
+        "Sources/Impuls/Services/WakeLease*.swift",
         "Sources/Impuls/UI/*Power*.swift"
       ],
       "test_globs": [
@@ -156,7 +158,9 @@
         "Tests/ImpulsTests/MobileDeviceProtocolTests.swift",
         "Tests/ImpulsTests/PowerAccessoryOverlayTests.swift",
         "Tests/ImpulsTests/PowerMonitorTests.swift",
-        "Tests/ImpulsTests/ThirdPartyBluetoothBatteryTests.swift"
+        "Tests/ImpulsTests/StayAwakeServiceTests.swift",
+        "Tests/ImpulsTests/ThirdPartyBluetoothBatteryTests.swift",
+        "Tests/ImpulsTests/WakeLeaseRegistryTests.swift"
       ],
       "qa_ids": [
         "PERM-07",
@@ -175,7 +179,8 @@
         "PWR-12",
         "PWR-13",
         "PWR-14",
-        "PWR-15"
+        "PWR-15",
+        "PWR-16"
       ]
     },
     {

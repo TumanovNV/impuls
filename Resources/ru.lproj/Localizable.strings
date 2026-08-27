@@ -694,3 +694,19 @@
 
 /* Web player process termination 1.4.16 */
 "The web player stopped unexpectedly. Reload to continue." = "Веб-плеер неожиданно остановился. Перезагрузите, чтобы продолжить.";
+
+/* Режим «Не засыпать» 1.4.16 */
+"Stay Awake" = "Не засыпать";
+"30 Minutes" = "30 минут";
+"2 Hours" = "2 часа";
+"Until Turned Off" = "До выключения";
+"Turn Off" = "Выключить";
+"Duration" = "Длительность";
+"Keep Display Awake" = "Не выключать экран";
+"Keeps this Mac from going to sleep" = "Не даёт этому Mac уснуть";
+"Also keeps the screen from turning off" = "Также не даёт экрану погаснуть";
+"Your Mac will stay awake" = "Mac не будет засыпать";
+"Remaining %@" = "Осталось %@";
+"On battery this uses more power" = "На батарее расход выше";
+"Could not turn on Stay Awake." = "Не удалось включить режим «Не засыпать».";
+"Could not keep the display awake." = "Не удалось оставить экран включённым.";

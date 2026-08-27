@@ -2,7 +2,7 @@
 title: Input & Resource Budget Registry
 type: reference
 status: active
-documentation_version: 2.0
+documentation_version: 2.1
 app_version: 1.4.16
 last_reviewed: 2026-08-27
 tags: [impuls, performance, limits, budgets, security, ai]
@@ -102,6 +102,10 @@ Since the pointer-latency fix the second guard is the resolved-URL cache itself:
 | Native music state (Apple Music / Spotify) | 1 s, tolerance 0.15 s | visible selected native-app pane only; one shared timer |
 | Calendar countdown | 30 s, tolerance 5 s | visible pane only |
 | Local Mac power | 2 s, tolerance 0.5 s | visible Power pane only |
+| Stay Awake physical assertions | at most **1** system + **1** display, for the whole process | `WakeLeaseRegistry` aggregates every lease into one assertion per requirement. Not a per-lease resource: a second lease asking for the same requirement allocates nothing |
+| Stay Awake timed expiry | at most **1** scheduled one-shot | `StayAwakeService`. No repeating timer exists — the OS assertion holds the Mac awake by itself. `Until Turned Off` schedules nothing at all; a duration change replaces the item rather than adding one |
+| Stay Awake durations | 1,800 / 3,600 / 7,200 s, or no deadline | `StayAwakeDuration.seconds`. A product choice, not a safety ceiling: `Until Turned Off` is deliberately unbounded in time and is bounded instead by the process — quitting Impuls releases the assertion, and nothing restores it on the next launch |
+| Stay Awake remaining-time repaint | 1 min | `TimelineView(.everyMinute)`, only while a timed mode runs with the Power pane mounted. Not a stopwatch and not a process-wide timer |
 | Apple accessory provider | 10 s active / 600 s idle | IOKit events may trigger immediate reads |
 | Mobile device provider | 60 s active / 900 s idle | topology events are separate from battery polling |
 | Device failure backoff | max 600 s | exponential, reset after success |
@@ -126,6 +130,8 @@ Since the pointer-latency fix the second guard is the resolved-URL cache itself:
 | Project-support prompt quiet delay | one `+8 s` one-shot per quiet transition | never a timer; scheduled only when eligibility already holds, cancelled when work resumes or the app terminates. Minimum uptime before any prompt is 120 s |
 | Self-relaunch PID wait | max `100 × 0.1 s` ≈ `10 s` | `AppRelaunchService.pollLimit` / `pollInterval`; timeout is fail-closed and exits without opening a second instance |
 | Self-relaunch teardown settle | `0.2 s` once the old PID disappears | one-shot helper margin before opening the exact current bundle; no daemon, Login Item or persistent timer |
+
+Reviewed for IMP-40: Stay Awake introduces no size, count or retention budget over user input — it reads nothing and stores nothing. Its budgets are the four rows above, and the honest statement about them is that a timed mode really does own one scheduled one-shot rather than "no timer", and that `Until Turned Off` has no time bound at all. The bound that does exist for the open-ended mode is process lifetime: the assertion belongs to this process, it is released explicitly at termination, and nothing is persisted for a later launch to restore.
 
 Reviewed for 1.4.16: `VersionTelemetryService.diagnostics()` added no new cadence, size or count budget — it is a synchronous read of already-persisted state with no polling interval of its own, so the "Version telemetry attempt"/"proposal" rows above are unchanged.
 

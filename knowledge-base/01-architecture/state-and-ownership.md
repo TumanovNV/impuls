@@ -2,7 +2,7 @@
 title: State and Ownership
 type: architecture
 status: active
-documentation_version: 1.5
+documentation_version: 1.6
 app_version: 1.4.16
 last_reviewed: 2026-08-27
 tags: [impuls, architecture, state, ownership]
@@ -63,6 +63,8 @@ flowchart LR
 | `ProjectSupportPromptService` | the machine-local prompt counters `projectSupport.prompt.v1`, the eligibility thresholds and prompt state machine, plus the separate exact GitHub project-URL handoff | the decision about *when* it is a good moment, the presentation itself, any network request, any claim about whether a star or payment was completed |
 | `VoluntarySupportDestination` | the immutable typed policy for the exact CloudTips and Boosty destinations | prompt state, provider selection, payment state or entitlement |
 | `ProjectSupportPromptWindowController` | presenting the prompt and reporting the chosen outcome back | eligibility, thresholds, a second feedback implementation |
+| `WakeLeaseRegistry` | every live `IOPMAssertionID` in the process, and the tokens that refer to them | any product decision about *why* the Mac is being held awake, any persisted state, any assertion it did not create |
+| `StayAwakeService` | the manual mode: exactly one lease, the chosen duration, the display option, the single expiry item | the physical assertions themselves, any other owner's lease, anything persisted across launches |
 | module store/service | domain state | panel geometry |
 | pane | presentation + user interaction | прямой filesystem/network ownership |
 
@@ -74,9 +76,11 @@ Menu Bar follows the same principle. It is a second **presentation surface**, no
 
 The 1.4.14 `VersionTelemetryScheduler` addition is a concrete instance of `AppDelegate`'s "teardown order" ownership above: `AppDelegate` starts it after the existing launch deferrals and stops it in `applicationWillTerminate`, but the scheduler itself owns no consent/endpoint/throttle policy — that stays inside `VersionTelemetryService`, per [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md).
 
+IMP-40 is the same principle applied to a system resource rather than to a service graph. A power assertion is process-wide, so it has exactly one owner — `WakeLeaseRegistry` — and everything that wants the Mac awake asks it for a token instead of creating its own. That is what makes "one owner must not break another" structural rather than conventional: releasing acts on a token, so it cannot cancel a claim it does not hold, and the registry aggregates rather than counting on callers to coordinate. The mode itself lives in `NotchViewModel`, not in the pane that shows it: a view-owned assertion would end when the person looked at another module.
+
 ## MainActor and isolation
 
-Большинство orchestration/UI stores являются `@MainActor`. Это не означает, что тяжёлая работа выполняется на UI thread. Дисковая запись notes/clipboard, hardware I/O и другие потенциально долгие операции выносятся на queues/async sources. Особенно важно для device layer: socket/process/device I/O не должен попадать на main actor.
+Большинство orchestration/UI stores являются `@MainActor`. Это не означает, что тяжёлая работа выполняется на UI thread. Дисковая запись notes/clipboard, hardware I/O и другие потенциально долгие операции выносятся на queues/async sources. Особенно важно для device layer: socket/process/device I/O не должен попадать на main actor. Обратная сторона правила так же важна: `IOPMAssertionCreateWithName`/`IOPMAssertionRelease` — короткие вызовы в `powerd`, а не I/O, поэтому `WakeLeaseRegistry` и `StayAwakeService` остаются `@MainActor` без очереди и detached-задач. Вынести их было бы лишним переходом, который ничего не устраняет.
 
 `@unchecked Sendable`, explicit locks, custom actors and `nonisolated` declarations are ownership contracts, not compiler-silencing decorations. A change to one of these boundaries must answer:
 
