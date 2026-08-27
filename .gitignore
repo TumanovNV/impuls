@@ -17,6 +17,10 @@ __pycache__/
 .claude/settings.json
 .claude/settings.local.json
 .obsidian/
+.codex/
+.vscode/
+.codebase-memory/
+prompts/
 
 # Чтобы секрет не уехал в публичный репозиторий по случайности
 .env
