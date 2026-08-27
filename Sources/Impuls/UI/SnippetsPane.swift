@@ -18,10 +18,6 @@ struct SnippetsPane: View {
 
     /// Rebuilt per render on purpose: it holds no state of its own, only the
     /// two system seams and closures onto the store.
-    private var fileActions: SnippetFileActions {
-        SnippetFileActions(pasteboard: SystemFilePasteboard(), workspace: SystemWorkspace())
-    }
-
     private let resolver: SnippetFileResolving = LiveSnippetFileResolver()
 
     /// One drop is one gesture, not an import. The cap keeps a stray drag of a
@@ -285,7 +281,7 @@ struct SnippetsPane: View {
                 // the tab opened rather than only the ones on screen.
                 LazyVStack(spacing: Theme.Space.xs - 1) {
                     ForEach(filtered) { item in
-                        SnippetRow(item: item, snippets: snippets, fileActions: fileActions, resolver: resolver)
+                        SnippetRow(item: item, snippets: snippets, resolver: resolver)
                     }
                 }
                 .padding(.bottom, Theme.Space.hair)
@@ -366,10 +362,10 @@ private struct ClickCountCatcher: NSViewRepresentable {
 private struct SnippetRow: View {
     let item: Snippet
     @ObservedObject var snippets: SnippetStore
-    let fileActions: SnippetFileActions
     let resolver: SnippetFileResolving
     @State private var hovering = false
     @State private var justCopied = false
+    @State private var copyGeneration = 0
     /// Resolved lazily — on appear and after an action that found the file
     /// gone. Nothing polls it.
     @State private var isMissing = false
@@ -491,13 +487,15 @@ private struct SnippetRow: View {
         // path fallback ends in `fileExists`/`resourceValues`, which block for
         // the mount timeout on an unresponsive share; the key check keeps a
         // `LazyVStack` re-materialising rows from re-probing on every scroll.
-        .task(id: item.id) {
+        // Keyed by the reference, not by `item.id`: `Snippet.id` hashes the
+        // label alone when a pin has one, so re-selecting a labeled pin leaves
+        // the id unchanged — the probe would never re-run and the row's cache
+        // would stay pointed at the file the user just replaced.
+        .task(id: item.text) {
             guard item.isFile else { return }
             let interaction = makeInteractionIfNeeded()
             guard !interaction.hasResolved(reference: item.text) else { return }
-            let url = await interaction.resolveAndPerform(
-                nil, reference: item.text, bookmark: item.file?.bookmark
-            )
+            let url = await interaction.resolveAndPerform(nil, for: item, urgency: .probe)
             guard !Task.isCancelled else { return }
             isMissing = url == nil
         }
@@ -563,15 +561,15 @@ private struct SnippetRow: View {
         let interaction = makeInteractionIfNeeded()
         // Fast path: already resolved, so this is a pasteboard write and
         // nothing else — no I/O, no suspension, same turn as the click.
-        if interaction.performIfResolved(effect, reference: item.text) {
+        if interaction.performIfResolved(effect, for: item) {
             didAct(effect)
             return
         }
+        // A miss. Resolution goes off the main actor on the user-action queue,
+        // so it is never behind the speculative probes of other rows, and it
+        // joins this row's own probe if one is already running.
         Task {
-            let url = await interaction.resolveAndPerform(
-                effect, reference: item.text, bookmark: item.file?.bookmark
-            )
-            guard !Task.isCancelled else { return }
+            let url = await interaction.resolveAndPerform(effect, for: item, urgency: .userAction)
             isMissing = url == nil
             if url != nil { didAct(effect) }
         }
@@ -579,8 +577,14 @@ private struct SnippetRow: View {
 
     private func makeInteractionIfNeeded() -> SnippetFilePinInteraction {
         if let interaction { return interaction }
+        // Built once per row, lazily, rather than allocated on every body
+        // evaluation — a fresh actions object per render made no row
+        // structurally equal to its previous self.
         let made = SnippetFilePinInteraction(
-            actions: fileActions,
+            actions: SnippetFileActions(
+                pasteboard: SystemFilePasteboard(),
+                workspace: SystemWorkspace()
+            ),
             resolver: resolver,
             onRefreshedReference: { [snippets, item] url, bookmark in
                 snippets.updateFileReference(for: item, resolvedURL: url, bookmark: bookmark)
@@ -595,7 +599,15 @@ private struct SnippetRow: View {
     private func didAct(_ effect: SnippetFileActions.Effect) {
         guard effect == .copy else { return }
         justCopied = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { justCopied = false }
+        // Generation-guarded, so a second copy inside the window is not cleared
+        // early by the first copy's timer — the same rule the registry already
+        // records for every other pane's "Copied" toast.
+        copyGeneration += 1
+        let generation = copyGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+            guard copyGeneration == generation else { return }
+            justCopied = false
+        }
     }
 
     private func chooseAgain() {

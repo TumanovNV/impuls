@@ -53,22 +53,47 @@ enum SnippetFileResolver {
         try? url.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 
-    /// One serial queue for every automatic availability probe.
+    /// Two serial queues, and the split is the point.
     ///
-    /// Not the shared cooperative pool, and deliberately: the path fallback can
-    /// block for a mount timeout, and a detached task per row would put N of
-    /// those stalls into the pool that `FileTools`, translation and telemetry
-    /// also run on. Here a stalled mount occupies exactly this one queue, which
-    /// is what "background work has an owner" means.
+    /// Neither is the shared cooperative pool: the path fallback can block for a
+    /// mount timeout, and a task per row would put N of those stalls into the
+    /// pool that `FileTools`, translation and telemetry also run on. Serial, so
+    /// a stalled mount occupies one queue rather than a thread each — that is
+    /// what gives the work an owner.
+    ///
+    /// But one queue for both kinds of work was wrong. A click that misses the
+    /// cache would queue behind every background probe already scheduled, so on
+    /// a slow volume the copy could wait out somebody else's mount timeout —
+    /// the same latency the fix set out to remove, just without a beachball.
+    /// A user-initiated resolve gets its own queue and priority, so it is never
+    /// behind speculative work.
     private static let probeQueue = DispatchQueue(
         label: "io.tumanov.impuls.snippets.file-probe",
         qos: .utility
     )
 
-    /// The automatic form of `resolve`, off the main actor and serialized.
-    static func resolveOffMainActor(path: String, bookmark: Data?) async -> SnippetFileResolution {
-        await withCheckedContinuation { continuation in
-            probeQueue.async {
+    private static let actionQueue = DispatchQueue(
+        label: "io.tumanov.impuls.snippets.file-action",
+        qos: .userInitiated
+    )
+
+    enum Urgency {
+        /// Speculative: filling a row's cache before anybody asks.
+        case probe
+        /// Somebody clicked. Never queued behind `probe` work.
+        case userAction
+    }
+
+    /// `resolve`, off the main actor and serialized on the queue its urgency
+    /// belongs to.
+    static func resolveOffMainActor(
+        path: String,
+        bookmark: Data?,
+        urgency: Urgency = .probe
+    ) async -> SnippetFileResolution {
+        let queue = urgency == .probe ? probeQueue : actionQueue
+        return await withCheckedContinuation { continuation in
+            queue.async {
                 continuation.resume(returning: resolve(path: path, bookmark: bookmark))
             }
         }
@@ -130,12 +155,20 @@ enum SnippetFileResolver {
 /// demand, which is what makes "the side effect happens only after resolution"
 /// provable without timing anything.
 protocol SnippetFileResolving: Sendable {
-    func resolve(path: String, bookmark: Data?) async -> SnippetFileResolution
+    func resolve(
+        path: String,
+        bookmark: Data?,
+        urgency: SnippetFileResolver.Urgency
+    ) async -> SnippetFileResolution
 }
 
 struct LiveSnippetFileResolver: SnippetFileResolving {
-    func resolve(path: String, bookmark: Data?) async -> SnippetFileResolution {
-        await SnippetFileResolver.resolveOffMainActor(path: path, bookmark: bookmark)
+    func resolve(
+        path: String,
+        bookmark: Data?,
+        urgency: SnippetFileResolver.Urgency
+    ) async -> SnippetFileResolution {
+        await SnippetFileResolver.resolveOffMainActor(path: path, bookmark: bookmark, urgency: urgency)
     }
 }
 
@@ -150,7 +183,11 @@ struct LiveSnippetFileResolver: SnippetFileResolving {
 @MainActor
 protocol FilePasteboardWriting {
     /// Writes the file itself, as a file object other applications can paste.
-    func writeFile(_ url: URL)
+    /// Returns whether the pasteboard accepted it — `clearContents()` has
+    /// already destroyed what was there by then, so a failure is worth knowing
+    /// about rather than reporting "Copied" over.
+    @discardableResult
+    func writeFile(_ url: URL) -> Bool
 }
 
 /// Opening and revealing files.
@@ -171,10 +208,11 @@ protocol FileOpening {
 /// storage: only the reference goes on the pasteboard.
 @MainActor
 struct SystemFilePasteboard: FilePasteboardWriting {
-    func writeFile(_ url: URL) {
+    @discardableResult
+    func writeFile(_ url: URL) -> Bool {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.writeObjects([url as NSURL])
+        return pasteboard.writeObjects([url as NSURL])
     }
 }
 

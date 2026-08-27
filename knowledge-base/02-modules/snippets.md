@@ -2,9 +2,9 @@
 title: Snippets Module
 type: module
 status: production
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.16
-last_reviewed: 2026-08-20
+last_reviewed: 2026-08-27
 tags: [impuls, module, snippets]
 ---
 

@@ -10,7 +10,13 @@ import XCTest
 @MainActor
 private final class FakePasteboard: FilePasteboardWriting {
     private(set) var written: [URL] = []
-    func writeFile(_ url: URL) { written.append(url) }
+    var succeeds = true
+    @discardableResult
+    func writeFile(_ url: URL) -> Bool {
+        guard succeeds else { return false }
+        written.append(url)
+        return true
+    }
 }
 
 /// Records opens and reveals instead of launching Preview, TextEdit or Finder.
@@ -38,8 +44,17 @@ private actor ResolverGate: SnippetFileResolving {
         self.isOpen = openImmediately
     }
 
-    func resolve(path: String, bookmark: Data?) async -> SnippetFileResolution {
+    private(set) var urgencies: [SnippetFileResolver.Urgency] = []
+    private(set) var callCount = 0
+
+    func resolve(
+        path: String,
+        bookmark: Data?,
+        urgency: SnippetFileResolver.Urgency
+    ) async -> SnippetFileResolution {
         called = true
+        callCount += 1
+        urgencies.append(urgency)
         waiters.forEach { $0.resume() }
         waiters.removeAll()
         if !isOpen {
@@ -47,6 +62,9 @@ private actor ResolverGate: SnippetFileResolving {
         }
         return result
     }
+
+    func observedUrgencies() -> [SnippetFileResolver.Urgency] { urgencies }
+    func observedCallCount() -> Int { callCount }
 
     /// Returns once `resolve` has been entered.
     func waitUntilCalled() async {
@@ -259,10 +277,10 @@ final class SnippetFilePinTests: XCTestCase {
         let workspace = FakeWorkspace()
         let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
         // The background probe has run, as it has for any visible row.
-        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
+        _ = await interaction.resolveAndPerform(nil, for: pin, urgency: .probe)
         XCTAssertTrue(pasteboard.written.isEmpty, "probing must not copy anything")
 
-        let acted = interaction.performIfResolved(.copy, reference: pin.text)
+        let acted = interaction.performIfResolved(.copy, for: pin)
 
         XCTAssertTrue(acted, "a resolved row acts on the spot rather than suspending")
         XCTAssertEqual(pasteboard.written.map(\.standardizedFileURL), [url.standardizedFileURL])
@@ -280,11 +298,11 @@ final class SnippetFilePinTests: XCTestCase {
         let pasteboard = FakePasteboard()
         let workspace = FakeWorkspace()
         let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
-        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
+        _ = await interaction.resolveAndPerform(nil, for: pin, urgency: .probe)
 
         for count in [1, 2] {
             let effect = try XCTUnwrap(SnippetFilePinInteraction.effect(forClickCount: count))
-            XCTAssertTrue(interaction.performIfResolved(effect, reference: pin.text))
+            XCTAssertTrue(interaction.performIfResolved(effect, for: pin))
         }
 
         XCTAssertEqual(pasteboard.written.count, 1, "exactly one copy")
@@ -302,11 +320,11 @@ final class SnippetFilePinTests: XCTestCase {
         let pasteboard = FakePasteboard()
         let workspace = FakeWorkspace()
         let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
-        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
+        _ = await interaction.resolveAndPerform(nil, for: pin, urgency: .probe)
 
         for count in [1, 2, 3, 4] {
             guard let effect = SnippetFilePinInteraction.effect(forClickCount: count) else { continue }
-            XCTAssertTrue(interaction.performIfResolved(effect, reference: pin.text))
+            XCTAssertTrue(interaction.performIfResolved(effect, for: pin))
         }
 
         XCTAssertEqual(pasteboard.written.count, 1)
@@ -332,11 +350,11 @@ final class SnippetFilePinTests: XCTestCase {
 
         // Nothing is cached, so the synchronous path must decline outright.
         XCTAssertFalse(
-            interaction.performIfResolved(.copy, reference: pin.text),
+            interaction.performIfResolved(.copy, for: pin),
             "a cache miss must not be served synchronously"
         )
 
-        let work = Task { await interaction.resolveAndPerform(.copy, reference: pin.text, bookmark: nil) }
+        let work = Task { await interaction.resolveAndPerform(.copy, for: pin, urgency: .userAction) }
         await gate.waitUntilCalled()
         XCTAssertTrue(pasteboard.written.isEmpty, "nothing may be written while resolution is still in flight")
 
@@ -345,7 +363,7 @@ final class SnippetFilePinTests: XCTestCase {
 
         XCTAssertEqual(pasteboard.written.count, 1, "and exactly one write once it completes")
         XCTAssertTrue(
-            interaction.performIfResolved(.open, reference: pin.text),
+            interaction.performIfResolved(.open, for: pin),
             "the resolution is now cached, so the next click is synchronous"
         )
         XCTAssertEqual(workspace.opened.count, 1)
@@ -360,13 +378,14 @@ final class SnippetFilePinTests: XCTestCase {
         let gate = ResolverGate(result: .unavailable, openImmediately: true)
         let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, resolver: gate)
 
-        let url = await interaction.resolveAndPerform(.copy, reference: "/nowhere/gone.txt", bookmark: nil)
+        let ghost = Snippet(text: "/nowhere/gone.txt", file: SnippetFileReference())
+        let url = await interaction.resolveAndPerform(.copy, for: ghost, urgency: .userAction)
 
         XCTAssertNil(url)
         XCTAssertTrue(pasteboard.written.isEmpty)
         XCTAssertTrue(workspace.opened.isEmpty)
-        XCTAssertFalse(interaction.hasResolved(reference: "/nowhere/gone.txt"))
-        XCTAssertFalse(interaction.performIfResolved(.copy, reference: "/nowhere/gone.txt"))
+        XCTAssertFalse(interaction.hasResolved(reference: ghost.text))
+        XCTAssertFalse(interaction.performIfResolved(.copy, for: ghost))
     }
 
     /// The cache is keyed by the reference it came from, so a pin that now
@@ -381,7 +400,7 @@ final class SnippetFilePinTests: XCTestCase {
         let pasteboard = FakePasteboard()
         let workspace = FakeWorkspace()
         let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
-        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
+        _ = await interaction.resolveAndPerform(nil, for: pin, urgency: .probe)
         XCTAssertTrue(interaction.hasResolved(reference: original.path))
 
         // The pin is re-pointed; the row now carries a different reference.
@@ -390,12 +409,12 @@ final class SnippetFilePinTests: XCTestCase {
         XCTAssertEqual(updated.text, replacement.path)
 
         XCTAssertFalse(
-            interaction.performIfResolved(.copy, reference: updated.text),
+            interaction.performIfResolved(.copy, for: updated),
             "the cached entry belongs to the old reference and must not be used"
         )
         XCTAssertTrue(pasteboard.written.isEmpty, "so nothing was copied from the previous file")
 
-        _ = await interaction.resolveAndPerform(.copy, reference: updated.text, bookmark: updated.file?.bookmark)
+        _ = await interaction.resolveAndPerform(.copy, for: updated, urgency: .userAction)
         XCTAssertEqual(
             pasteboard.written.map(\.standardizedFileURL), [replacement.standardizedFileURL],
             "and the new file is what gets copied"
@@ -411,11 +430,11 @@ final class SnippetFilePinTests: XCTestCase {
         let pasteboard = FakePasteboard()
         let workspace = FakeWorkspace()
         let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
-        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
+        _ = await interaction.resolveAndPerform(nil, for: pin, urgency: .probe)
 
         // The context menu and the accessibility actions take this same path.
         for effect in [SnippetFileActions.Effect.copy, .open, .reveal] {
-            XCTAssertTrue(interaction.performIfResolved(effect, reference: pin.text))
+            XCTAssertTrue(interaction.performIfResolved(effect, for: pin))
         }
 
         XCTAssertEqual(pasteboard.written.count, 1)
@@ -437,8 +456,8 @@ final class SnippetFilePinTests: XCTestCase {
         let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
 
         for effect in [SnippetFileActions.Effect.copy, .open, .reveal] {
-            XCTAssertFalse(interaction.performIfResolved(effect, reference: pin.text))
-            let url = await interaction.resolveAndPerform(effect, reference: pin.text, bookmark: pin.file?.bookmark)
+            XCTAssertFalse(interaction.performIfResolved(effect, for: pin))
+            let url = await interaction.resolveAndPerform(effect, for: pin, urgency: .userAction)
             XCTAssertNil(url)
         }
 
@@ -446,6 +465,106 @@ final class SnippetFilePinTests: XCTestCase {
         XCTAssertTrue(workspace.opened.isEmpty)
         XCTAssertTrue(workspace.revealed.isEmpty)
         XCTAssertEqual(store.items.count, 1, "the pin stays; it is unavailable, not deleted")
+    }
+
+    /// A click arriving while the row's own probe is still running must ride
+    /// that probe rather than issuing a second resolve and queueing behind it.
+    func testAClickDuringAnInFlightProbeSharesItRatherThanResolvingTwice() async throws {
+        let url = try makeFile("shared-probe.txt")
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(url))
+        let pin = try XCTUnwrap(store.items.first)
+
+        let pasteboard = FakePasteboard()
+        let workspace = FakeWorkspace()
+        let gate = ResolverGate(result: .resolved(url: url, refreshedBookmark: nil))
+        let interaction = makeInteraction(
+            store, pasteboard: pasteboard, workspace: workspace, resolver: gate, snippet: pin
+        )
+
+        // The background probe starts first and is held open.
+        let probe = Task { await interaction.resolveAndPerform(nil, for: pin, urgency: .probe) }
+        await gate.waitUntilCalled()
+        // Then the user clicks, before the probe has landed.
+        let click = Task { await interaction.resolveAndPerform(.copy, for: pin, urgency: .userAction) }
+
+        await gate.release()
+        _ = await probe.value
+        _ = await click.value
+
+        let calls = await gate.observedCallCount()
+        XCTAssertEqual(calls, 1, "the click must share the in-flight probe, not start a second resolve")
+        XCTAssertEqual(pasteboard.written.count, 1, "and it still copies exactly once")
+    }
+
+    /// A user-initiated resolve must not be scheduled as speculative work; it
+    /// has its own queue so it is never behind other rows' probes.
+    func testAUserActionResolvesWithUserActionUrgency() async throws {
+        let url = try makeFile("urgent.txt")
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(url))
+        let pin = try XCTUnwrap(store.items.first)
+
+        let gate = ResolverGate(result: .resolved(url: url, refreshedBookmark: nil), openImmediately: true)
+        let interaction = makeInteraction(
+            store, pasteboard: FakePasteboard(), workspace: FakeWorkspace(), resolver: gate, snippet: pin
+        )
+
+        _ = await interaction.resolveAndPerform(nil, for: pin, urgency: .probe)
+        let afterProbe = await gate.observedUrgencies()
+        XCTAssertEqual(afterProbe, [.probe])
+
+        // A different reference, so the cache cannot serve it.
+        let other = Snippet(text: url.path + ".other", file: SnippetFileReference())
+        _ = await interaction.resolveAndPerform(.copy, for: other, urgency: .userAction)
+        let all = await gate.observedUrgencies()
+        XCTAssertEqual(all, [.probe, .userAction], "a click resolves as a user action")
+    }
+
+    /// A text snippet has no file. The guard used to live only in the view,
+    /// where no test could reach it.
+    func testATextSnippetIsNeverTreatedAsAFile() async throws {
+        let store = makeStore()
+        store.add(label: "Office", text: "info@example.com")
+        let snippet = try XCTUnwrap(store.items.first)
+
+        let pasteboard = FakePasteboard()
+        let workspace = FakeWorkspace()
+        let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace)
+
+        for effect in [SnippetFileActions.Effect.copy, .open, .reveal] {
+            XCTAssertFalse(interaction.performIfResolved(effect, for: snippet))
+            let url = await interaction.resolveAndPerform(effect, for: snippet, urgency: .userAction)
+            XCTAssertNil(url, "a snippet's body must never be resolved as a path")
+        }
+        XCTAssertTrue(pasteboard.written.isEmpty)
+        XCTAssertTrue(workspace.opened.isEmpty)
+        XCTAssertTrue(workspace.revealed.isEmpty)
+    }
+
+    /// `clearContents()` runs before the write, so a refused write leaves the
+    /// clipboard emptied. Reporting "Copied" over that would be a lie.
+    func testARefusedPasteboardWriteIsNotReportedAsACopy() async throws {
+        let url = try makeFile("refused.txt")
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(url))
+        let pin = try XCTUnwrap(store.items.first)
+
+        let pasteboard = FakePasteboard()
+        pasteboard.succeeds = false
+        let workspace = FakeWorkspace()
+        let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
+        _ = await interaction.resolveAndPerform(nil, for: pin, urgency: .probe)
+
+        XCTAssertFalse(
+            interaction.performIfResolved(.copy, for: pin),
+            "a refused write must not report success"
+        )
+        XCTAssertTrue(pasteboard.written.isEmpty)
+
+        // Open and reveal are unaffected — only a copy can fail this way.
+        XCTAssertTrue(interaction.performIfResolved(.open, for: pin))
+        XCTAssertEqual(workspace.opened.count, 1)
     }
 
     // MARK: - Re-select

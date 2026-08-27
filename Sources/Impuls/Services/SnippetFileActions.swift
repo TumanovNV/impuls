@@ -36,11 +36,15 @@ final class SnippetFileActions {
     /// probe has already resolved, a click is a pasteboard write and nothing
     /// else — no filesystem call, no suspension between the click and the
     /// effect.
-    func apply(_ effect: Effect, to url: URL) {
+    /// Returns whether the effect took. Only a copy can fail — the pasteboard
+    /// can refuse the write, and `clearContents()` has already run by then, so
+    /// showing "Copied" over that would be a lie about the clipboard's state.
+    @discardableResult
+    func apply(_ effect: Effect, to url: URL) -> Bool {
         switch effect {
-        case .copy: pasteboard.writeFile(url)
-        case .open: workspace.open(url)
-        case .reveal: workspace.revealInFinder(url)
+        case .copy: return pasteboard.writeFile(url)
+        case .open: workspace.open(url); return true
+        case .reveal: workspace.revealInFinder(url); return true
         }
     }
 }
@@ -65,6 +69,14 @@ final class SnippetFilePinInteraction {
     /// runtime state — `Snippet.text` plus `Snippet.file` remain the only
     /// stored source of truth.
     private var cache: (reference: String, url: URL)?
+
+    /// The resolution currently in flight, if any, keyed by its reference.
+    ///
+    /// Without this a click arriving while the row's own background probe was
+    /// still running would issue a second, redundant resolve for the same file
+    /// and then queue behind the first. Sharing the task means the click rides
+    /// the probe already under way and acts the moment it lands.
+    private var inFlight: (reference: String, task: Task<URL?, Never>)?
 
     init(
         actions: SnippetFileActions,
@@ -97,10 +109,13 @@ final class SnippetFilePinInteraction {
     /// resolved, and reports whether it did. No filesystem call, no suspension
     /// — for a visible row a click is a pasteboard write and nothing else.
     @discardableResult
-    func performIfResolved(_ effect: SnippetFileActions.Effect, reference: String) -> Bool {
-        guard let cache, cache.reference == reference else { return false }
-        actions.apply(effect, to: cache.url)
-        return true
+    func performIfResolved(_ effect: SnippetFileActions.Effect, for snippet: Snippet) -> Bool {
+        // A text snippet has no file to act on. The guard lives here rather than
+        // only in the view so it is reachable by a test, and so a future call
+        // site cannot resolve a snippet's body as if it were a path.
+        guard snippet.isFile else { return false }
+        guard let cache, cache.reference == snippet.text else { return false }
+        return actions.apply(effect, to: cache.url)
     }
 
     /// The miss path, and the probe. Resolves off the main actor and then acts;
@@ -112,17 +127,33 @@ final class SnippetFilePinInteraction {
     @discardableResult
     func resolveAndPerform(
         _ effect: SnippetFileActions.Effect?,
-        reference: String,
-        bookmark: Data?
+        for snippet: Snippet,
+        urgency: SnippetFileResolver.Urgency
     ) async -> URL? {
-        let outcome = await resolver.resolve(path: reference, bookmark: bookmark)
-        guard case .resolved(let url, let refreshed) = outcome else {
-            cache = nil
-            return nil
+        guard snippet.isFile else { return nil }
+        let reference = snippet.text
+        let url = await resolvedURL(reference: reference, bookmark: snippet.file?.bookmark, urgency: urgency)
+        guard let url else { return nil }
+        if let effect, !actions.apply(effect, to: url) { return nil }
+        return url
+    }
+
+    /// One resolution per reference at a time, shared by everyone who asks for
+    /// it while it is running.
+    private func resolvedURL(reference: String, bookmark: Data?, urgency: SnippetFileResolver.Urgency) async -> URL? {
+        if let inFlight, inFlight.reference == reference {
+            return await inFlight.task.value
         }
-        cache = (reference, url)
-        if let refreshed { onRefreshedReference(url, refreshed) }
-        if let effect { actions.apply(effect, to: url) }
+        let task = Task { [resolver, onRefreshedReference] () -> URL? in
+            let outcome = await resolver.resolve(path: reference, bookmark: bookmark, urgency: urgency)
+            guard case .resolved(let url, let refreshed) = outcome else { return nil }
+            if let refreshed { onRefreshedReference(url, refreshed) }
+            return url
+        }
+        inFlight = (reference, task)
+        let url = await task.value
+        if inFlight?.reference == reference { inFlight = nil }
+        cache = url.map { (reference, $0) }
         return url
     }
 
