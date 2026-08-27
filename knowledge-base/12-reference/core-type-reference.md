@@ -2,9 +2,9 @@
 title: Core Type Reference
 type: reference
 status: active
-documentation_version: 1.6
+documentation_version: 1.7
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-27
 tags: [impuls, reference, swift, ownership, ai]
 ---
 
@@ -290,6 +290,28 @@ Canonical docs: [Power / Battery](../02-modules/power.md).
 It consumes current/fresh snapshots; retained stale UI data must not become an alert source.
 
 Canonical docs: [Power / Battery](../02-modules/power.md).
+
+### `WakeLeaseRegistry`
+
+**Role:** the only owner of live macOS power assertions in the process.
+
+Owns:
+
+- every live `IOPMAssertionID`, and the opaque tokens that refer to them;
+- aggregation — one physical assertion per requirement, however many leases ask for it;
+- all-or-nothing reconciliation, so a failed creation costs nothing that already worked and a partial acquisition leaves no orphan.
+
+**Boundary:** it holds no product decision about *why* the Mac is being kept awake, persists nothing, and never releases an assertion it did not create. `release` acts on one token, so one owner cannot cancel another's claim.
+
+Canonical docs: [Power / Battery](../02-modules/power.md), [State and Ownership](../01-architecture/state-and-ownership.md).
+
+### `StayAwakeService`
+
+**Role:** the manual Stay Awake mode — exactly one lease, and the duration, display option and single expiry item around it.
+
+**Boundary:** it does not own the physical assertions, never touches another owner's lease, and persists nothing, so a relaunch always starts with the mode off. It reports active only after the system granted the assertion.
+
+Canonical docs: [Power / Battery](../02-modules/power.md), [Background Work & Concurrency Registry](background-concurrency-registry.md).
 
 ### `DeviceIdentityResolver`
 

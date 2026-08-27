@@ -1,6 +1,6 @@
 {
-  "documentation_version": "1.4",
-  "last_reviewed": "2026-08-24",
+  "documentation_version": "1.5",
+  "last_reviewed": "2026-08-27",
   "entries": [
     {
       "area": "Panel / multi-display",
@@ -280,6 +280,24 @@
       "doc": "knowledge-base/02-modules/power.md",
       "tests": [
         "Tests/ImpulsTests/IORegistryAccessoryTests.swift"
+      ]
+    },
+    {
+      "area": "Power / devices",
+      "symbol": "WakeLeaseRegistry",
+      "source": "Sources/Impuls/Services/WakeLeaseRegistry.swift",
+      "doc": "knowledge-base/02-modules/power.md",
+      "tests": [
+        "Tests/ImpulsTests/WakeLeaseRegistryTests.swift"
+      ]
+    },
+    {
+      "area": "Power / devices",
+      "symbol": "StayAwakeService",
+      "source": "Sources/Impuls/Services/StayAwakeService.swift",
+      "doc": "knowledge-base/02-modules/power.md",
+      "tests": [
+        "Tests/ImpulsTests/StayAwakeServiceTests.swift"
       ]
     },
     {

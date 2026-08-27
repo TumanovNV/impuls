@@ -2,9 +2,9 @@
 title: Generated Type → Tests → Docs Map
 type: generated-reference
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-27
 tags: [impuls, generated, reference, tests, ai]
 ---
 
@@ -43,6 +43,8 @@ The manifest is intentionally curated: architectural ownership is a design decis
 | Power / devices | `LowBatteryAlertEngine` | [LowBatteryAlertEngine.swift](../../Sources/Impuls/Services/LowBatteryAlertEngine.swift) | [LowBatteryAlertEngineTests.swift](../../Tests/ImpulsTests/LowBatteryAlertEngineTests.swift) | [power.md](../02-modules/power.md) |
 | Power / devices | `MobileDeviceBatteryProvider` | [MobileDeviceBatteryProvider.swift](../../Sources/Impuls/Services/MobileDeviceBatteryProvider.swift) | [MobileDeviceBatteryProviderTests.swift](../../Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift)<br>[MobileDeviceProtocolTests.swift](../../Tests/ImpulsTests/MobileDeviceProtocolTests.swift) | [power.md](../02-modules/power.md) |
 | Power / devices | `PowerMonitor` | [PowerMonitor.swift](../../Sources/Impuls/Services/PowerMonitor.swift) | [PowerMonitorTests.swift](../../Tests/ImpulsTests/PowerMonitorTests.swift) | [power.md](../02-modules/power.md) |
+| Power / devices | `StayAwakeService` | [StayAwakeService.swift](../../Sources/Impuls/Services/StayAwakeService.swift) | [StayAwakeServiceTests.swift](../../Tests/ImpulsTests/StayAwakeServiceTests.swift) | [power.md](../02-modules/power.md) |
+| Power / devices | `WakeLeaseRegistry` | [WakeLeaseRegistry.swift](../../Sources/Impuls/Services/WakeLeaseRegistry.swift) | [WakeLeaseRegistryTests.swift](../../Tests/ImpulsTests/WakeLeaseRegistryTests.swift) | [power.md](../02-modules/power.md) |
 | Power / privacy | `DeviceIdentityResolver` | [AppleDeviceIdentity.swift](../../Sources/Impuls/Services/AppleDeviceIdentity.swift) | [IORegistryAccessoryTests.swift](../../Tests/ImpulsTests/IORegistryAccessoryTests.swift)<br>[MobileDeviceBatteryProviderTests.swift](../../Tests/ImpulsTests/MobileDeviceBatteryProviderTests.swift) | [privacy-boundaries.md](../06-security/privacy-boundaries.md) |
 | Project support | `ProjectSupportPromptService` | [ProjectSupportPromptService.swift](../../Sources/Impuls/Services/ProjectSupportPromptService.swift) | [ProjectSupportPromptServiceTests.swift](../../Tests/ImpulsTests/ProjectSupportPromptServiceTests.swift)<br>[ProjectSupportPromptLifecycleTests.swift](../../Tests/ImpulsTests/ProjectSupportPromptLifecycleTests.swift) | [settings-onboarding-feedback.md](../01-architecture/settings-onboarding-feedback.md) |
 | Project topology | `AppFeatureCatalog` | [AppFeatureCatalog.swift](../../Sources/Impuls/Services/AppFeatureCatalog.swift) | [test_project_manifest.py](../../Tests/PythonTests/test_project_manifest.py) | [project-manifest.md](project-manifest.md) |
