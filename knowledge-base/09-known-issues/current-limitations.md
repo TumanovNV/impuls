@@ -2,9 +2,9 @@
 title: Current Limitations
 type: known-limitations
 status: active
-documentation_version: 1.1
-app_version: 1.4.12
-last_reviewed: 2026-08-20
+documentation_version: 1.2
+app_version: 1.4.16
+last_reviewed: 2026-08-27
 tags: [impuls, limitations, qa]
 ---
 
@@ -18,7 +18,7 @@ tags: [impuls, limitations, qa]
 
 ## Apple devices
 
-iPhone/iPad battery path остаётся Beta: transport опирается на Apple device protocol, который не является публичным supported app API. Hardware coverage не означает поддержку каждой model/iOS combination. External discovery по умолчанию off.
+iPhone/iPad battery path имеет статус Stable с 1.4.16 после повторного real-hardware QA, но transport по-прежнему опирается на Apple device protocol, который не является публичным supported app API. Stable означает подтверждённое пользовательское поведение, а не гарантию каждой model/iOS combination или превращение transport в public API. External discovery по умолчанию off.
 
 ## Hardware metrics
 
@@ -26,7 +26,7 @@ Power module показывает только данные, которые ре
 
 ## Web music
 
-Web sources зависят от provider websites и их auth/player behavior. Изменение site DOM/Media Session/WKWebView compatibility может потребовать adapter update. Spotify не предлагается из-за Widevine limitation WebKit.
+Web sources зависят от provider websites и их auth/player behavior. Изменение site DOM/Media Session/WKWebView compatibility может потребовать adapter update. Spotify с 1.4.16 использует отдельный native scripting path через публичный Apple Events/TCC-контур и не зависит от Widevine/WebKit; для него ограничениями остаются наличие установленного Spotify, доступность его scripting dictionary и пользовательское Automation-разрешение.
 
 ## Translation
 
