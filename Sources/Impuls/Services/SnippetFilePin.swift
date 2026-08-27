@@ -122,6 +122,23 @@ enum SnippetFileResolver {
     }
 }
 
+/// Resolution as an injected, asynchronous seam.
+///
+/// Asynchronous in the protocol itself, so no conforming type can offer the
+/// main actor a synchronous filesystem call — which is how the blocking version
+/// got into the click path in the first place. A test fake can also suspend on
+/// demand, which is what makes "the side effect happens only after resolution"
+/// provable without timing anything.
+protocol SnippetFileResolving: Sendable {
+    func resolve(path: String, bookmark: Data?) async -> SnippetFileResolution
+}
+
+struct LiveSnippetFileResolver: SnippetFileResolving {
+    func resolve(path: String, bookmark: Data?) async -> SnippetFileResolution {
+        await SnippetFileResolver.resolveOffMainActor(path: path, bookmark: bookmark)
+    }
+}
+
 // MARK: - Injected system seams
 
 /// Writing a file to the system pasteboard.
@@ -164,8 +181,15 @@ struct SystemFilePasteboard: FilePasteboardWriting {
 /// Production workspace, through public AppKit only.
 @MainActor
 struct SystemWorkspace: FileOpening {
+    /// The completion-handler form, not `open(_:)`. The synchronous variant
+    /// blocks its caller until Launch Services has finished launching the
+    /// handler — seconds for an application that is not already running — and
+    /// this is called from the main actor on a double click. The panel would
+    /// sit frozen for the whole launch. This one returns immediately and the
+    /// result is deliberately ignored: the file opens or macOS says why, and
+    /// either way there is nothing for the pin to do about it.
     func open(_ url: URL) {
-        NSWorkspace.shared.open(url)
+        NSWorkspace.shared.open(url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in }
     }
 
     func revealInFinder(_ url: URL) {

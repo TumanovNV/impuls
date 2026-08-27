@@ -22,6 +22,46 @@ private final class FakeWorkspace: FileOpening {
     func revealInFinder(_ url: URL) { revealed.append(url) }
 }
 
+/// A resolver that can be held open, so a test can observe the exact moment
+/// between "resolution started" and "resolution finished" without measuring
+/// wall-clock time — which is what makes the ordering assertion reliable in CI
+/// rather than a flaky "must finish within N milliseconds".
+private actor ResolverGate: SnippetFileResolving {
+    private let result: SnippetFileResolution
+    private var isOpen: Bool
+    private var called = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var releases: [CheckedContinuation<Void, Never>] = []
+
+    init(result: SnippetFileResolution, openImmediately: Bool = false) {
+        self.result = result
+        self.isOpen = openImmediately
+    }
+
+    func resolve(path: String, bookmark: Data?) async -> SnippetFileResolution {
+        called = true
+        waiters.forEach { $0.resume() }
+        waiters.removeAll()
+        if !isOpen {
+            await withCheckedContinuation { releases.append($0) }
+        }
+        return result
+    }
+
+    /// Returns once `resolve` has been entered.
+    func waitUntilCalled() async {
+        guard !called else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    /// Lets the in-flight resolution finish.
+    func release() {
+        isOpen = true
+        releases.forEach { $0.resume() }
+        releases.removeAll()
+    }
+}
+
 @MainActor
 final class SnippetFilePinTests: XCTestCase {
     private var directory: URL!
@@ -50,16 +90,18 @@ final class SnippetFilePinTests: XCTestCase {
         SnippetStore(fileURL: directory.appendingPathComponent("snippets.json"))
     }
 
-    private func makeActions(
+    private func makeInteraction(
         _ store: SnippetStore,
         pasteboard: FakePasteboard,
-        workspace: FakeWorkspace
-    ) -> SnippetFileActions {
-        SnippetFileActions(
-            pasteboard: pasteboard,
-            workspace: workspace,
-            resolve: { store.resolveFile($0) },
-            onRefreshedReference: { snippet, url, bookmark in
+        workspace: FakeWorkspace,
+        resolver: SnippetFileResolving = LiveSnippetFileResolver(),
+        snippet: Snippet? = nil
+    ) -> SnippetFilePinInteraction {
+        SnippetFilePinInteraction(
+            actions: SnippetFileActions(pasteboard: pasteboard, workspace: workspace),
+            resolver: resolver,
+            onRefreshedReference: { url, bookmark in
+                guard let snippet else { return }
                 store.updateFileReference(for: snippet, resolvedURL: url, bookmark: bookmark)
             }
         )
@@ -169,7 +211,9 @@ final class SnippetFilePinTests: XCTestCase {
         let renamed = directory.appendingPathComponent("after.txt")
         try FileManager.default.moveItem(at: original, to: renamed)
 
-        guard case .resolved(let resolved, let refreshed) = store.resolveFile(pin) else {
+        guard case .resolved(let resolved, let refreshed) = SnippetFileResolver.resolve(
+            path: pin.text, bookmark: pin.file?.bookmark
+        ) else {
             return XCTFail("a renamed file should still resolve through its bookmark")
         }
         XCTAssertEqual(resolved.standardizedFileURL, renamed.standardizedFileURL)
@@ -185,7 +229,27 @@ final class SnippetFilePinTests: XCTestCase {
 
     // MARK: - Click matrix
 
-    func testASingleClickCopiesTheFileAndOpensNothing() throws {
+    /// The click contract, stated once and in one place.
+    ///
+    /// A first click copies, a second opens, and nothing beyond that acts. The
+    /// previous contract deferred the copy by `NSEvent.doubleClickInterval`
+    /// (500 ms on the machine this was measured on) so a double click could
+    /// avoid copying; real-Mac QA rejected that as unusably slow, and a double
+    /// click copying once then opening once is the accepted trade.
+    func testAClickMeansTheClickItIsWithNoDeferral() {
+        XCTAssertEqual(SnippetFilePinInteraction.effect(forClickCount: 1), .copy)
+        XCTAssertEqual(SnippetFilePinInteraction.effect(forClickCount: 2), .open)
+        for count in 3...6 {
+            XCTAssertNil(
+                SnippetFilePinInteraction.effect(forClickCount: count),
+                "a \(count)-click must not act again"
+            )
+        }
+    }
+
+    /// One click on a resolved row: one copy, no open, and — the point of the
+    /// fix — synchronously, with no suspension between click and pasteboard.
+    func testASingleClickOnAResolvedRowCopiesSynchronouslyAndOpensNothing() async throws {
         let url = try makeFile("single.txt")
         let store = makeStore()
         XCTAssertTrue(store.addFile(url))
@@ -193,22 +257,21 @@ final class SnippetFilePinTests: XCTestCase {
 
         let pasteboard = FakePasteboard()
         let workspace = FakeWorkspace()
-        let actions = makeActions(store, pasteboard: pasteboard, workspace: workspace)
+        let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
+        // The background probe has run, as it has for any visible row.
+        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
+        XCTAssertTrue(pasteboard.written.isEmpty, "probing must not copy anything")
 
-        var pending: [() -> Void] = []
-        let arbiter = ClickArbiter(interval: { 0.25 }, schedule: { _, work in pending.append(work) })
-        arbiter.click(count: 1, single: { actions.copy(pin) }, double: { actions.open(pin) })
+        let acted = interaction.performIfResolved(.copy, reference: pin.text)
 
-        XCTAssertTrue(pasteboard.written.isEmpty, "nothing happens until the double-click window closes")
-        pending.forEach { $0() }
-
+        XCTAssertTrue(acted, "a resolved row acts on the spot rather than suspending")
         XCTAssertEqual(pasteboard.written.map(\.standardizedFileURL), [url.standardizedFileURL])
         XCTAssertTrue(workspace.opened.isEmpty, "a single click must never open the file")
     }
 
-    /// The regression this whole arbiter exists for: a double click must not
-    /// produce copy+open, and must not open twice.
-    func testADoubleClickOpensOnceAndNeverCopies() throws {
+    /// The whole double-click sequence AppKit delivers: clickCount 1, then 2.
+    /// One copy and one open, each exactly once.
+    func testADoubleClickCopiesOnceThenOpensOnce() async throws {
         let url = try makeFile("double.txt")
         let store = makeStore()
         XCTAssertTrue(store.addFile(url))
@@ -216,21 +279,21 @@ final class SnippetFilePinTests: XCTestCase {
 
         let pasteboard = FakePasteboard()
         let workspace = FakeWorkspace()
-        let actions = makeActions(store, pasteboard: pasteboard, workspace: workspace)
+        let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
+        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
 
-        var pending: [() -> Void] = []
-        let arbiter = ClickArbiter(interval: { 0.25 }, schedule: { _, work in pending.append(work) })
-        // Exactly what AppKit delivers for a double click: clickCount 1, then 2.
-        arbiter.click(count: 1, single: { actions.copy(pin) }, double: { actions.open(pin) })
-        arbiter.click(count: 2, single: { actions.copy(pin) }, double: { actions.open(pin) })
-        // The first click's pending work still fires; it must find itself stale.
-        pending.forEach { $0() }
+        for count in [1, 2] {
+            let effect = try XCTUnwrap(SnippetFilePinInteraction.effect(forClickCount: count))
+            XCTAssertTrue(interaction.performIfResolved(effect, reference: pin.text))
+        }
 
-        XCTAssertEqual(workspace.opened.count, 1, "one double click opens the file exactly once")
-        XCTAssertTrue(pasteboard.written.isEmpty, "the cancelled single click must not have copied")
+        XCTAssertEqual(pasteboard.written.count, 1, "exactly one copy")
+        XCTAssertEqual(workspace.opened.count, 1, "exactly one open")
+        XCTAssertEqual(workspace.opened.first?.standardizedFileURL, url.standardizedFileURL)
     }
 
-    func testATripleClickStillOpensOnlyOnce() throws {
+    /// A third click must add nothing — no second open, no extra copy.
+    func testATripleClickAddsNothingBeyondTheDoubleClick() async throws {
         let url = try makeFile("triple.txt")
         let store = makeStore()
         XCTAssertTrue(store.addFile(url))
@@ -238,20 +301,108 @@ final class SnippetFilePinTests: XCTestCase {
 
         let pasteboard = FakePasteboard()
         let workspace = FakeWorkspace()
-        let actions = makeActions(store, pasteboard: pasteboard, workspace: workspace)
+        let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
+        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
 
-        var pending: [() -> Void] = []
-        let arbiter = ClickArbiter(interval: { 0.25 }, schedule: { _, work in pending.append(work) })
-        arbiter.click(count: 1, single: { actions.copy(pin) }, double: { actions.open(pin) })
-        arbiter.click(count: 2, single: { actions.copy(pin) }, double: { actions.open(pin) })
-        arbiter.click(count: 3, single: { actions.copy(pin) }, double: { actions.open(pin) })
-        pending.forEach { $0() }
+        for count in [1, 2, 3, 4] {
+            guard let effect = SnippetFilePinInteraction.effect(forClickCount: count) else { continue }
+            XCTAssertTrue(interaction.performIfResolved(effect, reference: pin.text))
+        }
 
-        XCTAssertEqual(workspace.opened.count, 1, "the third click must not open the file a second time")
-        XCTAssertTrue(pasteboard.written.isEmpty)
+        XCTAssertEqual(pasteboard.written.count, 1)
+        XCTAssertEqual(workspace.opened.count, 1)
     }
 
-    func testExplicitCopyOpenAndRevealEachActOnce() throws {
+    /// The architecture guard: with an unresolved row the side effect must not
+    /// happen until resolution has finished, and resolution must not run on the
+    /// caller. The fake resolver suspends until released, so this is provable
+    /// without timing anything.
+    func testAnUnresolvedRowActsOnlyAfterResolutionCompletes() async throws {
+        let url = try makeFile("miss.txt")
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(url))
+        let pin = try XCTUnwrap(store.items.first)
+
+        let pasteboard = FakePasteboard()
+        let workspace = FakeWorkspace()
+        let gate = ResolverGate(result: .resolved(url: url, refreshedBookmark: nil))
+        let interaction = makeInteraction(
+            store, pasteboard: pasteboard, workspace: workspace, resolver: gate, snippet: pin
+        )
+
+        // Nothing is cached, so the synchronous path must decline outright.
+        XCTAssertFalse(
+            interaction.performIfResolved(.copy, reference: pin.text),
+            "a cache miss must not be served synchronously"
+        )
+
+        let work = Task { await interaction.resolveAndPerform(.copy, reference: pin.text, bookmark: nil) }
+        await gate.waitUntilCalled()
+        XCTAssertTrue(pasteboard.written.isEmpty, "nothing may be written while resolution is still in flight")
+
+        await gate.release()
+        _ = await work.value
+
+        XCTAssertEqual(pasteboard.written.count, 1, "and exactly one write once it completes")
+        XCTAssertTrue(
+            interaction.performIfResolved(.open, reference: pin.text),
+            "the resolution is now cached, so the next click is synchronous"
+        )
+        XCTAssertEqual(workspace.opened.count, 1)
+    }
+
+    /// A resolution that fails caches nothing, so a later click cannot be
+    /// served from a stale entry.
+    func testAFailedResolutionLeavesNothingCached() async throws {
+        let store = makeStore()
+        let pasteboard = FakePasteboard()
+        let workspace = FakeWorkspace()
+        let gate = ResolverGate(result: .unavailable, openImmediately: true)
+        let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, resolver: gate)
+
+        let url = await interaction.resolveAndPerform(.copy, reference: "/nowhere/gone.txt", bookmark: nil)
+
+        XCTAssertNil(url)
+        XCTAssertTrue(pasteboard.written.isEmpty)
+        XCTAssertTrue(workspace.opened.isEmpty)
+        XCTAssertFalse(interaction.hasResolved(reference: "/nowhere/gone.txt"))
+        XCTAssertFalse(interaction.performIfResolved(.copy, reference: "/nowhere/gone.txt"))
+    }
+
+    /// The cache is keyed by the reference it came from, so a pin that now
+    /// points somewhere else can never be served the previous file.
+    func testTheCacheIsKeyedSoAReSelectedPinCannotServeTheOldFile() async throws {
+        let original = try makeFile("original.txt")
+        let replacement = try makeFile("replacement.txt")
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(original))
+        let pin = try XCTUnwrap(store.items.first)
+
+        let pasteboard = FakePasteboard()
+        let workspace = FakeWorkspace()
+        let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
+        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
+        XCTAssertTrue(interaction.hasResolved(reference: original.path))
+
+        // The pin is re-pointed; the row now carries a different reference.
+        XCTAssertTrue(store.replaceFile(pin, with: replacement))
+        let updated = try XCTUnwrap(store.items.first)
+        XCTAssertEqual(updated.text, replacement.path)
+
+        XCTAssertFalse(
+            interaction.performIfResolved(.copy, reference: updated.text),
+            "the cached entry belongs to the old reference and must not be used"
+        )
+        XCTAssertTrue(pasteboard.written.isEmpty, "so nothing was copied from the previous file")
+
+        _ = await interaction.resolveAndPerform(.copy, reference: updated.text, bookmark: updated.file?.bookmark)
+        XCTAssertEqual(
+            pasteboard.written.map(\.standardizedFileURL), [replacement.standardizedFileURL],
+            "and the new file is what gets copied"
+        )
+    }
+
+    func testExplicitCopyOpenAndRevealEachActOnce() async throws {
         let url = try makeFile("explicit.txt")
         let store = makeStore()
         XCTAssertTrue(store.addFile(url))
@@ -259,11 +410,13 @@ final class SnippetFilePinTests: XCTestCase {
 
         let pasteboard = FakePasteboard()
         let workspace = FakeWorkspace()
-        let actions = makeActions(store, pasteboard: pasteboard, workspace: workspace)
+        let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
+        _ = await interaction.resolveAndPerform(nil, reference: pin.text, bookmark: pin.file?.bookmark)
 
-        XCTAssertTrue(actions.copy(pin))
-        XCTAssertTrue(actions.open(pin))
-        XCTAssertTrue(actions.reveal(pin))
+        // The context menu and the accessibility actions take this same path.
+        for effect in [SnippetFileActions.Effect.copy, .open, .reveal] {
+            XCTAssertTrue(interaction.performIfResolved(effect, reference: pin.text))
+        }
 
         XCTAssertEqual(pasteboard.written.count, 1)
         XCTAssertEqual(workspace.opened.count, 1)
@@ -271,9 +424,8 @@ final class SnippetFilePinTests: XCTestCase {
         XCTAssertEqual(workspace.revealed.first?.standardizedFileURL, url.standardizedFileURL)
     }
 
-    /// Fail closed: a pin whose file is gone performs no side effect at all,
-    /// rather than copying a stale path or opening whatever is there now.
-    func testAnUnavailableFileNeitherCopiesNorOpensNorReveals() throws {
+    /// Fail closed: a pin whose file is gone performs no side effect at all.
+    func testAnUnavailableFileNeitherCopiesNorOpensNorReveals() async throws {
         let url = try makeFile("vanishing.txt")
         let store = makeStore()
         XCTAssertTrue(store.addFile(url))
@@ -282,31 +434,18 @@ final class SnippetFilePinTests: XCTestCase {
 
         let pasteboard = FakePasteboard()
         let workspace = FakeWorkspace()
-        let actions = makeActions(store, pasteboard: pasteboard, workspace: workspace)
+        let interaction = makeInteraction(store, pasteboard: pasteboard, workspace: workspace, snippet: pin)
 
-        XCTAssertFalse(actions.copy(pin))
-        XCTAssertFalse(actions.open(pin))
-        XCTAssertFalse(actions.reveal(pin))
+        for effect in [SnippetFileActions.Effect.copy, .open, .reveal] {
+            XCTAssertFalse(interaction.performIfResolved(effect, reference: pin.text))
+            let url = await interaction.resolveAndPerform(effect, reference: pin.text, bookmark: pin.file?.bookmark)
+            XCTAssertNil(url)
+        }
 
         XCTAssertTrue(pasteboard.written.isEmpty)
         XCTAssertTrue(workspace.opened.isEmpty)
         XCTAssertTrue(workspace.revealed.isEmpty)
         XCTAssertEqual(store.items.count, 1, "the pin stays; it is unavailable, not deleted")
-    }
-
-    func testATextSnippetIsNeverTreatedAsAFile() throws {
-        let store = makeStore()
-        store.add(label: "Office", text: "info@example.com")
-        let snippet = try XCTUnwrap(store.items.first)
-
-        let pasteboard = FakePasteboard()
-        let workspace = FakeWorkspace()
-        let actions = makeActions(store, pasteboard: pasteboard, workspace: workspace)
-
-        XCTAssertFalse(actions.copy(snippet))
-        XCTAssertFalse(actions.open(snippet))
-        XCTAssertTrue(pasteboard.written.isEmpty)
-        XCTAssertTrue(workspace.opened.isEmpty)
     }
 
     // MARK: - Re-select
@@ -533,7 +672,9 @@ final class SnippetFilePinTests: XCTestCase {
         let pin = try XCTUnwrap(second.items.first)
         XCTAssertTrue(pin.isFile)
         XCTAssertEqual(pin.fileName, "persisted.txt")
-        guard case .resolved(let resolved, _) = second.resolveFile(pin) else {
+        guard case .resolved(let resolved, _) = SnippetFileResolver.resolve(
+            path: pin.text, bookmark: pin.file?.bookmark
+        ) else {
             return XCTFail("a reloaded pin should still resolve")
         }
         XCTAssertEqual(resolved.standardizedFileURL, url.standardizedFileURL)

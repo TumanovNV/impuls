@@ -14,7 +14,7 @@ tags: [impuls, architecture, state, ownership]
 
 Pinned files stay inside the Snippets ownership story rather than starting a new one. `SnippetStore` remains the single owner of the list and of `snippets.json`; the file pin adds one optional field to `Snippet`, not a second store.
 
-`SnippetFileActions` and `ClickArbiter` are `@MainActor` view-facing helpers with no state of their own beyond the arbiter's click generation — they hold closures onto the store rather than a copy of anything. The two system seams (`FilePasteboardWriting`, `FileOpening`) exist so tests can assert on intent without writing to the real pasteboard or launching Finder; production passes the AppKit implementations explicitly, since neither initialiser carries a default.
+`SnippetFileActions` and `SnippetFilePinInteraction` are `@MainActor` view-facing helpers. `SnippetFileActions` is stateless and takes an already-resolved URL; `SnippetFilePinInteraction` owns one row's resolved-URL cache, keyed by the reference it came from so it cannot outlive a re-select or a rename. Neither is a second source of truth — `Snippet.text` and `Snippet.file` stay the stored contract, and the cache is discarded with the row. The three seams (`FilePasteboardWriting`, `FileOpening`, `SnippetFileResolving`) exist so tests can assert on intent without writing to the real pasteboard, launching Finder or touching the filesystem; production passes the real implementations explicitly, since none of the initialisers carries a default.
 
 ## Главная модель
 

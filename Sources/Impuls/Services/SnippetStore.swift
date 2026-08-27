@@ -313,13 +313,6 @@ final class SnippetStore: ObservableObject {
         }.map(\.element)
     }
 
-    /// Resolution for one pin. Lazy by construction: nothing calls this on a
-    /// timer, so a pin costs nothing until it is shown or used.
-    func resolveFile(_ snippet: Snippet) -> SnippetFileResolution {
-        guard let file = snippet.file else { return .unavailable }
-        return SnippetFileResolver.resolve(path: snippet.text, bookmark: file.bookmark)
-    }
-
     /// Removes the row and nothing else.
     ///
     /// For a file pin this deletes the *reference*. The file on disk is never

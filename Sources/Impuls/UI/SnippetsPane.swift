@@ -19,15 +19,10 @@ struct SnippetsPane: View {
     /// Rebuilt per render on purpose: it holds no state of its own, only the
     /// two system seams and closures onto the store.
     private var fileActions: SnippetFileActions {
-        SnippetFileActions(
-            pasteboard: SystemFilePasteboard(),
-            workspace: SystemWorkspace(),
-            resolve: { [snippets] snippet in snippets.resolveFile(snippet) },
-            onRefreshedReference: { [snippets] snippet, url, bookmark in
-                snippets.updateFileReference(for: snippet, resolvedURL: url, bookmark: bookmark)
-            }
-        )
+        SnippetFileActions(pasteboard: SystemFilePasteboard(), workspace: SystemWorkspace())
     }
+
+    private let resolver: SnippetFileResolving = LiveSnippetFileResolver()
 
     /// One drop is one gesture, not an import. The cap keeps a stray drag of a
     /// whole folder's worth of files from turning into hundreds of rows.
@@ -290,7 +285,7 @@ struct SnippetsPane: View {
                 // the tab opened rather than only the ones on screen.
                 LazyVStack(spacing: Theme.Space.xs - 1) {
                     ForEach(filtered) { item in
-                        SnippetRow(item: item, snippets: snippets, fileActions: fileActions)
+                        SnippetRow(item: item, snippets: snippets, fileActions: fileActions, resolver: resolver)
                     }
                 }
                 .padding(.bottom, Theme.Space.hair)
@@ -372,19 +367,17 @@ private struct SnippetRow: View {
     let item: Snippet
     @ObservedObject var snippets: SnippetStore
     let fileActions: SnippetFileActions
+    let resolver: SnippetFileResolving
     @State private var hovering = false
     @State private var justCopied = false
-    /// One arbiter per row, so two rows clicked in quick succession do not
-    /// cancel each other's pending single click.
-    @State private var arbiter = ClickArbiter()
     /// Resolved lazily — on appear and after an action that found the file
     /// gone. Nothing polls it.
     @State private var isMissing = false
-    /// The reference this row has already probed. A `LazyVStack` re-materialises
-    /// a row every time it scrolls back into view, and re-running the probe each
-    /// time would let scroll-thrashing pile up a backlog on the probe queue that
-    /// nothing can drop.
-    @State private var probedReference: String?
+    /// Owns this row's resolved-URL cache and its click contract. Held as
+    /// `@State` so it survives a redraw; it publishes nothing, because the two
+    /// things the view draws from — `isMissing` and `justCopied` — are the
+    /// view's own state.
+    @State private var interaction: SnippetFilePinInteraction?
     @FocusState private var isFocused: Bool
 
     /// Revealed by focus as well as by hover. Behind `if hovering` alone the
@@ -457,10 +450,10 @@ private struct SnippetRow: View {
         .focused($isFocused)
         .onHover { hovering = $0 }
         // A text snippet keeps the plain whole-row tap it has always had,
-        // padding included. A file row must not have one: a click landing in
-        // the padding would bypass the arbiter and copy immediately, which is
-        // the copy-then-open bug the arbiter exists to prevent. Its clicks come
-        // from the AppKit bridge over the content area instead.
+        // padding included. A file row must not have one: SwiftUI's tap gesture
+        // does not report the click count, so a tap here could not tell a copy
+        // from an open. Its clicks come from the AppKit bridge over the content
+        // area instead, which does.
         .onTapGesture { if !item.isFile { copy() } }
         .onKeyPress(.return) {
             copy()
@@ -484,41 +477,29 @@ private struct SnippetRow: View {
         // without one.
         .accessibilityActions {
             if item.isFile {
-                Button(localized("Open")) { runFile(fileActions.open) }
-                Button(localized("Show in Finder")) { runFile(fileActions.reveal) }
+                Button(localized("Open")) { act(.open) }
+                Button(localized("Show in Finder")) { act(.reveal) }
                 Button(localized("Choose File Again")) { chooseAgain() }
             }
         }
         .help(item.isFile ? localized("Click to copy the file, double-click to open it.") : "")
-        // Lazy availability: once per appearance, never on a timer.
+        // Availability, resolved once per reference and never on a timer.
+        //
+        // This is also what fills the cache the click path reads, so by the
+        // time a visible row is clicked its URL is usually already known and
+        // the click costs a pasteboard write. Off the main actor because the
+        // path fallback ends in `fileExists`/`resourceValues`, which block for
+        // the mount timeout on an unresponsive share; the key check keeps a
+        // `LazyVStack` re-materialising rows from re-probing on every scroll.
         .task(id: item.id) {
             guard item.isFile else { return }
-            let reference = item.text
-            guard probedReference != reference else { return }
-            // Off the main actor deliberately. The bookmark branch is bounded
-            // by `withoutMounting`, but the path fallback ends in
-            // `fileExists`/`resourceValues`, and those block for the mount
-            // timeout on a mounted-but-unresponsive share. This check is
-            // automatic and runs for every visible pin, so it is exactly the
-            // work that must not sit on the main actor — the same reason
-            // `ShelfStore` moved its existence sweep off it.
-            let resolution = await SnippetFileResolver.resolveOffMainActor(
-                path: item.text,
-                bookmark: item.file?.bookmark
+            let interaction = makeInteractionIfNeeded()
+            guard !interaction.hasResolved(reference: item.text) else { return }
+            let url = await interaction.resolveAndPerform(
+                nil, reference: item.text, bookmark: item.file?.bookmark
             )
-            // `.task` is cancelled when the row goes away; honour it rather
-            // than writing state back into a row that no longer exists.
             guard !Task.isCancelled else { return }
-            probedReference = reference
-            isMissing = resolution == .unavailable
-            // A rename resolves through the bookmark to a new path. Writing it
-            // back here is what makes the row show the file's current name
-            // instead of the one it was pinned under; without it the row stays
-            // stale until the user happens to click it. `refreshed` is nil once
-            // the reference is current, so this settles after one pass.
-            if case .resolved(let url, let refreshed) = resolution, let refreshed {
-                snippets.updateFileReference(for: item, resolvedURL: url, bookmark: refreshed)
-            }
+            isMissing = url == nil
         }
         .animation(Theme.motion(Theme.contentAnimation), value: showsControls)
         .animation(Theme.motion(Theme.contentAnimation), value: justCopied)
@@ -541,9 +522,9 @@ private struct SnippetRow: View {
             // still do something. The actions fail closed anyway, but showing
             // three that cannot work is not an honest menu.
             if !isMissing {
-                Button(localized("Copy")) { runFile(fileActions.copy) }
-                Button(localized("Open")) { runFile(fileActions.open) }
-                Button(localized("Show in Finder")) { runFile(fileActions.reveal) }
+                Button(localized("Copy")) { act(.copy) }
+                Button(localized("Open")) { act(.open) }
+                Button(localized("Show in Finder")) { act(.reveal) }
                 Divider()
             }
             Button(localized("Choose File Again")) { chooseAgain() }
@@ -554,26 +535,67 @@ private struct SnippetRow: View {
         }
     }
 
-    /// The whole single-versus-double decision for a file row.
+    /// A click acts on the click it is, immediately.
+    ///
+    /// The first click cannot know whether a second is coming, and the previous
+    /// design answered that by waiting out `NSEvent.doubleClickInterval` — 500 ms
+    /// on this machine — before copying. That is the wrong trade for this
+    /// feature: it made every single click feel frozen to buy a double click
+    /// that never copies. The accepted contract is now that a double click
+    /// copies once and then opens once.
+    ///
+    /// A third click and beyond do nothing, so leaning on the mouse cannot
+    /// produce a storm of opens.
     private func handleClick(count: Int) {
-        arbiter.click(
-            count: count,
-            single: { runFile(fileActions.copy, markCopied: true) },
-            double: { runFile(fileActions.open) }
-        )
+        guard let effect = SnippetFilePinInteraction.effect(forClickCount: count) else { return }
+        act(effect)
     }
 
-    /// Every file action goes through here so "the file is gone" is handled in
-    /// one place: the action reports that it did nothing, and the row says so
-    /// instead of pretending it worked.
-    private func runFile(_ action: (Snippet) -> Bool, markCopied: Bool = false) {
-        let acted = action(item)
-        isMissing = !acted
-        guard acted else { return }
-        if markCopied {
-            justCopied = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { justCopied = false }
+    /// The one path every file action takes — pointer, context menu, Return and
+    /// VoiceOver alike, so none of them can drift onto a slower route.
+    ///
+    /// The fast path is the whole point: a row the probe has already resolved
+    /// performs its effect synchronously, with no filesystem call between the
+    /// click and the pasteboard. Only a cache miss suspends, and it suspends
+    /// off the main actor rather than blocking it.
+    private func act(_ effect: SnippetFileActions.Effect) {
+        guard item.isFile else { return }
+        let interaction = makeInteractionIfNeeded()
+        // Fast path: already resolved, so this is a pasteboard write and
+        // nothing else — no I/O, no suspension, same turn as the click.
+        if interaction.performIfResolved(effect, reference: item.text) {
+            didAct(effect)
+            return
         }
+        Task {
+            let url = await interaction.resolveAndPerform(
+                effect, reference: item.text, bookmark: item.file?.bookmark
+            )
+            guard !Task.isCancelled else { return }
+            isMissing = url == nil
+            if url != nil { didAct(effect) }
+        }
+    }
+
+    private func makeInteractionIfNeeded() -> SnippetFilePinInteraction {
+        if let interaction { return interaction }
+        let made = SnippetFilePinInteraction(
+            actions: fileActions,
+            resolver: resolver,
+            onRefreshedReference: { [snippets, item] url, bookmark in
+                snippets.updateFileReference(for: item, resolvedURL: url, bookmark: bookmark)
+            }
+        )
+        interaction = made
+        return made
+    }
+
+    /// Feedback is shown the moment the write has happened. The timer only
+    /// clears it again — it never gates the copy itself.
+    private func didAct(_ effect: SnippetFileActions.Effect) {
+        guard effect == .copy else { return }
+        justCopied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { justCopied = false }
     }
 
     private func chooseAgain() {
@@ -594,7 +616,7 @@ private struct SnippetRow: View {
         // A file row never reaches here through the pointer, but Return and the
         // accessibility action both land on it.
         if item.isFile {
-            runFile(fileActions.copy, markCopied: true)
+            act(.copy)
             snippets.query = ""
             return
         }
