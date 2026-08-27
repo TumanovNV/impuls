@@ -2,7 +2,7 @@
 title: Signing and Distribution
 type: platform
 status: active
-documentation_version: 1.4
+documentation_version: 1.5
 app_version: 1.4.15
 last_reviewed: 2026-08-27
 tags: [impuls, macos, signing, gatekeeper, distribution]
@@ -89,7 +89,7 @@ Certificate существует только внутри одного CI job:
 6. повторный `codesign --verify --deep --strict`;
 7. `spctl --assess --type exec`.
 
-DMG собирается из уже notarized и stapled app, **подписывается собственной Developer ID подписью** и проходит **вторую** submission. Подпись здесь не факультативна: `hdiutil create` отдаёт неподписанный образ, а notary service неподписанную submission отклоняет. Скачанный DMG к тому же карантинится как отдельный файл, и собственный stapled ticket позволяет Gatekeeper проверить его без обращения к сети.
+DMG собирается из уже notarized и stapled app, **подписывается собственной Developer ID подписью** и проходит **вторую** submission. Подпись здесь не факультативна, но по решению самого проекта, а не потому, что мы установили какое-то универсальное правило Apple: `hdiutil create` отдаёт неподписанный образ, а выбранный production distribution design требует, чтобы финальный распространяемый DMG был Developer ID Application signed, notarized и stapled. Скачанный DMG к тому же карантинится как отдельный файл, и собственный stapled ticket позволяет Gatekeeper проверить его без обращения к сети.
 
 Последовательность для DMG:
 

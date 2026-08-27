@@ -87,6 +87,11 @@ With the pointer, a single click selects a result without running it and a
 double-click copies it. Hover only highlights the row, so crossing other results
 on the way to the action bar no longer replaces the explicit selection.
 
+Snippets can also hold a **local file pin** — drop a file on the Snippets tab and
+the row copies, opens, or reveals that file. Impuls stores the readable path and
+an optional local bookmark so a rename or a move can be followed; it never reads
+or stores the file's contents, and the bookmark is left out of a portable backup.
+
 Impuls 1.2.1 adds pinned clipboard entries, content-aware actions for links,
 email addresses, phone numbers and JSON, monitoring pause, retention controls,
 and per-application exclusions. History remains memory-only by default. Optional
@@ -175,6 +180,17 @@ connection otherwise remains unknown. On Mac mini, Mac Studio, iMac, and Mac Pro
 the module displays the available system power source without inventing a wall-
 power wattage.
 
+**Stay Awake** is an explicit mode in the same module: while it is on, the Mac
+does not fall into user-idle sleep, and a separate option can additionally hold
+the display awake. It is local only — it changes no Energy Saver setting, is
+never restored across a launch, and adds no network or telemetry path.
+
+When the user separately turns on Apple devices, Impuls can also show the battery
+of connected Apple accessories and of an iPhone or iPad this Mac already trusts.
+That iPhone/iPad status is stable in normal use, but its device-sync transport is
+an undocumented Apple protocol boundary rather than a public API, so no particular
+model or iOS version is guaranteed. Unavailable values stay unavailable.
+
 ## Music support
 
 The Music pane makes the source explicit. The native Apple Music adapter uses
@@ -185,9 +201,15 @@ official sites in a separate system WebKit window only after the user presses
 transport or seek actions back to that page. Selecting a source alone never
 starts a request.
 
-Spotify is deliberately not on that list: its web player decrypts through
-Widevine, which WebKit does not implement, so an embedded tab can sign in but
-never play.
+Spotify is supported the same native way as Apple Music: Impuls talks to the
+installed Spotify macOS app through the Scripting Dictionary that app ships, over
+the public Apple Events path, and macOS grants that Automation per application —
+so Apple Music and Spotify are allowed independently and nothing is requested for
+an application that is not installed.
+
+What remains unsupported is Spotify **web** embedding: its web player decrypts
+through Widevine, which WebKit does not implement, so an embedded tab can sign in
+but never play. That limit applies to the web player alone, not to Spotify.
 
 Impuls does not use unofficial catalogue APIs, copy audio, bypass a subscription
 or DRM, or claim access to the private system-wide Now Playing database.
