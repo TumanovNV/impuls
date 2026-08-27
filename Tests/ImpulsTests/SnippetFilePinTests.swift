@@ -490,7 +490,30 @@ final class SnippetFilePinTests: XCTestCase {
         XCTAssertEqual(Set(ids).count, ids.count, "no two rows may share an identity")
         XCTAssertEqual(store.items.count, 1)
         XCTAssertEqual(store.items[0].fileName, "two.txt")
-        XCTAssertEqual(index, 1, "the row that was rewritten was the second one")
+        XCTAssertEqual(index, 1)
+    }
+
+    /// The other half of the write-back's contract, and the half the collision
+    /// case cannot show: with no duplicate to collapse, the row must be rewritten
+    /// where it stands rather than removed and re-inserted.
+    func testTheRenameWriteBackKeepsTheRowWhereItWas() throws {
+        let first = try makeFile("alpha.txt")
+        let second = try makeFile("beta.txt")
+        let renamed = try makeFile("beta-renamed.txt")
+        let store = makeStore()
+        XCTAssertTrue(store.addFile(first))
+        XCTAssertTrue(store.addFile(second))
+        XCTAssertEqual(store.items.map(\.fileName), ["beta.txt", "alpha.txt"])
+
+        let target = try XCTUnwrap(store.items.first { $0.fileName == "beta.txt" })
+        let bookmark = try XCTUnwrap(SnippetFileResolver.makeBookmark(for: renamed))
+        store.updateFileReference(for: target, resolvedURL: renamed, bookmark: bookmark)
+
+        XCTAssertEqual(
+            store.items.map(\.fileName), ["beta-renamed.txt", "alpha.txt"],
+            "the rewritten row keeps its position and the others do not move"
+        )
+        XCTAssertEqual(store.items[0].file?.bookmark, bookmark)
     }
 
     // MARK: - Persistence across a relaunch

@@ -380,6 +380,11 @@ private struct SnippetRow: View {
     /// Resolved lazily — on appear and after an action that found the file
     /// gone. Nothing polls it.
     @State private var isMissing = false
+    /// The reference this row has already probed. A `LazyVStack` re-materialises
+    /// a row every time it scrolls back into view, and re-running the probe each
+    /// time would let scroll-thrashing pile up a backlog on the probe queue that
+    /// nothing can drop.
+    @State private var probedReference: String?
     @FocusState private var isFocused: Bool
 
     /// Revealed by focus as well as by hover. Behind `if hovering` alone the
@@ -469,6 +474,9 @@ private struct SnippetRow: View {
         .accessibilityHint(item.isFile
             ? localized("Copies the file to the clipboard")
             : localized("Copies to the clipboard"))
+        // The label is the filename, so two pins called `report.pdf` in
+        // different folders would be indistinguishable without this.
+        .accessibilityValue(item.isFile ? item.text : "")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { copy() }
         .accessibilityAction(named: localized("Delete")) { snippets.remove(item) }
@@ -485,6 +493,8 @@ private struct SnippetRow: View {
         // Lazy availability: once per appearance, never on a timer.
         .task(id: item.id) {
             guard item.isFile else { return }
+            let reference = item.text
+            guard probedReference != reference else { return }
             // Off the main actor deliberately. The bookmark branch is bounded
             // by `withoutMounting`, but the path fallback ends in
             // `fileExists`/`resourceValues`, and those block for the mount
@@ -499,6 +509,7 @@ private struct SnippetRow: View {
             // `.task` is cancelled when the row goes away; honour it rather
             // than writing state back into a row that no longer exists.
             guard !Task.isCancelled else { return }
+            probedReference = reference
             isMissing = resolution == .unavailable
             // A rename resolves through the bookmark to a new path. Writing it
             // back here is what makes the row show the file's current name
