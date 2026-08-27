@@ -4,7 +4,7 @@ type: architecture
 status: active
 documentation_version: 1.5
 app_version: 1.4.16
-last_reviewed: 2026-08-25
+last_reviewed: 2026-08-27
 tags: [impuls, architecture, state, ownership]
 ---
 
@@ -14,7 +14,7 @@ tags: [impuls, architecture, state, ownership]
 
 Pinned files stay inside the Snippets ownership story rather than starting a new one. `SnippetStore` remains the single owner of the list and of `snippets.json`; the file pin adds one optional field to `Snippet`, not a second store.
 
-`SnippetFileActions` and `SnippetFilePinInteraction` are `@MainActor` view-facing helpers. `SnippetFileActions` is stateless and takes an already-resolved URL; `SnippetFilePinInteraction` owns one row's resolved-URL cache, keyed by the reference it came from so it cannot outlive a re-select or a rename. Neither is a second source of truth — `Snippet.text` and `Snippet.file` stay the stored contract, and the cache is discarded with the row. The three seams (`FilePasteboardWriting`, `FileOpening`, `SnippetFileResolving`) exist so tests can assert on intent without writing to the real pasteboard, launching Finder or touching the filesystem; production passes the real implementations explicitly, since none of the initialisers carries a default.
+`SnippetFileActions` and `SnippetFilePinInteraction` are `@MainActor` view-facing helpers. `SnippetFileActions` is stateless and takes an already-resolved URL; `SnippetFilePinInteraction` owns one row's resolved-URL cache **and its in-flight resolution**, both keyed by the reference they belong to. The key is the invalidation rule — a cache entry cannot outlive a re-select or a rename — and the in-flight entry is what lets a click join the probe already running for that row instead of starting a second resolve behind it. Neither is a second source of truth — `Snippet.text` and `Snippet.file` stay the stored contract, and the cache is discarded with the row. The three seams (`FilePasteboardWriting`, `FileOpening`, `SnippetFileResolving`) exist so tests can assert on intent without writing to the real pasteboard, launching Finder or touching the filesystem; production passes the real implementations explicitly, since none of the initialisers carries a default.
 
 ## Главная модель
 
