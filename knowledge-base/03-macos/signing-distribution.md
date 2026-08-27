@@ -2,17 +2,19 @@
 title: Signing and Distribution
 type: platform
 status: active
-documentation_version: 1.3
-app_version: 1.4.14
-last_reviewed: 2026-08-26
+documentation_version: 1.4
+app_version: 1.4.15
+last_reviewed: 2026-08-27
 tags: [impuls, macos, signing, gatekeeper, distribution]
 ---
 
 # Signing and Distribution
 
-## IMP-11 review
+## IMP-13 review
 
-Reviewed the bundle assembly change: signing identity/path and entitlements are unchanged. The Apple Events entitlement already existed; only its localized usage-description wording was broadened, with no new signing boundary.
+Reviewed the release contour ahead of Developer ID activation. `Scripts/bundle.sh` is unchanged: its Developer ID branch was already correct, and its ad-hoc branch is still what a local build needs. What changed is `.github/workflows/release.yml`, which now imports a certificate into an ephemeral keychain, notarizes and staples, and refuses to run at all without Apple credentials — and `Scripts/dmg.sh`, which can now package an existing bundle instead of always rebuilding one.
+
+No Apple credentials exist in the repository, and no notarized artifact has been produced yet. The pipeline is prepared, not exercised.
 
 ## Два режима сборки
 
@@ -29,6 +31,8 @@ flowchart TD
     AD --> VERIFY
     VERIFY --> ZIP[ZIP + DMG release artifacts]
     ZIP --> ED[EdDSA sign update ZIP / appcast]
+    VERIFY --> DMGSIGN[Release only: sign DMG\nDeveloper ID + timestamp]
+    DMGSIGN --> NOT[Notarize + staple app and DMG]
 ```
 
 ## Developer ID path
@@ -36,6 +40,87 @@ flowchart TD
 Framework подписывается первым application identity, затем app — Developer ID Application, Hardened Runtime, timestamp и production entitlements. Этот путь не должен требовать `disable-library-validation`.
 
 Developer ID configuration changes distribution trust only; they must not weaken the independent Sparkle archive/feed verification contract.
+
+### CI secret contract
+
+Имена, не значения. Ни один из этих secrets не хранится в репозитории, и ни один не печатается в лог.
+
+| Secret | Что это |
+| --- | --- |
+| `IMPULS_DEVELOPER_ID_P12_BASE64` | Developer ID Application certificate + private key, PKCS#12, base64 |
+| `IMPULS_DEVELOPER_ID_P12_PASSWORD` | пароль этого `.p12` |
+| `IMPULS_DEVELOPER_ID_APPLICATION` | signing identity, строка вида `Developer ID Application: …` |
+| `APPLE_ID` | Apple ID для notarytool |
+| `APPLE_TEAM_ID` | 10-символьный Team ID |
+| `APPLE_APP_SPECIFIC_PASSWORD` | app-specific password для notarytool |
+| `SPARKLE_EDDSA_PRIVATE_KEY` | существующий Sparkle seed, не изменён |
+
+`notarytool` здесь вызывается с `--apple-id/--team-id/--password`. Это один из поддерживаемых Apple способов, а не единственный: App Store Connect API key (`--key/--key-id/--issuer`) и сохранённый keychain profile (`store-credentials --keychain-profile`) поддерживаются Apple так же. Выбран самый простой путь для текущего individual account; переход на API key — смена secret contract, а не архитектуры.
+
+### Ephemeral keychain lifecycle
+
+Certificate существует только внутри одного CI job:
+
+1. `security create-keychain` в `$RUNNER_TEMP` со сгенерированным на этот запуск паролем;
+2. `security set-keychain-settings` / `security unlock-keychain`;
+3. `.p12` декодируется в `$RUNNER_TEMP`, импортируется через `security import -T /usr/bin/codesign`, и удаляется сразу после импорта;
+4. `security set-key-partition-list` — иначе первый `codesign` уходит в UI-prompt, которого на runner никто не подтвердит;
+5. keychain добавляется **в начало** user search list, прежний список сохраняется для восстановления;
+6. проверяется, что настроенной identity соответствует **ровно один** codesigning certificate во всём search list — ambiguous identity недопустима;
+7. шаг `if: always()` восстанавливает search list, удаляет keychain и подчищает любой оставшийся `.p12`.
+
+`login.keychain` не используется. Certificate не сохраняется как artifact.
+
+### Fail-closed production release
+
+`release.yml` проверяет наличие всех secrets **до** сборки и падает, называя только отсутствующие имена. Ad-hoc fallback из `bundle.sh` на этом пути недопустим: после сборки проверяется, что leaf authority — `Developer ID Application`, что флаги содержат `runtime` и **не** содержат `adhoc`, что присутствует secure `Timestamp`, и что production entitlements не отключают Library Validation.
+
+Из этого следует практическое: пока Apple secrets не настроены, release workflow не может выпустить ничего — включая push, меняющий `Scripts/version`. Это намеренно.
+
+## Notarization
+
+После Developer ID signing:
+
+1. `codesign --verify --deep --strict` и проверка authority/flags/timestamp/entitlements;
+2. временный ZIP только для передачи в notary service;
+3. `xcrun notarytool submit --wait`;
+4. status обязан быть `Accepted`; иначе запрашивается `xcrun notarytool log` и job падает;
+5. `xcrun stapler staple` + `xcrun stapler validate`;
+6. повторный `codesign --verify --deep --strict`;
+7. `spctl --assess --type exec`.
+
+DMG собирается из уже notarized и stapled app, **подписывается собственной Developer ID подписью** и проходит **вторую** submission. Подпись здесь не факультативна: `hdiutil create` отдаёт неподписанный образ, а notary service неподписанную submission отклоняет. Скачанный DMG к тому же карантинится как отдельный файл, и собственный stapled ticket позволяет Gatekeeper проверить его без обращения к сети.
+
+Последовательность для DMG:
+
+1. `./Scripts/dmg.sh --no-build`;
+2. `codesign --sign "$IMPULS_DEVELOPER_ID_APPLICATION" --timestamp` — ровно один раз, без `--force`, без `--options runtime` (Hardened Runtime — свойство исполняемого файла, а не контейнера);
+3. `codesign --verify --verbose=2` и через `codesign -dvvv` — leaf authority, точное совпадение с production identity, отсутствие ad-hoc, наличие secure `Timestamp`;
+4. CDHash подписанного образа фиксируется **до** notarization;
+5. `xcrun notarytool submit --wait` → `Accepted`;
+6. `xcrun stapler staple` + `xcrun stapler validate`;
+7. повторный `codesign --verify`, `hdiutil verify`, `spctl --assess --type open --context context:primary-signature`;
+8. CDHash сверяется с зафиксированным.
+
+После submission образ **не переподписывается**. Apple выдаёт ticket на конкретный code directory hash, и повторная подпись сделала бы staple'нутый ticket несоответствующим образу.
+
+## Что подписано и notarized
+
+| Артефакт | Developer ID signed | Notarized | Stapled |
+| --- | --- | --- | --- |
+| `Impuls.app` | да (`bundle.sh`) | да | да |
+| `Impuls-<version>.dmg` | да (release workflow) | да, отдельная submission | да |
+| `Impuls-<version>.zip` | сам архив не подписывается | — | содержит отдельно notarized и stapled `Impuls.app` |
+
+ZIP — транспортный контейнер Sparkle, а не самостоятельно подписываемый артефакт: Gatekeeper проверяет приложение, которое из него извлечено, и у этого приложения есть собственный stapled ticket. Поэтому ZIP собирается **после** stapling.
+
+Sparkle EdDSA остаётся независимым trust layer поверх всего этого: подписи Apple отвечают за distribution trust, EdDSA — за подлинность обновления, и ни одна не заменяет другую.
+
+### Same-final-app invariant
+
+Приложение собирается в workflow **один раз**. Ни один шаг после notarization не пересобирает, не переподписывает и не заменяет `build/Impuls.app`.
+
+Это проверяется, а не подразумевается: code directory hash фиксируется при подписи и затем сверяется с bundle в `build/`, с приложением, извлечённым из финального ZIP, и с приложением внутри смонтированного DMG. `Scripts/dmg.sh --no-build` — то, что делает это возможным; обычный `./Scripts/dmg.sh` по-прежнему собирает app и остаётся правильным для локальной работы.
 
 ## Ad-hoc fallback
 
@@ -48,6 +133,8 @@ Ad-hoc fallback is an explicit distribution limitation, not a signal to disable 
 Ad-hoc build не эквивалентен notarized Developer ID distribution. Первая установка может требовать ручного разрешения Gatekeeper, а TCC continuity между заменяемыми builds менее предсказуема. Нельзя обходить это private APIs или ослаблением update signatures.
 
 Notarization belongs only to a Developer ID path when Apple credentials are actually configured. Documentation/tests must not imply a notarized public artifact merely because the bundle itself passes `codesign --verify`.
+
+Релизный контур для Developer ID и notarization подготовлен, но по состоянию на 1.4.15 ни один публичный artifact не был notarized: у проекта ещё нет активных Apple Developer credentials. Первый notarized artifact появится после credentialed release candidate, и до этого никакая документация не должна утверждать обратное.
 
 ## Bundle identity
 

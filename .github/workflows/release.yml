@@ -1,21 +1,46 @@
 name: release
 
+# The push trigger deliberately watches `Scripts/version` and nothing else.
+# It used to watch this workflow file too, which meant that editing the release
+# pipeline re-published the version that happened to be current — a workflow
+# change is not a decision to ship. Changes to this file are now verified by the
+# ordinary repository CI and by Tests/PythonTests/test_release_signing_pipeline.py;
+# the credentialed Apple path is exercised through `workflow_dispatch`.
 on:
   push:
     branches: [main]
     paths:
       - Scripts/version
-      - .github/workflows/release.yml
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: >-
+          Publish a production GitHub Release. Leave this off to build a signed,
+          notarized release candidate that is uploaded only as a workflow
+          artifact and is never shown to users.
+        type: boolean
+        default: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  # Builds, signs, notarizes and verifies the candidate. It holds every Apple
+  # credential and has read-only repository permissions, so nothing in this job
+  # can create a tag, a release or any other user-visible artefact.
   release:
     if: github.repository == 'TumanovNV/impuls'
     runs-on: macos-15
-    timeout-minutes: 25
+    # Build and tests take roughly a quarter of an hour; the two notarization
+    # submissions are capped at 30 minutes each. The job budget has to exceed
+    # the worst case rather than the typical one, or a slow day at Apple looks
+    # like a pipeline failure.
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      tag: ${{ steps.metadata.outputs.tag }}
     env:
       IMPULS_VERSION_STATISTICS_ENDPOINT: ${{ vars.IMPULS_VERSION_STATISTICS_ENDPOINT }}
     steps:
@@ -37,7 +62,65 @@ jobs:
       - name: Select the Xcode the device layer needs
         run: sudo xcode-select -switch /Applications/Xcode_26.3.app
 
+      # First substantive step on purpose: a candidate that cannot be signed and
+      # notarized is not a candidate, and discovering that after a release build
+      # wastes half an hour.
+      - name: Require Apple signing and notarization credentials
+        env:
+          IMPULS_DEVELOPER_ID_P12_BASE64: ${{ secrets.IMPULS_DEVELOPER_ID_P12_BASE64 }}
+          IMPULS_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.IMPULS_DEVELOPER_ID_P12_PASSWORD }}
+          IMPULS_DEVELOPER_ID_APPLICATION: ${{ secrets.IMPULS_DEVELOPER_ID_APPLICATION }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Fail closed. `bundle.sh` falls back to an ad-hoc signature when no
+          # Developer ID is configured, which is correct for a local build and
+          # completely wrong for a release: it would quietly ship an artefact
+          # Gatekeeper rejects. This job therefore refuses to start rather than
+          # inheriting that fallback.
+          #
+          # Only the *names* of missing secrets are printed. `set -x` is never
+          # enabled anywhere in this workflow, because it would expand secret
+          # values straight into the log.
+          MISSING=""
+          for NAME in \
+              IMPULS_DEVELOPER_ID_P12_BASE64 \
+              IMPULS_DEVELOPER_ID_P12_PASSWORD \
+              IMPULS_DEVELOPER_ID_APPLICATION \
+              APPLE_ID \
+              APPLE_TEAM_ID \
+              APPLE_APP_SPECIFIC_PASSWORD \
+              SPARKLE_EDDSA_PRIVATE_KEY; do
+              if [ -z "${!NAME:-}" ]; then
+                  MISSING="$MISSING $NAME"
+              fi
+          done
+          if [ -n "$MISSING" ]; then
+              echo "Release is fail-closed and cannot continue." >&2
+              echo "Missing required secret(s):$MISSING" >&2
+              echo "Configure the Developer ID and notarization contract documented in" >&2
+              echo "knowledge-base/03-macos/signing-distribution.md before releasing." >&2
+              exit 1
+          fi
+          if [[ ! "$APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]]; then
+              echo "APPLE_TEAM_ID must be a 10-character Apple Team ID" >&2
+              exit 1
+          fi
+          case "$IMPULS_DEVELOPER_ID_APPLICATION" in
+              "Developer ID Application: "*) ;;
+              *)
+                  echo "IMPULS_DEVELOPER_ID_APPLICATION must name a 'Developer ID Application: …' identity." >&2
+                  echo "Distribution certificates of any other kind are not accepted here." >&2
+                  exit 1
+                  ;;
+          esac
+
       - name: Validate version and release notes
+        id: metadata
         shell: bash
         run: |
           set -euo pipefail
@@ -50,10 +133,8 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=v$VERSION" >> "$GITHUB_ENV"
-          git fetch --tags --force
-          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
-            echo "Reissuing existing release metadata for v$VERSION"
-          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Enforce security boundaries
         shell: bash
@@ -142,7 +223,6 @@ jobs:
           )"
           test "$DERIVED_PUBLIC_KEY" = '/fAb0WKLYV8FTT+VkvGKgtIXfsiVG74NlJ+to0BusDg='
 
-
       - name: Verify release-facing metadata
         shell: bash
         run: |
@@ -174,12 +254,148 @@ jobs:
             exit 1
           fi
 
-      - name: Build application
+      - name: Import the Developer ID certificate into an ephemeral keychain
+        env:
+          IMPULS_DEVELOPER_ID_P12_BASE64: ${{ secrets.IMPULS_DEVELOPER_ID_P12_BASE64 }}
+          IMPULS_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.IMPULS_DEVELOPER_ID_P12_PASSWORD }}
+          IMPULS_DEVELOPER_ID_APPLICATION: ${{ secrets.IMPULS_DEVELOPER_ID_APPLICATION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/impuls-signing.keychain-db"
+          CERTIFICATE="$RUNNER_TEMP/impuls-developer-id.p12"
+          SEARCH_LIST_BACKUP="$RUNNER_TEMP/impuls-keychain-search-list"
+
+          # Generated per run and never exported. Nothing after this step needs
+          # it, so it stays a shell local rather than entering $GITHUB_ENV where
+          # every later step would inherit it.
+          KEYCHAIN_PASSWORD="$(/usr/bin/openssl rand -base64 32)"
+
+          # The certificate never touches login.keychain: it lives in a keychain
+          # created for this run, in $RUNNER_TEMP, and deleted by the always()
+          # cleanup step below.
+          security list-keychains -d user | sed 's/^[[:space:]]*"//; s/"$//' > "$SEARCH_LIST_BACKUP"
+
+          umask 077
+          printf '%s' "$IMPULS_DEVELOPER_ID_P12_BASE64" | base64 --decode > "$CERTIFICATE"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$CERTIFICATE" -k "$KEYCHAIN" -P "$IMPULS_DEVELOPER_ID_P12_PASSWORD" \
+              -f pkcs12 -T /usr/bin/codesign -T /usr/bin/security
+          # The decoded certificate exists for exactly as long as the import.
+          rm -f "$CERTIFICATE"
+
+          # Without an explicit partition list the first codesign call blocks on
+          # a UI authorisation prompt that no runner can answer, and the job
+          # dies on timeout rather than on anything informative.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+              -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null 2>&1
+
+          # Prepend rather than replace, so the runner's own keychains keep
+          # working; cleanup restores this exact list.
+          security list-keychains -d user -s "$KEYCHAIN" $(cat "$SEARCH_LIST_BACKUP")
+
+          # Exactly one identity may answer to the configured name across the
+          # whole search list. Two matching certificates — an expired one still
+          # present, say — make `codesign --sign` ambiguous, and which one it
+          # picks is not something a release should leave to chance. Only the
+          # count is ever printed.
+          MATCHES="$(security find-identity -v -p codesigning | grep -F -c "$IMPULS_DEVELOPER_ID_APPLICATION" || true)"
+          if [ "$MATCHES" != "1" ]; then
+              echo "Expected exactly one codesigning identity for the configured Developer ID, found $MATCHES" >&2
+              exit 1
+          fi
+
+          echo "IMPULS_SIGNING_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
+      # The only place in this workflow that builds the application. Everything
+      # downstream packages this exact bundle; nothing rebuilds or re-signs it.
+      - name: Build the Developer ID signed application
+        env:
+          IMPULS_DEVELOPER_ID_APPLICATION: ${{ secrets.IMPULS_DEVELOPER_ID_APPLICATION }}
         run: |
           swift test -c release
           ./Scripts/bundle.sh release
           test "$(/usr/libexec/PlistBuddy -c 'Print ImpulsVersionStatisticsEndpoint' build/Impuls.app/Contents/Info.plist)" = "$IMPULS_VERSION_STATISTICS_ENDPOINT"
 
+      - name: Verify the application is Developer ID signed
+        env:
+          IMPULS_DEVELOPER_ID_APPLICATION: ${{ secrets.IMPULS_DEVELOPER_ID_APPLICATION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/Impuls.app"
+          INFO="$RUNNER_TEMP/impuls-codesign.txt"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -dvvv "$APP" > "$INFO" 2>&1
+
+          # Authority lines run leaf → intermediate → root, so the first one is
+          # the signing certificate itself. Only its type is echoed; the rest of
+          # the line carries the team identity.
+          AUTHORITY="$(sed -n 's/^Authority=//p' "$INFO" | head -1)"
+          case "$AUTHORITY" in
+              "Developer ID Application: "*) ;;
+              *)
+                  echo "Production candidate is not Developer ID signed (leaf authority: ${AUTHORITY%%:*})" >&2
+                  exit 1
+                  ;;
+          esac
+          # Exact, not merely well-formed: some Developer ID certificate is not
+          # the same thing as the configured production one.
+          if [ "$AUTHORITY" != "$IMPULS_DEVELOPER_ID_APPLICATION" ]; then
+              echo "The application was signed by a different identity than the configured production Developer ID" >&2
+              exit 1
+          fi
+
+          # An ad-hoc signature reaching this point would mean bundle.sh took its
+          # local-development branch on a release runner. That must be a hard
+          # failure, never a warning that scrolls past.
+          FLAGS="$(sed -n 's/.*flags=\([^ ]*\).*/\1/p' "$INFO" | head -1)"
+          case "$FLAGS" in
+              *adhoc*)
+                  echo "An ad-hoc signature reached the production release path" >&2
+                  exit 1
+                  ;;
+          esac
+          case "$FLAGS" in
+              *runtime*) ;;
+              *)
+                  echo "Hardened Runtime is not enabled on the release candidate" >&2
+                  exit 1
+                  ;;
+          esac
+          # A secure timestamp proves `--timestamp` reached Apple's server. A
+          # locally signed bundle reports "Signed Time" instead, and Apple will
+          # not notarize it.
+          grep -q '^Timestamp=' "$INFO"
+
+          ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
+          codesign -d --entitlements - --xml "$APP" > "$ENTITLEMENTS"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.personal-information.calendars' "$ENTITLEMENTS")" = true
+          test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.automation.apple-events' "$ENTITLEMENTS")" = true
+          # Library Validation stays on for a Developer ID build. It is disabled
+          # only by the transitional ad-hoc entitlements, which must never be
+          # what a released artefact carries.
+          if /usr/libexec/PlistBuddy -c 'Print :com.apple.security.cs.disable-library-validation' "$ENTITLEMENTS" >/dev/null 2>&1; then
+              echo "Production entitlements must not disable Library Validation" >&2
+              exit 1
+          fi
+
+          test -s "$APP/Contents/Resources/AppIcon.icns"
+          test -s "$APP/Contents/Resources/ImpulsMenuBarTemplate.pdf"
+          test -s "$APP/Contents/Resources/ThirdPartyNotices.md"
+          test -n "$(/usr/libexec/PlistBuddy -c 'Print NSAppleEventsUsageDescription' "$APP/Contents/Info.plist")"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Contents/Info.plist")" = 'io.tumanov.impuls'
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")" = "$VERSION"
+
+          # The code directory hash of the application as signed. Every later
+          # stage re-derives it and compares: that is what makes "no rebuild
+          # after notarization" a checked property rather than a convention.
+          CDHASH="$(sed -n 's/^CDHash=//p' "$INFO" | head -1)"
+          test -n "$CDHASH"
+          echo "IMPULS_APP_CDHASH=$CDHASH" >> "$GITHUB_ENV"
 
       - name: Verify no unsolicited network connection
         shell: bash
@@ -202,39 +418,242 @@ jobs:
           cleanup
           trap - EXIT
 
-      - name: Build and verify release artifacts
+      - name: Notarize the application with Apple
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/Impuls.app"
+          # Apple's notary service accepts a ZIP, a DMG or a PKG. This archive
+          # is a transport container only: it is thrown away immediately, and
+          # the ZIP users receive is built later from the stapled bundle.
+          ARCHIVE="$RUNNER_TEMP/impuls-notarization.zip"
+          RESPONSE="$RUNNER_TEMP/impuls-notary-app.json"
+          ditto -c -k --keepParent "$APP" "$ARCHIVE"
+
+          set +e
+          xcrun notarytool submit "$ARCHIVE" \
+              --apple-id "$APPLE_ID" \
+              --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+              --wait --timeout 30m --output-format json > "$RESPONSE"
+          SUBMIT_STATUS=$?
+          set -e
+          rm -f "$ARCHIVE"
+
+          SUBMISSION_ID="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("id",""))' "$RESPONSE" 2>/dev/null || true)"
+          NOTARY_STATUS="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("status",""))' "$RESPONSE" 2>/dev/null || true)"
+
+          if [ "$SUBMIT_STATUS" -ne 0 ] || [ "$NOTARY_STATUS" != "Accepted" ]; then
+              echo "Apple notarization did not accept the application (status: ${NOTARY_STATUS:-unknown})" >&2
+              if [ -n "$SUBMISSION_ID" ]; then
+                  # The notary log names the rejected binaries and the reason.
+                  # It contains no credentials.
+                  xcrun notarytool log "$SUBMISSION_ID" \
+                      --apple-id "$APPLE_ID" \
+                      --team-id "$APPLE_TEAM_ID" \
+                      --password "$APPLE_APP_SPECIFIC_PASSWORD" >&2 || true
+              fi
+              exit 1
+          fi
+          rm -f "$RESPONSE"
+
+      - name: Staple and validate the notarized application
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/Impuls.app"
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+          # Re-verify rather than assume: stapling writes into the bundle, and
+          # the only acceptable outcome is a signature that is still valid and a
+          # code directory hash that has not moved.
+          codesign --verify --deep --strict "$APP"
+          spctl --assess --type exec --verbose=2 "$APP"
+          CDHASH="$(codesign -dvvv "$APP" 2>&1 | sed -n 's/^CDHash=//p' | head -1)"
+          test "$CDHASH" = "$IMPULS_APP_CDHASH"
+
+      # `--no-build` is the whole point: without it dmg.sh would run bundle.sh
+      # again and replace the notarized bundle with a fresh, unstapled one.
+      - name: Package the notarized application into the disk image
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./Scripts/dmg.sh --no-build
+
+      # `hdiutil create` produces an unsigned image, and Apple's notary service
+      # rejects unsigned submissions outright. The disk image is a distributed
+      # artifact in its own right, so it carries its own Developer ID signature
+      # — separate from, and additional to, the signature on the application
+      # inside it. This is the only `codesign --sign` in the workflow; the
+      # application itself is signed by bundle.sh.
+      - name: Sign the disk image with the Developer ID
+        env:
+          IMPULS_DEVELOPER_ID_APPLICATION: ${{ secrets.IMPULS_DEVELOPER_ID_APPLICATION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="build/Impuls-$VERSION.dmg"
+          INFO="$RUNNER_TEMP/impuls-dmg-codesign.txt"
+
+          # No --force: the image was just created and must not already carry a
+          # signature. If it does, something signed it twice and that is worth
+          # failing over rather than quietly overwriting.
+          #
+          # No --options runtime either: Hardened Runtime is a property of an
+          # executable, not of a container.
+          codesign --sign "$IMPULS_DEVELOPER_ID_APPLICATION" \
+              --timestamp \
+              "$DMG"
+
+          codesign --verify --verbose=2 "$DMG"
+          codesign -dvvv "$DMG" > "$INFO" 2>&1
+
+          AUTHORITY="$(sed -n 's/^Authority=//p' "$INFO" | head -1)"
+          case "$AUTHORITY" in
+              "Developer ID Application: "*) ;;
+              *)
+                  echo "The disk image is not Developer ID signed (leaf authority: ${AUTHORITY%%:*})" >&2
+                  exit 1
+                  ;;
+          esac
+          # The leaf authority of a Developer ID signature is the identity
+          # string itself, so this is an exact check that the production
+          # certificate — not merely some Developer ID certificate — signed it.
+          if [ "$AUTHORITY" != "$IMPULS_DEVELOPER_ID_APPLICATION" ]; then
+              echo "The disk image was signed by a different identity than the configured production Developer ID" >&2
+              exit 1
+          fi
+
+          FLAGS="$(sed -n 's/.*flags=\([^ ]*\).*/\1/p' "$INFO" | head -1)"
+          case "$FLAGS" in
+              *adhoc*)
+                  echo "An ad-hoc signature reached the production disk image" >&2
+                  exit 1
+                  ;;
+          esac
+          grep -q '^Timestamp=' "$INFO"
+
+          # Recorded before notarization. Apple looks a ticket up by code
+          # directory hash, so stapling cannot change it — and if it ever did,
+          # the stapled ticket would not match the image it is attached to.
+          CDHASH="$(sed -n 's/^CDHash=//p' "$INFO" | head -1)"
+          test -n "$CDHASH"
+          echo "IMPULS_DMG_CDHASH=$CDHASH" >> "$GITHUB_ENV"
+
+      - name: Notarize, staple and validate the disk image
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="build/Impuls-$VERSION.dmg"
+          RESPONSE="$RUNNER_TEMP/impuls-notary-dmg.json"
+          # A second submission for the container itself. The application inside
+          # is already notarized and stapled, but a downloaded DMG is quarantined
+          # as its own file, and only a ticket stapled to the DMG lets Gatekeeper
+          # clear it without a network round trip.
+          set +e
+          xcrun notarytool submit "$DMG" \
+              --apple-id "$APPLE_ID" \
+              --team-id "$APPLE_TEAM_ID" \
+              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+              --wait --timeout 30m --output-format json > "$RESPONSE"
+          SUBMIT_STATUS=$?
+          set -e
+
+          SUBMISSION_ID="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("id",""))' "$RESPONSE" 2>/dev/null || true)"
+          NOTARY_STATUS="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1])).get("status",""))' "$RESPONSE" 2>/dev/null || true)"
+
+          if [ "$SUBMIT_STATUS" -ne 0 ] || [ "$NOTARY_STATUS" != "Accepted" ]; then
+              echo "Apple notarization did not accept the disk image (status: ${NOTARY_STATUS:-unknown})" >&2
+              if [ -n "$SUBMISSION_ID" ]; then
+                  xcrun notarytool log "$SUBMISSION_ID" \
+                      --apple-id "$APPLE_ID" \
+                      --team-id "$APPLE_TEAM_ID" \
+                      --password "$APPLE_APP_SPECIFIC_PASSWORD" >&2 || true
+              fi
+              exit 1
+          fi
+          rm -f "$RESPONSE"
+
+          # The image is never re-signed after this point: stapling attaches the
+          # ticket, it does not re-seal the signature.
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          codesign --verify --verbose=2 "$DMG"
+          hdiutil verify "$DMG"
+          spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+
+          # Same identity as the image Apple accepted, still.
+          DMG_CDHASH="$(codesign -dvvv "$DMG" 2>&1 | sed -n 's/^CDHash=//p' | head -1)"
+          test "$DMG_CDHASH" = "$IMPULS_DMG_CDHASH"
+
+      - name: Build the update archive and prove artifact identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP="build/Impuls.app"
+          DMG="build/Impuls-$VERSION.dmg"
+          ZIP="build/Impuls-$VERSION.zip"
+
+          cdhash_of() {
+              codesign -dvvv "$1" 2>&1 | sed -n 's/^CDHash=//p' | head -1
+          }
+
+          # Built last, from the same stapled bundle Apple accepted. Sparkle
+          # ships this archive, so it must not be assembled from anything else.
+          ditto -c -k --keepParent "$APP" "$ZIP"
+
+          # The build directory bundle is still the notarized one.
+          test "$(cdhash_of "$APP")" = "$IMPULS_APP_CDHASH"
+          xcrun stapler validate "$APP"
+
+          # …and so is the application inside the archive users download.
+          EXTRACTED="$RUNNER_TEMP/impuls-update"
+          rm -rf "$EXTRACTED"
+          mkdir -p "$EXTRACTED"
+          ditto -x -k "$ZIP" "$EXTRACTED"
+          codesign --verify --deep --strict "$EXTRACTED/Impuls.app"
+          xcrun stapler validate "$EXTRACTED/Impuls.app"
+          test "$(cdhash_of "$EXTRACTED/Impuls.app")" = "$IMPULS_APP_CDHASH"
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$EXTRACTED/Impuls.app/Contents/Info.plist")" = "$VERSION"
+
+          # …and so is the one inside the disk image.
+          MOUNT="$RUNNER_TEMP/impuls-dmg"
+          rm -rf "$MOUNT"
+          mkdir -p "$MOUNT"
+          hdiutil attach "$DMG" -readonly -nobrowse -mountpoint "$MOUNT" >/dev/null
+          codesign --verify --deep --strict "$MOUNT/Impuls.app"
+          xcrun stapler validate "$MOUNT/Impuls.app"
+          test "$(cdhash_of "$MOUNT/Impuls.app")" = "$IMPULS_APP_CDHASH"
+          hdiutil detach "$MOUNT" >/dev/null
+          rm -rf "$MOUNT" "$EXTRACTED"
+
+      # Unchanged trust layer. Apple's signature and notarization establish
+      # macOS distribution trust; this establishes update authenticity. Neither
+      # substitutes for the other.
+      - name: Generate and verify the signed Sparkle appcast
         env:
           SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
-          ./Scripts/dmg.sh
-          APP="build/Impuls.app"
           DMG="build/Impuls-$VERSION.dmg"
           ZIP="build/Impuls-$VERSION.zip"
           APPCAST="build/appcast.xml"
-          test "$(/usr/libexec/PlistBuddy -c 'Print ImpulsVersionStatisticsEndpoint' "$APP/Contents/Info.plist")" = "$IMPULS_VERSION_STATISTICS_ENDPOINT"
-          ditto -c -k --keepParent "$APP" "$ZIP"
-          codesign --verify --deep --strict "$APP"
-          test -s "$APP/Contents/Resources/AppIcon.icns"
-          test -s "$APP/Contents/Resources/ImpulsMenuBarTemplate.pdf"
-          test -s "$APP/Contents/Resources/ThirdPartyNotices.md"
-          test -n "$(/usr/libexec/PlistBuddy -c 'Print NSAppleEventsUsageDescription' "$APP/Contents/Info.plist")"
-          ENTITLEMENTS="$RUNNER_TEMP/impuls-entitlements.plist"
-          codesign -d --entitlements - --xml "$APP" > "$ENTITLEMENTS"
-          test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.personal-information.calendars' "$ENTITLEMENTS")" = true
-          test "$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.automation.apple-events' "$ENTITLEMENTS")" = true
-          hdiutil verify "$DMG"
-          EXTRACTED="$RUNNER_TEMP/impuls-update"
-          mkdir -p "$EXTRACTED"
-          ditto -x -k "$ZIP" "$EXTRACTED"
-          codesign --verify --deep --strict "$EXTRACTED/Impuls.app"
 
           GENERATE_APPCAST="$(find .build/artifacts -type f -path '*/bin/generate_appcast' -perm -111 -print -quit)"
           SIGN_UPDATE="$(find .build/artifacts -type f -path '*/bin/sign_update' -perm -111 -print -quit)"
           test -x "$GENERATE_APPCAST"
           test -x "$SIGN_UPDATE"
           UPDATES="$RUNNER_TEMP/impuls-updates"
+          rm -rf "$UPDATES"
           mkdir -p "$UPDATES"
           cp "$ZIP" "$UPDATES/"
           cp "docs/releases/$VERSION.md" "$UPDATES/Impuls-$VERSION.md"
@@ -288,15 +707,92 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # always(): a cancelled or failed run must not leave a Developer ID
+      # private key on the runner. `set -e` is deliberately absent so that one
+      # failing command cannot skip the rest of the cleanup.
+      - name: Remove the ephemeral signing keychain
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          KEYCHAIN="${IMPULS_SIGNING_KEYCHAIN:-$RUNNER_TEMP/impuls-signing.keychain-db}"
+          SEARCH_LIST_BACKUP="$RUNNER_TEMP/impuls-keychain-search-list"
+          if [ -s "$SEARCH_LIST_BACKUP" ]; then
+              security list-keychains -d user -s $(cat "$SEARCH_LIST_BACKUP") || true
+          fi
+          security delete-keychain "$KEYCHAIN" >/dev/null 2>&1 || true
+          rm -f "$KEYCHAIN" "$SEARCH_LIST_BACKUP" || true
+          rm -f "$RUNNER_TEMP/impuls-notarization.zip" \
+                "$RUNNER_TEMP/impuls-notary-app.json" \
+                "$RUNNER_TEMP/impuls-notary-dmg.json" || true
+          # Belt and braces: if a step died between `base64 --decode` and its
+          # own `rm`, the decoded certificate would still be sitting here.
+          find "$RUNNER_TEMP" -maxdepth 1 -name '*.p12' -delete 2>/dev/null || true
+          # Says what actually happened: on an early failure there may have
+          # been no keychain to remove.
+          echo "Ephemeral signing keychain cleanup complete."
+
+  # Publication is a separate job for a reason: it is the only place with write
+  # access, it holds no Apple credentials, and it cannot run unless `release`
+  # succeeded — so a rejected notarization can never reach users. A manual
+  # dispatch with publish_release left off stops after `release`, which is the
+  # signed/notarized release-candidate mode.
+  publish:
+    needs: release
+    if: >-
+      github.repository == 'TumanovNV/impuls'
+      && github.ref == 'refs/heads/main'
+      && (github.event_name == 'push'
+      || inputs.publish_release == true
+      || inputs.publish_release == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.release.outputs.version }}
+      TAG: ${{ needs.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the verified release artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: Impuls-${{ needs.release.outputs.version }}
+          path: artifacts
+
+      - name: Verify the assets are the artifacts the release job verified
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd artifacts
+          # The checksums were written next to the artifacts by the release job
+          # after every signature, notarization and identity check passed. The
+          # recorded path does not survive the artifact round trip, so compare
+          # the digests themselves rather than running `sha256sum -c`.
+          for FILE in "Impuls-$VERSION.dmg" "Impuls-$VERSION.zip" appcast.xml; do
+              test -s "$FILE"
+              test -s "$FILE.sha256"
+              EXPECTED="$(awk '{print $1}' "$FILE.sha256")"
+              ACTUAL="$(sha256sum "$FILE" | awk '{print $1}')"
+              if [ "$EXPECTED" != "$ACTUAL" ]; then
+                  echo "$FILE does not match the checksum recorded by the release job" >&2
+                  exit 1
+              fi
+          done
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          DMG="build/Impuls-$VERSION.dmg"
-          ZIP="build/Impuls-$VERSION.zip"
-          APPCAST="build/appcast.xml"
+          DMG="artifacts/Impuls-$VERSION.dmg"
+          ZIP="artifacts/Impuls-$VERSION.zip"
+          APPCAST="artifacts/appcast.xml"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" \
               "$DMG" "$DMG.sha256" \

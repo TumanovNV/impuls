@@ -30,9 +30,13 @@ The release notes describe user-facing changes. Release QA evidence records the 
 
 ## What release.yml does
 
-The workflow builds the app, produces the DMG and ZIP with their SHA-256 files, generates `appcast.xml` with Sparkle's `generate_appcast`, signs it with the EdDSA key from repository secrets, verifies the signature and enclosure, then creates or updates the GitHub Release.
+Two jobs. `release` (`contents: read`) requires every Apple secret up front, builds the app **once**, signs it with the Developer ID, notarizes and staples it, packages the DMG with `Scripts/dmg.sh --no-build`, signs the DMG with the same Developer ID (`hdiutil create` leaves it unsigned and Apple rejects unsigned submissions), notarizes and staples that too, builds the update ZIP from the same stapled bundle, then generates and verifies `appcast.xml` with Sparkle's EdDSA key. `publish` (`contents: write`, no Apple credentials) downloads those artifacts, re-checks their SHA-256 and creates or updates the GitHub Release.
 
-If `v<version>` / the GitHub Release already exists, the current workflow deliberately **reissues** the release metadata and uploads the rebuilt assets with `--clobber`; it does not fail merely because the tag already exists. Treat `workflow_dispatch` or a `release.yml` change as potentially release-affecting for the current version.
+The push trigger watches `Scripts/version` only. Editing `release.yml` no longer re-publishes the current version — that used to be a live foot-gun.
+
+`publish` runs only from `main`, and only on a `Scripts/version` push or a `workflow_dispatch` with `publish_release` explicitly on. The default manual dispatch is a signed/notarized release candidate: artifacts, no tag, no release. If `v<version>` already exists the publish job still **reissues** metadata and uploads with `--clobber`.
+
+The release path is fail-closed — there is no ad-hoc fallback, and the built app is checked for `Developer ID Application` authority, Hardened Runtime, a secure timestamp and no ad-hoc flag. The notarized code directory hash is carried through to the extracted ZIP and the app inside the DMG, so nothing can rebuild the bundle after Apple accepted it.
 
 Never create production tags/releases by hand during the normal flow, and never move the signing key out of secrets.
 
@@ -76,7 +80,9 @@ Sparkle is pinned with `exact: "2.9.5"`, and CI also checks the resolved revisio
 
 ## Signing
 
-`bundle.sh` uses Developer ID when `IMPULS_DEVELOPER_ID_APPLICATION` is set and an ad-hoc signature otherwise. `codesign --force --deep` is banned — CI checks for its absence, because deep signing masks a broken nested signature instead of failing.
+`bundle.sh` uses Developer ID when `IMPULS_DEVELOPER_ID_APPLICATION` is set and an ad-hoc signature otherwise. That fallback is for local builds only; `release.yml` refuses to start without the full Apple secret set. `codesign --force --deep` is banned — CI checks for its absence, because deep signing masks a broken nested signature instead of failing.
+
+Secret names (values live only in GitHub Secrets): `IMPULS_DEVELOPER_ID_P12_BASE64`, `IMPULS_DEVELOPER_ID_P12_PASSWORD`, `IMPULS_DEVELOPER_ID_APPLICATION`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, plus the existing `SPARKLE_EDDSA_PRIVATE_KEY`. The certificate is imported into an ephemeral keychain in `$RUNNER_TEMP` and deleted by an `if: always()` step.
 
 ## The smoke test
 
