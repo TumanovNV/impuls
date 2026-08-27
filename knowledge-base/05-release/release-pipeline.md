@@ -2,9 +2,9 @@
 title: Release Pipeline
 type: release
 status: active
-documentation_version: 1.2
+documentation_version: 1.3
 app_version: 1.4.15
-last_reviewed: 2026-08-24
+last_reviewed: 2026-08-27
 tags: [impuls, release, github-actions, artifacts]
 ---
 
@@ -29,16 +29,20 @@ flowchart TD
     SMOKE --> MERGE
     DOC --> MERGE
     QAI --> MERGE
-    MERGE -->|Scripts/version changed| REL[release.yml]
-    REL --> VERIFY[Repeat security + tests]
-    VERIFY --> APP[Impuls.app]
-    APP --> DMG[Impuls-X.Y.Z.dmg]
-    APP --> ZIP[Impuls-X.Y.Z.zip]
+    MERGE -->|Scripts/version changed| REL[release.yml: job release]
+    REL --> CRED[Require Apple credentials]
+    CRED --> VERIFY[Repeat security + tests]
+    VERIFY --> APP[Build Impuls.app once\nDeveloper ID + Hardened Runtime]
+    APP --> NOT[Notarize + staple + verify]
+    NOT --> DMG[Impuls-X.Y.Z.dmg\nnotarized + stapled]
+    NOT --> ZIP[Impuls-X.Y.Z.zip]
     ZIP --> APPCAST[Signed appcast.xml]
     DMG --> SHA[SHA-256]
     ZIP --> SHA
     APPCAST --> SHA
-    SHA --> GH[GitHub Release vX.Y.Z]
+    SHA --> PUB{publish job gated}
+    PUB -->|version push or explicit input| GH[GitHub Release vX.Y.Z]
+    PUB -->|manual candidate| RC[Workflow artifact only]
     GH --> SITE[Site release metadata sync]
 ```
 
@@ -71,13 +75,42 @@ A release bump that exposes stale current-state documentation should fail before
 
 ## Release trigger
 
-`release.yml` launches on push to `main` when `Scripts/version` or the release workflow itself changes, and it also supports manual dispatch. The normal shipping path is a reviewed version-bump PR merged to `main`; do not create production tags/assets by hand to bypass it.
+`release.yml` launches on push to `main` when `Scripts/version` changes, and on manual dispatch. The normal shipping path is a reviewed version-bump PR merged to `main`; do not create production tags/assets by hand to bypass it.
+
+The workflow file is deliberately **not** in its own push paths. It used to be, which meant that editing the release pipeline re-published whatever version was current — a workflow change is not a decision to ship. Changes to `release.yml` are covered by ordinary repository CI and by `Tests/PythonTests/test_release_signing_pipeline.py`; the credentialed Apple path is exercised through manual dispatch.
+
+## Two jobs, one gate
+
+| Job | Permissions | Holds Apple credentials | Can publish |
+| --- | --- | --- | --- |
+| `release` | `contents: read` | yes | no |
+| `publish` | `contents: write` | no | yes |
+
+`publish` runs only when `needs: release` succeeded, the ref is `refs/heads/main`, and either the trigger was a `Scripts/version` push or the dispatch input `publish_release` was explicitly turned on. It downloads the artifacts the `release` job produced, re-checks their SHA-256 against the digests recorded after verification, and only then calls `gh release`.
+
+The split is the point: a rejected notarization fails `release`, so `publish` never starts, and no step that touches signing material has write access to the repository.
+
+### Manual signed/notarized release candidate
+
+`workflow_dispatch` with `publish_release` left off — the default — builds, signs, notarizes, staples and verifies the candidate, uploads it as a workflow artifact, and stops. No tag, no GitHub Release, no change to the appcast users see. This is how a Developer ID and notarization setup is validated before anything is published.
+
+`publish_release` turned on is the only manual path to a production release, and it still refuses to run outside `main`.
+
+## Developer ID and notarization
+
+The `release` job is fail-closed: it verifies every required Apple secret before building and stops, naming only the missing secrets. There is no ad-hoc fallback on this path — after the build it asserts the leaf authority is `Developer ID Application`, that the signature is not ad-hoc, that Hardened Runtime and a secure timestamp are present, and that production entitlements do not disable Library Validation.
+
+The application is built once. Nothing after notarization rebuilds, re-signs or replaces it, and that is checked by carrying the notarized code directory hash through to the extracted ZIP and the application inside the DMG. `Scripts/dmg.sh --no-build` packages the existing bundle; the default `./Scripts/dmg.sh` still builds one and remains correct locally.
+
+Ownership of the detail belongs to [Signing and Distribution](../03-macos/signing-distribution.md).
 
 ## Artifact verification
 
 The production pipeline validates the release metadata and security boundaries, runs tests/build, creates the application/DMG/ZIP, verifies bundle identity/signature/entitlements, verifies the DMG, re-extracts and verifies the ZIP application, generates the signed Sparkle appcast, verifies the appcast/archive signature and enclosure length, and publishes SHA-256 evidence with the release assets.
 
 Developer ID/notarization is a separate distribution-trust layer. A successful `codesign --verify` alone is never evidence that the public artifact is notarized; verify the actual release environment/artifact before making that claim.
+
+As of 1.4.15 no public artifact has been notarized: the pipeline is prepared, the Apple Developer credentials are not yet active. The first notarized artifact will come from a credentialed release candidate.
 
 ## Production telemetry endpoint
 

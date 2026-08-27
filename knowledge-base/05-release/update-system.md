@@ -2,17 +2,17 @@
 title: Update System
 type: release
 status: active
-documentation_version: 1.1
-app_version: 1.4.14
-last_reviewed: 2026-08-26
+documentation_version: 1.2
+app_version: 1.4.15
+last_reviewed: 2026-08-27
 tags: [impuls, updates, sparkle, security]
 ---
 
 # Update System
 
-## IMP-11 review
+## IMP-13 review
 
-Reviewed the `bundle.sh` change: it broadens only the localized Apple Events usage description. Sparkle version/feed/signature handling, consent, and update flags are unchanged.
+Reviewed the Developer ID / notarization preparation. Sparkle version, feed, signature handling, consent and update flags are all unchanged. What moved is where the update ZIP comes from: it is now built from the notarized and stapled bundle, after Apple has accepted it, instead of from a second build produced by `dmg.sh`.
 
 ## Контракт
 
@@ -78,7 +78,17 @@ Release workflow использует private Ed25519 seed из GitHub secret д
 
 ## Developer ID
 
-`bundle.sh` использует Developer ID, если `IMPULS_DEVELOPER_ID_APPLICATION` настроен; иначе fallback ad-hoc. Sparkle update authenticity и Apple notarization/signing — разные trust layers. Отсутствие Developer ID влияет на Gatekeeper/permission continuity, но не должно ослаблять Sparkle signature checks.
+`bundle.sh` использует Developer ID, если `IMPULS_DEVELOPER_ID_APPLICATION` настроен; иначе fallback ad-hoc. Это остаётся верным для локальной сборки.
+
+Release workflow ad-hoc fallback не принимает: он требует полный набор Apple secrets до сборки и проверяет подпись готового app на предмет `Developer ID Application` authority, Hardened Runtime, secure timestamp и отсутствия ad-hoc флага.
+
+Sparkle update authenticity и Apple notarization/signing — разные trust layers. Отсутствие Developer ID влияет на Gatekeeper/permission continuity, но не должно ослаблять Sparkle signature checks. Обратное тоже верно: notarization ничего не подтверждает про appcast и не заменяет EdDSA-подпись архива.
+
+## Что именно скачивает Sparkle
+
+ZIP для appcast собирается **после** того, как приложение notarized и stapled, из того же `build/Impuls.app`. Порядок здесь — контракт, а не удобство: архив, собранный до stapling, содержал бы app без ticket, и Gatekeeper на машине пользователя проверял бы его через сеть.
+
+Что это уже не так, проверяется в workflow: code directory hash фиксируется в момент подписи и сверяется с приложением, извлечённым из финального ZIP. Подробности — [Signing and Distribution](../03-macos/signing-distribution.md).
 
 ## Локализация и update contract
 

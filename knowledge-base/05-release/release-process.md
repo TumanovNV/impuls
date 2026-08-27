@@ -2,9 +2,9 @@
 title: Release Process
 type: release
 status: active
-documentation_version: 1.3
-app_version: 1.4.11
-last_reviewed: 2026-08-19
+documentation_version: 1.4
+app_version: 1.4.15
+last_reviewed: 2026-08-27
 tags: [impuls, release, github-actions, qa]
 ---
 
@@ -42,7 +42,7 @@ knowledge-base/13-qa/release-evidence/x.y.z.md
 11. Открыть Pull Request.
 12. Дождаться успешного CI.
 13. Слить PR в `main`.
-14. Release workflow создаёт или обновляет tag/release `v<version>`, собирает и проверяет артефакты, подписывает appcast и публикует GitHub Release.
+14. Release workflow собирает, подписывает Developer ID, notarizes, staples и проверяет кандидата, затем — отдельным gated job — создаёт или обновляет tag/release `v<version>` и публикует артефакты.
 15. Website sync обновляет статический fallback публичного сайта после релиза.
 
 ## Release QA gate
@@ -91,6 +91,16 @@ python3 Scripts/check-release-qa-evidence.py --release-gate
 ```
 
 `bundle.sh` использует Developer ID Application, если соответствующая переменная окружения доступна; иначе предусмотрен ad-hoc fallback. Фактическое состояние подписи и notarization перед конкретным релизом проверяется по build/release workflow и артефакту, а не по старой документации.
+
+`./Scripts/dmg.sh` по-прежнему собирает app и затем упаковывает его — для локальной работы это то, что нужно. `./Scripts/dmg.sh --no-build` упаковывает уже существующий `build/Impuls.app` и отказывается работать, если его нет; этот режим использует release workflow, чтобы не пересобрать уже notarized bundle.
+
+## Signed/notarized release candidate
+
+До production-релиза Developer ID и notarization проверяются вручную: `workflow_dispatch` для `release.yml` с выключенным `publish_release` (значение по умолчанию). Такой запуск собирает, подписывает, notarizes, staples и проверяет кандидата и выкладывает его как workflow artifact — без tag, без GitHub Release и без изменения appcast, который видят пользователи.
+
+Production-публикация возможна только из `main` и только при push, меняющем `Scripts/version`, либо при явно включённом `publish_release`.
+
+Release workflow fail-closed: без полного набора Apple secrets он останавливается до сборки. Пока credentials не настроены, релиз через этот workflow невозможен — это намеренно, а не сбой.
 
 ## Release-sensitive файлы
 
