@@ -321,6 +321,8 @@ jobs:
           test "$(/usr/libexec/PlistBuddy -c 'Print ImpulsVersionStatisticsEndpoint' build/Impuls.app/Contents/Info.plist)" = "$IMPULS_VERSION_STATISTICS_ENDPOINT"
 
       - name: Verify the application is Developer ID signed
+        env:
+          IMPULS_DEVELOPER_ID_APPLICATION: ${{ secrets.IMPULS_DEVELOPER_ID_APPLICATION }}
         shell: bash
         run: |
           set -euo pipefail
@@ -340,6 +342,12 @@ jobs:
                   exit 1
                   ;;
           esac
+          # Exact, not merely well-formed: some Developer ID certificate is not
+          # the same thing as the configured production one.
+          if [ "$AUTHORITY" != "$IMPULS_DEVELOPER_ID_APPLICATION" ]; then
+              echo "The application was signed by a different identity than the configured production Developer ID" >&2
+              exit 1
+          fi
 
           # An ad-hoc signature reaching this point would mean bundle.sh took its
           # local-development branch on a release runner. That must be a hard
@@ -476,6 +484,66 @@ jobs:
           set -euo pipefail
           ./Scripts/dmg.sh --no-build
 
+      # `hdiutil create` produces an unsigned image, and Apple's notary service
+      # rejects unsigned submissions outright. The disk image is a distributed
+      # artifact in its own right, so it carries its own Developer ID signature
+      # — separate from, and additional to, the signature on the application
+      # inside it. This is the only `codesign --sign` in the workflow; the
+      # application itself is signed by bundle.sh.
+      - name: Sign the disk image with the Developer ID
+        env:
+          IMPULS_DEVELOPER_ID_APPLICATION: ${{ secrets.IMPULS_DEVELOPER_ID_APPLICATION }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          DMG="build/Impuls-$VERSION.dmg"
+          INFO="$RUNNER_TEMP/impuls-dmg-codesign.txt"
+
+          # No --force: the image was just created and must not already carry a
+          # signature. If it does, something signed it twice and that is worth
+          # failing over rather than quietly overwriting.
+          #
+          # No --options runtime either: Hardened Runtime is a property of an
+          # executable, not of a container.
+          codesign --sign "$IMPULS_DEVELOPER_ID_APPLICATION" \
+              --timestamp \
+              "$DMG"
+
+          codesign --verify --verbose=2 "$DMG"
+          codesign -dvvv "$DMG" > "$INFO" 2>&1
+
+          AUTHORITY="$(sed -n 's/^Authority=//p' "$INFO" | head -1)"
+          case "$AUTHORITY" in
+              "Developer ID Application: "*) ;;
+              *)
+                  echo "The disk image is not Developer ID signed (leaf authority: ${AUTHORITY%%:*})" >&2
+                  exit 1
+                  ;;
+          esac
+          # The leaf authority of a Developer ID signature is the identity
+          # string itself, so this is an exact check that the production
+          # certificate — not merely some Developer ID certificate — signed it.
+          if [ "$AUTHORITY" != "$IMPULS_DEVELOPER_ID_APPLICATION" ]; then
+              echo "The disk image was signed by a different identity than the configured production Developer ID" >&2
+              exit 1
+          fi
+
+          FLAGS="$(sed -n 's/.*flags=\([^ ]*\).*/\1/p' "$INFO" | head -1)"
+          case "$FLAGS" in
+              *adhoc*)
+                  echo "An ad-hoc signature reached the production disk image" >&2
+                  exit 1
+                  ;;
+          esac
+          grep -q '^Timestamp=' "$INFO"
+
+          # Recorded before notarization. Apple looks a ticket up by code
+          # directory hash, so stapling cannot change it — and if it ever did,
+          # the stapled ticket would not match the image it is attached to.
+          CDHASH="$(sed -n 's/^CDHash=//p' "$INFO" | head -1)"
+          test -n "$CDHASH"
+          echo "IMPULS_DMG_CDHASH=$CDHASH" >> "$GITHUB_ENV"
+
       - name: Notarize, staple and validate the disk image
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -514,10 +582,17 @@ jobs:
           fi
           rm -f "$RESPONSE"
 
+          # The image is never re-signed after this point: stapling attaches the
+          # ticket, it does not re-seal the signature.
           xcrun stapler staple "$DMG"
           xcrun stapler validate "$DMG"
+          codesign --verify --verbose=2 "$DMG"
           hdiutil verify "$DMG"
           spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+
+          # Same identity as the image Apple accepted, still.
+          DMG_CDHASH="$(codesign -dvvv "$DMG" 2>&1 | sed -n 's/^CDHash=//p' | head -1)"
+          test "$DMG_CDHASH" = "$IMPULS_DMG_CDHASH"
 
       - name: Build the update archive and prove artifact identity
         shell: bash

@@ -88,7 +88,9 @@ Sparkle update authenticity и Apple notarization/signing — разные trust
 
 ZIP для appcast собирается **после** того, как приложение notarized и stapled, из того же `build/Impuls.app`. Порядок здесь — контракт, а не удобство: архив, собранный до stapling, содержал бы app без ticket, и Gatekeeper на машине пользователя проверял бы его через сеть.
 
-Что это уже не так, проверяется в workflow: code directory hash фиксируется в момент подписи и сверяется с приложением, извлечённым из финального ZIP. Подробности — [Signing and Distribution](../03-macos/signing-distribution.md).
+Что это уже не так, проверяется в workflow: code directory hash фиксируется в момент подписи и сверяется с приложением, извлечённым из финального ZIP.
+
+Сам ZIP не подписывается Developer ID и не notarized отдельно — это транспортный контейнер. Notarized и stapled здесь приложение внутри него, и именно его проверяет Gatekeeper после распаковки. DMG, в отличие от ZIP, распространяется напрямую и поэтому несёт собственную Developer ID подпись и собственный ticket. Подробности — [Signing and Distribution](../03-macos/signing-distribution.md).
 
 ## Локализация и update contract
 

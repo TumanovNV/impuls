@@ -253,6 +253,87 @@ class ArtifactIdentityTests(unittest.TestCase):
         self.assertIn("does not match the checksum recorded by the release job", publish)
 
 
+class DiskImageSigningTests(unittest.TestCase):
+    """The distributed disk image is a signed artifact in its own right.
+
+    `hdiutil create` produces an unsigned image and Apple's notary service
+    rejects unsigned submissions, so signing it is not optional polish — an
+    unsigned DMG reaching `notarytool` is a release blocker.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.text = WORKFLOW.read_text(encoding="utf-8")
+        cls.release_job = (
+            cls.text.partition("\n  release:\n")[2].partition("\n  publish:\n")[0]
+        )
+        cls.steps = re.findall(r"- name: (.+)", cls.release_job)
+        # Absence and count assertions run against commands: two of the
+        # comments in this workflow discuss `codesign --sign` by name.
+        cls.commands = executable_text(cls.text)
+        cls.release_commands = executable_text(cls.release_job)
+
+    def step_index(self, fragment: str) -> int:
+        for index, name in enumerate(self.steps):
+            if fragment in name:
+                return index
+        raise AssertionError(f"no release step matching {fragment!r} in {self.steps}")
+
+    def test_the_disk_image_is_signed(self):
+        self.assertIn("codesign --sign", self.commands)
+        self.assertIn("--timestamp", self.commands)
+
+    def test_signing_happens_after_the_image_is_packaged(self):
+        self.assertLess(
+            self.step_index("Package the notarized application into the disk image"),
+            self.step_index("Sign the disk image with the Developer ID"),
+        )
+
+    def test_signing_happens_before_the_image_is_submitted_to_apple(self):
+        self.assertLess(
+            self.step_index("Sign the disk image with the Developer ID"),
+            self.step_index("Notarize, staple and validate the disk image"),
+        )
+
+    def test_the_disk_image_is_signed_exactly_once(self):
+        # The application is signed by bundle.sh, so the disk image is the only
+        # thing this workflow signs itself.
+        self.assertEqual(1, self.commands.count("codesign --sign"))
+
+    def test_the_image_is_never_re_signed_after_submission(self):
+        # Re-signing after notarization would invalidate the ticket Apple issued
+        # for the code directory hash it accepted.
+        after_submission = self.release_commands.partition(
+            "Notarize, staple and validate the disk image"
+        )[2]
+        self.assertNotIn("codesign --sign", after_submission)
+
+    def test_the_signed_image_is_verified_as_developer_id(self):
+        signing_step = self.release_job.partition("Sign the disk image with the Developer ID")[2]
+        signing_step = signing_step.partition("- name:")[0]
+        self.assertIn("codesign --verify --verbose=2", signing_step)
+        self.assertIn('"Developer ID Application: "*', signing_step)
+        self.assertIn("An ad-hoc signature reached the production disk image", signing_step)
+        self.assertIn("grep -q '^Timestamp='", signing_step)
+        self.assertIn(
+            "signed by a different identity than the configured production Developer ID",
+            signing_step,
+        )
+
+    def test_the_image_code_directory_hash_survives_stapling(self):
+        self.assertIn("IMPULS_DMG_CDHASH", self.text)
+        self.assertIn('test "$DMG_CDHASH" = "$IMPULS_DMG_CDHASH"', self.text)
+
+    def test_gatekeeper_assesses_the_signed_stapled_image(self):
+        notarize_step = self.release_job.partition("Notarize, staple and validate the disk image")[2]
+        self.assertIn("xcrun stapler staple", notarize_step)
+        self.assertIn("xcrun stapler validate", notarize_step)
+        self.assertIn(
+            "spctl --assess --type open --context context:primary-signature",
+            notarize_step,
+        )
+
+
 class SparkleTrustLayerTests(unittest.TestCase):
     """Developer ID does not replace the independent update trust chain."""
 

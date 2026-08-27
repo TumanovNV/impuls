@@ -31,6 +31,8 @@ flowchart TD
     AD --> VERIFY
     VERIFY --> ZIP[ZIP + DMG release artifacts]
     ZIP --> ED[EdDSA sign update ZIP / appcast]
+    VERIFY --> DMGSIGN[Release only: sign DMG\nDeveloper ID + timestamp]
+    DMGSIGN --> NOT[Notarize + staple app and DMG]
 ```
 
 ## Developer ID path
@@ -87,7 +89,32 @@ Certificate существует только внутри одного CI job:
 6. повторный `codesign --verify --deep --strict`;
 7. `spctl --assess --type exec`.
 
-DMG собирается из уже notarized и stapled app и проходит **вторую** submission: скачанный DMG карантинится как отдельный файл, и собственный stapled ticket позволяет Gatekeeper проверить его без обращения к сети. Вторая submission — осознанная цена за это, а не избыточность.
+DMG собирается из уже notarized и stapled app, **подписывается собственной Developer ID подписью** и проходит **вторую** submission. Подпись здесь не факультативна: `hdiutil create` отдаёт неподписанный образ, а notary service неподписанную submission отклоняет. Скачанный DMG к тому же карантинится как отдельный файл, и собственный stapled ticket позволяет Gatekeeper проверить его без обращения к сети.
+
+Последовательность для DMG:
+
+1. `./Scripts/dmg.sh --no-build`;
+2. `codesign --sign "$IMPULS_DEVELOPER_ID_APPLICATION" --timestamp` — ровно один раз, без `--force`, без `--options runtime` (Hardened Runtime — свойство исполняемого файла, а не контейнера);
+3. `codesign --verify --verbose=2` и через `codesign -dvvv` — leaf authority, точное совпадение с production identity, отсутствие ad-hoc, наличие secure `Timestamp`;
+4. CDHash подписанного образа фиксируется **до** notarization;
+5. `xcrun notarytool submit --wait` → `Accepted`;
+6. `xcrun stapler staple` + `xcrun stapler validate`;
+7. повторный `codesign --verify`, `hdiutil verify`, `spctl --assess --type open --context context:primary-signature`;
+8. CDHash сверяется с зафиксированным.
+
+После submission образ **не переподписывается**. Apple выдаёт ticket на конкретный code directory hash, и повторная подпись сделала бы staple'нутый ticket несоответствующим образу.
+
+## Что подписано и notarized
+
+| Артефакт | Developer ID signed | Notarized | Stapled |
+| --- | --- | --- | --- |
+| `Impuls.app` | да (`bundle.sh`) | да | да |
+| `Impuls-<version>.dmg` | да (release workflow) | да, отдельная submission | да |
+| `Impuls-<version>.zip` | сам архив не подписывается | — | содержит отдельно notarized и stapled `Impuls.app` |
+
+ZIP — транспортный контейнер Sparkle, а не самостоятельно подписываемый артефакт: Gatekeeper проверяет приложение, которое из него извлечено, и у этого приложения есть собственный stapled ticket. Поэтому ZIP собирается **после** stapling.
+
+Sparkle EdDSA остаётся независимым trust layer поверх всего этого: подписи Apple отвечают за distribution trust, EdDSA — за подлинность обновления, и ни одна не заменяет другую.
 
 ### Same-final-app invariant
 

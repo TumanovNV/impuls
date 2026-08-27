@@ -102,6 +102,8 @@ The `release` job is fail-closed: it verifies every required Apple secret before
 
 The application is built once. Nothing after notarization rebuilds, re-signs or replaces it, and that is checked by carrying the notarized code directory hash through to the extracted ZIP and the application inside the DMG. `Scripts/dmg.sh --no-build` packages the existing bundle; the default `./Scripts/dmg.sh` still builds one and remains correct locally.
 
+The disk image is signed with the same Developer ID after packaging and before submission — `hdiutil create` leaves it unsigned, and Apple rejects unsigned submissions. It is signed exactly once and never re-signed afterwards, and its own code directory hash is recorded before notarization and re-checked after stapling.
+
 Ownership of the detail belongs to [Signing and Distribution](../03-macos/signing-distribution.md).
 
 ## Artifact verification
