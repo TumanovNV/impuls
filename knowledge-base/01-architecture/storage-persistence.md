@@ -4,7 +4,7 @@ type: architecture
 status: active
 documentation_version: 1.9
 app_version: 1.4.16
-last_reviewed: 2026-08-26
+last_reviewed: 2026-08-27
 tags: [impuls, storage, persistence, privacy]
 ---
 
@@ -121,6 +121,8 @@ Storage-контракт не затронут: новых persisted keys нет
 - bookmark не покидает эту машину: `ImpulsBackupDocument.init` вырезает `file.bookmark` у каждого pin, так что в portable backup уезжает только читаемый путь. Сделано в инициализаторе, а не на call site, чтобы ни один путь экспорта не мог это обойти;
 - на другой машине bookmark всё равно бесполезен — он привязан к тому и inode, — так что вырезание ничего не ломает: pin импортируется как path-based и заново получает bookmark при первом разрешении;
 - в логи, telemetry и diagnostics bookmark не попадает никогда: на путях file pin вообще нет логирования.
+
+Перепроверено после исправления pointer latency: изменения касаются **того, кто и когда разрешает ссылку**, а не того, что хранится. `SnippetStore.resolveFile` удалён (это был последний синхронный резолв на main actor), резолв ушёл за async-seam, а разрешённый URL кэшируется только как runtime-состояние строки с ключом по самой ссылке. Формат `snippets.json`, состав ссылки, backup-контракт и privacy class прежние; второго источника истины кэш не создаёт.
 
 Перепроверено после adversarial review: правки в `SnippetFilePin.swift` касаются того, **что принимается** (живой symlink теперь разрешается по цели, package отклоняется), а не того, **что хранится**. Формат ссылки прежний — читаемый путь в `text` плюс необязательный `file.bookmark`; для symlink сохраняется тот путь, который выбрал пользователь. Ни нового persisted key, ни миграции, ни изменения privacy class.
 
