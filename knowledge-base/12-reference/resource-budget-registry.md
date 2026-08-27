@@ -4,7 +4,7 @@ type: reference
 status: active
 documentation_version: 2.0
 app_version: 1.4.16
-last_reviewed: 2026-08-26
+last_reviewed: 2026-08-27
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
 
@@ -81,6 +81,8 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 ### IMP-39 review
 
 The drop cap is unchanged and no existing budget moved. Two things are worth recording rather than leaving implied.
+
+**Probe depth is bounded by two guards, not by user behaviour.** Only rows the `LazyVStack` has materialised probe at all, and a row skips a reference it has already resolved — without the second guard, scrolling a long list back and forth would re-materialise rows repeatedly and pile an undrainable backlog onto the serial probe queue. Neither is a numeric budget, which is why they are recorded here as prose rather than a row: the bound is "once per row per reference", not a count.
 
 **Resolution is bounded in space, not in time.** `[.withoutUI, .withoutMounting]` bounds the *bookmark* branch, but the path fallback ends in `fileExists`/`resourceValues`, which have no timeout and block for the mount timeout on a mounted-but-unresponsive share. The automatic per-row check is therefore run off the main actor **on one serial queue**, so a stalled mount occupies that queue rather than N threads of the shared cooperative pool, and the list is lazy so only visible rows probe at all. See the concurrency registry.
 
