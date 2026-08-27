@@ -215,8 +215,14 @@ struct PowerStayAwakeBar: View {
     /// and nothing more — no modal, no confirmation, no disabled control.
     /// A Mac with no battery never reports `isOnBattery`, so a Mac mini or
     /// Studio never shows it.
+    ///
+    /// Shown whether or not the mode is running. The same sentence answers both
+    /// questions a person has — what this will cost before they turn it on, and
+    /// what it is costing while it runs — and when the mode is off this column
+    /// is empty anyway, so it costs no room. It disappears while a failure is
+    /// being reported, because a mode that did not start is not using anything.
     private var batteryCaution: String? {
-        guard stayAwake.isActive, isOnBattery, stayAwake.failure == nil else { return nil }
+        guard isOnBattery, stayAwake.failure == nil else { return nil }
         return localized("On battery this uses more power")
     }
 
