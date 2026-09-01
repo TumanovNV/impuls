@@ -2,13 +2,17 @@
 title: Settings, Onboarding and Feedback
 type: architecture
 status: active
-documentation_version: 1.5
-app_version: 1.4.16
-last_reviewed: 2026-08-25
+documentation_version: 1.6
+app_version: 1.5.0
+last_reviewed: 2026-09-01
 tags: [impuls, settings, onboarding, feedback, project-support]
 ---
 
 # Settings, Onboarding and Feedback
+
+## IMP-54 review
+
+The App Intents composition hook changes none of the Settings, onboarding, feedback, telemetry-offer or project-support contracts below. `AppDelegate` installs the automation bridge only after normal `NotchController` composition and resets it during the existing termination path. Shortcut discovery does not present onboarding, update consent, feedback or the project-support prompt; Show/Open Module route only to the existing panel, and Add Text to Snippets mutates the shared `SnippetStore` without creating a new Settings surface. The existing proactive support eligibility, quiet-delay scheduling, browser handoffs and feedback privacy boundaries remain unchanged.
 
 ## Роль подсистем
 
