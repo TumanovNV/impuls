@@ -2,13 +2,17 @@
 title: macOS Permissions and TCC
 type: platform
 status: active
-documentation_version: 1.2
-app_version: 1.4.16
-last_reviewed: 2026-08-26
+documentation_version: 1.3
+app_version: 1.5.0
+last_reviewed: 2026-09-01
 tags: [impuls, macos, tcc, permissions]
 ---
 
 # macOS Permissions and TCC
+
+## IMP-54 review
+
+App Intents add no TCC capability and no entitlement. Static Shortcut discovery performs no provider start or permission request. Show/Open Module only enter the existing Impuls UI; any later Calendar, music Automation or Notifications request still requires the same explicit in-app user action described below. Add Text to Snippets consumes only text supplied to the Shortcut and needs neither Accessibility nor clipboard access. The seven localized `AppIntents.strings` tables are separate from `InfoPlist.strings`; usage-description ownership and language behavior are unchanged.
 
 ## Матрица
 
@@ -61,7 +65,6 @@ IMP-11: `NativeMusicBridging`/`LivePlayerBridge` передаёт явно вы�
 Важное следствие для UI: `undeterminedAppNotRunning` никогда не показывается как permissions-проблема. Media pane рендерит любой `PlayerAccessIssue` как «Allow Automation access to read …» с Open Settings, поэтому закрытое приложение, попавшее в гонку между `isRunning` и асинхронным TCC-запросом, отфильтровывается предикатом `isActionableAccessIssue`. Обратная сторона честно фиксируется здесь же: пока приложение закрыто, строка не может показать `Denied` — macOS не даёт вердикта до запуска приложения.
 
 ## Entitlements
-
 
 CI проверяет calendar and automation entitlements в built app. Изменение entitlement требует security/privacy review.
 
