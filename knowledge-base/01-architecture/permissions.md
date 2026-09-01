@@ -2,13 +2,17 @@
 title: Permission Architecture
 type: architecture
 status: active
-documentation_version: 1.4
-app_version: 1.4.16
-last_reviewed: 2026-08-26
+documentation_version: 1.5
+app_version: 1.5.0
+last_reviewed: 2026-09-01
 tags: [impuls, permissions, tcc, architecture]
 ---
 
 # Permission Architecture
+
+## IMP-54 review
+
+The first App Intents wave introduces no new entitlement, TCC request, permission owner or automatic prompt. Shortcut discovery is static and must not start Calendar, music Automation, Notifications or device providers. Show/Open Module only reuse existing panel routing; opening a module therefore preserves that module's existing permission policy. Add Text to Snippets accepts explicitly supplied text and writes through the existing `SnippetStore`; it needs no Accessibility permission and does not read the clipboard. A stable `permissionRequired` automation error is reserved for future operations that genuinely need an already-established permission, but IMP-54 itself adds no such request path. All permission invariants below remain unchanged.
 
 ## Принцип
 
