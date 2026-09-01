@@ -2,13 +2,17 @@
 title: Signing and Distribution
 type: platform
 status: active
-documentation_version: 1.5
-app_version: 1.4.15
-last_reviewed: 2026-08-27
+documentation_version: 1.6
+app_version: 1.5.0
+last_reviewed: 2026-09-01
 tags: [impuls, macos, signing, gatekeeper, distribution]
 ---
 
 # Signing and Distribution
+
+## IMP-54 review
+
+The manually assembled SwiftPM bundle now extracts static App Intents discovery metadata **before** either signing branch runs. `Metadata.appintents` is therefore part of `Contents/Resources` when the app code signature is sealed, and extraction failure stops the build instead of producing a signed app whose Shortcuts catalog is missing. This does not change the Developer ID identity, production/ad-hoc entitlements, Hardened Runtime, Sparkle framework signing order, notarization sequence, stapling, artifact hashes or the independent Sparkle EdDSA trust layer described below.
 
 ## IMP-13 review
 
@@ -177,10 +181,3 @@ Apple code signing/notarization отвечает за macOS distribution trust. 
 - `.github/workflows/release.yml` — release key validation, artifact/appcast generation and release publication;
 - `Sources/Impuls/Services/UpdateService.swift` — runtime user consent and Sparkle update policy;
 - `Package.swift` + `Package.resolved` — pinned Sparkle dependency contract.
-
-## Связано
-
-- [Update System](../05-release/update-system.md)
-- [Release Pipeline](../05-release/release-pipeline.md)
-- [Dependency and Supply-Chain Policy](../06-security/supply-chain.md)
-- [Permissions and TCC](permissions-and-tcc.md)
