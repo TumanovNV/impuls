@@ -2,13 +2,17 @@
 title: Networking Architecture
 type: architecture
 status: active
-documentation_version: 1.7
-app_version: 1.4.16
-last_reviewed: 2026-08-26
+documentation_version: 1.8
+app_version: 1.5.0
+last_reviewed: 2026-09-01
 tags: [impuls, networking, security]
 ---
 
 # Networking Architecture
+
+## IMP-54 review
+
+App Intents do not add a fourth network owner. Shortcut discovery is static, the automation runtime has no network API, and Show/Open Module only route into existing UI owners. Add Text to Snippets performs one local shared-store mutation. `Scripts/bundle.sh` changed only to extract static `Metadata.appintents` into the locally assembled app before signing; it adds no endpoint, preflight, download or runtime request. The three-owner network allow-list below is unchanged.
 
 ## IMP-11 review
 
@@ -61,7 +65,6 @@ WebKit создаётся только после явного `Open Web Player`
 `WebMusicPlayer` — main-actor-isolated на уровне **класса**, а не только через протокол `WebMusicPlaying`: этим owner'ом владеют `WKWebView`, window controller и весь navigation/teardown lifecycle. Изоляция один раз была потеряна молча (атрибут случайно оказался на соседнем enum) — на network boundary это не влияет, но именно этот объект является единственной точкой, где создаётся исходящий запрос web-плеера, поэтому его ownership зафиксирован в [Background Work & Concurrency Registry](../12-reference/background-concurrency-registry.md). Границы, allow-list и правило «запрос только по явному действию пользователя» при этом не менялись.
 
 ## CI enforcement
-
 
 `build.yml` и `release.yml` ищут `URLSession`, `URLRequest`, Network.framework/socket helpers и запрещают их во всех остальных Swift-файлах. Добавление четвёртого владельца сети должно быть ADR-level решением.
 
