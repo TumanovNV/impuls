@@ -2,13 +2,17 @@
 title: State and Ownership
 type: architecture
 status: active
-documentation_version: 1.6
-app_version: 1.4.16
-last_reviewed: 2026-08-27
+documentation_version: 1.7
+app_version: 1.5.0
+last_reviewed: 2026-09-01
 tags: [impuls, architecture, state, ownership]
 ---
 
 # State and Ownership
+
+## IMP-54 review
+
+App Intents do not add a second application owner graph. `AppDelegate` still constructs the one `NotchController` / shared `NotchViewModel`; after normal controller installation it only installs `ImpulsAutomationRuntime`, a narrow `@MainActor` command bridge. The bridge owns no module state, display geometry or persistence. Its closures weakly reference the existing controller, and Add Text to Snippets reaches the existing shared `SnippetStore`. A cold-launch invocation may wait up to five seconds for this normal composition, but it never repairs readiness by creating a controller, model, surface or store. `AppDelegate` resets the bridge before the existing controller teardown. All earlier ownership rules below remain unchanged.
 
 ## IMP-39 review
 
