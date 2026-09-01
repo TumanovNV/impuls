@@ -130,7 +130,7 @@ struct OpenImpulsModuleIntent: AppIntent {
     }
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Open \(.$module) in Impuls")
+        Summary("Open \(\.$module) in Impuls")
     }
 
     @MainActor
@@ -163,7 +163,7 @@ struct AddTextToImpulsSnippetsIntent: AppIntent {
     init() {}
 
     static var parameterSummary: some ParameterSummary {
-        Summary("Add \(.$text) to Impuls Snippets")
+        Summary("Add \(\.$text) to Impuls Snippets")
     }
 
     @MainActor
