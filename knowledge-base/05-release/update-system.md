@@ -2,13 +2,17 @@
 title: Update System
 type: release
 status: active
-documentation_version: 1.2
-app_version: 1.4.15
-last_reviewed: 2026-08-27
+documentation_version: 1.3
+app_version: 1.5.0
+last_reviewed: 2026-09-01
 tags: [impuls, updates, sparkle, security]
 ---
 
 # Update System
+
+## IMP-54 review
+
+App Intents change the common bundle assembly only by adding local metadata extraction before signing. Sparkle version, fixed feed URL, Ed25519 verification, consent states, automatic-check defaults, release notes and update artifact trust remain unchanged. The metadata processor does not fetch the feed or any other URL; it writes `Metadata.appintents` into the app that the existing signing/notarization/update pipeline subsequently seals and distributes. A metadata-extraction failure is a build failure, not a reason to weaken any Sparkle or signing gate.
 
 ## IMP-13 review
 
