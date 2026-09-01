@@ -108,6 +108,12 @@ for lproj in "$ROOT"/Resources/*.lproj; do
 done
 cp "$ROOT/THIRD_PARTY_NOTICES.md" "$APP/Contents/Resources/ThirdPartyNotices.md"
 
+echo "==> App Intents metadata"
+# SwiftPM builds the intent-bearing executable, but unlike an Xcode app target
+# it does not run ExtractAppIntentsMetadata for our hand-assembled bundle.
+# Extract before signing so Metadata.appintents is part of the sealed product.
+bash "$ROOT/Scripts/extract-app-intents-metadata.sh" "$APP"
+
 if [ -n "${IMPULS_DEVELOPER_ID_APPLICATION:-}" ]; then
     echo "==> Developer ID signing"
     # Library Validation requires the embedded dynamic framework to carry the
