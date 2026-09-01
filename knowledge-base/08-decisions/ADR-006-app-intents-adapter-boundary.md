@@ -1,3 +1,13 @@
+---
+title: ADR-006 App Intents Adapter Boundary
+type: decision
+status: accepted
+documentation_version: 1.0
+app_version: 1.5.0
+last_reviewed: 2026-09-01
+tags: [impuls, adr, app-intents, shortcuts, automation]
+---
+
 # ADR-006: App Intents use the existing runtime owners
 
 - Status: Accepted
