@@ -2,13 +2,17 @@
 title: Localization
 type: development
 status: active
-documentation_version: 1.2
-app_version: 1.4.16
-last_reviewed: 2026-08-26
+documentation_version: 1.3
+app_version: 1.5.0
+last_reviewed: 2026-09-01
 tags: [impuls, localization, russian, english, german, french, spanish, chinese, japanese]
 ---
 
 # Localization
+
+## IMP-54 review
+
+The shipped application-language set remains exactly seven. IMP-54 adds a separate `AppIntents.strings` table to every existing `.lproj` for intent titles, module names, shortcut labels and stable user-facing automation errors; it does not add or remove a locale and does not alter `AppLanguageService`, `AppleLanguages`, `InfoPlist.strings`, website locales or legal locales. `Scripts/bundle.sh` already copies each complete `.lproj`, so the new tables travel with the same bundle localization set. App Intents metadata/phrase extraction is verified separately during bundle packaging; this document does not treat source tables alone as proof that system discovery metadata is valid.
 
 ## IMP-11 review
 
