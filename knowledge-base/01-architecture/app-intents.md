@@ -1,3 +1,13 @@
+---
+title: App Intents and System Automation
+type: architecture
+status: active
+documentation_version: 1.0
+app_version: 1.5.0
+last_reviewed: 2026-09-01
+tags: [impuls, architecture, app-intents, shortcuts, automation]
+---
+
 # App Intents and system automation
 
 Status: canonical architecture contract for IMP-53 / IMP-54.
