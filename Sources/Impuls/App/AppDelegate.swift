@@ -65,6 +65,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller = NotchController(settings: settings, environment: .live)
         installProjectSupportPrompt()
         controller?.install()
+        if let controller {
+            // App Intents must reuse the one normal runtime graph. Installing
+            // after controller composition lets a Shortcut that cold-launched
+            // the process resolve the authoritative owner without constructing
+            // a second view model, display graph or storage graph.
+            ImpulsAutomationRuntime.shared.install(controller: controller)
+        }
         installWindowControllers()
         settings.lowBatteryAlerts.onOpenPowerCenter = { [weak self] in
             NSApp.activate(ignoringOtherApps: true)
@@ -96,6 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey.onPress = nil
         versionTelemetryScheduler.stop()
         cancelProjectSupportPrompt()
+        ImpulsAutomationRuntime.shared.reset()
         controller?.teardown()
     }
 
