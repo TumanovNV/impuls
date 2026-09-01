@@ -2,13 +2,17 @@
 title: Input & Resource Budget Registry
 type: reference
 status: active
-documentation_version: 2.1
-app_version: 1.4.16
-last_reviewed: 2026-08-27
+documentation_version: 2.2
+app_version: 1.5.0
+last_reviewed: 2026-09-01
 tags: [impuls, performance, limits, budgets, security, ai]
 ---
 
 # Input & Resource Budget Registry
+
+## IMP-54 review
+
+The first App Intents wave adds two explicit resource boundaries and changes no existing module budget. `content.addSnippetText` accepts only Shortcut-supplied input: text is trimmed, must remain non-empty and is capped at both 64 KiB UTF-8 and 16,384 characters; its optional label is trimmed and capped at both 4 KiB UTF-8 and 160 characters. Every bound is checked before the existing shared `SnippetStore` write, so invalid input performs zero writes and a successful invocation performs one deliberate store mutation. Cold-launch readiness is independently capped at 5 seconds and is a one-shot timeout rather than a cadence or retry loop.
 
 ## IMP-11 review
 
@@ -26,6 +30,8 @@ This document centralizes the limits that keep Impuls responsive and resistant t
 
 | Area | Budget | Current value | Owner / source |
 | --- | --- | ---: | --- |
+| App Intents → Snippets | supplied text | 64 KiB UTF-8 **and** 16,384 chars | `ImpulsAutomationRuntime.maximumSnippetTextBytes` / `maximumSnippetTextCharacters`; trimmed and validated before `SnippetStore.add` |
+| App Intents → Snippets | optional label | 4 KiB UTF-8 **and** 160 chars | `ImpulsAutomationRuntime.maximumSnippetLabelBytes` / `maximumSnippetLabelCharacters`; trimmed and validated before `SnippetStore.add` |
 | Actions | query length | 256 chars | `ImpulsActionsStore.maximumQueryCharacters` |
 | Actions | searchable material per result | 16,384 chars | `ImpulsActionsStore.maximumSearchCharacters` |
 | Actions | matched results | 30 | final result prefix |
@@ -96,6 +102,7 @@ Since the pointer-latency fix the second guard is the resolved-URL cache itself:
 
 | Work | Current cadence / cap | Notes |
 | --- | --- | --- |
+| App Intents cold-launch readiness | max 5 s, one one-shot deadline per invocation awaiting normal composition | `ImpulsAutomationRuntime.readinessTimeout`; no polling/retry cadence; install/reset/timeout each resolve the waiter once |
 | Pointer sampling | warm 60 Hz / idle 8 Hz | one sampler for all displays; stationary pointer cools after 3 s |
 | Clipboard `changeCount` | 0.5 s, tolerance 0.2 s | payload is not materialized unless counter moves |
 | Playback position | 0.25 s, tolerance 0.05 s | visible + playing only |
